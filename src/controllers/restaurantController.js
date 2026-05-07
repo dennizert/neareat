@@ -7,7 +7,7 @@ const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
 const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
 
 // Supported Google Places types for category tabs
-const VALID_TYPES = new Set(['restaurant', 'cafe', 'meal_takeaway', 'all']);
+const VALID_TYPES = new Set(['restaurant', 'cafe', 'meal_takeaway', 'meal_delivery', 'all']);
 
 async function getNearby(req, res, next) {
   try {
@@ -24,13 +24,15 @@ async function getNearby(req, res, next) {
 
     let rawPlaces;
     if (placeType === 'all') {
-      // restaurant + cafe in parallel (meal_takeaway overlaps heavily with restaurant)
-      const [restaurants, cafes] = await Promise.all([
+      // 4 tip paralel çek: restaurant + cafe + meal_takeaway + meal_delivery
+      const [restaurants, cafes, takeaways, deliveries] = await Promise.all([
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'restaurant'),
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'cafe'),
+        getNearbyRestaurants(userLat, userLng, radiusMeters, 'meal_takeaway'),
+        getNearbyRestaurants(userLat, userLng, radiusMeters, 'meal_delivery'),
       ]);
       const seen = new Set();
-      rawPlaces = [...restaurants, ...cafes].filter((p) => {
+      rawPlaces = [...restaurants, ...cafes, ...takeaways, ...deliveries].filter((p) => {
         if (seen.has(p.place_id)) return false;
         seen.add(p.place_id);
         return true;

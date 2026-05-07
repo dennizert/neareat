@@ -22,20 +22,45 @@ function fetchJson(url) {
 }
 
 async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant') {
-  const cacheKey = `nearby:${lat.toFixed(3)}:${lng.toFixed(3)}:${radiusMeters}:${type}`;
+  const cacheKey = `nearby2:${lat.toFixed(3)}:${lng.toFixed(3)}:${radiusMeters}:${type}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
-  const url =
+  const baseUrl =
     `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
-    `?location=${lat},${lng}&radius=${radiusMeters}&type=${type}&key=${API_KEY}`;
+    `?location=${lat},${lng}&radius=${radiusMeters}&type=${type}&language=tr&key=${API_KEY}`;
 
-  const data = await fetchJson(url);
+  const data = await fetchJson(baseUrl);
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     throw new Error(`Google Places Nearby Search error: ${data.status}`);
   }
 
-  const results = data.results || [];
+  let results = data.results || [];
+
+  // Sayfa 2 — Google next_page_token için 2 saniyelik bekleme zorunlu
+  if (data.next_page_token) {
+    await new Promise(r => setTimeout(r, 2000));
+    const page2 = await fetchJson(
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
+      `?pagetoken=${data.next_page_token}&key=${API_KEY}`
+    );
+    if (page2.status === 'OK') {
+      results = [...results, ...(page2.results || [])];
+
+      // Sayfa 3
+      if (page2.next_page_token) {
+        await new Promise(r => setTimeout(r, 2000));
+        const page3 = await fetchJson(
+          `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
+          `?pagetoken=${page2.next_page_token}&key=${API_KEY}`
+        );
+        if (page3.status === 'OK') {
+          results = [...results, ...(page3.results || [])];
+        }
+      }
+    }
+  }
+
   await cacheSet(cacheKey, results, NEARBY_TTL);
   return results;
 }
