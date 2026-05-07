@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Core ────────────────────────────────────────────────────────────────────
+
+model User {
+  id               String   @id @default(uuid())
+  googleId         String?  @unique @map("google_id")
+  email            String   @unique
+  displayName      String   @map("display_name")
+  photoUrl         String?  @map("photo_url")
+  fcmToken         String?  @map("fcm_token")
+  passwordHash     String?  @map("password_hash")
+  authProvider     String   @default("google") @map("auth_provider")
+
+  // Profile
+  bio              String?  @db.Text
+  city             String?
+  favoriteCuisines String[] @map("favorite_cuisines")
+  isPublic         Boolean  @default(true) @map("is_public")
+
+  // Gamification — denormalized for fast reads
+  starCount        Int      @default(0) @map("star_count")
+
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  subscription            Subscription?
+  favorites               Favorite[]
+  reviews                 Review[]
+  payments                Payment[]
+  sentFriendRequests      FriendRequest[]  @relation("SentRequests")
+  receivedFriendRequests  FriendRequest[]  @relation("ReceivedRequests")
+  sentRecommendations     Recommendation[] @relation("SentRecommendations")
+  receivedRecommendations Recommendation[] @relation("ReceivedRecommendations")
+  starEvents              StarEvent[]
+  userRewards             UserReward[]
+
+  @@map("users")
+}
+
+// ─── Existing ────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String             @unique @map("user_id")
+  planType             PlanType           @map("plan_type")
+  status               SubscriptionStatus
+  startedAt            DateTime           @map("started_at")
+  expiresAt            DateTime           @map("expires_at")
+  iyzicoSubscriptionId String?            @map("iyzico_subscription_id")
+  storeTransactionId   String?            @map("store_transaction_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model Favorite {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placeAddress  String?  @map("place_address")
+  placeLat      Decimal  @map("place_lat") @db.Decimal(10, 7)
+  placeLng      Decimal  @map("place_lng") @db.Decimal(10, 7)
+  placePhone    String?  @map("place_phone")
+  placePhotoUrl String?  @map("place_photo_url")
+  placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, placeId])
+  @@map("favorites")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  placeId   String   @map("place_id")
+  rating    Int      @db.SmallInt
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, placeId])
+  @@map("reviews")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String        @map("user_id")
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("TRY")
+  iyzicoPaymentId String?       @map("iyzico_payment_id")
+  status          PaymentStatus
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// ─── Social ───────────────────────────────────────────────────────────────────
+
+/// Arkadaşlık istekleri ve onaylanmış arkadaşlıklar.
+/// status=PENDING → istek gönderildi
+/// status=ACCEPTED → arkadaşlar
+/// status=REJECTED → reddedildi
+model FriendRequest {
+  id         String              @id @default(uuid())
+  fromUserId String              @map("from_user_id")
+  toUserId   String              @map("to_user_id")
+  status     FriendRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  fromUser User @relation("SentRequests", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("ReceivedRequests", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  // Bir kullanıcı aynı kişiye birden fazla istek gönderemez
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId, status])
+  @@index([fromUserId, status])
+  @@map("friend_requests")
+}
+
+/// Restoran önerileri.
+/// toUserId=null → herkese açık (profilde görünür)
+/// toUserId=X   → sadece X kullanıcısına özel mesaj
+model Recommendation {
+  id            String   @id @default(uuid())
+  fromUserId    String   @map("from_user_id")
+  toUserId      String?  @map("to_user_id")
+
+  // Restoran snapshot — Google Places verisinin anlık kopyası
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placeAddress  String?  @map("place_address")
+  placePhotoUrl String?  @map("place_photo_url")
+  placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
+  placeTypes    String[] @map("place_types")
+
+  message       String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  fromUser User  @relation("SentRecommendations", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User? @relation("ReceivedRecommendations", fields: [toUserId], references: [id], onDelete: SetNull)
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([placeId])
+  @@map("recommendations")
+}
+
+// ─── Gamification ────────────────────────────────────────────────────────────
+
+/// Kullanıcının yıldız kazandığı her olay bir kayıt oluşturur.
+/// Bu tablo hem geçmişi hem de denetimi sağlar.
+model StarEvent {
+  id          String        @id @default(uuid())
+  userId      String        @map("user_id")
+  type        StarEventType
+  amount      Int
+  description String
+  // Olayın kaynağına referans (review id, recommendation id vb.)
+  referenceId String?       @map("reference_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("star_events")
+}
+
+/// Ödül tanımları — admin tarafından seed ile doldurulur.
+model Reward {
+  id            String     @id @default(uuid())
+  name          String
+  description   String     @db.Text
+  requiredStars Int        @map("required_stars")
+  type          RewardType
+  icon          String
+  sortOrder     Int        @default(0) @map("sort_order")
+
+  userRewards UserReward[]
+
+  @@map("rewards")
+}
+
+/// Kullanıcının kilidini açtığı ödüller.
+model UserReward {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  rewardId   String   @map("reward_id")
+  unlockedAt DateTime @default(now()) @map("unlocked_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward Reward @relation(fields: [rewardId], references: [id])
+
+  // Bir ödül yalnızca bir kez açılabilir
+  @@unique([userId, rewardId])
+  @@map("user_rewards")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum PlanType {
+  monthly
+  yearly
+  trial
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+  trial
+}
+
+enum PaymentStatus {
+  success
+  failed
+  refunded
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum StarEventType {
+  REVIEW
+  RECOMMENDATION
+  FRIEND_ADDED
+  RATING
+}
+
+enum RewardType {
+  BADGE
+  GIFT
+}
