@@ -7,7 +7,7 @@ const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
 const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
 
 // Supported Google Places types for category tabs
-const VALID_TYPES = new Set(['restaurant', 'cafe', 'meal_takeaway', 'meal_delivery', 'bakery', 'bar', 'food', 'all']);
+const VALID_TYPES = new Set(['restaurant', 'cafe', 'meal_takeaway', 'meal_delivery', 'bakery', 'all']);
 
 async function getNearby(req, res, next) {
   try {
@@ -24,18 +24,16 @@ async function getNearby(req, res, next) {
 
     let rawPlaces;
     if (placeType === 'all') {
-      // 7 tip paralel çek: tüm yeme/içme kategorileri
-      const [restaurants, cafes, takeaways, deliveries, bakeries, bars, foods] = await Promise.all([
+      // 5 tip paralel çek, rankby=distance ile (AVM içi ve düşük puanlı yerler dahil)
+      const [restaurants, cafes, takeaways, deliveries, bakeries] = await Promise.all([
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'restaurant'),
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'cafe'),
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'meal_takeaway'),
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'meal_delivery'),
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'bakery'),
-        getNearbyRestaurants(userLat, userLng, radiusMeters, 'bar'),
-        getNearbyRestaurants(userLat, userLng, radiusMeters, 'food'),
       ]);
       const seen = new Set();
-      rawPlaces = [...restaurants, ...cafes, ...takeaways, ...deliveries, ...bakeries, ...bars, ...foods].filter((p) => {
+      rawPlaces = [...restaurants, ...cafes, ...takeaways, ...deliveries, ...bakeries].filter((p) => {
         if (seen.has(p.place_id)) return false;
         seen.add(p.place_id);
         return true;

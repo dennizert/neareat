@@ -22,13 +22,15 @@ function fetchJson(url) {
 }
 
 async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant') {
-  const cacheKey = `nearby2:${lat.toFixed(3)}:${lng.toFixed(3)}:${radiusMeters}:${type}`;
+  // rankby=distance: mesafeye göre sırala, AVM içi ve düşük puanlı yerleri kaçırma
+  // radius parametresi rankby=distance ile kullanılamaz — filtreleme controller'da yapılır
+  const cacheKey = `nearby3:${lat.toFixed(3)}:${lng.toFixed(3)}:${type}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
   const baseUrl =
     `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
-    `?location=${lat},${lng}&radius=${radiusMeters}&type=${type}&language=tr&key=${API_KEY}`;
+    `?location=${lat},${lng}&rankby=distance&type=${type}&language=tr&key=${API_KEY}`;
 
   const data = await fetchJson(baseUrl);
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
