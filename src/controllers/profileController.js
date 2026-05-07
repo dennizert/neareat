@@ -62,7 +62,7 @@ async function getMe(req, res, next) {
 // PUT /api/profile/me
 async function updateMe(req, res, next) {
   try {
-    const { displayName, bio, city, favoriteCuisines, isPublic } = req.body;
+    const { displayName, bio, city, favoriteCuisines, isPublic, photoUrl } = req.body;
 
     const updated = await prisma.user.update({
       where: { id: req.user.id },
@@ -72,6 +72,7 @@ async function updateMe(req, res, next) {
         ...(city !== undefined && { city: city.trim().slice(0, 50) }),
         ...(favoriteCuisines !== undefined && { favoriteCuisines }),
         ...(isPublic !== undefined && { isPublic: Boolean(isPublic) }),
+        ...(photoUrl !== undefined && { photoUrl }),
       },
       select: {
         id: true, displayName: true, photoUrl: true,
