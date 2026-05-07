@@ -7,7 +7,7 @@ const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
 const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
 
 // Supported Google Places types for category tabs
-const VALID_TYPES = new Set(['restaurant', 'cafe', 'meal_takeaway', 'meal_delivery', 'all']);
+const VALID_TYPES = new Set(['restaurant', 'cafe', 'meal_takeaway', 'meal_delivery', 'bakery', 'all']);
 
 async function getNearby(req, res, next) {
   try {
@@ -24,15 +24,16 @@ async function getNearby(req, res, next) {
 
     let rawPlaces;
     if (placeType === 'all') {
-      // 4 tip paralel çek: restaurant + cafe + meal_takeaway + meal_delivery
-      const [restaurants, cafes, takeaways, deliveries] = await Promise.all([
+      // 5 tip paralel çek: restaurant + cafe + meal_takeaway + meal_delivery + bakery
+      const [restaurants, cafes, takeaways, deliveries, bakeries] = await Promise.all([
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'restaurant'),
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'cafe'),
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'meal_takeaway'),
         getNearbyRestaurants(userLat, userLng, radiusMeters, 'meal_delivery'),
+        getNearbyRestaurants(userLat, userLng, radiusMeters, 'bakery'),
       ]);
       const seen = new Set();
-      rawPlaces = [...restaurants, ...cafes, ...takeaways, ...deliveries].filter((p) => {
+      rawPlaces = [...restaurants, ...cafes, ...takeaways, ...deliveries, ...bakeries].filter((p) => {
         if (seen.has(p.place_id)) return false;
         seen.add(p.place_id);
         return true;
@@ -60,7 +61,7 @@ async function getNearby(req, res, next) {
         photoUrl: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null,
       }))
       .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, 20);
+      .slice(0, 60);
 
     res.json({ results, radiusKm });
   } catch (err) {
