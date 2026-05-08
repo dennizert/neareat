@@ -22,7 +22,7 @@ async function getReviews(req, res, next) {
 
 async function createReview(req, res, next) {
   try {
-    const { placeId, rating, body } = req.body;
+    const { placeId, rating, body, placeName } = req.body;
     if (!placeId || !rating || !body) {
       return res.status(400).json({ error: 'placeId, rating, body required' });
     }
@@ -38,13 +38,15 @@ async function createReview(req, res, next) {
       where: { userId_placeId: { userId: req.user.id, placeId } },
       update: { rating, body },
       create: { userId: req.user.id, placeId, rating, body },
+      include: { user: { select: { displayName: true, photoUrl: true } } },
     });
 
     let starEvent = null;
     let newStarCount = null;
     let newRewards = [];
     if (!existing) {
-      const result = await awardStars(req.user.id, 'REVIEW', `${placeId} için yorum yazdın`, review.id);
+      const label = placeName || placeId;
+      const result = await awardStars(req.user.id, 'REVIEW', `${label} için yorum yazdın`, review.id);
       starEvent = result.event;
       newStarCount = result.newStarCount;
       newRewards = result.newRewards;
