@@ -1,6 +1,7 @@
 const prisma = require('../utils/prisma');
 const { awardStars, getLevel } = require('../utils/stars');
 const { isPremiumUser } = require('../utils/premiumCheck');
+const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
 
 const FREE_DAILY_REC_LIMIT = 2;
 
@@ -121,6 +122,15 @@ async function sendFriendRequest(req, res, next) {
     const request = await prisma.friendRequest.create({
       data: { fromUserId: req.user.id, toUserId },
     });
+
+    // Arkadaş daveti bildirimi
+    createNotification(
+      toUserId,
+      'FRIEND_REQUEST',
+      'Arkadaş Daveti',
+      `${req.user.displayName} sana arkadaşlık isteği gönderdi`,
+      { fromUserId: req.user.id, fromUserName: req.user.displayName },
+    ).catch(() => {});
 
     res.status(201).json(request);
   } catch (err) {
@@ -261,6 +271,17 @@ async function sendRecommendation(req, res, next) {
       created[0].id,
       starMultiplier,
     );
+
+    // Öneri bildirimleri
+    if (toUserIds.length > 0) {
+      createNotificationsForUsers(
+        toUserIds,
+        'RECOMMENDATION',
+        'Restoran Önerisi',
+        `${req.user.displayName} sana "${placeName}" restoranını önerdi`,
+        { fromUserId: req.user.id, fromUserName: req.user.displayName, placeId, placeName },
+      ).catch(() => {});
+    }
 
     res.status(201).json({ recommendations: created, starEvent: event, newStarCount, newRewards });
   } catch (err) {

@@ -1,4 +1,5 @@
 const prisma = require('./prisma');
+const { createNotification } = require('../services/notificationService');
 
 const STAR_AMOUNTS = {
   REVIEW: 5,
@@ -7,18 +8,14 @@ const STAR_AMOUNTS = {
   RATING: 2,
 };
 
-/**
- * Kullanıcıya yıldız kazandırır.
- * - star_events tablosuna kayıt ekler
- * - users.star_count'u atomik olarak artırır
- * - Yeni ödül açıldıysa user_rewards'a ekler
- *
- * @returns {{ event: StarEvent, newRewards: Reward[] }}
- */
 async function awardStars(userId, type, description, referenceId = null, multiplier = 1) {
   const baseAmount = STAR_AMOUNTS[type];
   if (!baseAmount) throw new Error(`Unknown star event type: ${type}`);
   const amount = Math.round(baseAmount * multiplier);
+
+  // Mevcut seviyeyi kaydet (level-up tespiti için)
+  const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { starCount: true } });
+  const oldLevel = getLevel(currentUser.starCount).level;
 
   const [event, updatedUser] = await prisma.$transaction([
     prisma.starEvent.create({
@@ -32,6 +29,18 @@ async function awardStars(userId, type, description, referenceId = null, multipl
   ]);
 
   const newStarCount = updatedUser.starCount;
+  const newLevel = getLevel(newStarCount);
+
+  // Level-up bildirimi
+  if (newLevel.level > oldLevel) {
+    createNotification(
+      userId,
+      'LEVEL_UP',
+      '🎉 Seviye Atladın!',
+      `${newLevel.badge} seviyesine ulaştın! ${newLevel.badgeIcon}`,
+      { newLevel: newLevel.level, badge: newLevel.badge, badgeIcon: newLevel.badgeIcon },
+    ).catch(() => {});
+  }
 
   // Yeni açılan ödülleri kontrol et
   const eligibleRewards = await prisma.reward.findMany({

@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../utils/prisma');
 const { signToken } = require('../utils/jwt');
+const { createNotificationsForUsers, createNotification } = require('../services/notificationService');
 
 const RESTAURANT_SELECT = {
   id: true, userId: true, businessName: true, ownerName: true,
@@ -172,6 +173,15 @@ async function replyToReview(req, res, next) {
       create: { restaurantId: profile.id, reviewId, content: content.trim() },
     });
     res.json(reply);
+
+    // Yorum sahibine bildirim gönder
+    createNotification(
+      review.userId,
+      'REVIEW_REPLY',
+      'Yorumunuza Cevap Geldi',
+      `${profile.placeName || profile.businessName} yorumunuza cevap verdi`,
+      { placeId: profile.placeId, restaurantName: profile.placeName || profile.businessName },
+    ).catch(() => {});
   } catch (err) {
     next(err);
   }
@@ -221,9 +231,32 @@ async function activateInstantDiscount(req, res, next) {
     const updated = await prisma.restaurantProfile.update({
       where: { userId: req.user.id },
       data: { discountPercent: percent, discountNote: note || null, discountActiveUntil },
-      select: RESTAURANT_SELECT,
+      select: { ...RESTAURANT_SELECT, placeId: true, placeName: true },
     });
     res.json(updated);
+
+    // Favori ekleyenler + koleksiyona ekleyenler için bildirim gönder
+    if (updated.placeId) {
+      const [favUsers, collectionItems] = await Promise.all([
+        prisma.favorite.findMany({ where: { placeId: updated.placeId }, select: { userId: true } }),
+        prisma.collectionItem.findMany({
+          where: { placeId: updated.placeId },
+          include: { collection: { select: { userId: true } } },
+        }),
+      ]);
+
+      const favUserIds = favUsers.map(f => f.userId);
+      const collectionUserIds = collectionItems.map(ci => ci.collection.userId);
+      const allUserIds = [...new Set([...favUserIds, ...collectionUserIds])].filter(id => id !== req.user.id);
+
+      createNotificationsForUsers(
+        allUserIds,
+        'INSTANT_DISCOUNT',
+        '⚡ Anlık İndirim!',
+        `${updated.placeName || 'Kayıtlı bir restoran'} şu an %${percent} anlık indirim sunuyor!`,
+        { placeId: updated.placeId, restaurantName: updated.placeName, discountPercent: percent },
+      ).catch(() => {});
+    }
   } catch (err) {
     next(err);
   }
