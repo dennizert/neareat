@@ -15,13 +15,14 @@ const STAR_AMOUNTS = {
  *
  * @returns {{ event: StarEvent, newRewards: Reward[] }}
  */
-async function awardStars(userId, type, description, referenceId = null) {
-  const amount = STAR_AMOUNTS[type];
-  if (!amount) throw new Error(`Unknown star event type: ${type}`);
+async function awardStars(userId, type, description, referenceId = null, multiplier = 1) {
+  const baseAmount = STAR_AMOUNTS[type];
+  if (!baseAmount) throw new Error(`Unknown star event type: ${type}`);
+  const amount = Math.round(baseAmount * multiplier);
 
   const [event, updatedUser] = await prisma.$transaction([
     prisma.starEvent.create({
-      data: { userId, type, amount, description, referenceId },
+      data: { userId, type, amount, description, referenceId: referenceId ?? null },
     }),
     prisma.user.update({
       where: { id: userId },
@@ -60,4 +61,7 @@ function getLevel(stars) {
   return                   { level: 1, badge: 'Yeni Kaşif',           badgeIcon: '🌱' };
 }
 
-module.exports = { awardStars, getLevel, STAR_AMOUNTS };
+// Sistem tanımlı yıldız seviyesi → indirim oranı tablosu (restoran değiştiremez)
+const STAR_LEVEL_DISCOUNTS = { 1: 0, 2: 10, 3: 15, 4: 20, 5: 25 };
+
+module.exports = { awardStars, getLevel, STAR_AMOUNTS, STAR_LEVEL_DISCOUNTS };

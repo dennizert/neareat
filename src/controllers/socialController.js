@@ -1,5 +1,8 @@
 const prisma = require('../utils/prisma');
 const { awardStars, getLevel } = require('../utils/stars');
+const { isPremiumUser } = require('../utils/premiumCheck');
+
+const FREE_DAILY_REC_LIMIT = 2;
 
 // ─── Kullanıcı Arama ─────────────────────────────────────────────────────────
 
@@ -210,6 +213,23 @@ async function sendRecommendation(req, res, next) {
 
     if (!placeId || !placeName) return res.status(400).json({ error: 'placeId ve placeName gerekli.' });
 
+    // Günlük öneri limiti — ücretsiz kullanıcılar günde max 2 öneri gönderebilir
+    const premium = await isPremiumUser(req.user.id);
+    if (!premium) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dailyCount = await prisma.recommendation.count({
+        where: { fromUserId: req.user.id, createdAt: { gte: today } },
+      });
+      const newCount = toUserIds.length === 0 ? 1 : toUserIds.length;
+      if (dailyCount + newCount > FREE_DAILY_REC_LIMIT) {
+        return res.status(403).json({
+          error: `Günlük öneri limitinize (${FREE_DAILY_REC_LIMIT}) ulaştınız`,
+          code: 'PREMIUM_REQUIRED',
+        });
+      }
+    }
+
     const baseData = {
       fromUserId: req.user.id,
       placeId,
@@ -233,11 +253,13 @@ async function sendRecommendation(req, res, next) {
       );
     }
 
+    const starMultiplier = premium ? 2 : 1;
     const { event, newStarCount, newRewards } = await awardStars(
       req.user.id,
       'RECOMMENDATION',
       `${placeName}'ı paylaştın`,
       created[0].id,
+      starMultiplier,
     );
 
     res.status(201).json({ recommendations: created, starEvent: event, newStarCount, newRewards });
@@ -370,11 +392,13 @@ async function rateRestaurant(req, res, next) {
       return res.status(429).json({ error: 'Bu restoran için bugün zaten puan verdin.' });
     }
 
+    const ratingPremium = await isPremiumUser(req.user.id);
     const { event, newStarCount, newRewards } = await awardStars(
       req.user.id,
       'RATING',
       `${placeName}'ı puanladın`,
       placeId,
+      ratingPremium ? 2 : 1,
     );
 
     res.status(201).json({ starEvent: event, newStarCount, newRewards });

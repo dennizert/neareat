@@ -2,6 +2,7 @@ const prisma = require('../utils/prisma');
 const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl } = require('../services/googlePlaces');
 const { haversineKm } = require('../utils/haversine');
 const { isPremiumUser } = require('../utils/premiumCheck');
+const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
 
 const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
 const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
@@ -18,7 +19,7 @@ async function getNearby(req, res, next) {
     const userLng = parseFloat(lng);
     const placeType = VALID_TYPES.has(type) ? type : 'all';
 
-    const premium = await isPremiumUser(req.user.id);
+    const premium = req.user ? await isPremiumUser(req.user.id) : false;
     const radiusKm = premium ? PREMIUM_RADIUS_KM : FREE_RADIUS_KM;
     const radiusMeters = radiusKm * 1000;
 
@@ -42,13 +43,45 @@ async function getNearby(req, res, next) {
       rawPlaces = await getNearbyRestaurants(userLat, userLng, radiusMeters, placeType);
     }
 
-    const results = rawPlaces
+    const filtered = rawPlaces
       .filter((place) => {
         if (!place.geometry?.location) return false;
         const d = haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng);
         return d <= radiusKm;
       })
-      .map((place) => ({
+      .sort((a, b) => {
+        const da = haversineKm(userLat, userLng, a.geometry.location.lat, a.geometry.location.lng);
+        const db = haversineKm(userLat, userLng, b.geometry.location.lat, b.geometry.location.lng);
+        return da - db;
+      })
+      .slice(0, 60);
+
+    // Attach discount info from our DB for matching placeIds
+    const placeIds = filtered.map((p) => p.place_id);
+    const now = new Date();
+    const userLevel = req.user ? getLevel(req.user.starCount).level : 1;
+    const discountProfiles = await prisma.restaurantProfile.findMany({
+      where: {
+        placeId: { in: placeIds },
+        status: 'APPROVED',
+        OR: [{ discountEnabled: true }, { discountActiveUntil: { gt: now } }],
+      },
+      select: {
+        placeId: true, discountEnabled: true, discountPercent: true,
+        discountNote: true, discountActiveUntil: true,
+        announcement: true, announcementActive: true, reservationUrl: true,
+      },
+    });
+    const discountMap = Object.fromEntries(discountProfiles.map((p) => [p.placeId, p]));
+
+    const results = filtered.map((place) => {
+      const dp = discountMap[place.place_id] || null;
+      const instantActive = !!(dp?.discountActiveUntil && new Date(dp.discountActiveUntil) > now);
+      const starDiscountPercent = dp?.discountEnabled && userLevel >= 2
+        ? (STAR_LEVEL_DISCOUNTS[userLevel] ?? 0)
+        : null;
+      const hasDiscount = dp && (dp.discountEnabled || instantActive);
+      return {
         placeId: place.place_id,
         name: place.name,
         rating: place.rating,
@@ -59,9 +92,17 @@ async function getNearby(req, res, next) {
         location: place.geometry?.location,
         distanceKm: haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng),
         photoUrl: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null,
-      }))
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-      .slice(0, 60);
+        discount: hasDiscount ? {
+          starDiscountEnabled: !!dp.discountEnabled,
+          starDiscountPercent,
+          instantActive,
+          instantPercent: instantActive ? dp.discountPercent : null,
+          note: dp.discountNote,
+          activeUntil: dp.discountActiveUntil,
+        } : null,
+        announcement: dp?.announcementActive ? dp.announcement : null,
+      };
+    });
 
     res.json({ results, radiusKm });
   } catch (err) {
@@ -74,7 +115,28 @@ async function getDetails(req, res, next) {
     const { placeId } = req.params;
     const { lat, lng } = req.query;
 
-    const place = await getPlaceDetails(placeId);
+    const [place, restaurantProfile, premium] = await Promise.all([
+      getPlaceDetails(placeId),
+      prisma.restaurantProfile.findFirst({
+        where: { placeId, status: 'APPROVED' },
+        include: {
+          menuItems: {
+            select: { id: true, data: true, mimeType: true, fileName: true, sortOrder: true, uploadedAt: true },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+      }),
+      isPremiumUser(req.user.id),
+    ]);
+
+    const now = new Date();
+    const rp = restaurantProfile;
+    const instantActive = !!(rp?.discountActiveUntil && new Date(rp.discountActiveUntil) > now);
+    const userLevel = getLevel(req.user.starCount).level;
+    const starDiscountPercent = rp?.discountEnabled && userLevel >= 2
+      ? (STAR_LEVEL_DISCOUNTS[userLevel] ?? 0)
+      : null;
+    const hasDiscount = rp && (rp.discountEnabled || instantActive);
 
     const detail = {
       placeId,
@@ -90,6 +152,21 @@ async function getDetails(req, res, next) {
       photos: (place.photos || []).map((p) => getPhotoUrl(p.photo_reference)),
       googleReviews: place.reviews || [],
       popularTimes: null,
+      // Restaurant profile extras
+      discount: hasDiscount ? {
+        starDiscountEnabled: !!rp.discountEnabled,
+        starDiscountPercent,
+        instantActive,
+        instantPercent: instantActive ? rp.discountPercent : null,
+        note: rp.discountNote,
+        activeUntil: rp.discountActiveUntil,
+      } : null,
+      announcement: rp?.announcementActive ? rp.announcement : null,
+      reservationUrl: rp?.reservationUrl ?? null,
+      openingHoursOverride: rp?.openingHours ?? null,
+      // Menu only for premium users
+      menu: premium && rp ? rp.menuItems : [],
+      hasMenu: rp ? rp.menuItems.length > 0 : false,
     };
 
     if (lat && lng) {

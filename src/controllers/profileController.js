@@ -1,7 +1,8 @@
 const prisma = require('../utils/prisma');
 const { getLevel } = require('../utils/stars');
+const { isActivePremium } = require('../utils/premiumCheck');
 
-function formatProfile(user) {
+function formatProfile(user, subscription = null) {
   const level = getLevel(user.starCount);
   return {
     id: user.id,
@@ -12,6 +13,7 @@ function formatProfile(user) {
     favoriteCuisines: user.favoriteCuisines ?? [],
     isPublic: user.isPublic,
     starCount: user.starCount,
+    isPremium: isActivePremium(subscription),
     ...level,
   };
 }
@@ -19,35 +21,24 @@ function formatProfile(user) {
 // GET /api/profile/me
 async function getMe(req, res, next) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        displayName: true,
-        photoUrl: true,
-        bio: true,
-        city: true,
-        favoriteCuisines: true,
-        isPublic: true,
-        starCount: true,
-        _count: {
-          select: {
-            reviews: true,
-            sentRecommendations: true,
-          },
+    const [user, subscription, friendCount] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: {
+          id: true, displayName: true, photoUrl: true,
+          bio: true, city: true, favoriteCuisines: true,
+          isPublic: true, starCount: true,
+          _count: { select: { reviews: true, sentRecommendations: true } },
         },
-      },
-    });
-
-    const friendCount = await prisma.friendRequest.count({
-      where: {
-        OR: [{ fromUserId: req.user.id }, { toUserId: req.user.id }],
-        status: 'ACCEPTED',
-      },
-    });
+      }),
+      prisma.subscription.findUnique({ where: { userId: req.user.id } }),
+      prisma.friendRequest.count({
+        where: { OR: [{ fromUserId: req.user.id }, { toUserId: req.user.id }], status: 'ACCEPTED' },
+      }),
+    ]);
 
     res.json({
-      ...formatProfile(user),
+      ...formatProfile(user, subscription),
       stats: {
         friends: friendCount,
         reviews: user._count.reviews,
@@ -92,14 +83,17 @@ async function getUser(req, res, next) {
   try {
     const { userId } = req.params;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true, displayName: true, photoUrl: true,
-        bio: true, city: true, favoriteCuisines: true,
-        isPublic: true, starCount: true,
-      },
-    });
+    const [user, subscription] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true, displayName: true, photoUrl: true,
+          bio: true, city: true, favoriteCuisines: true,
+          isPublic: true, starCount: true,
+        },
+      }),
+      prisma.subscription.findUnique({ where: { userId } }),
+    ]);
 
     if (!user) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
 
@@ -115,11 +109,11 @@ async function getUser(req, res, next) {
         },
       });
       if (!friendship) {
-        return res.json({ ...formatProfile(user), hidden: true });
+        return res.json({ ...formatProfile(user, subscription), hidden: true });
       }
     }
 
-    res.json(formatProfile(user));
+    res.json(formatProfile(user, subscription));
   } catch (err) {
     next(err);
   }

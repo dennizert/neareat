@@ -1,7 +1,7 @@
 const prisma = require('../utils/prisma');
 const { isPremiumUser } = require('../utils/premiumCheck');
 
-const FREE_FAVORITES_LIMIT = parseInt(process.env.FREE_FAVORITES_LIMIT || '5');
+const FREE_FAVORITES_LIMIT = 3;
 
 async function listFavorites(req, res, next) {
   try {

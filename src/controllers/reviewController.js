@@ -11,7 +11,15 @@ async function getReviews(req, res, next) {
     const { placeId } = req.params;
     const reviews = await prisma.review.findMany({
       where: { placeId },
-      include: { user: { select: { displayName: true, photoUrl: true } } },
+      include: {
+        user: { select: { displayName: true, photoUrl: true } },
+        reply: {
+          select: {
+            id: true, content: true, createdAt: true, updatedAt: true,
+            restaurant: { select: { businessName: true } },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
     res.json(reviews);

@@ -18,6 +18,8 @@ model User {
   fcmToken         String?  @map("fcm_token")
   passwordHash     String?  @map("password_hash")
   authProvider     String   @default("google") @map("auth_provider")
+  role             UserRole @default(USER)
+  isSuspended      Boolean  @default(false) @map("is_suspended")
 
   // Profile
   bio              String?  @db.Text
@@ -28,6 +30,7 @@ model User {
   // Gamification — denormalized for fast reads
   starCount        Int      @default(0) @map("star_count")
 
+  lastLoginAt      DateTime? @map("last_login_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -42,6 +45,9 @@ model User {
   receivedRecommendations Recommendation[] @relation("ReceivedRecommendations")
   starEvents              StarEvent[]
   userRewards             UserReward[]
+  collections             Collection[]
+  sharedCollections       CollectionShare[] @relation("SharedCollections")
+  restaurantProfile       RestaurantProfile?
 
   @@map("users")
 }
@@ -92,7 +98,8 @@ model Review {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reply ReviewReply?
 
   @@unique([userId, placeId])
   @@map("reviews")
@@ -162,6 +169,59 @@ model Recommendation {
   @@index([toUserId])
   @@index([placeId])
   @@map("recommendations")
+}
+
+// ─── Collections ─────────────────────────────────────────────────────────────
+
+/// Kullanıcının oluşturduğu restoran listeleri/koleksiyonları (Premium özellik)
+model Collection {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(300)
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  CollectionItem[]
+  shares CollectionShare[]
+
+  @@index([userId])
+  @@map("collections")
+}
+
+model CollectionItem {
+  id            String   @id @default(uuid())
+  collectionId  String   @map("collection_id")
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placeAddress  String?  @map("place_address")
+  placePhotoUrl String?  @map("place_photo_url")
+  placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
+  note          String?  @db.VarChar(200)
+  addedAt       DateTime @default(now()) @map("added_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, placeId])
+  @@index([collectionId])
+  @@map("collection_items")
+}
+
+/// Koleksiyonu arkadaşlarla paylaşma tablosu
+model CollectionShare {
+  id           String   @id @default(uuid())
+  collectionId String   @map("collection_id")
+  sharedWithId String   @map("shared_with_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  sharedWith User       @relation("SharedCollections", fields: [sharedWithId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, sharedWithId])
+  @@index([sharedWithId])
+  @@map("collection_shares")
 }
 
 // ─── Gamification ────────────────────────────────────────────────────────────
@@ -251,4 +311,100 @@ enum StarEventType {
 enum RewardType {
   BADGE
   GIFT
+}
+
+enum UserRole {
+  USER
+  RESTAURANT
+  ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─── Restaurant Accounts ─────────────────────────────────────────────────────
+
+model RestaurantProfile {
+  id                 String         @id @default(uuid())
+  userId             String         @unique @map("user_id")
+
+  // Business info
+  businessName       String         @map("business_name")
+  ownerName          String         @map("owner_name")
+  taxNumber          String         @unique @map("tax_number")
+  taxOffice          String         @map("tax_office")
+  taxCertificateData String?        @db.Text @map("tax_certificate_data")
+  phone              String
+  contactEmail       String         @map("contact_email")
+  address            String
+  businessCategory   String         @map("business_category")
+
+  // Google Places link
+  placeId            String?        @map("place_id")
+  placeName          String?        @map("place_name")
+  placeAddress       String?        @map("place_address")
+  placePhotoUrl      String?        @map("place_photo_url")
+
+  // Approval
+  status             ApprovalStatus @default(PENDING)
+  rejectionReason    String?        @db.Text @map("rejection_reason")
+  approvedAt         DateTime?      @map("approved_at")
+  reviewedByAdminId  String?        @map("reviewed_by_admin_id")
+
+  // Extra info
+  reservationUrl     String?        @map("reservation_url")
+  announcement       String?        @db.VarChar(500)
+  announcementActive Boolean        @default(false) @map("announcement_active")
+
+  // Opening hours (JSON: { monday: { open: "09:00", close: "22:00", closed: false }, ... })
+  openingHours       Json?          @map("opening_hours")
+
+  // Discount
+  discountEnabled    Boolean        @default(false) @map("discount_enabled")
+  discountPercent    Float?         @map("discount_percent")
+  discountMinStars   Int?           @map("discount_min_stars")
+  discountNote       String?        @db.VarChar(200) @map("discount_note")
+  discountActiveUntil DateTime?     @map("discount_active_until")
+
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuItems    RestaurantMenu[]
+  reviewReplies ReviewReply[]
+
+  @@index([placeId])
+  @@index([status])
+  @@map("restaurant_profiles")
+}
+
+model RestaurantMenu {
+  id           String            @id @default(uuid())
+  restaurantId String            @map("restaurant_id")
+  data         String            @db.Text
+  mimeType     String            @map("mime_type")
+  fileName     String?           @map("file_name")
+  sortOrder    Int               @default(0) @map("sort_order")
+  uploadedAt   DateTime          @default(now()) @map("uploaded_at")
+
+  restaurant RestaurantProfile @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_menu")
+}
+
+model ReviewReply {
+  id           String            @id @default(uuid())
+  restaurantId String            @map("restaurant_id")
+  reviewId     String            @unique @map("review_id")
+  content      String            @db.VarChar(500)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  restaurant RestaurantProfile @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  review     Review            @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_replies")
 }

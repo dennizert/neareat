@@ -16,6 +16,7 @@ async function authenticate(req, res, next) {
     if (decoded?.sub) {
       const user = await prisma.user.findUnique({ where: { id: decoded.sub } });
       if (user) {
+        if (user.isSuspended) return res.status(403).json({ error: 'Hesabınız askıya alınmıştır.' });
         req.user = user;
         return next();
       }
@@ -31,6 +32,7 @@ async function authenticate(req, res, next) {
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
+    if (user.isSuspended) return res.status(403).json({ error: 'Hesabınız askıya alınmıştır.' });
     req.user = user;
     next();
   } catch {

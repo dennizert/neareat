@@ -3,6 +3,11 @@ const prisma = require('../utils/prisma');
 const { getAuth } = require('../services/firebase');
 const { signToken } = require('../utils/jwt');
 
+function sanitizeUser(user) {
+  const { passwordHash, bio, city, favoriteCuisines, isPublic, starCount, ...safe } = user;
+  return safe;
+}
+
 async function login(req, res, next) {
   try {
     const { idToken } = req.body;
@@ -19,12 +24,15 @@ async function login(req, res, next) {
           displayName: decoded.name || decoded.email.split('@')[0],
           photoUrl: decoded.picture || null,
           authProvider: 'google',
+          lastLoginAt: new Date(),
         },
       });
+    } else {
+      user = await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     }
 
     const subscription = await prisma.subscription.findUnique({ where: { userId: user.id } });
-    res.json({ user, subscription });
+    res.json({ user: sanitizeUser(user), subscription });
   } catch (err) {
     next(err);
   }
@@ -37,8 +45,8 @@ async function register(req, res, next) {
     if (!email || !password || !displayName) {
       return res.status(400).json({ error: 'email, password ve displayName zorunlu' });
     }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Şifre en az 6 karakter olmalı' });
+    if (password.length < 8 || password.length > 128) {
+      return res.status(400).json({ error: 'Şifre 8-128 karakter arasında olmalı' });
     }
     const trimmedName = displayName.trim();
     if (trimmedName.length < 2) {
@@ -61,11 +69,14 @@ async function register(req, res, next) {
     });
 
     const token = signToken(user.id);
-    res.status(201).json({ user, subscription: null, token });
+    res.status(201).json({ user: sanitizeUser(user), subscription: null, token });
   } catch (err) {
     next(err);
   }
 }
+
+// Timing-safe dummy hash — user bulunamasa bile bcrypt süresi normalize edilir
+const DUMMY_HASH = '$2a$10$X/KGqsN7fZa.LFpuN8VqreONKkfOX.jZTqf4RBm7J6FS2EeL9Ge8G';
 
 async function loginEmail(req, res, next) {
   try {
@@ -76,28 +87,43 @@ async function loginEmail(req, res, next) {
     }
 
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-    if (!user || !user.passwordHash) {
+
+    // Timing attack'ı önlemek için user bulunmasa da bcrypt her zaman çalışır
+    const hashToCompare = user?.passwordHash ?? DUMMY_HASH;
+    const valid = await bcrypt.compare(password, hashToCompare);
+
+    if (!user || !user.passwordHash || !valid) {
       return res.status(401).json({ error: 'E-posta veya şifre hatalı' });
     }
 
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
-      return res.status(401).json({ error: 'E-posta veya şifre hatalı' });
-    }
-
-    const subscription = await prisma.subscription.findUnique({ where: { userId: user.id } });
+    const [subscription, restaurantProfile] = await Promise.all([
+      prisma.subscription.findUnique({ where: { userId: user.id } }),
+      user.role === 'RESTAURANT'
+        ? prisma.restaurantProfile.findUnique({
+            where: { userId: user.id },
+            select: { id: true, status: true, rejectionReason: true, businessName: true, placeId: true },
+          })
+        : null,
+    ]);
     const token = signToken(user.id);
-    res.json({ user, subscription, token });
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    res.json({ user: sanitizeUser(user), subscription, token, restaurantProfile });
   } catch (err) {
     next(err);
   }
 }
 
 async function getMe(req, res) {
-  const subscription = await prisma.subscription.findUnique({
-    where: { userId: req.user.id },
-  });
-  res.json({ user: req.user, subscription });
+  const [subscription, restaurantProfile] = await Promise.all([
+    prisma.subscription.findUnique({ where: { userId: req.user.id } }),
+    req.user.role === 'RESTAURANT'
+      ? prisma.restaurantProfile.findUnique({
+          where: { userId: req.user.id },
+          select: { id: true, status: true, rejectionReason: true, businessName: true, placeId: true },
+        })
+      : null,
+  ]);
+  res.json({ user: sanitizeUser(req.user), subscription, restaurantProfile });
 }
 
 async function deleteAccount(req, res, next) {
