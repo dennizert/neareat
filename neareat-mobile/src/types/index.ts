@@ -1,0 +1,445 @@
+export type UserRole = 'USER' | 'RESTAURANT' | 'ADMIN';
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface User {
+  id: string;
+  googleId: string | null;
+  email: string;
+  displayName: string;
+  photoUrl: string | null;
+  fcmToken: string | null;
+  authProvider: 'google' | 'email';
+  role: UserRole;
+  isSuspended: boolean;
+}
+
+export interface UserProfile {
+  id: string;
+  displayName: string;
+  photoUrl: string | null;
+  bio: string;
+  city: string;
+  favoriteCuisines: string[];
+  starCount: number;
+  level: number;
+  badge: string;
+  badgeIcon: string;
+  isPublic: boolean;
+  isPremium?: boolean;
+}
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  planType: 'monthly' | 'yearly' | 'trial';
+  status: 'active' | 'cancelled' | 'expired' | 'trial';
+  startedAt: string;
+  expiresAt: string;
+}
+
+export interface DiscountInfo {
+  starDiscountEnabled: boolean;
+  starDiscountPercent: number | null;  // kullanıcının seviyesine göre sistem tarafından hesaplanır
+  instantActive: boolean;
+  instantPercent: number | null;
+  note: string | null;
+  activeUntil: string | null;
+}
+
+export interface Restaurant {
+  placeId: string;
+  name: string;
+  rating: number;
+  userRatingsTotal: number;
+  priceLevel: number | null;
+  types: string[];
+  isOpenNow: boolean | null;
+  location: { lat: number; lng: number };
+  distanceKm: number;
+  photoUrl: string | null;
+  formattedAddress?: string | null;
+  discount?: DiscountInfo | null;
+  announcement?: string | null;
+}
+
+export interface OpeningHoursPeriodTime {
+  day: number;   // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
+  time: string;  // "HHMM" yerel saat
+}
+
+export interface OpeningHoursPeriod {
+  open: OpeningHoursPeriodTime;
+  close?: OpeningHoursPeriodTime;
+}
+
+export interface RestaurantMenuItemMeta {
+  id: string;
+  data?: string;
+  mimeType: string;
+  fileName: string | null;
+  sortOrder: number;
+  uploadedAt: string;
+}
+
+export interface ReviewReply {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  restaurant: { businessName: string };
+}
+
+export interface AppReviewWithReply extends AppReview {
+  reply: ReviewReply | null;
+}
+
+export interface RestaurantDetail extends Restaurant {
+  formattedAddress: string;
+  formattedPhoneNumber: string | null;
+  openingHours: {
+    open_now: boolean;
+    weekday_text: string[];
+    periods?: OpeningHoursPeriod[];
+  } | null;
+  photos: string[];
+  googleReviews: GoogleReview[];
+  popularTimes: PopularTimes | null;
+  reservationUrl?: string | null;
+  openingHoursOverride?: Record<string, { open: string; close: string; closed: boolean }> | null;
+  menu?: RestaurantMenuItemMeta[];
+  hasMenu?: boolean;
+}
+
+// ─── Restaurant Account ───────────────────────────────────────────────────────
+
+export interface RestaurantProfile {
+  id: string;
+  userId: string;
+  businessName: string;
+  ownerName: string;
+  taxNumber: string;
+  taxOffice: string;
+  phone: string;
+  contactEmail: string;
+  address: string;
+  businessCategory: string;
+  placeId: string | null;
+  placeName: string | null;
+  placeAddress: string | null;
+  placePhotoUrl: string | null;
+  status: ApprovalStatus;
+  rejectionReason: string | null;
+  approvedAt: string | null;
+  reservationUrl: string | null;
+  announcement: string | null;
+  announcementActive: boolean;
+  openingHours: Record<string, { open: string; close: string; closed: boolean }> | null;
+  discountEnabled: boolean;
+  discountPercent: number | null;
+  discountMinStars: number | null;
+  discountNote: string | null;
+  discountActiveUntil: string | null;
+  createdAt: string;
+  updatedAt: string;
+  menuItems?: RestaurantMenuItemMeta[];
+}
+
+export interface RestaurantStats {
+  favorites: number;
+  reviews: number;
+  avgRating: string | null;
+  recommendations: number;
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+export interface AdminRestaurantSummary {
+  id: string;
+  businessName: string;
+  ownerName: string;
+  taxNumber: string;
+  taxOffice: string;
+  phone: string;
+  contactEmail: string;
+  address: string;
+  businessCategory: string;
+  placeId: string | null;
+  placeName: string | null;
+  placeAddress: string | null;
+  placePhotoUrl: string | null;
+  status: ApprovalStatus;
+  rejectionReason: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  user: { id: string; email: string; displayName: string };
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  totalRestaurants: number;
+  approvedRestaurants: number;
+  pendingRestaurants: number;
+  totalReviews: number;
+  totalFavorites: number;
+  totalRecommendations: number;
+  activePremium: number;
+  newUsersToday: number;
+  newRestaurantsToday: number;
+  activeUsersToday: number;
+  activeRestaurantsToday: number;
+}
+
+export interface AdminUserSummary {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  isSuspended: boolean;
+  starCount: number;
+  createdAt: string;
+  subscription: { status: string; expiresAt: string } | null;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  isOwner?: boolean;
+  itemCount: number;
+  shareCount?: number;
+  owner?: { id: string; displayName: string; photoUrl: string | null };
+  items?: CollectionItem[];
+  sharedWith?: { id: string; displayName: string; photoUrl: string | null }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CollectionItem {
+  id: string;
+  collectionId: string;
+  placeId: string;
+  placeName: string;
+  placeAddress: string | null;
+  placePhotoUrl: string | null;
+  placeRating: number | null;
+  note: string | null;
+  addedAt: string;
+}
+
+export interface SharedCollection {
+  shareId: string;
+  sharedAt: string;
+  collection: {
+    id: string;
+    name: string;
+    description: string | null;
+    itemCount: number;
+    owner: { id: string; displayName: string; photoUrl: string | null };
+  };
+}
+
+export interface GoogleReview {
+  author_name: string;
+  profile_photo_url: string;
+  rating: number;
+  relative_time_description: string;
+  text: string;
+}
+
+export interface PopularTimes {
+  [day: number]: { hour: number; percentage: number }[];
+}
+
+export interface AppReview {
+  id: string;
+  userId: string;
+  placeId: string;
+  rating: number;
+  body: string;
+  createdAt: string;
+  user: { displayName: string; photoUrl: string | null };
+  reply?: ReviewReply | null;
+}
+
+export interface Favorite {
+  id: string;
+  placeId: string;
+  placeName: string;
+  placeAddress: string | null;
+  placeLat: number;
+  placeLng: number;
+  placePhone: string | null;
+  placePhotoUrl: string | null;
+  placeRating: number | null;
+}
+
+export interface Friend {
+  id: string;
+  userId: string;
+  profile: UserProfile;
+  createdAt: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  fromUserId: string;
+  fromProfile: UserProfile;
+  status: 'pending' | 'accepted' | 'rejected';
+  note: string | null;
+  createdAt: string;
+}
+
+export interface Recommendation {
+  id: string;
+  fromUserId: string;
+  fromProfile: UserProfile;
+  toUserId: string | null;
+  restaurant: Restaurant;
+  message: string;
+  createdAt: string;
+}
+
+export type StarEventType = 'review' | 'recommendation' | 'friend_added' | 'rating';
+
+export interface StarEvent {
+  id: string;
+  type: StarEventType;
+  amount: number;
+  description: string;
+  createdAt: string;
+}
+
+export interface Reward {
+  id: string;
+  name: string;
+  description: string;
+  requiredStars: number;
+  type: 'badge' | 'gift';
+  icon: string;
+}
+
+export type NotificationType = 'FRIEND_REQUEST' | 'INSTANT_DISCOUNT' | 'LEVEL_UP' | 'RECOMMENDATION' | 'REVIEW_REPLY' | 'FRIEND_SUGGESTION' | 'REPORT_RESOLVED';
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface Conversation {
+  userId: string;
+  profile: { id: string; displayName: string; photoUrl: string | null };
+  lastMessage: { content: string; createdAt: string; isRead: boolean; isMine: boolean };
+  unreadCount: number;
+}
+
+export interface UserReport {
+  id: string;
+  reporterId: string;
+  reportedId: string;
+  reason: string;
+  status: 'PENDING' | 'RESOLVED' | 'DISMISSED';
+  actionTaken: string | null;
+  createdAt: string;
+  reporter: { id: string; displayName: string; email: string };
+  reported: { id: string; displayName: string; email: string; isSuspended: boolean };
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  medal: string;
+  maskedName: string;
+  starCount: number;
+  level: number;
+  badge: string;
+  badgeIcon: string;
+  isMe: boolean;
+}
+
+export interface Leaderboard {
+  top5: LeaderboardEntry[];
+  myRank: number;
+  myStarCount: number;
+}
+
+export interface FriendSuggestion {
+  userId: string;
+  maskedName: string;
+  photoUrl: string | null;
+  city: string | null;
+  starCount: number;
+  level: number;
+  badge: string;
+  badgeIcon: string;
+  matchScore: number;
+  matchReasons: string[];
+  commonFavorites: number;
+  commonCollections: number;
+  commonCuisines: number;
+}
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  data: Record<string, any> | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export type SortOption = 'distance' | 'rating' | 'userRatingsTotal';
+
+export interface FilterState {
+  cuisineTypes: string[];
+  openNow: boolean;
+  priceLevels: number[];
+}
+
+export type RootStackParamList = {
+  Onboarding: undefined;
+  Main: undefined;
+  RestaurantDetail: { placeId: string };
+  Paywall: { trigger: 'favorites' | 'reviews' | 'popular_times' | 'onboarding' | 'collections' };
+  EditProfile: undefined;
+  Friends: undefined;
+  FriendSuggestions: undefined;
+  FriendProfile: { userId: string };
+  SendRecommendation: {
+    placeId: string;
+    placeName: string;
+    photoUrl: string | null;
+    rating: number;
+  };
+  Rewards: undefined;
+  Register: undefined;
+  Collections: undefined;
+  CollectionDetail: { collectionId: string; title?: string };
+  Conversation: { userId: string; displayName: string; photoUrl?: string | null };
+  // Restaurant account
+  RestaurantRegister: undefined;
+  RestaurantPending: { status: ApprovalStatus; rejectionReason?: string | null };
+  RestaurantDashboard: undefined;
+  RestaurantHours: undefined;
+  RestaurantMenu: undefined;
+  RestaurantDiscount: undefined;
+  RestaurantReviews: undefined;
+  RestaurantInfo: undefined;
+  // Admin
+  AdminDashboard: undefined;
+  AdminRestaurantDetail: { restaurantId: string };
+  // Notifications
+  Notifications: undefined;
+};
+
+export type MainTabParamList = {
+  Home: undefined;
+  Favorites: undefined;
+  Collections: undefined;
+  Messages: undefined;
+  Profile: undefined;
+};

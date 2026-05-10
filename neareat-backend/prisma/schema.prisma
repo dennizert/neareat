@@ -1,0 +1,477 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Core ────────────────────────────────────────────────────────────────────
+
+model User {
+  id               String   @id @default(uuid())
+  googleId         String?  @unique @map("google_id")
+  email            String   @unique
+  displayName      String   @map("display_name")
+  photoUrl         String?  @map("photo_url")
+  fcmToken         String?  @map("fcm_token")
+  passwordHash     String?  @map("password_hash")
+  authProvider     String   @default("google") @map("auth_provider")
+  role             UserRole @default(USER)
+  isSuspended      Boolean  @default(false) @map("is_suspended")
+
+  // Profile
+  bio              String?  @db.Text
+  city             String?
+  favoriteCuisines String[] @map("favorite_cuisines")
+  isPublic         Boolean  @default(true) @map("is_public")
+
+  // Gamification — denormalized for fast reads
+  starCount        Int      @default(0) @map("star_count")
+
+  lastLoginAt      DateTime? @map("last_login_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  subscription            Subscription?
+  favorites               Favorite[]
+  reviews                 Review[]
+  payments                Payment[]
+  sentFriendRequests      FriendRequest[]  @relation("SentRequests")
+  receivedFriendRequests  FriendRequest[]  @relation("ReceivedRequests")
+  sentRecommendations     Recommendation[] @relation("SentRecommendations")
+  receivedRecommendations Recommendation[] @relation("ReceivedRecommendations")
+  starEvents              StarEvent[]
+  userRewards             UserReward[]
+  collections             Collection[]
+  sharedCollections       CollectionShare[] @relation("SharedCollections")
+  restaurantProfile       RestaurantProfile?
+  notifications           Notification[]
+  sentMessages            Message[]        @relation("SentMessages")
+  receivedMessages        Message[]        @relation("ReceivedMessages")
+  givenReports            UserReport[]     @relation("ReportsGiven")
+  receivedReports         UserReport[]     @relation("ReportsReceived")
+
+  @@map("users")
+}
+
+// ─── Existing ────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String             @unique @map("user_id")
+  planType             PlanType           @map("plan_type")
+  status               SubscriptionStatus
+  startedAt            DateTime           @map("started_at")
+  expiresAt            DateTime           @map("expires_at")
+  iyzicoSubscriptionId String?            @map("iyzico_subscription_id")
+  storeTransactionId   String?            @map("store_transaction_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model Favorite {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placeAddress  String?  @map("place_address")
+  placeLat      Decimal  @map("place_lat") @db.Decimal(10, 7)
+  placeLng      Decimal  @map("place_lng") @db.Decimal(10, 7)
+  placePhone    String?  @map("place_phone")
+  placePhotoUrl String?  @map("place_photo_url")
+  placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, placeId])
+  @@map("favorites")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  placeId   String   @map("place_id")
+  rating    Int      @db.SmallInt
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reply ReviewReply?
+
+  @@unique([userId, placeId])
+  @@map("reviews")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  userId          String        @map("user_id")
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("TRY")
+  iyzicoPaymentId String?       @map("iyzico_payment_id")
+  status          PaymentStatus
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// ─── Social ───────────────────────────────────────────────────────────────────
+
+/// Arkadaşlık istekleri ve onaylanmış arkadaşlıklar.
+/// status=PENDING → istek gönderildi
+/// status=ACCEPTED → arkadaşlar
+/// status=REJECTED → reddedildi
+model FriendRequest {
+  id         String              @id @default(uuid())
+  fromUserId String              @map("from_user_id")
+  toUserId   String              @map("to_user_id")
+  status     FriendRequestStatus @default(PENDING)
+  note       String?             @db.VarChar(300)
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+
+  fromUser User @relation("SentRequests", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("ReceivedRequests", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  // Bir kullanıcı aynı kişiye birden fazla istek gönderemez
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId, status])
+  @@index([fromUserId, status])
+  @@map("friend_requests")
+}
+
+/// Restoran önerileri.
+/// toUserId=null → herkese açık (profilde görünür)
+/// toUserId=X   → sadece X kullanıcısına özel mesaj
+model Recommendation {
+  id            String   @id @default(uuid())
+  fromUserId    String   @map("from_user_id")
+  toUserId      String?  @map("to_user_id")
+
+  // Restoran snapshot — Google Places verisinin anlık kopyası
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placeAddress  String?  @map("place_address")
+  placePhotoUrl String?  @map("place_photo_url")
+  placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
+  placeTypes    String[] @map("place_types")
+
+  message       String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  fromUser User  @relation("SentRecommendations", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User? @relation("ReceivedRecommendations", fields: [toUserId], references: [id], onDelete: SetNull)
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([placeId])
+  @@map("recommendations")
+}
+
+// ─── Collections ─────────────────────────────────────────────────────────────
+
+/// Kullanıcının oluşturduğu restoran listeleri/koleksiyonları (Premium özellik)
+model Collection {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(300)
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  CollectionItem[]
+  shares CollectionShare[]
+
+  @@index([userId])
+  @@map("collections")
+}
+
+model CollectionItem {
+  id            String   @id @default(uuid())
+  collectionId  String   @map("collection_id")
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placeAddress  String?  @map("place_address")
+  placePhotoUrl String?  @map("place_photo_url")
+  placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
+  note          String?  @db.VarChar(200)
+  addedAt       DateTime @default(now()) @map("added_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, placeId])
+  @@index([collectionId])
+  @@map("collection_items")
+}
+
+/// Koleksiyonu arkadaşlarla paylaşma tablosu
+model CollectionShare {
+  id           String   @id @default(uuid())
+  collectionId String   @map("collection_id")
+  sharedWithId String   @map("shared_with_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  sharedWith User       @relation("SharedCollections", fields: [sharedWithId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, sharedWithId])
+  @@index([sharedWithId])
+  @@map("collection_shares")
+}
+
+// ─── Gamification ────────────────────────────────────────────────────────────
+
+/// Kullanıcının yıldız kazandığı her olay bir kayıt oluşturur.
+/// Bu tablo hem geçmişi hem de denetimi sağlar.
+model StarEvent {
+  id          String        @id @default(uuid())
+  userId      String        @map("user_id")
+  type        StarEventType
+  amount      Int
+  description String
+  // Olayın kaynağına referans (review id, recommendation id vb.)
+  referenceId String?       @map("reference_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("star_events")
+}
+
+/// Ödül tanımları — admin tarafından seed ile doldurulur.
+model Reward {
+  id            String     @id @default(uuid())
+  name          String
+  description   String     @db.Text
+  requiredStars Int        @map("required_stars")
+  type          RewardType
+  icon          String
+  sortOrder     Int        @default(0) @map("sort_order")
+
+  userRewards UserReward[]
+
+  @@map("rewards")
+}
+
+/// Kullanıcının kilidini açtığı ödüller.
+model UserReward {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  rewardId   String   @map("reward_id")
+  unlockedAt DateTime @default(now()) @map("unlocked_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward Reward @relation(fields: [rewardId], references: [id])
+
+  // Bir ödül yalnızca bir kez açılabilir
+  @@unique([userId, rewardId])
+  @@map("user_rewards")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum PlanType {
+  monthly
+  yearly
+  trial
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+  trial
+}
+
+enum PaymentStatus {
+  success
+  failed
+  refunded
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum StarEventType {
+  REVIEW
+  RECOMMENDATION
+  FRIEND_ADDED
+  RATING
+}
+
+enum RewardType {
+  BADGE
+  GIFT
+}
+
+enum UserRole {
+  USER
+  RESTAURANT
+  ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ─── Restaurant Accounts ─────────────────────────────────────────────────────
+
+model RestaurantProfile {
+  id                 String         @id @default(uuid())
+  userId             String         @unique @map("user_id")
+
+  // Business info
+  businessName       String         @map("business_name")
+  ownerName          String         @map("owner_name")
+  taxNumber          String         @unique @map("tax_number")
+  taxOffice          String         @map("tax_office")
+  taxCertificateData String?        @db.Text @map("tax_certificate_data")
+  phone              String
+  contactEmail       String         @map("contact_email")
+  address            String
+  businessCategory   String         @map("business_category")
+
+  // Google Places link
+  placeId            String?        @map("place_id")
+  placeName          String?        @map("place_name")
+  placeAddress       String?        @map("place_address")
+  placePhotoUrl      String?        @map("place_photo_url")
+
+  // Approval
+  status             ApprovalStatus @default(PENDING)
+  rejectionReason    String?        @db.Text @map("rejection_reason")
+  approvedAt         DateTime?      @map("approved_at")
+  reviewedByAdminId  String?        @map("reviewed_by_admin_id")
+
+  // Extra info
+  reservationUrl     String?        @map("reservation_url")
+  announcement       String?        @db.VarChar(500)
+  announcementActive Boolean        @default(false) @map("announcement_active")
+
+  // Opening hours (JSON: { monday: { open: "09:00", close: "22:00", closed: false }, ... })
+  openingHours       Json?          @map("opening_hours")
+
+  // Discount
+  discountEnabled    Boolean        @default(false) @map("discount_enabled")
+  discountPercent    Float?         @map("discount_percent")
+  discountMinStars   Int?           @map("discount_min_stars")
+  discountNote       String?        @db.VarChar(200) @map("discount_note")
+  discountActiveUntil DateTime?     @map("discount_active_until")
+
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuItems    RestaurantMenu[]
+  reviewReplies ReviewReply[]
+
+  @@index([placeId])
+  @@index([status])
+  @@map("restaurant_profiles")
+}
+
+model RestaurantMenu {
+  id           String            @id @default(uuid())
+  restaurantId String            @map("restaurant_id")
+  data         String            @db.Text
+  mimeType     String            @map("mime_type")
+  fileName     String?           @map("file_name")
+  sortOrder    Int               @default(0) @map("sort_order")
+  uploadedAt   DateTime          @default(now()) @map("uploaded_at")
+
+  restaurant RestaurantProfile @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_menu")
+}
+
+model ReviewReply {
+  id           String            @id @default(uuid())
+  restaurantId String            @map("restaurant_id")
+  reviewId     String            @unique @map("review_id")
+  content      String            @db.VarChar(500)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  restaurant RestaurantProfile @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  review     Review            @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@map("review_replies")
+}
+
+// ─── Messages ─────────────────────────────────────────────────────────────────
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  content    String   @db.VarChar(2000)
+  isRead     Boolean  @default(false) @map("is_read")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, isRead])
+  @@map("messages")
+}
+
+// ─── User Reports ──────────────────────────────────────────────────────────────
+
+/// Kullanıcı şikayetleri
+/// status=PENDING → inceleniyor
+/// status=RESOLVED → işlem yapıldı
+/// status=DISMISSED → geçersiz / reddedildi
+model UserReport {
+  id          String   @id @default(uuid())
+  reporterId  String   @map("reporter_id")
+  reportedId  String   @map("reported_id")
+  reason      String   @db.VarChar(1000)
+  status      String   @default("PENDING")
+  actionTaken String?  @db.VarChar(500) @map("action_taken")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  reporter User @relation("ReportsGiven", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("ReportsReceived", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([reportedId, status])
+  @@index([reporterId])
+  @@map("user_reports")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  type      String   // FRIEND_REQUEST | INSTANT_DISCOUNT | LEVEL_UP | RECOMMENDATION | REVIEW_REPLY
+  title     String
+  body      String
+  data      Json?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}

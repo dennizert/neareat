@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "NearEat",
+    "slug": "neareat",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B35"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.neareat.app",
+      "buildNumber": "1",
+      "config": {
+        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Yakınındaki restoranları gösterebilmemiz için konumuna ihtiyacımız var.",
+        "NSLocationAlwaysUsageDescription": "Widget için konumunu kullanıyoruz."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF6B35"
+      },
+      "package": "com.neareat.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET",
+        "READ_EXTERNAL_STORAGE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAD4j5kODLae1uLpZpy3pbKkm7DNhruAoU"
+        }
+      }
+    },
+    "plugins": [
+      "./plugins/withAndroidBuildFixes",
+      "expo-location",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Profil fotoğrafınızı değiştirmek için galeri erişimi gerekli."
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID"
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiBaseUrl": "https://railway-up-production-6cdc.up.railway.app/api",
+      "googleWebClientId": "1088498639612-651fnimrdrpu7h4rqetm8bdrqtoesbk7.apps.googleusercontent.com"
+    }
+  }
+}
