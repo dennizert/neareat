@@ -97,6 +97,7 @@ export async function getDinnerRecommendation(
             location: { lat, lng },
             distanceKm: 0.5,
             openNow: true,
+            photoUrl: null,
           },
         },
       ],
