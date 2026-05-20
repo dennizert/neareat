@@ -658,3 +658,35 @@ describe('POST /api/recommendations/feedback — rate limit', () => {
     expect(mockPrisma.recommendationFeedback.create).not.toHaveBeenCalled();
   });
 });
+
+// ─── Error propagation (controller next(err) coverage) ───────────────────────
+
+describe('POST /api/recommendations/dinner-tonight — unexpected error propagation', () => {
+  it('returns 500 when Anthropic client throws unexpectedly', async () => {
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
+      makePlace(1, { types: ['restaurant'] }),
+    ]);
+    mockAnthropicCreate.mockRejectedValueOnce(new Error('Unexpected API failure'));
+
+    const res = await request(app)
+      .post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ lat: 41.04, lng: 28.98 });
+
+    expect(res.status).toBe(500);
+  });
+});
+
+describe('POST /api/recommendations/feedback — DB error propagation', () => {
+  it('returns 500 when DB create throws unexpectedly', async () => {
+    mockPrisma.recommendationFeedback.count.mockResolvedValue(0);
+    mockPrisma.recommendationFeedback.create.mockRejectedValueOnce(new Error('DB crashed'));
+
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'positive' });
+
+    expect(res.status).toBe(500);
+  });
+});

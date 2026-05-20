@@ -82,6 +82,12 @@ describe('parseLlmJson', () => {
   it('returns null when no braces found', () => {
     expect(parseLlmJson('just plain text')).toBeNull();
   });
+
+  it('returns null for text with braces but invalid JSON content (catch branch)', () => {
+    // Has { and } but content between them isn't valid JSON
+    expect(parseLlmJson('{invalid: syntax}')).toBeNull();
+    expect(parseLlmJson('{key: value, another: thing}')).toBeNull();
+  });
 });
 
 describe('modelForTier', () => {
@@ -344,6 +350,27 @@ describe('recommend (end-to-end with mocks)', () => {
     });
     expect(result.recommendations).toEqual([]);
     expect(mockPrisma.aiRecommendationLog.create).toHaveBeenCalled();
+  });
+
+  it('enriches error with context when Anthropic client throws', async () => {
+    setupBasicMocks();
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
+      {
+        place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
+        geometry: { location: { lat: 41, lng: 28.9 } },
+      },
+    ]);
+    const apiError = new Error('Service unavailable');
+    mockAnthropicCreate.mockRejectedValueOnce(apiError);
+
+    await expect(
+      recommend({ userId: 'u1', location: { lat: 41, lng: 28.9 }, isPremium: false })
+    ).rejects.toThrow('Service unavailable');
+
+    // Error should be enriched with context (userId, model, latencyMs)
+    expect(apiError.context).toBeDefined();
+    expect(apiError.context.userId).toBe('u1');
+    expect(typeof apiError.context.latencyMs).toBe('number');
   });
 
   it('passes through cache_control markers to Anthropic API', async () => {

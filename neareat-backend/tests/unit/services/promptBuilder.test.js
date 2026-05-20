@@ -257,6 +257,69 @@ describe('buildUserProfileSummary', () => {
     expect(r.text).not.toContain('14:23:45');
     expect(r.text).not.toContain('2026-03-15T');
   });
+
+  it('builds cuisineSignalsFromRecommendations from sentRecs placeTypes', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      displayName: 'U', favoriteCuisines: [], starCount: 0, city: null, bio: null,
+    });
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.favorite.findMany.mockResolvedValue([]);
+    mockPrisma.starEvent.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([
+      { placeName: 'A', placeTypes: ['italian_restaurant', 'restaurant'], message: '' },
+      { placeName: 'B', placeTypes: ['italian_restaurant', 'cafe'], message: '' },
+      { placeName: 'C', placeTypes: ['cafe'], message: '' },
+    ]);
+
+    const r = await buildUserProfileSummary('u1');
+
+    const signals = r.profile.cuisineSignalsFromRecommendations;
+    expect(Array.isArray(signals)).toBe(true);
+    // italian_restaurant appears 2 times, cafe 2 times, restaurant 1 time
+    const italian = signals.find((s) => s.type === 'italian_restaurant');
+    expect(italian?.count).toBe(2);
+    // sentRecommendations also populated
+    expect(r.profile.sentRecommendations).toHaveLength(3);
+  });
+
+  it('includes favorites with rating and null-rating branches', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      displayName: 'U', favoriteCuisines: [], starCount: 0, city: null, bio: null,
+    });
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.favorite.findMany.mockResolvedValue([
+      { placeId: 'p1', placeName: 'Fav A', placeRating: '4.5' },
+      { placeId: 'p2', placeName: 'Fav B', placeRating: null },
+    ]);
+    mockPrisma.starEvent.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+
+    const r = await buildUserProfileSummary('u1');
+
+    expect(r.profile.favorites).toHaveLength(2);
+    expect(r.profile.favorites[0].rating).toBe(4.5);  // non-null → Number()
+    expect(r.profile.favorites[1].rating).toBeNull();  // null stays null
+  });
+
+  it('includes starHistory from starEvents', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      displayName: 'U', favoriteCuisines: [], starCount: 10, city: null, bio: null,
+    });
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.favorite.findMany.mockResolvedValue([]);
+    mockPrisma.starEvent.findMany.mockResolvedValue([
+      { type: 'REVIEW_WRITTEN', amount: 10, description: 'Yorum yazdın' },
+      { type: 'RECOMMENDATION_SENT', amount: 5, description: null },
+    ]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+
+    const r = await buildUserProfileSummary('u1');
+
+    expect(r.profile.starHistory).toHaveLength(2);
+    expect(r.profile.starHistory[0].type).toBe('REVIEW_WRITTEN');
+    expect(r.profile.starHistory[0].amount).toBe(10);
+    expect(r.profile.starHistory[1].description).toBe('');  // null coerced to ''
+  });
 });
 
 describe('buildClaudeRequest', () => {
