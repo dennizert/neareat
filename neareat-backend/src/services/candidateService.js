@@ -16,13 +16,13 @@
  * LLM (Task #5) bu listeden seçer ve açıklamasını üretir.
  */
 
-const { getNearbyRestaurants } = require('./googlePlaces');
+const { getNearbyRestaurantsFast } = require('./googlePlaces');
 const { haversineKm } = require('../utils/haversine');
 const prisma = require('../utils/prisma');
 
 const MAX_CANDIDATES = 20;
 const MIN_RATING = 3.5;
-const FETCH_RADIUS_TYPE = 'restaurant'; // tek tip — birden çok tip için sayfa pagination yavaş
+const FETCH_TYPE = 'restaurant';
 
 /**
  * Kullanıcı tercihlerini DB'den topla.
@@ -174,9 +174,11 @@ async function getCandidates(userId, { lat, lng }) {
   }
 
   const t0 = Date.now();
+  // Sprint-2 Task #1: getNearbyRestaurantsFast — tek sayfa, no 2× pagination delay.
+  // Önceki getNearbyRestaurants 3 sayfa çekerek ~5sn ekliyordu; bu sürüm <1sn (cache miss'te).
   const [prefs, places] = await Promise.all([
     fetchUserPrefs(userId),
-    getNearbyRestaurants(lat, lng, null, FETCH_RADIUS_TYPE),
+    getNearbyRestaurantsFast(lat, lng, FETCH_TYPE),
   ]);
 
   const enriched = [];

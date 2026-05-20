@@ -14,7 +14,7 @@ const mockPrisma = {
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
 const mockGooglePlaces = {
-  getNearbyRestaurants: jest.fn(),
+  getNearbyRestaurantsFast: jest.fn(),
 };
 jest.mock('../../../src/services/googlePlaces', () => mockGooglePlaces);
 
@@ -231,7 +231,7 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
   it('returns max 20 candidates', async () => {
     setupNoUserHistory();
     // 30 places
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue(
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue(
       Array.from({ length: 30 }, (_, i) => makePlace(i)),
     );
 
@@ -242,7 +242,7 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
 
   it('filters out places with rating < 3.5', async () => {
     setupNoUserHistory();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       makePlace(1, { rating: 4.5 }),
       makePlace(2, { rating: 3.0 }),  // below threshold
       makePlace(3, { rating: 3.4 }),  // below threshold
@@ -257,7 +257,7 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
 
   it('keeps places with no rating (potentially new)', async () => {
     setupNoUserHistory();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       makePlace(1, { rating: 4.5 }),
       { ...makePlace(2), rating: undefined },  // rating yok
     ]);
@@ -268,7 +268,7 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
 
   it('filters out places that are explicitly closed (open_now: false)', async () => {
     setupNoUserHistory();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       makePlace(1, { openingHours: { open_now: true } }),
       makePlace(2, { openingHours: { open_now: false } }), // closed
       makePlace(3, { openingHours: undefined }),            // unknown — keep
@@ -283,7 +283,7 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
 
   it('sorts candidates by score (best first)', async () => {
     setupNoUserHistory();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       { ...makePlace(1, { rating: 4.0 }), geometry: { location: { lat: 41.05, lng: 28.99 } } }, // farther
       { ...makePlace(2, { rating: 4.5 }), geometry: { location: { lat: 41.04, lng: 28.98 } } }, // closer
     ]);
@@ -294,7 +294,7 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
 
   it('skips places without place_id or geometry', async () => {
     setupNoUserHistory();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       makePlace(1),
       { name: 'No id' }, // missing place_id
       { place_id: 'p3' }, // missing geometry
@@ -307,7 +307,7 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
 
   it('returns meta with diagnostic info', async () => {
     setupNoUserHistory();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([makePlace(1)]);
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([makePlace(1)]);
 
     const { meta } = await getCandidates('u1', { lat: 41.04, lng: 28.98 });
     expect(meta.fetchedPlaces).toBe(1);
