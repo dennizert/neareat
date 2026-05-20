@@ -23,10 +23,11 @@
 import { create } from 'zustand';
 import {
   getDinnerRecommendation,
+  postFeedback,
   AiRecommendationLimitError,
   AiRecommendationNoCandidatesError,
 } from '../services/aiRecommendation';
-import type { AiRecommendation } from '../types';
+import type { AiRecommendation, FeedbackSentiment } from '../types';
 
 interface AiRecommendationState {
   loading: boolean;
@@ -40,8 +41,12 @@ interface AiRecommendationState {
   limitReached: boolean;
   /** 404 NO_CANDIDATES — UI "biraz uzaklaş" mesajı için */
   noCandidates: boolean;
+  /** placeId → kullanıcının verdiği feedback (optimistic) */
+  feedbackByPlaceId: Record<string, FeedbackSentiment>;
 
   fetchDinnerRecommendation: (lat: number, lng: number, mood?: string) => Promise<void>;
+  /** Optimistic feedback gönder; hata olursa rollback yapıp throw eder */
+  submitFeedback: (placeId: string, sentiment: FeedbackSentiment) => Promise<void>;
   clear: () => void;
 }
 
@@ -55,6 +60,7 @@ const INITIAL_STATE = {
   error: null as string | null,
   limitReached: false,
   noCandidates: false,
+  feedbackByPlaceId: {} as Record<string, FeedbackSentiment>,
 };
 
 export const useAiRecommendationStore = create<AiRecommendationState>((set) => ({
@@ -107,6 +113,24 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
         loading: false,
         error: 'Öneri alınamadı. İnternet bağlantını kontrol edip tekrar dene.',
       });
+    }
+  },
+
+  async submitFeedback(placeId, sentiment) {
+    // Optimistic update
+    set((s) => ({
+      feedbackByPlaceId: { ...s.feedbackByPlaceId, [placeId]: sentiment },
+    }));
+    try {
+      await postFeedback({ placeId, sentiment });
+    } catch {
+      // Rollback
+      set((s) => {
+        const next = { ...s.feedbackByPlaceId };
+        delete next[placeId];
+        return { feedbackByPlaceId: next };
+      });
+      throw new Error('Feedback gönderilemedi.');
     }
   },
 

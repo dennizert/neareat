@@ -11,18 +11,21 @@ jest.mock('../../services/aiRecommendation', () => {
   return {
     ...actual,
     getDinnerRecommendation: jest.fn(),
+    postFeedback: jest.fn(),
   };
 });
 
 import { useAiRecommendationStore } from '../../store/aiRecommendationStore';
 import {
   getDinnerRecommendation,
+  postFeedback,
   AiRecommendationLimitError,
   AiRecommendationNoCandidatesError,
 } from '../../services/aiRecommendation';
 import type { AiRecommendationResponse } from '../../types';
 
 const mockedGetDinner = getDinnerRecommendation as jest.MockedFunction<typeof getDinnerRecommendation>;
+const mockedPostFeedback = postFeedback as jest.MockedFunction<typeof postFeedback>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -36,6 +39,7 @@ const INITIAL_STATE = {
   error: null,
   limitReached: false,
   noCandidates: false,
+  feedbackByPlaceId: {},
 };
 
 function resetStore() {
@@ -291,5 +295,67 @@ describe('aiRecommendationStore — clear()', () => {
 
     useAiRecommendationStore.getState().clear();
     expect(useAiRecommendationStore.getState().limitReached).toBe(false);
+  });
+
+  it('clears feedbackByPlaceId on clear()', async () => {
+    useAiRecommendationStore.setState({ feedbackByPlaceId: { p1: 'positive' } });
+    useAiRecommendationStore.getState().clear();
+    expect(useAiRecommendationStore.getState().feedbackByPlaceId).toEqual({});
+  });
+});
+
+// ─── submitFeedback (Sprint-2 Task #6) ──────────────────────────────────────
+
+describe('aiRecommendationStore — submitFeedback', () => {
+  beforeEach(() => {
+    mockedPostFeedback.mockResolvedValue({ id: 'fb-1' });
+  });
+
+  it('optimistically sets feedbackByPlaceId before API call resolves', async () => {
+    let stateBeforeResolve: Record<string, string> = {};
+    mockedPostFeedback.mockImplementation(async () => {
+      stateBeforeResolve = useAiRecommendationStore.getState().feedbackByPlaceId;
+      return { id: 'fb-1' };
+    });
+
+    await useAiRecommendationStore.getState().submitFeedback('p1', 'positive');
+
+    expect(stateBeforeResolve['p1']).toBe('positive');
+    expect(useAiRecommendationStore.getState().feedbackByPlaceId['p1']).toBe('positive');
+  });
+
+  it('calls postFeedback with correct placeId and sentiment', async () => {
+    await useAiRecommendationStore.getState().submitFeedback('p2', 'negative');
+
+    expect(mockedPostFeedback).toHaveBeenCalledWith({
+      placeId: 'p2',
+      sentiment: 'negative',
+    });
+  });
+
+  it('rolls back feedbackByPlaceId on API failure', async () => {
+    mockedPostFeedback.mockRejectedValueOnce(new Error('Network error'));
+
+    await expect(
+      useAiRecommendationStore.getState().submitFeedback('p1', 'positive')
+    ).rejects.toThrow();
+
+    expect(useAiRecommendationStore.getState().feedbackByPlaceId['p1']).toBeUndefined();
+  });
+
+  it('throws after rollback so caller can show Alert', async () => {
+    mockedPostFeedback.mockRejectedValueOnce(new Error('fail'));
+
+    await expect(
+      useAiRecommendationStore.getState().submitFeedback('p1', 'positive')
+    ).rejects.toThrow('Feedback gönderilemedi.');
+  });
+
+  it('can update sentiment from positive to negative', async () => {
+    useAiRecommendationStore.setState({ feedbackByPlaceId: { p1: 'positive' } });
+
+    await useAiRecommendationStore.getState().submitFeedback('p1', 'negative');
+
+    expect(useAiRecommendationStore.getState().feedbackByPlaceId['p1']).toBe('negative');
   });
 });

@@ -522,6 +522,16 @@ export interface FilterState {
 // `AiRecommendation*` prefix kullanılıyor. Backend tarafında da aynı pattern:
 // `AiRecommendationLog` model + `POST /api/recommendations/dinner-tonight`.
 
+export type FeedbackSentiment = 'positive' | 'negative';
+
+export interface FeedbackRequest {
+  placeId: string;
+  sentiment: FeedbackSentiment;
+  aiRecommendationLogId?: string | null;
+  comment?: string | null;
+  visited?: boolean;
+}
+
 /** AI öneri motoruna istek payload'ı */
 export interface AiRecommendationRequest {
   lat: number;

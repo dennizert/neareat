@@ -18,6 +18,7 @@ import type {
   AiRecommendationRequest,
   AiRecommendationResponse,
   AiRecommendationLimitInfo,
+  FeedbackRequest,
 } from '../types';
 
 /**
@@ -138,4 +139,13 @@ export async function getDinnerRecommendation(
 
     throw err;
   }
+}
+
+/**
+ * AI öneri feedback'i gönder (👍/👎).
+ */
+export async function postFeedback(payload: FeedbackRequest): Promise<{ id: string }> {
+  if (MOCK_MODE) return { id: 'mock-feedback-id' };
+  const { data } = await api.post<{ id: string }>('/recommendations/feedback', payload);
+  return data;
 }
