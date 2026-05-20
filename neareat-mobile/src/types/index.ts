@@ -27,6 +27,8 @@ export interface UserProfile {
   badgeIcon: string;
   isPublic: boolean;
   isPremium?: boolean;
+  /** AI öneri motoruna arkadaş tercihi paylaşımı opt-in (Sprint-1 Task #9) */
+  shareWithFriendsRecommender?: boolean;
 }
 
 export interface Subscription {

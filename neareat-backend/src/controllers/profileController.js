@@ -14,6 +14,9 @@ function formatProfile(user, subscription = null) {
     favoriteCuisines: user.favoriteCuisines ?? [],
     isPublic: user.isPublic,
     starCount: user.starCount,
+    // AI Recommender opt-in (Sprint-1 Task #9): user.shareWithFriendsRecommender
+    // null/undefined ise false varsayılan (eski user record'ları için)
+    shareWithFriendsRecommender: user.shareWithFriendsRecommender ?? false,
     isPremium: isActivePremium(subscription),
     ...level,
   };
@@ -29,6 +32,7 @@ async function getMe(req, res, next) {
           id: true, displayName: true, photoUrl: true,
           bio: true, city: true, favoriteCuisines: true,
           isPublic: true, starCount: true,
+          shareWithFriendsRecommender: true,
           _count: { select: { reviews: true, sentRecommendations: true } },
         },
       }),
@@ -54,7 +58,10 @@ async function getMe(req, res, next) {
 // PUT /api/profile/me
 async function updateMe(req, res, next) {
   try {
-    const { displayName, bio, city, favoriteCuisines, isPublic, photoUrl } = req.body;
+    const {
+      displayName, bio, city, favoriteCuisines, isPublic, photoUrl,
+      shareWithFriendsRecommender,
+    } = req.body;
 
     const updated = await prisma.user.update({
       where: { id: req.user.id },
@@ -65,11 +72,16 @@ async function updateMe(req, res, next) {
         ...(favoriteCuisines !== undefined && { favoriteCuisines }),
         ...(isPublic !== undefined && { isPublic: Boolean(isPublic) }),
         ...(photoUrl !== undefined && { photoUrl }),
+        // AI Recommender opt-in (Sprint-1 Task #9)
+        ...(shareWithFriendsRecommender !== undefined && {
+          shareWithFriendsRecommender: Boolean(shareWithFriendsRecommender),
+        }),
       },
       select: {
         id: true, displayName: true, photoUrl: true,
         bio: true, city: true, favoriteCuisines: true,
         isPublic: true, starCount: true,
+        shareWithFriendsRecommender: true,
       },
     });
 
@@ -92,6 +104,7 @@ async function getUser(req, res, next) {
           id: true, displayName: true, photoUrl: true,
           bio: true, city: true, favoriteCuisines: true,
           isPublic: true, starCount: true,
+          shareWithFriendsRecommender: true,
         },
       }),
       prisma.subscription.findUnique({ where: { userId } }),
