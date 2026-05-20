@@ -18,7 +18,7 @@ const mockPrisma = {
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
 const mockGooglePlaces = {
-  getNearbyRestaurants: jest.fn(),
+  getNearbyRestaurantsFast: jest.fn(),
 };
 jest.mock('../../../src/services/googlePlaces', () => mockGooglePlaces);
 
@@ -152,7 +152,7 @@ describe('recommend (end-to-end with mocks)', () => {
 
   it('returns { noCandidates: true } when getNearbyRestaurants returns empty', async () => {
     setupBasicMocks();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([]);
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([]);
 
     const result = await recommend({
       userId: 'u1',
@@ -165,7 +165,7 @@ describe('recommend (end-to-end with mocks)', () => {
 
   it('returns valid recommendations and writes AiRecommendationLog', async () => {
     setupBasicMocks();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
         place_id: 'p1',
         name: 'Test Place 1',
@@ -223,7 +223,7 @@ describe('recommend (end-to-end with mocks)', () => {
 
   it('premium tier uses Sonnet model', async () => {
     setupBasicMocks();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
         place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
@@ -249,7 +249,7 @@ describe('recommend (end-to-end with mocks)', () => {
 
   it('filters hallucinated placeIds (LLM returns id not in candidate list)', async () => {
     setupBasicMocks();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
         place_id: 'real-id-1',
         name: 'Real',
@@ -280,7 +280,7 @@ describe('recommend (end-to-end with mocks)', () => {
 
   it('filters duplicate placeIds returned by LLM', async () => {
     setupBasicMocks();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
         place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
@@ -304,7 +304,7 @@ describe('recommend (end-to-end with mocks)', () => {
   it('survives audit log write failure (does not break recommendation flow)', async () => {
     setupBasicMocks();
     mockPrisma.aiRecommendationLog.create.mockRejectedValueOnce(new Error('DB down'));
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
         place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
@@ -325,7 +325,7 @@ describe('recommend (end-to-end with mocks)', () => {
 
   it('handles invalid LLM JSON gracefully (returns empty recs, still logs)', async () => {
     setupBasicMocks();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
         place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
@@ -346,7 +346,7 @@ describe('recommend (end-to-end with mocks)', () => {
 
   it('passes through cache_control markers to Anthropic API', async () => {
     setupBasicMocks();
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
         place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },

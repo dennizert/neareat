@@ -67,6 +67,37 @@ async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant')
   return results;
 }
 
+/**
+ * Fast mode — tek sayfa, pagination delay'i yok (Sprint-2 Task #1).
+ *
+ * `getNearbyRestaurants` 3 sayfa çekiyor (max 60 sonuç, 2× 2sn delay = +4sn).
+ * AI öneri için max 20 aday yeterli, ekstra sayfalara değmez. Bu fonksiyon
+ * tek API çağrısı yapar (max 20 sonuç) ve cache pattern korur.
+ *
+ * Mevcut `getNearbyRestaurants` /api/restaurants/nearby endpoint'i için
+ * (60 sonuç gerektiriyor) kalır — dokunulmamış.
+ *
+ * Cache key: `nearbyFast:{lat3}:{lng3}:{type}` (paralel data ile çakışmaz)
+ */
+async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
+  const cacheKey = `nearbyFast:${lat.toFixed(3)}:${lng.toFixed(3)}:${type}`;
+  const cached = await cacheGet(cacheKey);
+  if (cached) return cached;
+
+  const url =
+    `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
+    `?location=${lat},${lng}&rankby=distance&type=${type}&language=tr&key=${API_KEY}`;
+
+  const data = await fetchJson(url);
+  if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+    throw new Error(`Google Places Nearby Search error: ${data.status}`);
+  }
+
+  const results = data.results || [];
+  await cacheSet(cacheKey, results, NEARBY_TTL);
+  return results;
+}
+
 async function getPlaceDetails(placeId) {
   const cacheKey = `place:${placeId}`;
   const cached = await cacheGet(cacheKey);
@@ -100,4 +131,4 @@ function getPhotoUrl(photoReference, maxWidth = 800) {
   );
 }
 
-module.exports = { getNearbyRestaurants, getPlaceDetails, getPhotoUrl };
+module.exports = { getNearbyRestaurants, getNearbyRestaurantsFast, getPlaceDetails, getPhotoUrl };

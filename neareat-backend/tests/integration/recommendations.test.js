@@ -61,7 +61,7 @@ jest.mock('../../src/services/redis', () => ({
 }));
 
 const mockGooglePlaces = {
-  getNearbyRestaurants: jest.fn(),
+  getNearbyRestaurantsFast: jest.fn(),
   getPlaceDetails: jest.fn(),
   getPhotoUrl: jest.fn(),
 };
@@ -143,7 +143,7 @@ beforeEach(() => {
   mockPrisma.userLog.create.mockResolvedValue({});
 
   // 5 candidates by default
-  mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+  mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
     makePlace(1, { types: ['restaurant', 'italian_restaurant'] }),
     makePlace(2, { types: ['restaurant', 'cafe'] }),
     makePlace(3, { types: ['restaurant'] }),
@@ -388,7 +388,7 @@ describe('POST /api/recommendations/dinner-tonight — premium tier', () => {
 describe('POST /api/recommendations/dinner-tonight — no candidates', () => {
   it('returns 404 NO_CANDIDATES when Google Places returns empty', async () => {
     mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([]);
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([]);
 
     const res = await request(app)
       .post('/api/recommendations/dinner-tonight')
@@ -402,7 +402,7 @@ describe('POST /api/recommendations/dinner-tonight — no candidates', () => {
 
   it('returns 404 when all candidates are filtered (closed/low-rated)', async () => {
     mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
-    mockGooglePlaces.getNearbyRestaurants.mockResolvedValue([
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       { ...makePlace(1), rating: 2.5 }, // below 3.5 threshold
       { ...makePlace(2), opening_hours: { open_now: false } }, // closed
     ]);
