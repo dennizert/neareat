@@ -580,3 +580,83 @@ cd neareat-mobile
 npm install
 npm run test:stores
 ```
+
+---
+
+## AI Yemek Önerisi Senaryoları (Sprint-1, 2026-05-20)
+
+### Mutlu yol — Free kullanıcı
+1. HomeScreen aç → header altında "🤖 Bu akşam ne yesem?" turuncu banner görünüyor
+2. Banner tıkla → RecommendationScreen açılır, empty state "🤔 Mood'unu seç..."
+3. "🍽️ Önerileri Getir" tıkla → "Konum alınıyor…" → "Öneriler hazırlanıyor…" → 3 RecommendationCard
+4. Her kartta: sıra numarası, restoran adı + mutfak (Türkçe humanize), meta row (★/oy/mesafe/fiyat), "🤖 Neden bu?" reason box, "Detayları gör →"
+5. Tier rozeti: "Ücretsiz" + "Bugün kalan hak: 2/3"
+6. "Detayları gör" → RestaurantDetail açılır
+
+### Mood seçimi
+1. 6 mood chip (Hızlı/Şık/Romantik/Aile/Sağlıklı/Bütçeli) görünüyor
+2. "Şık" tıkla → turuncu border + dolgu
+3. Tekrar tıkla → deselect
+4. Mood opsiyonel — seçim olmadan da CTA enabled
+
+### Free tier limit aşımı (otomatik paywall)
+1. Free user bugün 3 öneri kullanmış (AiRecommendationLog'da 3 row)
+2. "Önerileri Getir" → backend 429 LIMIT_EXCEEDED
+3. **Otomatik PremiumUpsellScreen modal açılır** (useRef ile transition detect)
+4. ⏰ Hero + "Günlük AI öneri hakkın doldu" + countdown card "X saat Y dakika"
+5. 4 premium feature: ♾️ Limitsiz / 🧠 Sonnet 4.6 / 👥 Arkadaş sinyalleri / ⚡ Hız
+6. "✨ Premium Detaylarını Gör" → mevcut Paywall (Iyzico checkout)
+7. "Bugün için kapat" → goBack, RecommendationScreen'e dön
+8. "Önerileri Getir" tekrar tıkla → modal AÇILMAZ (transition false→true değil; ref ile blocked)
+
+### Premium kullanıcı
+1. Subscription active + expiresAt > now (veya trial)
+2. Tier rozeti: "✨ Premium" (sarı badge)
+3. remainingToday = null (sonsuz)
+4. Model = Sonnet 4.6 (response.model)
+5. 100 ardışık call → her zaman 200
+
+### Expired subscription edge case
+1. Subscription status='active' AMA expiresAt geçmiş
+2. `isActivePremium()` false döner
+3. Tier = free, limit 3 uygulanır
+
+### Aday bulunamama
+1. Google Places boş döner VEYA tüm sonuçlar rating<3.5 / openNow=false
+2. Backend 404 NO_CANDIDATES
+3. "📍 Yakında uygun restoran yok" inline error
+4. Anthropic API çağrılmaz (cost saving)
+
+### Halüsinasyon filtresi
+1. LLM aday listede olmayan placeId döndürür (uydurma)
+2. Backend `candidatesByPlaceId.has(rec.placeId)` check → silsiz atar
+3. AiRecommendationLog.suggestedPlaceIds sadece geçerli ID'ler
+4. UI'da sahte kart yok
+
+### Profile opt-in toggle (arkadaş paylaşımı)
+1. Profile aç → "🤖 AI Öneri Paylaşımı" satırı (Dark Mode toggle ile aynı style)
+2. Alt başlık + gizlilik notu görünüyor
+3. Switch aç → optimistic UI + PUT /profile/me { shareWithFriendsRecommender: true }
+4. Uygulamayı kapat/aç → switch hâlâ açık (getMyProfile yükler)
+5. Offline'da toggle → rollback + Alert
+
+### Prompt caching doğrulama (smoke)
+1. `node neareat-backend/scripts/smoke-recommender-cache.js`
+2. Call 1: cacheWrite=5977, cacheRead=0
+3. 5dk içinde Call 2: cacheRead=5977 (1:1 match)
+4. Maliyet: $0.0127 → $0.0061 (%52 tasarruf)
+5. Profile determinism check: aynı user 2× build → identical bytes
+
+### Dark mode uyumu
+1. Profile → "🌙 Karanlık Mod" aç
+2. RecommendationScreen, RecommendationCard, PremiumUpsellScreen, HomeScreen CTA banner — tüm renkler dark theme'e döner
+3. Primary turuncu aynı kalır, surface/text/border tema değişkenleri günceller
+
+### Sınır validasyonları (backend)
+1. lat=100 → 400 "Geçersiz koordinat"
+2. lat="41.04" string → 400 "lat ve lng zorunlu (number)"
+3. mood=12345 → 400 "mood string olmalı"
+4. mood 100 char → trim + 50 char kesilir
+5. mood "   " whitespace → null
+6. No auth → 401
+7. Malformed Bearer → 401

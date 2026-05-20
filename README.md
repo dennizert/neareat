@@ -134,6 +134,42 @@ firstproject/
 - Uygulama içi bildirim paneli (zil ikonu + kırmızı badge)
 - Bildirim tipleri: FRIEND_REQUEST, INSTANT_DISCOUNT, LEVEL_UP, RECOMMENDATION, REVIEW_REPLY, FRIEND_SUGGESTION, REPORT_RESOLVED
 
+#### AI Yemek Önerisi (Sprint-1 v1)
+
+"Bu akşam ne yesem?" — Claude API ile çalışan kişisel sommelier.
+
+- **HomeScreen CTA** → "🤖 Bu akşam ne yesem?" banner → RecommendationScreen
+- 6 mood seçeneği (hızlı / şık / romantik / aile / sağlıklı / bütçeli) — opsiyonel
+- Kullanıcının yorum geçmişi + favorileri + yıldız etkinlikleri **profil özeti**ne dönüşür, Claude'a context olarak gider
+- 1-3 kişisel restoran önerisi + her biri için 2-3 cümle "Neden bu?" gerekçesi
+- Restoran detay sayfasına derin link
+
+**Mimari özeti:**
+```
+candidateService (Google Places + Redis cache) → max 20 aday
+   ↓
+promptBuilder (cache-optimize: system + profile + variable)
+   ↓
+Claude API (Haiku free / Sonnet premium) — prompt caching aktif
+   ↓
+parse + halüsinasyon filtresi + AiRecommendationLog
+   ↓
+{ recommendations, noteToUser, tier, remainingToday, resetAt }
+```
+
+**Tier'lar:**
+
+| Tier | Model | Limit | Arkadaş verisi |
+|---|---|---|---|
+| **Free** | Claude Haiku 4.5 | Günde 3 öneri | Hayır |
+| **Premium** | Claude Sonnet 4.6 | Limitsiz | Opt-in (Profile toggle) |
+
+Free limit doldurulduğunda **PremiumUpsellScreen** otomatik açılır — kalan süre countdown'u + premium avantajları.
+
+**Prompt caching:** System prompt + user profile summary 5dk ephemeral cache'lenir (Anthropic). ~%52 maliyet tasarrufu ardışık çağrılarda.
+
+**Endpoint:** `POST /api/recommendations/dinner-tonight` body `{ lat, lng, mood? }`
+
 ---
 
 ### Restoran Sahibi
