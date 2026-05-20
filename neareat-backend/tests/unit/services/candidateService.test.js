@@ -15,6 +15,8 @@ jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
 const mockGooglePlaces = {
   getNearbyRestaurantsFast: jest.fn(),
+  getPlaceDetails: jest.fn().mockResolvedValue({}), // no photos by default
+  getPhotoUrl: jest.fn().mockReturnValue('https://maps.googleapis.com/photo?ref=TEST'),
 };
 jest.mock('../../../src/services/googlePlaces', () => mockGooglePlaces);
 
@@ -319,5 +321,37 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
   it('throws on invalid lat/lng', async () => {
     await expect(getCandidates('u1', { lat: 'invalid', lng: 28.98 })).rejects.toThrow();
     await expect(getCandidates('u1', { lat: 41.04, lng: null })).rejects.toThrow();
+  });
+
+  it('enriches top 5 candidates with photoUrl (Sprint-2 Task #3)', async () => {
+    setupNoUserHistory();
+    const places = Array.from({ length: 7 }, (_, i) => makePlace(i + 1));
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue(places);
+
+    // Top 5 get a photo reference, rest don't
+    mockGooglePlaces.getPlaceDetails.mockImplementation((placeId) => {
+      // Mocked per-placeId: p1-p5 have photos, p6+ don't
+      const idx = parseInt(String(placeId).replace('p', '') || '99', 10);
+      if (idx <= 5) return Promise.resolve({ photos: [{ photo_reference: `ref${idx}` }] });
+      return Promise.resolve({});
+    });
+    mockGooglePlaces.getPhotoUrl.mockImplementation((ref) => `https://photo/${ref}`);
+
+    const { candidates } = await getCandidates('u1', { lat: 41.04, lng: 28.98 });
+
+    // At least some top candidates should have photoUrl
+    const withPhoto = candidates.filter((c) => c.photoUrl !== null);
+    expect(withPhoto.length).toBeGreaterThan(0);
+    // photoUrl format check
+    withPhoto.forEach((c) => expect(c.photoUrl).toMatch(/^https:\/\/photo\//));
+  });
+
+  it('photoUrl is null when getPlaceDetails fails (graceful fallback)', async () => {
+    setupNoUserHistory();
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([makePlace(1)]);
+    mockGooglePlaces.getPlaceDetails.mockRejectedValue(new Error('API error'));
+
+    const { candidates } = await getCandidates('u1', { lat: 41.04, lng: 28.98 });
+    expect(candidates[0].photoUrl).toBeNull();
   });
 });

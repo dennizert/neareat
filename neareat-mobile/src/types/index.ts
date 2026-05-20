@@ -545,6 +545,7 @@ export interface AiRecommendation {
     location: { lat: number; lng: number } | null;
     distanceKm: number;
     openNow: boolean | null;
+    photoUrl: string | null;
   };
 }
 

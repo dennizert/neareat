@@ -58,6 +58,7 @@ function makeResponse(overrides: Partial<AiRecommendationResponse> = {}): AiReco
           location: { lat: 41.04, lng: 28.98 },
           distanceKm: 0.5,
           openNow: true,
+          photoUrl: null,
         },
       },
     ],

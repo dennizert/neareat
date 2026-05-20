@@ -16,9 +16,11 @@
  * LLM (Task #5) bu listeden seçer ve açıklamasını üretir.
  */
 
-const { getNearbyRestaurantsFast } = require('./googlePlaces');
+const { getNearbyRestaurantsFast, getPlaceDetails, getPhotoUrl } = require('./googlePlaces');
 const { haversineKm } = require('../utils/haversine');
 const prisma = require('../utils/prisma');
+
+const PHOTO_ENRICH_COUNT = 5; // Sadece top N aday için Place Details çekimi
 
 const MAX_CANDIDATES = 20;
 const MIN_RATING = 3.5;
@@ -143,7 +145,7 @@ function scoreCandidate(place, distanceKm, prefs) {
  * Google Places place objesini LLM-dostu hafif şekle dönüştür.
  * Token tasarrufu için sadece gerekli alanlar.
  */
-function toCandidate(place, distanceKm, score) {
+function toCandidate(place, distanceKm, score, photoUrl = null) {
   return {
     placeId: place.place_id,
     name: place.name,
@@ -157,6 +159,7 @@ function toCandidate(place, distanceKm, score) {
       : null,
     distanceKm: Number(distanceKm.toFixed(2)),
     openNow: place.opening_hours?.open_now ?? null, // null = bilinmiyor
+    photoUrl,
     score: Number(score.toFixed(3)),
   };
 }
@@ -203,7 +206,25 @@ async function getCandidates(userId, { lat, lng }) {
 
   enriched.sort((a, b) => b.score - a.score);
   const top = enriched.slice(0, MAX_CANDIDATES);
-  const candidates = top.map((e) => toCandidate(e.place, e.distanceKm, e.score));
+
+  // Top 5 için paralel Place Details çekimi → photoUrl (Sprint-2 Task #3).
+  // Hata durumunda o aday photoUrl=null alır, akış bozulmaz.
+  const photoMap = new Map();
+  await Promise.all(
+    top.slice(0, PHOTO_ENRICH_COUNT).map(async ({ place }) => {
+      try {
+        const details = await getPlaceDetails(place.place_id);
+        const ref = details?.photos?.[0]?.photo_reference;
+        if (ref) photoMap.set(place.place_id, getPhotoUrl(ref, 400));
+      } catch {
+        // non-critical — photo yoksa null
+      }
+    })
+  );
+
+  const candidates = top.map((e) =>
+    toCandidate(e.place, e.distanceKm, e.score, photoMap.get(e.place.place_id) ?? null)
+  );
 
   return {
     candidates,

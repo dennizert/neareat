@@ -9,7 +9,7 @@
  * Mevcut RestaurantCard.tsx ile aynı style sözleşmesine uyar — useTheme + makeStyles.
  */
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import type { AiRecommendation } from '../types';
 import StarRating from './StarRating';
 import { formatDistance } from '../utils/haversine';
@@ -42,67 +42,85 @@ const RecommendationCard = React.memo(function RecommendationCard({
     .map(humanizeType)
     .join(', ') || 'Restoran';
 
+  const [photoError, setPhotoError] = React.useState(false);
+  const showPhoto = !!r.photoUrl && !photoError;
+
   return (
     <View style={styles.card}>
-      {/* Sıra numarası + Restoran ismi */}
-      <View style={styles.header}>
-        <View style={styles.rank}>
-          <Text style={styles.rankText}>{index}</Text>
+      {/* Restoran fotoğrafı — 16:9 (Sprint-2 Task #3) */}
+      {showPhoto ? (
+        <Image
+          source={{ uri: r.photoUrl! }}
+          style={styles.photo}
+          onError={() => setPhotoError(true)}
+        />
+      ) : (
+        <View style={styles.photoPlaceholder}>
+          <Text style={styles.photoPlaceholderText}>🍽️</Text>
         </View>
-        <View style={styles.headerInfo}>
-          <Text style={styles.name} numberOfLines={2}>
-            {r.name}
-          </Text>
-          <Text style={styles.cuisine}>{primaryType}</Text>
-        </View>
-      </View>
+      )}
 
-      {/* Meta row: rating + distance + price */}
-      <View style={styles.metaRow}>
-        {r.rating != null && (
-          <View style={styles.metaItem}>
-            <StarRating rating={r.rating} size={14} />
-            <Text style={styles.metaText}>
-              {r.rating.toFixed(1)}
-              {r.userRatingsTotal != null && ` (${r.userRatingsTotal})`}
+      <View style={styles.content}>
+        {/* Sıra numarası + Restoran ismi */}
+        <View style={styles.header}>
+          <View style={styles.rank}>
+            <Text style={styles.rankText}>{index}</Text>
+          </View>
+          <View style={styles.headerInfo}>
+            <Text style={styles.name} numberOfLines={2}>
+              {r.name}
             </Text>
+            <Text style={styles.cuisine}>{primaryType}</Text>
           </View>
-        )}
-        <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.distance}>{formatDistance(r.distanceKm)}</Text>
-        {r.priceLevel != null && PRICE_MAP[r.priceLevel] && (
-          <>
-            <Text style={styles.metaDot}>·</Text>
-            <Text style={styles.price}>{PRICE_MAP[r.priceLevel]}</Text>
-          </>
-        )}
-        {r.openNow === false && (
-          <View style={styles.closedBadge}>
-            <Text style={styles.closedText}>Kapalı</Text>
-          </View>
-        )}
-      </View>
+        </View>
 
-      {/* LLM gerekçesi — bu kartın yıldız özelliği */}
-      <View style={styles.reasonBox}>
-        <Text style={styles.reasonLabel}>🤖 Neden bu?</Text>
-        <Text style={styles.reasonText}>{rec.reason}</Text>
-      </View>
+        {/* Meta row: rating + distance + price */}
+        <View style={styles.metaRow}>
+          {r.rating != null && (
+            <View style={styles.metaItem}>
+              <StarRating rating={r.rating} size={14} />
+              <Text style={styles.metaText}>
+                {r.rating.toFixed(1)}
+                {r.userRatingsTotal != null && ` (${r.userRatingsTotal})`}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.metaDot}>·</Text>
+          <Text style={styles.distance}>{formatDistance(r.distanceKm)}</Text>
+          {r.priceLevel != null && PRICE_MAP[r.priceLevel] && (
+            <>
+              <Text style={styles.metaDot}>·</Text>
+              <Text style={styles.price}>{PRICE_MAP[r.priceLevel]}</Text>
+            </>
+          )}
+          {r.openNow === false && (
+            <View style={styles.closedBadge}>
+              <Text style={styles.closedText}>Kapalı</Text>
+            </View>
+          )}
+        </View>
 
-      {/* Adres + Detay CTA */}
-      <View style={styles.footer}>
-        {r.vicinity && (
-          <Text style={styles.vicinity} numberOfLines={1}>
-            {r.vicinity}
-          </Text>
-        )}
-        <TouchableOpacity
-          style={styles.detailsBtn}
-          onPress={() => onPressDetails(rec.placeId)}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.detailsBtnText}>Detayları gör →</Text>
-        </TouchableOpacity>
+        {/* LLM gerekçesi — bu kartın yıldız özelliği */}
+        <View style={styles.reasonBox}>
+          <Text style={styles.reasonLabel}>🤖 Neden bu?</Text>
+          <Text style={styles.reasonText}>{rec.reason}</Text>
+        </View>
+
+        {/* Adres + Detay CTA */}
+        <View style={styles.footer}>
+          {r.vicinity && (
+            <Text style={styles.vicinity} numberOfLines={1}>
+              {r.vicinity}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={styles.detailsBtn}
+            onPress={() => onPressDetails(rec.placeId)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.detailsBtnText}>Detayları gör →</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -149,7 +167,7 @@ function makeStyles(C: Colors) {
       backgroundColor: C.surface,
       borderRadius: 16,
       marginBottom: 14,
-      padding: 16,
+      overflow: 'hidden',
       shadowColor: C.shadow,
       shadowOpacity: 0.08,
       shadowRadius: 10,
@@ -157,6 +175,25 @@ function makeStyles(C: Colors) {
       elevation: 3,
       borderLeftWidth: 4,
       borderLeftColor: C.primary,
+    },
+    content: {
+      padding: 16,
+    },
+
+    photo: {
+      width: '100%',
+      aspectRatio: 16 / 9,
+      backgroundColor: C.border,
+    },
+    photoPlaceholder: {
+      width: '100%',
+      aspectRatio: 16 / 9,
+      backgroundColor: C.primarySurface,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    photoPlaceholderText: {
+      fontSize: 40,
     },
 
     header: {
