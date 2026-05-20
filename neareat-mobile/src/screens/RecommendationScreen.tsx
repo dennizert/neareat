@@ -52,7 +52,9 @@ export default function RecommendationScreen() {
     error,
     limitReached,
     noCandidates,
+    feedbackByPlaceId,
     fetchDinnerRecommendation,
+    submitFeedback,
   } = useAiRecommendationStore();
 
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
@@ -221,6 +223,8 @@ export default function RecommendationScreen() {
               recommendation={rec}
               index={i + 1}
               onPressDetails={handleDetails}
+              feedbackSentiment={feedbackByPlaceId[rec.placeId] ?? null}
+              onFeedback={submitFeedback}
             />
           ))}
         </View>

@@ -9,8 +9,8 @@
  * Mevcut RestaurantCard.tsx ile aynı style sözleşmesine uyar — useTheme + makeStyles.
  */
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import type { AiRecommendation } from '../types';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import type { AiRecommendation, FeedbackSentiment } from '../types';
 import StarRating from './StarRating';
 import { formatDistance } from '../utils/haversine';
 import { useTheme } from '../theme';
@@ -23,12 +23,18 @@ interface Props {
   /** Kart üstündeki sıra numarası (1, 2, 3) */
   index: number;
   onPressDetails: (placeId: string) => void;
+  /** Mevcut feedback durumu (optimistic, store'dan gelir) */
+  feedbackSentiment?: FeedbackSentiment | null;
+  /** Feedback gönder callback — store.submitFeedback'e bağlanır */
+  onFeedback?: (placeId: string, sentiment: FeedbackSentiment) => Promise<void>;
 }
 
 const RecommendationCard = React.memo(function RecommendationCard({
   recommendation: rec,
   index,
   onPressDetails,
+  feedbackSentiment = null,
+  onFeedback,
 }: Props) {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
@@ -44,6 +50,24 @@ const RecommendationCard = React.memo(function RecommendationCard({
 
   const [photoError, setPhotoError] = React.useState(false);
   const showPhoto = !!r.photoUrl && !photoError;
+  const [submittingFeedback, setSubmittingFeedback] = React.useState(false);
+
+  const handleFeedback = React.useCallback(
+    async (sentiment: FeedbackSentiment) => {
+      if (!onFeedback || submittingFeedback) return;
+      // Already selected — no-op
+      if (feedbackSentiment === sentiment) return;
+      setSubmittingFeedback(true);
+      try {
+        await onFeedback(rec.placeId, sentiment);
+      } catch {
+        Alert.alert('Hata', 'Feedback gönderilemedi. Tekrar dene.');
+      } finally {
+        setSubmittingFeedback(false);
+      }
+    },
+    [onFeedback, rec.placeId, feedbackSentiment, submittingFeedback]
+  );
 
   return (
     <View style={styles.card}>
@@ -121,6 +145,37 @@ const RecommendationCard = React.memo(function RecommendationCard({
             <Text style={styles.detailsBtnText}>Detayları gör →</Text>
           </TouchableOpacity>
         </View>
+
+        {/* 👍/👎 Feedback butonları (Sprint-2 Task #6) */}
+        {onFeedback && (
+          <View style={styles.feedbackRow}>
+            <Text style={styles.feedbackLabel}>Bu öneri nasıldı?</Text>
+            <View style={styles.feedbackBtns}>
+              <TouchableOpacity
+                style={[
+                  styles.feedbackBtn,
+                  feedbackSentiment === 'positive' && styles.feedbackBtnPositiveActive,
+                ]}
+                onPress={() => handleFeedback('positive')}
+                disabled={submittingFeedback}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.feedbackBtnText}>👍</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.feedbackBtn,
+                  feedbackSentiment === 'negative' && styles.feedbackBtnNegativeActive,
+                ]}
+                onPress={() => handleFeedback('negative')}
+                disabled={submittingFeedback}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.feedbackBtnText}>👎</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -289,6 +344,45 @@ function makeStyles(C: Colors) {
       fontSize: 13,
       fontWeight: '700',
       color: '#fff',
+    },
+
+    feedbackRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: C.border,
+    },
+    feedbackLabel: {
+      fontSize: 12,
+      color: C.textMuted,
+    },
+    feedbackBtns: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    feedbackBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      borderWidth: 1.5,
+      borderColor: C.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: C.surface,
+    },
+    feedbackBtnPositiveActive: {
+      borderColor: '#16A34A',
+      backgroundColor: '#F0FDF4',
+    },
+    feedbackBtnNegativeActive: {
+      borderColor: '#DC2626',
+      backgroundColor: '#FEF2F2',
+    },
+    feedbackBtnText: {
+      fontSize: 16,
     },
   });
 }
