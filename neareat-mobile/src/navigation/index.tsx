@@ -42,6 +42,7 @@ import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminRestaurantDetailScreen from '../screens/admin/AdminRestaurantDetailScreen';
 import AdminLogsScreen from '../screens/admin/AdminLogsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import RecommendationScreen from '../screens/RecommendationScreen';
 import NotificationBell from '../components/NotificationBell';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ConversationScreen from '../screens/messages/ConversationScreen';
@@ -378,6 +379,11 @@ export default function Navigation() {
                 name="Notifications"
                 component={NotificationsScreen}
                 options={{ ...H, title: 'Bildirimler' }}
+              />
+              <Stack.Screen
+                name="Recommendation"
+                component={RecommendationScreen}
+                options={{ ...H, title: 'AI Öneriler' }}
               />
               <Stack.Screen
                 name="Conversation"

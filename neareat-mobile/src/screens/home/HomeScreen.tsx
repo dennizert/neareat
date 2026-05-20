@@ -114,6 +114,24 @@ export default function HomeScreen() {
         <NotificationBell />
       </View>
 
+      {/* AI Recommendation CTA — Sprint-1 Task #8 */}
+      {viewMode === 'list' && (
+        <TouchableOpacity
+          style={styles.aiCta}
+          onPress={() => navigation.navigate('Recommendation')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.aiCtaIcon}>
+            <Text style={styles.aiCtaEmoji}>🤖</Text>
+          </View>
+          <View style={styles.aiCtaContent}>
+            <Text style={styles.aiCtaTitle}>Bu akşam ne yesem?</Text>
+            <Text style={styles.aiCtaSubtitle}>AI sana kişisel öneri hazırlasın</Text>
+          </View>
+          <Text style={styles.aiCtaArrow}>›</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Category Tabs */}
       <View style={styles.categoryBar}>
         <ScrollView
@@ -191,6 +209,34 @@ function makeStyles(C: Colors) {
     toggleActive: { backgroundColor: C.primary },
     toggleText: { fontSize: 13, color: C.textTertiary, fontWeight: '500' },
     toggleTextActive: { color: '#fff' },
+
+    aiCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: C.primary,
+      marginHorizontal: 16,
+      marginTop: 4,
+      marginBottom: 8,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      borderRadius: 14,
+      shadowColor: C.primary,
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 3,
+    },
+    aiCtaIcon: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center', alignItems: 'center',
+    },
+    aiCtaEmoji: { fontSize: 22 },
+    aiCtaContent: { flex: 1 },
+    aiCtaTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
+    aiCtaSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
+    aiCtaArrow: { color: '#fff', fontSize: 24, fontWeight: '300' },
 
     categoryBar: { backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.separator },
     categoryRow: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },

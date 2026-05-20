@@ -1,0 +1,257 @@
+/**
+ * RecommendationCard — AI Yemek Önerisi kart component'i (Sprint-1 Task #8)
+ *
+ * RestaurantCard'tan farkı:
+ *  - LLM'in 2-3 cümle "neden bu?" gerekçesini öne çıkarır
+ *  - "Detayları gör" butonu RestaurantDetail'a yönlendirir
+ *  - Photo yok (LLM yanıtında photoUrl gelmiyor — backend'de zenginleştirilebilir gelecekte)
+ *
+ * Mevcut RestaurantCard.tsx ile aynı style sözleşmesine uyar — useTheme + makeStyles.
+ */
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import type { AiRecommendation } from '../types';
+import StarRating from './StarRating';
+import { formatDistance } from '../utils/haversine';
+import { useTheme } from '../theme';
+import type { Colors } from '../theme';
+
+const PRICE_MAP: Record<number, string> = { 1: '₺', 2: '₺₺', 3: '₺₺₺', 4: '₺₺₺₺' };
+
+interface Props {
+  recommendation: AiRecommendation;
+  /** Kart üstündeki sıra numarası (1, 2, 3) */
+  index: number;
+  onPressDetails: (placeId: string) => void;
+}
+
+const RecommendationCard = React.memo(function RecommendationCard({
+  recommendation: rec,
+  index,
+  onPressDetails,
+}: Props) {
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+  const r = rec.restaurant;
+
+  // Mutfak tipini Google place_types'tan kullanıcı dostu metne çevir
+  // (restaurant + alt tip varsa alt tipi göster)
+  const primaryType = (r.types || [])
+    .filter((t) => t !== 'restaurant' && t !== 'food' && t !== 'point_of_interest' && t !== 'establishment')
+    .slice(0, 2)
+    .map(humanizeType)
+    .join(', ') || 'Restoran';
+
+  return (
+    <View style={styles.card}>
+      {/* Sıra numarası + Restoran ismi */}
+      <View style={styles.header}>
+        <View style={styles.rank}>
+          <Text style={styles.rankText}>{index}</Text>
+        </View>
+        <View style={styles.headerInfo}>
+          <Text style={styles.name} numberOfLines={2}>
+            {r.name}
+          </Text>
+          <Text style={styles.cuisine}>{primaryType}</Text>
+        </View>
+      </View>
+
+      {/* Meta row: rating + distance + price */}
+      <View style={styles.metaRow}>
+        {r.rating != null && (
+          <View style={styles.metaItem}>
+            <StarRating rating={r.rating} size={14} />
+            <Text style={styles.metaText}>
+              {r.rating.toFixed(1)}
+              {r.userRatingsTotal != null && ` (${r.userRatingsTotal})`}
+            </Text>
+          </View>
+        )}
+        <Text style={styles.metaDot}>·</Text>
+        <Text style={styles.distance}>{formatDistance(r.distanceKm)}</Text>
+        {r.priceLevel != null && PRICE_MAP[r.priceLevel] && (
+          <>
+            <Text style={styles.metaDot}>·</Text>
+            <Text style={styles.price}>{PRICE_MAP[r.priceLevel]}</Text>
+          </>
+        )}
+        {r.openNow === false && (
+          <View style={styles.closedBadge}>
+            <Text style={styles.closedText}>Kapalı</Text>
+          </View>
+        )}
+      </View>
+
+      {/* LLM gerekçesi — bu kartın yıldız özelliği */}
+      <View style={styles.reasonBox}>
+        <Text style={styles.reasonLabel}>🤖 Neden bu?</Text>
+        <Text style={styles.reasonText}>{rec.reason}</Text>
+      </View>
+
+      {/* Adres + Detay CTA */}
+      <View style={styles.footer}>
+        {r.vicinity && (
+          <Text style={styles.vicinity} numberOfLines={1}>
+            {r.vicinity}
+          </Text>
+        )}
+        <TouchableOpacity
+          style={styles.detailsBtn}
+          onPress={() => onPressDetails(rec.placeId)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.detailsBtnText}>Detayları gör →</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
+export default RecommendationCard;
+
+/**
+ * Google place type → Türkçe kullanıcı dostu metin.
+ * Minimum mapping — yeterli için. Geniş mapping ihtiyacı duyulursa utils'e taşınır.
+ */
+function humanizeType(type: string): string {
+  const map: Record<string, string> = {
+    italian_restaurant: 'İtalyan',
+    japanese_restaurant: 'Japon',
+    chinese_restaurant: 'Çin',
+    turkish_restaurant: 'Türk',
+    mexican_restaurant: 'Meksika',
+    indian_restaurant: 'Hint',
+    thai_restaurant: 'Tay',
+    french_restaurant: 'Fransız',
+    seafood_restaurant: 'Deniz Ürünleri',
+    steak_house: 'Steakhouse',
+    sushi_restaurant: 'Suşi',
+    pizza_restaurant: 'Pizza',
+    cafe: 'Kafe',
+    bakery: 'Fırın',
+    meal_takeaway: 'Paket Servis',
+    meal_delivery: 'Eve Servis',
+    bar: 'Bar',
+    night_club: 'Gece Kulübü',
+    fast_food_restaurant: 'Fast Food',
+  };
+  if (map[type]) return map[type];
+  // Fallback — snake_case → Capitalize Words
+  return type
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: C.surface,
+      borderRadius: 16,
+      marginBottom: 14,
+      padding: 16,
+      shadowColor: C.shadow,
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 3,
+      borderLeftWidth: 4,
+      borderLeftColor: C.primary,
+    },
+
+    header: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 10,
+      gap: 10,
+    },
+    rank: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: C.primarySurface,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 2,
+    },
+    rankText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: C.primary,
+    },
+    headerInfo: { flex: 1 },
+    name: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: C.textPrimary,
+      marginBottom: 2,
+    },
+    cuisine: {
+      fontSize: 13,
+      color: C.textTertiary,
+    },
+
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 12,
+      flexWrap: 'wrap',
+    },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    metaText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
+    metaDot: { fontSize: 13, color: C.textMuted },
+    distance: { fontSize: 13, color: C.primary, fontWeight: '600' },
+    price: { fontSize: 13, color: C.textSecondary, fontWeight: '600' },
+    closedBadge: {
+      backgroundColor: C.errorSurface,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+      marginLeft: 4,
+    },
+    closedText: { fontSize: 11, color: C.error, fontWeight: '600' },
+
+    reasonBox: {
+      backgroundColor: C.primarySurface,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 12,
+    },
+    reasonLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: C.primary,
+      marginBottom: 4,
+      letterSpacing: 0.2,
+    },
+    reasonText: {
+      fontSize: 14,
+      color: C.textPrimary,
+      lineHeight: 20,
+    },
+
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 10,
+    },
+    vicinity: {
+      flex: 1,
+      fontSize: 12,
+      color: C.textMuted,
+    },
+    detailsBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      backgroundColor: C.primary,
+      borderRadius: 20,
+    },
+    detailsBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#fff',
+    },
+  });
+}
