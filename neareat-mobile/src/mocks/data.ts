@@ -11,6 +11,7 @@ export const MOCK_USER: User = {
   photoUrl: 'https://i.pravatar.cc/100?u=neareat-test',
   fcmToken: null,
   authProvider: 'google',
+  emailVerified: true,
   role: 'USER',
   isSuspended: false,
 };

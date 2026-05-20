@@ -38,6 +38,7 @@ const mockUser: User = {
   photoUrl: null,
   fcmToken: null,
   authProvider: 'email',
+  emailVerified: false,
   role: 'USER',
   isSuspended: false,
 };
