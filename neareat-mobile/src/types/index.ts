@@ -612,6 +612,8 @@ export type RootStackParamList = {
   AdminLogs: undefined;
   // Notifications
   Notifications: undefined;
+  // AI Recommendation (Sprint-1 Task #8)
+  Recommendation: undefined;
 };
 
 export type MainTabParamList = {
