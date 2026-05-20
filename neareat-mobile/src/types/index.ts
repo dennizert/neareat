@@ -513,6 +513,60 @@ export interface FilterState {
   priceLevels: number[];
 }
 
+// ─── AI Yemek Önerisi (Sprint-1 Task #7) ─────────────────────────────────────
+//
+// İsim çakışması notu: mevcut `Recommendation` interface'i (sosyal feature —
+// kullanıcılar arası restoran önerisi) ile karışmasın diye AI öneri için
+// `AiRecommendation*` prefix kullanılıyor. Backend tarafında da aynı pattern:
+// `AiRecommendationLog` model + `POST /api/recommendations/dinner-tonight`.
+
+/** AI öneri motoruna istek payload'ı */
+export interface AiRecommendationRequest {
+  lat: number;
+  lng: number;
+  /** Opsiyonel kullanıcı mood'u — örn. 'hızlı' | 'şık' | 'romantik' | 'aile' */
+  mood?: string;
+}
+
+/** Bir restoranın AI tarafında oluşturulan kişisel öneri detayı */
+export interface AiRecommendation {
+  placeId: string;
+  /** LLM'in 2-3 cümle kişisel gerekçesi */
+  reason: string;
+  restaurant: {
+    name: string;
+    types: string[];
+    rating: number | null;
+    userRatingsTotal: number | null;
+    priceLevel: number | null;
+    vicinity: string | null;
+    location: { lat: number; lng: number } | null;
+    distanceKm: number;
+    openNow: boolean | null;
+  };
+}
+
+/** AI öneri motorunun başarılı response'u */
+export interface AiRecommendationResponse {
+  recommendations: AiRecommendation[];
+  /** LLM'in kullanıcıya ekstra notu (örn. "Yakında pek uygun seçenek yok"). Boş olabilir. */
+  noteToUser: string;
+  tier: 'free' | 'premium';
+  /** Kullanılan model id — debug/log için */
+  model: string;
+  /** Free tier kalan günlük hak. Premium ise null. */
+  remainingToday: number | null;
+  /** Free tier limit reset zamanı (ISO). Premium ise null. */
+  resetAt: string | null;
+  latencyMs: number;
+}
+
+/** Free tier 429 LIMIT_EXCEEDED response shape (custom error içinde taşınır) */
+export interface AiRecommendationLimitInfo {
+  message: string;
+  resetAt: string;
+}
+
 export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
