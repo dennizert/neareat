@@ -10,16 +10,16 @@ datasource db {
 // ─── Core ────────────────────────────────────────────────────────────────────
 
 model User {
-  id               String   @id @default(uuid())
-  googleId         String?  @unique @map("google_id")
-  email            String   @unique
-  displayName      String   @map("display_name")
-  photoUrl         String?  @map("photo_url")
-  fcmToken         String?  @map("fcm_token")
-  passwordHash     String?  @map("password_hash")
-  authProvider     String   @default("google") @map("auth_provider")
-  role             UserRole @default(USER)
-  isSuspended      Boolean  @default(false) @map("is_suspended")
+  id           String   @id @default(uuid())
+  googleId     String?  @unique @map("google_id")
+  email        String   @unique
+  displayName  String   @map("display_name")
+  photoUrl     String?  @map("photo_url")
+  fcmToken     String?  @map("fcm_token")
+  passwordHash String?  @map("password_hash")
+  authProvider String   @default("google") @map("auth_provider")
+  role         UserRole @default(USER)
+  isSuspended  Boolean  @default(false) @map("is_suspended")
 
   // Profile
   bio              String?  @db.Text
@@ -28,44 +28,48 @@ model User {
   isPublic         Boolean  @default(true) @map("is_public")
 
   // Gamification — denormalized for fast reads
-  starCount        Int      @default(0) @map("star_count")
+  starCount Int @default(0) @map("star_count")
 
   // Email verification (email/password auth)
-  emailVerified            Boolean   @default(false) @map("email_verified")
-  emailVerificationToken   String?   @unique @map("email_verification_token")
-  emailVerificationExpiry  DateTime? @map("email_verification_expiry")
-  passwordResetToken       String?   @unique @map("password_reset_token")
-  passwordResetExpiry      DateTime? @map("password_reset_expiry")
+  emailVerified           Boolean   @default(false) @map("email_verified")
+  emailVerificationToken  String?   @unique @map("email_verification_token")
+  emailVerificationExpiry DateTime? @map("email_verification_expiry")
+  passwordResetToken      String?   @unique @map("password_reset_token")
+  passwordResetExpiry     DateTime? @map("password_reset_expiry")
 
-  lastLoginAt      DateTime? @map("last_login_at")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  // AI Recommender — arkadaşlarla tercih paylaşımı (opt-in)
+  shareWithFriendsRecommender Boolean @default(false) @map("share_with_friends_recommender")
+
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Relations
   subscription            Subscription?
   favorites               Favorite[]
   reviews                 Review[]
   payments                Payment[]
-  sentFriendRequests      FriendRequest[]  @relation("SentRequests")
-  receivedFriendRequests  FriendRequest[]  @relation("ReceivedRequests")
-  sentRecommendations     Recommendation[] @relation("SentRecommendations")
-  receivedRecommendations Recommendation[] @relation("ReceivedRecommendations")
+  sentFriendRequests      FriendRequest[]       @relation("SentRequests")
+  receivedFriendRequests  FriendRequest[]       @relation("ReceivedRequests")
+  sentRecommendations     Recommendation[]      @relation("SentRecommendations")
+  receivedRecommendations Recommendation[]      @relation("ReceivedRecommendations")
   starEvents              StarEvent[]
   userRewards             UserReward[]
   collections             Collection[]
-  sharedCollections       CollectionShare[] @relation("SharedCollections")
+  sharedCollections       CollectionShare[]     @relation("SharedCollections")
   restaurantProfile       RestaurantProfile?
   notifications           Notification[]
-  sentMessages            Message[]        @relation("SentMessages")
-  receivedMessages        Message[]        @relation("ReceivedMessages")
-  givenReports            UserReport[]     @relation("ReportsGiven")
-  receivedReports         UserReport[]     @relation("ReportsReceived")
+  sentMessages            Message[]             @relation("SentMessages")
+  receivedMessages        Message[]             @relation("ReceivedMessages")
+  givenReports            UserReport[]          @relation("ReportsGiven")
+  receivedReports         UserReport[]          @relation("ReportsReceived")
   reservations            Reservation[]
   logs                    UserLog[]
-  mealGroupsCreated       MealGroup[]       @relation("MealGroupCreator")
-  mealGroupMembers        MealGroupMember[] @relation("MealGroupMemberships")
-  pollsCreated            RestaurantPoll[]  @relation("PollsCreated")
-  pollVotes               PollVote[]        @relation("PollVotes")
+  mealGroupsCreated       MealGroup[]           @relation("MealGroupCreator")
+  mealGroupMembers        MealGroupMember[]     @relation("MealGroupMemberships")
+  pollsCreated            RestaurantPoll[]      @relation("PollsCreated")
+  pollVotes               PollVote[]            @relation("PollVotes")
+  aiRecommendationLogs    AiRecommendationLog[]
 
   @@map("users")
 }
@@ -168,9 +172,9 @@ model FriendRequest {
 /// toUserId=null → herkese açık (profilde görünür)
 /// toUserId=X   → sadece X kullanıcısına özel mesaj
 model Recommendation {
-  id            String   @id @default(uuid())
-  fromUserId    String   @map("from_user_id")
-  toUserId      String?  @map("to_user_id")
+  id         String  @id @default(uuid())
+  fromUserId String  @map("from_user_id")
+  toUserId   String? @map("to_user_id")
 
   // Restoran snapshot — Google Places verisinin anlık kopyası
   placeId       String   @map("place_id")
@@ -180,8 +184,8 @@ model Recommendation {
   placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
   placeTypes    String[] @map("place_types")
 
-  message       String?  @db.Text
-  createdAt     DateTime @default(now()) @map("created_at")
+  message   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
 
   fromUser User  @relation("SentRecommendations", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser   User? @relation("ReceivedRecommendations", fields: [toUserId], references: [id], onDelete: SetNull)
@@ -205,7 +209,7 @@ model Collection {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   items  CollectionItem[]
   shares CollectionShare[]
 
@@ -361,50 +365,50 @@ enum ApprovalStatus {
 // ─── Restaurant Accounts ─────────────────────────────────────────────────────
 
 model RestaurantProfile {
-  id                 String         @id @default(uuid())
-  userId             String         @unique @map("user_id")
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
 
   // Business info
-  businessName       String         @map("business_name")
-  ownerName          String         @map("owner_name")
-  taxNumber          String         @unique @map("tax_number")
-  taxOffice          String         @map("tax_office")
-  taxCertificateData String?        @db.Text @map("tax_certificate_data")
+  businessName       String  @map("business_name")
+  ownerName          String  @map("owner_name")
+  taxNumber          String  @unique @map("tax_number")
+  taxOffice          String  @map("tax_office")
+  taxCertificateData String? @map("tax_certificate_data") @db.Text
   phone              String
-  contactEmail       String         @map("contact_email")
+  contactEmail       String  @map("contact_email")
   address            String
-  businessCategory   String         @map("business_category")
+  businessCategory   String  @map("business_category")
 
   // Google Places link
-  placeId            String?        @map("place_id")
-  placeName          String?        @map("place_name")
-  placeAddress       String?        @map("place_address")
-  placePhotoUrl      String?        @map("place_photo_url")
+  placeId       String? @map("place_id")
+  placeName     String? @map("place_name")
+  placeAddress  String? @map("place_address")
+  placePhotoUrl String? @map("place_photo_url")
 
   // Approval
-  status             ApprovalStatus @default(PENDING)
-  rejectionReason    String?        @db.Text @map("rejection_reason")
-  approvedAt         DateTime?      @map("approved_at")
-  reviewedByAdminId  String?        @map("reviewed_by_admin_id")
+  status            ApprovalStatus @default(PENDING)
+  rejectionReason   String?        @map("rejection_reason") @db.Text
+  approvedAt        DateTime?      @map("approved_at")
+  reviewedByAdminId String?        @map("reviewed_by_admin_id")
 
   // Extra info
-  reservationUrl      String?        @map("reservation_url")
-  announcement        String?        @db.VarChar(500)
-  announcementActive  Boolean        @default(false) @map("announcement_active")
-  acceptsReservations Boolean        @default(false) @map("accepts_reservations")
+  reservationUrl      String? @map("reservation_url")
+  announcement        String? @db.VarChar(500)
+  announcementActive  Boolean @default(false) @map("announcement_active")
+  acceptsReservations Boolean @default(false) @map("accepts_reservations")
 
   // Opening hours (JSON: { monday: { open: "09:00", close: "22:00", closed: false }, ... })
-  openingHours       Json?          @map("opening_hours")
+  openingHours Json? @map("opening_hours")
 
   // Discount
-  discountEnabled    Boolean        @default(false) @map("discount_enabled")
-  discountPercent    Float?         @map("discount_percent")
-  discountMinStars   Int?           @map("discount_min_stars")
-  discountNote       String?        @db.VarChar(200) @map("discount_note")
-  discountActiveUntil DateTime?     @map("discount_active_until")
+  discountEnabled     Boolean   @default(false) @map("discount_enabled")
+  discountPercent     Float?    @map("discount_percent")
+  discountMinStars    Int?      @map("discount_min_stars")
+  discountNote        String?   @map("discount_note") @db.VarChar(200)
+  discountActiveUntil DateTime? @map("discount_active_until")
 
-  createdAt          DateTime       @default(now()) @map("created_at")
-  updatedAt          DateTime       @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   menuItems     RestaurantMenu[]
@@ -417,13 +421,13 @@ model RestaurantProfile {
 }
 
 model RestaurantMenu {
-  id           String            @id @default(uuid())
-  restaurantId String            @map("restaurant_id")
-  data         String            @db.Text
-  mimeType     String            @map("mime_type")
-  fileName     String?           @map("file_name")
-  sortOrder    Int               @default(0) @map("sort_order")
-  uploadedAt   DateTime          @default(now()) @map("uploaded_at")
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  data         String   @db.Text
+  mimeType     String   @map("mime_type")
+  fileName     String?  @map("file_name")
+  sortOrder    Int      @default(0) @map("sort_order")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
 
   restaurant RestaurantProfile @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
@@ -431,12 +435,12 @@ model RestaurantMenu {
 }
 
 model ReviewReply {
-  id           String            @id @default(uuid())
-  restaurantId String            @map("restaurant_id")
-  reviewId     String            @unique @map("review_id")
-  content      String            @db.VarChar(500)
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  reviewId     String   @unique @map("review_id")
+  content      String   @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   restaurant RestaurantProfile @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   review     Review            @relation(fields: [reviewId], references: [id], onDelete: Cascade)
@@ -474,7 +478,7 @@ model UserReport {
   reportedId  String   @map("reported_id")
   reason      String   @db.VarChar(1000)
   status      String   @default("PENDING")
-  actionTaken String?  @db.VarChar(500) @map("action_taken")
+  actionTaken String?  @map("action_taken") @db.VarChar(500)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -489,27 +493,27 @@ model UserReport {
 // ─── Reservations ─────────────────────────────────────────────────────────────
 
 model Reservation {
-  id              String            @id @default(uuid())
-  userId          String            @map("user_id")
-  restaurantId    String            @map("restaurant_id")
-  placeId         String            @map("place_id")
-  placeName       String            @map("place_name")
+  id           String @id @default(uuid())
+  userId       String @map("user_id")
+  restaurantId String @map("restaurant_id")
+  placeId      String @map("place_id")
+  placeName    String @map("place_name")
 
-  date            String            // "2026-05-20" yerel tarih
-  time            String            // "19:30"
-  guestCount      Int               @map("guest_count")
-  occasion        String?           @db.VarChar(100)
-  specialRequests String?           @db.VarChar(500) @map("special_requests")
+  date            String // "2026-05-20" yerel tarih
+  time            String // "19:30"
+  guestCount      Int     @map("guest_count")
+  occasion        String? @db.VarChar(100)
+  specialRequests String? @map("special_requests") @db.VarChar(500)
 
   status          ReservationStatus @default(PENDING)
-  rejectionReason String?           @db.VarChar(500) @map("rejection_reason")
-  attended        Boolean?          // null = belirlenmedi, true = geldi, false = gelmedi
+  rejectionReason String?           @map("rejection_reason") @db.VarChar(500)
+  attended        Boolean? // null = belirlenmedi, true = geldi, false = gelmedi
 
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  restaurant RestaurantProfile @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant RestaurantProfile    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   messages   ReservationMessage[]
 
   @@index([userId])
@@ -519,12 +523,12 @@ model Reservation {
 }
 
 model ReservationMessage {
-  id            String      @id @default(uuid())
-  reservationId String      @map("reservation_id")
-  senderId      String      @map("sender_id")
-  senderRole    String      @map("sender_role") // "USER" | "RESTAURANT"
-  content       String      @db.VarChar(1000)
-  createdAt     DateTime    @default(now()) @map("created_at")
+  id            String   @id @default(uuid())
+  reservationId String   @map("reservation_id")
+  senderId      String   @map("sender_id")
+  senderRole    String   @map("sender_role") // "USER" | "RESTAURANT"
+  content       String   @db.VarChar(1000)
+  createdAt     DateTime @default(now()) @map("created_at")
 
   reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
@@ -626,7 +630,7 @@ model PollVote {
   id        String   @id @default(uuid())
   optionId  String   @map("option_id")
   userId    String   @map("user_id")
-  vote      String   // YES | NO | MAYBE
+  vote      String // YES | NO | MAYBE
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -638,12 +642,39 @@ model PollVote {
   @@map("poll_votes")
 }
 
+// ─── AI Recommender ───────────────────────────────────────────────────────────
+
+/// Claude API'ye gönderilen her AI öneri çağrısı burada loglanır.
+/// Audit, free-tier rate limit sayımı ve token maliyet izleme için kullanılır.
+/// placeId'ler Google Places ID'leri (string), Restaurant tablosu yok.
+model AiRecommendationLog {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  requestedAt       DateTime @default(now()) @map("requested_at")
+  model             String // "claude-haiku-4-5-20251001" | "claude-sonnet-4-6"
+  candidatePlaceIds String[] @map("candidate_place_ids")
+  suggestedPlaceIds String[] @map("suggested_place_ids")
+  promptTokens      Int      @default(0) @map("prompt_tokens")
+  completionTokens  Int      @default(0) @map("completion_tokens")
+  cachedTokens      Int      @default(0) @map("cached_tokens")
+  latencyMs         Int      @default(0) @map("latency_ms")
+  mood              String?  @db.VarChar(50)
+  lat               Float?
+  lng               Float?
+  responseJson      Json?    @map("response_json")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, requestedAt])
+  @@map("ai_recommendation_logs")
+}
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 model Notification {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
-  type      String   // FRIEND_REQUEST | INSTANT_DISCOUNT | LEVEL_UP | RECOMMENDATION | REVIEW_REPLY
+  type      String // FRIEND_REQUEST | INSTANT_DISCOUNT | LEVEL_UP | RECOMMENDATION | REVIEW_REPLY
   title     String
   body      String
   data      Json?
