@@ -18,6 +18,8 @@ const { isPremiumUser } = require('../utils/premiumCheck');
 const { recommend } = require('../services/recommendationService');
 
 const FREE_DAILY_LIMIT = 3;
+const FEEDBACK_DAILY_LIMIT = 50;
+const MAX_COMMENT_LENGTH = 500;
 
 // Mood input validasyonu — controlled vocabulary değil, kullanıcı serbest giriş
 // yapabilir ama uzunluk sınırı koyuyoruz. LLM zaten 7-8 örnek mood'u tanıyor.
@@ -129,6 +131,7 @@ async function getDinnerTonight(req, res, next) {
         location: r.candidate.location,
         distanceKm: r.candidate.distanceKm,
         openNow: r.candidate.openNow,
+        photoUrl: r.candidate.photoUrl ?? null,
       },
     }));
 
@@ -146,13 +149,82 @@ async function getDinnerTonight(req, res, next) {
   }
 }
 
+/**
+ * Kullanıcının bugün verdiği feedback sayısını say (anti-spam).
+ */
+async function countTodayFeedback(userId) {
+  const since = getIstanbulMidnightUtc();
+  return prisma.recommendationFeedback.count({
+    where: { userId, createdAt: { gte: since } },
+  });
+}
+
+/**
+ * POST /api/recommendations/feedback
+ * body: { placeId, sentiment, aiRecommendationLogId?, comment?, visited? }
+ */
+async function postFeedback(req, res, next) {
+  try {
+    const { placeId, sentiment, aiRecommendationLogId, comment, visited } = req.body || {};
+
+    // Validation
+    if (!placeId || typeof placeId !== 'string') {
+      return res.status(400).json({ error: 'placeId zorunlu (string)' });
+    }
+    if (sentiment !== 'positive' && sentiment !== 'negative') {
+      return res.status(400).json({
+        error: 'sentiment "positive" veya "negative" olmalı',
+      });
+    }
+    let trimmedComment = null;
+    if (comment != null) {
+      if (typeof comment !== 'string') {
+        return res.status(400).json({ error: 'comment string olmalı' });
+      }
+      trimmedComment = comment.trim().slice(0, MAX_COMMENT_LENGTH) || null;
+    }
+    if (visited != null && typeof visited !== 'boolean') {
+      return res.status(400).json({ error: 'visited boolean olmalı' });
+    }
+
+    // Anti-spam rate limit
+    const todayCount = await countTodayFeedback(req.user.id);
+    if (todayCount >= FEEDBACK_DAILY_LIMIT) {
+      return res.status(429).json({
+        error: 'FEEDBACK_LIMIT_EXCEEDED',
+        message: 'Günlük feedback limitine ulaştın.',
+        resetAt: getNextIstanbulMidnightUtc().toISOString(),
+      });
+    }
+
+    const feedback = await prisma.recommendationFeedback.create({
+      data: {
+        userId: req.user.id,
+        placeId,
+        sentiment,
+        aiRecommendationLogId: aiRecommendationLogId ?? null,
+        comment: trimmedComment,
+        visited: typeof visited === 'boolean' ? visited : false,
+      },
+    });
+
+    return res.status(201).json({ id: feedback.id, sentiment, placeId });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getDinnerTonight,
+  postFeedback,
   // testable internals
   __test: {
     FREE_DAILY_LIMIT,
+    FEEDBACK_DAILY_LIMIT,
     MAX_MOOD_LENGTH,
+    MAX_COMMENT_LENGTH,
     countTodayCalls,
+    countTodayFeedback,
     getIstanbulMidnightUtc,
     getNextIstanbulMidnightUtc,
   },

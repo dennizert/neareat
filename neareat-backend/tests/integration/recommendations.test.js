@@ -34,6 +34,7 @@ const mockPrisma = {
   starEvent: { findMany: jest.fn(), create: jest.fn() },
   recommendation: { findMany: jest.fn(), count: jest.fn() },
   aiRecommendationLog: { create: jest.fn(), count: jest.fn() },
+  recommendationFeedback: { create: jest.fn(), count: jest.fn() },
   userLog: { create: jest.fn() },
   notification: { create: jest.fn() },
   $queryRaw: jest.fn(),
@@ -138,6 +139,10 @@ beforeEach(() => {
   // AiRecommendationLog stubs
   mockPrisma.aiRecommendationLog.create.mockResolvedValue({ id: 'log-1' });
   mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
+
+  // RecommendationFeedback stubs
+  mockPrisma.recommendationFeedback.create.mockResolvedValue({ id: 'fb-1', sentiment: 'positive', placeId: 'p1' });
+  mockPrisma.recommendationFeedback.count.mockResolvedValue(0);
 
   // logService
   mockPrisma.userLog.create.mockResolvedValue({});
@@ -512,5 +517,142 @@ describe('POST /api/recommendations/dinner-tonight — mood handling', () => {
     expect(res.status).toBe(200);
     const loggedMood = mockPrisma.aiRecommendationLog.create.mock.calls[0][0].data.mood;
     expect(loggedMood).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FEEDBACK ENDPOINT (Sprint-2 Task #5)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('POST /api/recommendations/feedback — auth + validation', () => {
+  it('returns 401 without token', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .send({ placeId: 'p1', sentiment: 'positive' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when placeId missing', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ sentiment: 'positive' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/placeId/);
+  });
+
+  it('returns 400 when sentiment is invalid', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'meh' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/sentiment/);
+  });
+
+  it('returns 400 when comment is not a string', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'positive', comment: 12345 });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when visited is not a boolean', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'positive', visited: 'yes' });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/recommendations/feedback — happy path', () => {
+  it('returns 201 with id + sentiment + placeId', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'positive' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.id).toBeDefined();
+    expect(res.body.sentiment).toBe('positive');
+    expect(res.body.placeId).toBe('p1');
+  });
+
+  it('writes to RecommendationFeedback with correct data', async () => {
+    await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({
+        placeId: 'p1',
+        sentiment: 'negative',
+        aiRecommendationLogId: 'log-1',
+        comment: 'Çok kalabalıktı',
+        visited: true,
+      });
+
+    expect(mockPrisma.recommendationFeedback.create).toHaveBeenCalledTimes(1);
+    const data = mockPrisma.recommendationFeedback.create.mock.calls[0][0].data;
+    expect(data.userId).toBe(testUser.id);
+    expect(data.placeId).toBe('p1');
+    expect(data.sentiment).toBe('negative');
+    expect(data.aiRecommendationLogId).toBe('log-1');
+    expect(data.comment).toBe('Çok kalabalıktı');
+    expect(data.visited).toBe(true);
+  });
+
+  it('accepts negative sentiment', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'negative' });
+    expect(res.status).toBe(201);
+  });
+
+  it('aiRecommendationLogId is optional', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'positive' });
+    expect(res.status).toBe(201);
+    const data = mockPrisma.recommendationFeedback.create.mock.calls[0][0].data;
+    expect(data.aiRecommendationLogId).toBeNull();
+  });
+
+  it('trims comment and enforces 500-char max', async () => {
+    const longComment = '  ' + 'a'.repeat(600) + '  ';
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'positive', comment: longComment });
+    expect(res.status).toBe(201);
+    const data = mockPrisma.recommendationFeedback.create.mock.calls[0][0].data;
+    expect(data.comment.length).toBeLessThanOrEqual(500);
+  });
+
+  it('defaults visited to false when not provided', async () => {
+    await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'positive' });
+    const data = mockPrisma.recommendationFeedback.create.mock.calls[0][0].data;
+    expect(data.visited).toBe(false);
+  });
+});
+
+describe('POST /api/recommendations/feedback — rate limit', () => {
+  it('returns 429 FEEDBACK_LIMIT_EXCEEDED when daily limit hit', async () => {
+    mockPrisma.recommendationFeedback.count.mockResolvedValue(50);
+
+    const res = await request(app)
+      .post('/api/recommendations/feedback')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: 'p1', sentiment: 'positive' });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error).toBe('FEEDBACK_LIMIT_EXCEEDED');
+    expect(res.body.resetAt).toBeDefined();
+    expect(mockPrisma.recommendationFeedback.create).not.toHaveBeenCalled();
   });
 });
