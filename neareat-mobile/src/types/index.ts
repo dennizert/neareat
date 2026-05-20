@@ -616,6 +616,8 @@ export type RootStackParamList = {
   Notifications: undefined;
   // AI Recommendation (Sprint-1 Task #8)
   Recommendation: undefined;
+  // AI-specific paywall (Sprint-1 Task #10)
+  PremiumUpsell: { resetAt?: string };
 };
 
 export type MainTabParamList = {

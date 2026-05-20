@@ -11,7 +11,7 @@
  *      - noCandidates → "uzaklaş" mesajı
  *      - generic → tekrar dene butonu
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -57,6 +57,17 @@ export default function RecommendationScreen() {
 
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+
+  // Auto-navigate to PremiumUpsell on 429 transition (Sprint-1 Task #10).
+  // useRef ile transition'ı tespit ediyoruz — sadece false→true geçişinde push,
+  // ekran focus geri geldiğinde tekrar push olmasın diye.
+  const prevLimitReachedRef = useRef(false);
+  useEffect(() => {
+    if (limitReached && !prevLimitReachedRef.current) {
+      navigation.navigate('PremiumUpsell', { resetAt: resetAt ?? undefined });
+    }
+    prevLimitReachedRef.current = limitReached;
+  }, [limitReached, resetAt, navigation]);
 
   const handleFetch = useCallback(async () => {
     setLocating(true);
@@ -163,7 +174,7 @@ export default function RecommendationScreen() {
           )}
           <TouchableOpacity
             style={styles.upgradeBtn}
-            onPress={() => navigation.navigate('Paywall', { trigger: 'onboarding' })}
+            onPress={() => navigation.navigate('PremiumUpsell', { resetAt: resetAt ?? undefined })}
             activeOpacity={0.85}
           >
             <Text style={styles.upgradeBtnText}>✨ Premium'a Geç</Text>
