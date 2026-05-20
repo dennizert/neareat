@@ -36,8 +36,38 @@ export default function ProfileScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [activeRecTab, setActiveRecTab] = useState<'received' | 'mine'>('received');
+  const [shareTogglePending, setShareTogglePending] = useState(false);
   const lastFetchRef = useRef<number>(0);
   const premium = isPremium();
+
+  /**
+   * AI öneri arkadaş paylaşımı toggle (Sprint-1 Task #9).
+   * Optimistic update: UI önce, sonra API. Hata olursa eski değere dön.
+   */
+  async function handleToggleShareRecommender(next: boolean) {
+    if (shareTogglePending) return;
+    const previous = !!profile?.shareWithFriendsRecommender;
+    if (profile) {
+      // Optimistic
+      setProfile({ ...profile, shareWithFriendsRecommender: next });
+    }
+    setShareTogglePending(true);
+    try {
+      const { data } = await api.put('/profile/me', { shareWithFriendsRecommender: next });
+      if (data) setProfile(data);
+    } catch (err: any) {
+      // Rollback
+      if (profile) {
+        setProfile({ ...profile, shareWithFriendsRecommender: previous });
+      }
+      Alert.alert(
+        'Hata',
+        'Tercih güncellenemedi. İnternet bağlantını kontrol et.',
+      );
+    } finally {
+      setShareTogglePending(false);
+    }
+  }
 
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
@@ -286,6 +316,26 @@ export default function ProfileScreen() {
         <ActionRow label="⭐ Yıldızlarım & Ödüller" onPress={() => navigation.navigate('Rewards')} styles={styles} />
         <ActionRow label="✏️ Profili Düzenle" onPress={() => navigation.navigate('EditProfile')} styles={styles} />
 
+        {/* AI Öneri arkadaş paylaşımı opt-in (Sprint-1 Task #9) */}
+        <View style={styles.aiShareRow}>
+          <View style={styles.aiShareTextWrap}>
+            <Text style={styles.actionText}>🤖 AI Öneri Paylaşımı</Text>
+            <Text style={styles.aiShareSub}>
+              Tercihlerimi arkadaşlarımın AI önerilerinde kullansın
+            </Text>
+            <Text style={styles.aiShareHint}>
+              Sadece adın ve verdiğin yıldızlar anonim olarak paylaşılır.
+            </Text>
+          </View>
+          <Switch
+            value={!!profile?.shareWithFriendsRecommender}
+            onValueChange={handleToggleShareRecommender}
+            trackColor={{ false: C.border, true: C.primary }}
+            thumbColor={'#fff'}
+            disabled={shareTogglePending}
+          />
+        </View>
+
         {/* Dark Mode Toggle Row */}
         <View style={styles.actionRow}>
           <Text style={styles.actionText}>{darkModeOn ? '🌙 Karanlık Mod' : '☀️ Karanlık Mod'}</Text>
@@ -438,5 +488,28 @@ function makeStyles(C: Colors) {
     actionText: { flex: 1, fontSize: 15, color: C.textSecondary },
     actionDanger: { color: C.error },
     actionChevron: { fontSize: 20, color: C.disabled },
+
+    aiShareRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderColor: C.background,
+      gap: 12,
+    },
+    aiShareTextWrap: { flex: 1 },
+    aiShareSub: {
+      fontSize: 12,
+      color: C.textTertiary,
+      marginTop: 2,
+      lineHeight: 16,
+    },
+    aiShareHint: {
+      fontSize: 11,
+      color: C.textMuted,
+      marginTop: 4,
+      fontStyle: 'italic',
+    },
   });
 }

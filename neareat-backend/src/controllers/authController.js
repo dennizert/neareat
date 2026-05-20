@@ -9,6 +9,7 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/e
 function sanitizeUser(user) {
   const {
     passwordHash, bio, city, favoriteCuisines, isPublic, starCount,
+    shareWithFriendsRecommender, // profile data, getMyProfile'da döner
     emailVerificationToken, emailVerificationExpiry,
     passwordResetToken, passwordResetExpiry,
     ...safe
