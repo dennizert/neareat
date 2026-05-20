@@ -17,6 +17,7 @@ Yakınındaki restoranları keşfetmeni, arkadaşlarınla paylaşmanı ve restor
 - [Mobil Uygulama](#mobil-uygulama)
 - [Admin Paneli](#admin-paneli)
 - [Deploy](#deploy)
+  - [Production Deploy Guide (Railway)](#production-deploy-guide-railway)
 - [Güvenlik](#güvenlik)
 
 ---
@@ -287,6 +288,13 @@ REDIS_URL=redis://localhost:6379
 | `20260510024504_add_last_login_at` | User.lastLoginAt |
 | `20260510174701_add_notifications` | Notification tablosu |
 | `20260511120000_add_messages_and_reports` | Message, UserReport + FriendRequest.note |
+| `20260511140000_add_reservations` | Rezervasyon sistemi |
+| `20260512000000_ensure_messages_reports` | FK idempotent fix |
+| `20260518000000_add_user_logs` | UserLog aktivite tablosu |
+| `20260519100000_add_email_verification` | Email doğrulama |
+| `20260519100000_add_meal_groups` | Meal group özelliği |
+| `20260520120000_add_ai_recommender_schema` | AiRecommendationLog (Sprint-1) |
+| `20260521000000_add_recommendation_feedback` | RecommendationFeedback — 👍/👎 (Sprint-2) |
 
 ### Ana Tablolar
 
@@ -482,26 +490,189 @@ Admin oluşturmak için: `POST /api/admin/seed`
 
 ## Deploy
 
-### Railway (Production)
+### Production Deploy Guide (Railway)
+
+> Bu guide 2026-05-20 production deploy'undan çıkan 7 gerçek sorun üzerine inşa edildi.
+> Yeni bir geliştirici bu adımları izleyerek 5-10 dakikada deploy yapabilir.
+
+---
+
+#### 1. İlk Kurulum — 3 Servis Oluştur
+
+Railway dashboard → **New Project** → Empty project:
+
+| Servis | Nasıl eklenir | Notlar |
+|---|---|---|
+| **Postgres** | + New → Database → PostgreSQL | Stock template; volume otomatik oluşur |
+| **Redis** | + New → Database → Redis | Stock template; volume otomatik oluşur |
+| **Backend** | + New → GitHub Repo → neareat | GitHub bağlantısı gerekli |
+
+**⚠️ KRİTİK — Backend service oluşturulduktan sonra:**
+
+```
+Backend Service → Settings → Build → Root Directory = neareat-backend
+```
+
+Bu ayar yapılmazsa Railpack "could not determine how to build" hatası verir
+çünkü monorepo kökünde `neareat-backend/`, `neareat-mobile/`, `docs/` var.
+
+---
+
+#### 2. Env Variables
+
+Backend service → Variables tab → her birini ekle:
+
+| Değişken | Değer |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (reference — statik URL değil!) |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` (reference) |
+| `JWT_SECRET` | Güçlü rastgele string (production'a özel, lokal'den farklı) |
+| `ANTHROPIC_API_KEY` | `sk-ant-api03-...` |
+| `GOOGLE_PLACES_API_KEY` | `AIza...` |
+| `RESEND_API_KEY` | Resend dashboard'dan |
+| `FIREBASE_PROJECT_ID` | Firebase console'dan |
+| `FIREBASE_CLIENT_EMAIL` | Firebase Admin SDK |
+| `FIREBASE_PRIVATE_KEY` | `"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"` (tırnak içinde) |
+| `ADMIN_SEED_SECRET` | Admin seed endpoint koruma şifresi |
+| `ALLOWED_ORIGINS` | Virgülle ayrılmış izinli origin'ler |
+| `IYZICO_API_KEY` | iyzico merchant API key |
+| `IYZICO_SECRET_KEY` | iyzico merchant secret |
+
+> `DATABASE_URL` ve `REDIS_URL` için **reference syntax** (`${{ServiceName.VAR}}`) kullan.
+> Statik connection string yapıştırırsan service restart veya IP değişiminde kopar.
+
+---
+
+#### 3. Migration Sırası ve Start Script
+
+Migration'lar her deploy'da otomatik çalışır — `package.json`:
+
+```json
+"start": "prisma migrate resolve --rolled-back 20260511120000_add_messages_and_reports 2>/dev/null; prisma migrate deploy && node src/app.js"
+```
+
+- `resolve --rolled-back` → P3009 (failed migration kaydı) oluşursa otomatik temizler
+- `2>/dev/null` → "already not failed" cosmetic stderr'i bastırır
+- `&& node` → migrate fail ederse server start olmaz, hızlı fail
+
+**İlk deploy'dan sonra admin seed:**
 
 ```bash
-# railway CLI gerekmeli (ayrı terminal — VSCode terminali interaktif komutları desteklemiyor)
-railway login
+curl -X POST https://<url>/api/admin/seed \
+  -H "Content-Type: application/json" \
+  -d '{"secret":"<ADMIN_SEED_SECRET>","email":"...","password":"..."}'
+```
 
-# Backend deploy (--service flag zorunlu — birden fazla servis var)
+---
+
+#### 4. Rutin Deploy (Sonraki Güncellemeler)
+
+```bash
+# master'a push → Railway otomatik deploy eder (GitHub bağlantısı varsa)
+git push origin master
+
+# Manuel deploy gerekirce (Railway CLI):
+railway login
 cd neareat-backend
 railway up --service "railway up" --detach
+# ⚠️ railway up SADECE backend service için — Postgres/Redis'e asla!
 ```
 
-**Servisler:**
-- `railway up` — Node.js backend
-- `Postgres` — PostgreSQL (postgres-volume)
-- `Redis` — Redis (redis-volume)
+---
 
-Migration'lar her deploy'da `package.json` start komutu ile otomatik uygulanır:
-```json
-"start": "prisma migrate deploy && node src/app.js"
+#### 5. Yaşanan 7 Sorun ve Çözümleri
+
+##### Problem 1 — `railway up` ile Postgres bozuldu
+**Belirti:** PG container "Crashed Building" loop, build failed.  
+**Sebep:** `railway up` komutu Postgres service'i üzerinde çalıştırıldı — stock image yerine kodu deploy etmeye çalıştı.  
+**Çözüm:** PG service'i sil (volume dahil) → + New Database → PostgreSQL  
+**Kural:** `railway up` SADECE backend service. Postgres/Redis için dashboard → "Restart Deployment".
+
+##### Problem 2 — P3018: FK constraint hatası
+**Belirti:** `migrate deploy` "column reporter_id referenced in foreign key constraint does not exist"  
+**Sebep:** `messages_and_reports` migration'ında copy-paste hatası — yanlış tabloya FK eklendi.  
+**Çözüm:** Migration SQL düzeltildi + idempotent `IF NOT EXISTS` / `DO $...$ IF NOT EXISTS` bloklarına geçildi.
+
+##### Problem 3 — P3009: Failed migration kaydı
+**Belirti:** "found failed migrations in target database, new migrations will not be applied"  
+**Sebep:** Önceki başarısız deploy `_prisma_migrations` tablosunda kayıt bıraktı.  
+**Çözüm A (otomatik):** Start script'teki `resolve --rolled-back` ile halledilir.  
+**Çözüm B (manuel):**
+```sql
+DELETE FROM _prisma_migrations WHERE migration_name = '<isim>';
 ```
+**Çözüm C (nükleer — partial schema varsa):**
+```sql
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO public;
+```
+Ardından backend redeploy → tüm migration'lar baştan temiz uygulanır.
+
+##### Problem 4 — Railway plan quota dolu
+**Belirti:** Servisler "online" görünür ama dış HTTP istekler 502; dashboard'da "Access Limited" banner.  
+**Sebep:** Free trial / hobby plan limit aşıldı.  
+**Çözüm:** Railway dashboard → Billing → Upgrade (en az Hobby plan).
+
+##### Problem 5 — Build cache eski migration tutuyor
+**Belirti:** Hotfix push edildi ama deploy log eski migration imzasıyla fail ediyor.  
+**Sebep:** Docker layer cache eski dosyaları tuttu.  
+**Çözüm:**
+```bash
+git commit --allow-empty -m "chore: cache bust" && git push origin master
+```
+
+##### Problem 6 — Railpack monorepo'da root dir bilmiyor ⚠️ KRİTİK
+**Belirti:** Build fail: "Railpack could not determine how to build the app"  
+**Sebep:** Railpack monorepo kökünde hangi alt klasörü build edeceğini otomatik algılamıyor.  
+**Çözüm:** Backend service → Settings → **Root Directory = `neareat-backend`**  
+**Not:** Yeni service oluştururken bu ayar ilk yapılacak şeydir.
+
+##### Problem 7 — Schema'da partial state
+**Belirti:** Yeni PG'de de aynı FK hatası — `IF NOT EXISTS` skip ediyor ama beklenen tablo zaten eksik.  
+**Sebep:** Birden fazla başarısız deploy girişimi kısmi DDL bıraktı.  
+**Çözüm:** Problem 3 Çözüm C (DROP SCHEMA + tam yeniden uygulama).
+
+---
+
+#### 6. Troubleshooting Hızlı Referans
+
+| Belirti | Kontrol et | Çözüm |
+|---|---|---|
+| `502 Bad Gateway` | Backend service → Deployments → log | Crash sebebine göre yukarıdaki problemler |
+| "Railpack could not determine" | Backend → Settings → Root Directory | `neareat-backend` yaz |
+| "P3009 failed migration" | `_prisma_migrations` tablosu | Problem 3 çözümleri |
+| "P1001 can't reach database server" | `DATABASE_URL` değeri | `${{Postgres.DATABASE_URL}}` reference syntax? |
+| Servisler online ama `502` | Dashboard → Billing | Plan quota; upgrade gerekiyor |
+| Migration pass ama eski değişiklikler görünmüyor | Build log tarihi | Boş commit ile cache bust |
+| `ANTHROPIC_API_KEY` missing | Variables tab | Env var ekle, redeploy |
+
+---
+
+#### 7. Health Check
+
+```bash
+# Temel sağlık
+curl https://railway-up-production-6cdc.up.railway.app/health
+# Beklenen: {"status":"ok","db":true,"redis":true,"uptime":N}
+
+# Auth endpoint yanıt veriyor mu?
+curl -X POST https://railway-up-production-6cdc.up.railway.app/api/auth/login/email \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"wrong"}' 
+# Beklenen: 401 (endpoint çalışıyor)
+
+# AI öneri endpoint (JWT gerekiyor — 401 beklenen, 502 değil)
+curl -X POST https://railway-up-production-6cdc.up.railway.app/api/recommendations/dinner-tonight \
+  -H "Content-Type: application/json" \
+  -d '{"lat":41.04,"lng":28.98}'
+# Beklenen: {"error":"Yetkisiz erişim"} (401) — çalışıyor
+```
+
+---
+
+### Android APK Build
 
 ### Android APK Build
 
