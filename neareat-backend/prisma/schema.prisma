@@ -30,6 +30,13 @@ model User {
   // Gamification — denormalized for fast reads
   starCount        Int      @default(0) @map("star_count")
 
+  // Email verification (email/password auth)
+  emailVerified            Boolean   @default(false) @map("email_verified")
+  emailVerificationToken   String?   @unique @map("email_verification_token")
+  emailVerificationExpiry  DateTime? @map("email_verification_expiry")
+  passwordResetToken       String?   @unique @map("password_reset_token")
+  passwordResetExpiry      DateTime? @map("password_reset_expiry")
+
   lastLoginAt      DateTime? @map("last_login_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
@@ -53,6 +60,12 @@ model User {
   receivedMessages        Message[]        @relation("ReceivedMessages")
   givenReports            UserReport[]     @relation("ReportsGiven")
   receivedReports         UserReport[]     @relation("ReportsReceived")
+  reservations            Reservation[]
+  logs                    UserLog[]
+  mealGroupsCreated       MealGroup[]       @relation("MealGroupCreator")
+  mealGroupMembers        MealGroupMember[] @relation("MealGroupMemberships")
+  pollsCreated            RestaurantPoll[]  @relation("PollsCreated")
+  pollVotes               PollVote[]        @relation("PollVotes")
 
   @@map("users")
 }
@@ -91,6 +104,7 @@ model Favorite {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, placeId])
+  @@index([placeId])
   @@map("favorites")
 }
 
@@ -107,6 +121,7 @@ model Review {
   reply ReviewReply?
 
   @@unique([userId, placeId])
+  @@index([placeId])
   @@map("reviews")
 }
 
@@ -172,6 +187,7 @@ model Recommendation {
   toUser   User? @relation("ReceivedRecommendations", fields: [toUserId], references: [id], onDelete: SetNull)
 
   @@index([fromUserId])
+  @@index([fromUserId, createdAt])
   @@index([toUserId])
   @@index([placeId])
   @@map("recommendations")
@@ -247,6 +263,7 @@ model StarEvent {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, type, referenceId])
   @@map("star_events")
 }
 
@@ -312,6 +329,16 @@ enum StarEventType {
   RECOMMENDATION
   FRIEND_ADDED
   RATING
+  RESERVATION
+  RESERVATION_ATTENDED
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+  COMPLETED
 }
 
 enum RewardType {
@@ -361,9 +388,10 @@ model RestaurantProfile {
   reviewedByAdminId  String?        @map("reviewed_by_admin_id")
 
   // Extra info
-  reservationUrl     String?        @map("reservation_url")
-  announcement       String?        @db.VarChar(500)
-  announcementActive Boolean        @default(false) @map("announcement_active")
+  reservationUrl      String?        @map("reservation_url")
+  announcement        String?        @db.VarChar(500)
+  announcementActive  Boolean        @default(false) @map("announcement_active")
+  acceptsReservations Boolean        @default(false) @map("accepts_reservations")
 
   // Opening hours (JSON: { monday: { open: "09:00", close: "22:00", closed: false }, ... })
   openingHours       Json?          @map("opening_hours")
@@ -378,9 +406,10 @@ model RestaurantProfile {
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
 
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  menuItems    RestaurantMenu[]
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuItems     RestaurantMenu[]
   reviewReplies ReviewReply[]
+  reservations  Reservation[]
 
   @@index([placeId])
   @@index([status])
@@ -455,6 +484,158 @@ model UserReport {
   @@index([reportedId, status])
   @@index([reporterId])
   @@map("user_reports")
+}
+
+// ─── Reservations ─────────────────────────────────────────────────────────────
+
+model Reservation {
+  id              String            @id @default(uuid())
+  userId          String            @map("user_id")
+  restaurantId    String            @map("restaurant_id")
+  placeId         String            @map("place_id")
+  placeName       String            @map("place_name")
+
+  date            String            // "2026-05-20" yerel tarih
+  time            String            // "19:30"
+  guestCount      Int               @map("guest_count")
+  occasion        String?           @db.VarChar(100)
+  specialRequests String?           @db.VarChar(500) @map("special_requests")
+
+  status          ReservationStatus @default(PENDING)
+  rejectionReason String?           @db.VarChar(500) @map("rejection_reason")
+  attended        Boolean?          // null = belirlenmedi, true = geldi, false = gelmedi
+
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant RestaurantProfile @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  messages   ReservationMessage[]
+
+  @@index([userId])
+  @@index([restaurantId, status])
+  @@index([placeId])
+  @@map("reservations")
+}
+
+model ReservationMessage {
+  id            String      @id @default(uuid())
+  reservationId String      @map("reservation_id")
+  senderId      String      @map("sender_id")
+  senderRole    String      @map("sender_role") // "USER" | "RESTAURANT"
+  content       String      @db.VarChar(1000)
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+  @@map("reservation_messages")
+}
+
+// ─── User Activity Logs ───────────────────────────────────────────────────────
+
+model UserLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  username  String?
+  email     String?
+  page      String
+  action    String
+  details   String?  @db.VarChar(500)
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([email])
+  @@index([createdAt])
+  @@map("user_logs")
+}
+
+// ─── Meal Groups ─────────────────────────────────────────────────────────────
+
+/// Arkadaşlar arası yemek planı grubu
+model MealGroup {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(100)
+  creatorId String   @map("creator_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  creator User              @relation("MealGroupCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  members MealGroupMember[]
+  polls   RestaurantPoll[]
+
+  @@index([creatorId])
+  @@map("meal_groups")
+}
+
+model MealGroupMember {
+  id        String   @id @default(uuid())
+  groupId   String   @map("group_id")
+  userId    String   @map("user_id")
+  status    String   @default("INVITED") // INVITED | ACCEPTED | DECLINED
+  createdAt DateTime @default(now()) @map("created_at")
+
+  group MealGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User      @relation("MealGroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId, status])
+  @@map("meal_group_members")
+}
+
+/// Grup içi restoran anketi
+model RestaurantPoll {
+  id        String    @id @default(uuid())
+  groupId   String    @map("group_id")
+  creatorId String    @map("creator_id")
+  question  String?   @db.VarChar(300)
+  status    String    @default("OPEN") // OPEN | CLOSED
+  createdAt DateTime  @default(now()) @map("created_at")
+  closedAt  DateTime? @map("closed_at")
+
+  group   MealGroup    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator User         @relation("PollsCreated", fields: [creatorId], references: [id], onDelete: Cascade)
+  options PollOption[]
+
+  @@index([groupId, status])
+  @@map("restaurant_polls")
+}
+
+model PollOption {
+  id            String   @id @default(uuid())
+  pollId        String   @map("poll_id")
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placeAddress  String?  @map("place_address")
+  placePhotoUrl String?  @map("place_photo_url")
+  placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
+  addedAt       DateTime @default(now()) @map("added_at")
+
+  poll  RestaurantPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+
+  @@unique([pollId, placeId])
+  @@index([pollId])
+  @@map("poll_options")
+}
+
+model PollVote {
+  id        String   @id @default(uuid())
+  optionId  String   @map("option_id")
+  userId    String   @map("user_id")
+  vote      String   // YES | NO | MAYBE
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User       @relation("PollVotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, userId])
+  @@index([userId])
+  @@map("poll_votes")
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

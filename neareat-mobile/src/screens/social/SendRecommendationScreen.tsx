@@ -11,6 +11,8 @@ import { sendRecommendation, getFriends } from '../../services/social';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import type { Friend } from '../../types';
 import StarRating from '../../components/StarRating';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 export default function SendRecommendationScreen() {
   const route = useRoute<any>();
@@ -22,6 +24,8 @@ export default function SendRecommendationScreen() {
   const { friends, setFriends } = useFriendStore();
   const { addStarEvent } = useUserProfileStore();
   const { addMyRecommendation } = useRecommendationStore();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [message, setMessage] = useState('');
   const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set());
@@ -101,7 +105,7 @@ export default function SendRecommendationScreen() {
           value={message}
           onChangeText={setMessage}
           placeholder="Neden öneriyorsun?"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.textMuted}
           multiline
           numberOfLines={3}
           maxLength={200}
@@ -134,7 +138,7 @@ export default function SendRecommendationScreen() {
         <View style={styles.section}>
           <Text style={styles.label}>Arkadaşlarını Seç</Text>
           {loadingFriends ? (
-            <ActivityIndicator color="#FF6B35" style={{ marginVertical: 12 }} />
+            <ActivityIndicator color={C.primary} style={{ marginVertical: 12 }} />
           ) : friends.length === 0 ? (
             <Text style={styles.emptyFriends}>
               Henüz arkadaşın yok. Arkadaşlar sekmesinden ekleyebilirsin.
@@ -146,6 +150,8 @@ export default function SendRecommendationScreen() {
                 friend={f}
                 selected={selectedFriends.has(f.profile.id)}
                 onToggle={() => toggleFriend(f.profile.id)}
+                C={C}
+                styles={styles}
               />
             ))
           )}
@@ -175,8 +181,8 @@ export default function SendRecommendationScreen() {
   );
 }
 
-function FriendRow({ friend, selected, onToggle }: {
-  friend: Friend; selected: boolean; onToggle: () => void;
+function FriendRow({ friend, selected, onToggle, C, styles }: {
+  friend: Friend; selected: boolean; onToggle: () => void; C: Colors; styles: ReturnType<typeof makeStyles>;
 }) {
   return (
     <TouchableOpacity style={[styles.friendRow, selected && styles.friendRowSelected]} onPress={onToggle}>
@@ -198,58 +204,60 @@ function FriendRow({ friend, selected, onToggle }: {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  restaurantCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff', padding: 16, marginBottom: 12,
-  },
-  photo: { width: 64, height: 64, borderRadius: 10, marginRight: 14 },
-  photoPlaceholder: { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  restaurantInfo: { flex: 1 },
-  restaurantName: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 4 },
-  section: { backgroundColor: '#fff', padding: 16, marginBottom: 10 },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 10 },
-  messageInput: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 10, fontSize: 14,
-    color: '#111827', backgroundColor: '#FAFAFA',
-    height: 80, textAlignVertical: 'top',
-  },
-  shareTypeRow: { flexDirection: 'row', gap: 10 },
-  shareTypeBtn: {
-    flex: 1, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingVertical: 12, alignItems: 'center', backgroundColor: '#FAFAFA',
-  },
-  shareTypeBtnActive: { borderColor: '#FF6B35', backgroundColor: '#FFF0EB' },
-  shareTypeText: { fontSize: 13, color: '#6B7280', fontWeight: '500', textAlign: 'center' },
-  shareTypeTextActive: { color: '#FF6B35', fontWeight: '700' },
-  emptyFriends: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingVertical: 12 },
-  friendRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
-    borderBottomWidth: 1, borderColor: '#F3F4F6',
-  },
-  friendRowSelected: { backgroundColor: '#FFF7F4', borderRadius: 8, paddingHorizontal: 8 },
-  friendAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
-  friendAvatarPlaceholder: { backgroundColor: '#FFE8DF', alignItems: 'center', justifyContent: 'center' },
-  friendRowInfo: { flex: 1 },
-  friendRowName: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  friendRowSub: { fontSize: 12, color: '#9CA3AF' },
-  checkbox: {
-    width: 24, height: 24, borderRadius: 12, borderWidth: 2,
-    borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
-  },
-  checkboxSelected: { backgroundColor: '#FF6B35', borderColor: '#FF6B35' },
-  checkmark: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  starHint: {
-    backgroundColor: '#FFFBEB', margin: 12, borderRadius: 12,
-    padding: 14, alignItems: 'center',
-  },
-  starHintText: { color: '#92400E', fontWeight: '600', fontSize: 14 },
-  sendBtn: {
-    backgroundColor: '#FF6B35', margin: 16, borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center',
-  },
-  sendBtnDisabled: { opacity: 0.6 },
-  sendBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    restaurantCard: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: C.surface, padding: 16, marginBottom: 12,
+    },
+    photo: { width: 64, height: 64, borderRadius: 10, marginRight: 14 },
+    photoPlaceholder: { backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center' },
+    restaurantInfo: { flex: 1 },
+    restaurantName: { fontSize: 17, fontWeight: '700', color: C.textPrimary, marginBottom: 4 },
+    section: { backgroundColor: C.surface, padding: 16, marginBottom: 10 },
+    label: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 10 },
+    messageInput: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 10, fontSize: 14,
+      color: C.textPrimary, backgroundColor: C.background,
+      height: 80, textAlignVertical: 'top',
+    },
+    shareTypeRow: { flexDirection: 'row', gap: 10 },
+    shareTypeBtn: {
+      flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingVertical: 12, alignItems: 'center', backgroundColor: C.background,
+    },
+    shareTypeBtnActive: { borderColor: C.primary, backgroundColor: C.primaryLighter },
+    shareTypeText: { fontSize: 13, color: C.textTertiary, fontWeight: '500', textAlign: 'center' },
+    shareTypeTextActive: { color: C.primary, fontWeight: '700' },
+    emptyFriends: { fontSize: 13, color: C.textMuted, textAlign: 'center', paddingVertical: 12 },
+    friendRow: {
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
+      borderBottomWidth: 1, borderColor: C.separator,
+    },
+    friendRowSelected: { backgroundColor: C.primarySurface, borderRadius: 8, paddingHorizontal: 8 },
+    friendAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
+    friendAvatarPlaceholder: { backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center' },
+    friendRowInfo: { flex: 1 },
+    friendRowName: { fontSize: 14, fontWeight: '600', color: C.textPrimary },
+    friendRowSub: { fontSize: 12, color: C.textMuted },
+    checkbox: {
+      width: 24, height: 24, borderRadius: 12, borderWidth: 2,
+      borderColor: C.border, alignItems: 'center', justifyContent: 'center',
+    },
+    checkboxSelected: { backgroundColor: C.primary, borderColor: C.primary },
+    checkmark: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    starHint: {
+      backgroundColor: C.warningSurface, margin: 12, borderRadius: 12,
+      padding: 14, alignItems: 'center',
+    },
+    starHintText: { color: '#92400E', fontWeight: '600', fontSize: 14 },
+    sendBtn: {
+      backgroundColor: C.primary, margin: 16, borderRadius: 14,
+      paddingVertical: 16, alignItems: 'center',
+    },
+    sendBtnDisabled: { opacity: 0.6 },
+    sendBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  });
+}

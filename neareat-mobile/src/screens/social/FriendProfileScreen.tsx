@@ -6,19 +6,23 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import {
   getUserProfile, getFriendRecommendations,
-  sendFriendRequest, removeFriend,
+  getFriends, sendFriendRequest, removeFriend,
 } from '../../services/social';
 import { reportUser } from '../../services/messages';
 import { useFriendStore } from '../../store/friendStore';
 import type { UserProfile, Recommendation, Collection } from '../../types';
 import StarRating from '../../components/StarRating';
 import api from '../../services/api';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 export default function FriendProfileScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { userId } = route.params as { userId: string };
-  const { friends, addFriend, removeFriend: storeDel } = useFriendStore();
+  const { friends, setFriends, addFriend, removeFriend: storeDel } = useFriendStore();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -39,15 +43,23 @@ export default function FriendProfileScreen() {
     async function load() {
       setLoading(true);
       try {
-        const [p, recs] = await Promise.all([
+        const [p, recs, freshFriends] = await Promise.allSettled([
           getUserProfile(userId),
           getFriendRecommendations(userId),
+          getFriends(),
         ]);
-        setProfile(p);
-        setRecommendations(recs);
+        if (freshFriends.status === 'fulfilled') setFriends(freshFriends.value);
+        if (p.status === 'fulfilled' && p.value) setProfile(p.value);
+        if (recs.status === 'fulfilled') setRecommendations(recs.value);
+        if (p.status === 'rejected') {
+          Alert.alert('Hata', 'Profil yüklenemedi.');
+          navigation.goBack();
+          return;
+        }
 
-        // Arkadaşsa paylaşılan listeleri de çek
-        if (friends.find(f => f.profile.id === userId)) {
+        // Arkadaşsa paylaşılan listeleri de çek (freshFriends kullan)
+        const currentFriends = freshFriends.status === 'fulfilled' ? freshFriends.value : friends;
+        if (currentFriends.find(f => f.profile.id === userId)) {
           try {
             const colRes = await api.get(`/collections/shared-by/${userId}`);
             setSharedCollections(colRes.data ?? []);
@@ -69,8 +81,17 @@ export default function FriendProfileScreen() {
     try {
       await sendFriendRequest(userId);
       setRequestSent(true);
-    } catch {
-      Alert.alert('Hata', 'İstek gönderilemedi.');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.error ?? '';
+      if (status === 400 && msg.includes('arkadaş')) {
+        Alert.alert('Zaten Arkadaşsınız', 'Bu kullanıcı arkadaş listenizde zaten var.');
+        getFriends().then(list => setFriends(list)).catch(() => {});
+      } else if (status === 409) {
+        setRequestSent(true);
+      } else {
+        Alert.alert('Hata', 'İstek gönderilemedi.');
+      }
     } finally {
       setActionLoading(false);
     }
@@ -115,7 +136,7 @@ export default function FriendProfileScreen() {
   }
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#FF6B35" />;
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color={C.primary} />;
   }
 
   if (!profile) return null;
@@ -283,7 +304,7 @@ export default function FriendProfileScreen() {
               value={reportReason}
               onChangeText={setReportReason}
               placeholder="Şikayet sebebini yazın... (zorunlu)"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.textMuted}
               multiline
               numberOfLines={4}
               maxLength={1000}
@@ -325,77 +346,79 @@ function timeAgo(isoDate: string): string {
   return `${Math.floor(days / 30)} ay önce`;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { alignItems: 'center', backgroundColor: '#fff', padding: 24, marginBottom: 12 },
-  avatar: { width: 88, height: 88, borderRadius: 44, marginBottom: 12 },
-  avatarPlaceholder: {
-    width: 88, height: 88, borderRadius: 44,
-    backgroundColor: '#FFE8DF', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-  },
-  avatarLetter: { fontSize: 36, fontWeight: '700', color: '#FF6B35' },
-  name: { fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 6 },
-  badgeRow: { marginBottom: 4 },
-  badge: { fontSize: 14, color: '#FF6B35', fontWeight: '600' },
-  city: { fontSize: 13, color: '#6B7280', marginBottom: 4 },
-  starRow: { marginBottom: 12 },
-  starCount: { fontSize: 14, color: '#F59E0B', fontWeight: '600' },
-  bio: {
-    fontSize: 14, color: '#374151', textAlign: 'center',
-    lineHeight: 20, paddingHorizontal: 16, marginBottom: 12,
-  },
-  cuisineRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginBottom: 16 },
-  cuisineChip: { backgroundColor: '#FFF0EB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-  cuisineText: { fontSize: 12, color: '#FF6B35' },
-  friendBtn: {
-    backgroundColor: '#FF6B35', borderRadius: 12,
-    paddingHorizontal: 32, paddingVertical: 12, marginBottom: 8,
-  },
-  friendBtnDisabled: { opacity: 0.6 },
-  friendBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  sentBadge: { backgroundColor: '#D1FAE5', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, marginBottom: 8 },
-  sentBadgeText: { color: '#065F46', fontWeight: '600' },
-  friendActionRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  messageBtn: { backgroundColor: '#FF6B35', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
-  messageBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  removeFriendBtn: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
-  removeFriendText: { color: '#6B7280', fontWeight: '600', fontSize: 14 },
-  reportBtn: { marginTop: 8, paddingVertical: 6 },
-  reportBtnText: { fontSize: 12, color: '#EF4444' },
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    header: { alignItems: 'center', backgroundColor: C.surface, padding: 24, marginBottom: 12 },
+    avatar: { width: 88, height: 88, borderRadius: 44, marginBottom: 12 },
+    avatarPlaceholder: {
+      width: 88, height: 88, borderRadius: 44,
+      backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    },
+    avatarLetter: { fontSize: 36, fontWeight: '700', color: C.primary },
+    name: { fontSize: 22, fontWeight: '700', color: C.textPrimary, marginBottom: 6 },
+    badgeRow: { marginBottom: 4 },
+    badge: { fontSize: 14, color: C.primary, fontWeight: '600' },
+    city: { fontSize: 13, color: C.textTertiary, marginBottom: 4 },
+    starRow: { marginBottom: 12 },
+    starCount: { fontSize: 14, color: C.warning, fontWeight: '600' },
+    bio: {
+      fontSize: 14, color: C.textSecondary, textAlign: 'center',
+      lineHeight: 20, paddingHorizontal: 16, marginBottom: 12,
+    },
+    cuisineRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginBottom: 16 },
+    cuisineChip: { backgroundColor: C.primaryLighter, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+    cuisineText: { fontSize: 12, color: C.primary },
+    friendBtn: {
+      backgroundColor: C.primary, borderRadius: 12,
+      paddingHorizontal: 32, paddingVertical: 12, marginBottom: 8,
+    },
+    friendBtnDisabled: { opacity: 0.6 },
+    friendBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    sentBadge: { backgroundColor: '#D1FAE5', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, marginBottom: 8 },
+    sentBadgeText: { color: '#065F46', fontWeight: '600' },
+    friendActionRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+    messageBtn: { backgroundColor: C.primary, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
+    messageBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    removeFriendBtn: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
+    removeFriendText: { color: C.textTertiary, fontWeight: '600', fontSize: 14 },
+    reportBtn: { marginTop: 8, paddingVertical: 6 },
+    reportBtnText: { fontSize: 12, color: C.error },
 
-  section: { backgroundColor: '#fff', margin: 12, borderRadius: 16, padding: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 },
-  emptyText: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingVertical: 12 },
+    section: { backgroundColor: C.surface, margin: 12, borderRadius: 16, padding: 16 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 12 },
+    emptyText: { fontSize: 13, color: C.textMuted, textAlign: 'center', paddingVertical: 12 },
 
-  collCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12, borderBottomWidth: 1, borderColor: '#F3F4F6', paddingBottom: 12 },
-  collIcon: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#FFF0EB', alignItems: 'center', justifyContent: 'center' },
-  collInfo: { flex: 1 },
-  collName: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  collDesc: { fontSize: 12, color: '#6B7280', marginBottom: 2 },
-  collCount: { fontSize: 11, color: '#9CA3AF' },
+    collCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12, borderBottomWidth: 1, borderColor: C.separator, paddingBottom: 12 },
+    collIcon: { width: 48, height: 48, borderRadius: 12, backgroundColor: C.primaryLighter, alignItems: 'center', justifyContent: 'center' },
+    collInfo: { flex: 1 },
+    collName: { fontSize: 14, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
+    collDesc: { fontSize: 12, color: C.textTertiary, marginBottom: 2 },
+    collCount: { fontSize: 11, color: C.textMuted },
 
-  recCard: { flexDirection: 'row', marginBottom: 12, borderBottomWidth: 1, borderColor: '#F3F4F6', paddingBottom: 12 },
-  recPhoto: { width: 64, height: 64, borderRadius: 10, marginRight: 12 },
-  recPhotoPlaceholder: { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  recInfo: { flex: 1 },
-  recName: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 3 },
-  recMessage: { fontSize: 13, color: '#6B7280', fontStyle: 'italic', marginTop: 4, lineHeight: 18 },
-  recDate: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+    recCard: { flexDirection: 'row', marginBottom: 12, borderBottomWidth: 1, borderColor: C.separator, paddingBottom: 12 },
+    recPhoto: { width: 64, height: 64, borderRadius: 10, marginRight: 12 },
+    recPhotoPlaceholder: { backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center' },
+    recInfo: { flex: 1 },
+    recName: { fontSize: 15, fontWeight: '700', color: C.textPrimary, marginBottom: 3 },
+    recMessage: { fontSize: 13, color: C.textTertiary, fontStyle: 'italic', marginTop: 4, lineHeight: 18 },
+    recDate: { fontSize: 11, color: C.textMuted, marginTop: 4 },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 6 },
-  modalSub: { fontSize: 13, color: '#6B7280', marginBottom: 16, lineHeight: 18 },
-  modalInput: {
-    backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
-    padding: 12, fontSize: 14, color: '#111827', minHeight: 100, textAlignVertical: 'top',
-  },
-  charCount: { fontSize: 11, color: '#9CA3AF', alignSelf: 'flex-end', marginTop: 4 },
-  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  modalCancelBtn: { flex: 1, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
-  modalCancelText: { color: '#6B7280', fontWeight: '600' },
-  modalReportBtn: { flex: 1, backgroundColor: '#EF4444', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
-  modalBtnDisabled: { opacity: 0.5 },
-  modalReportText: { color: '#fff', fontWeight: '700' },
-});
+    // Modal
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalBox: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, marginBottom: 6 },
+    modalSub: { fontSize: 13, color: C.textTertiary, marginBottom: 16, lineHeight: 18 },
+    modalInput: {
+      backgroundColor: C.background, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+      padding: 12, fontSize: 14, color: C.textPrimary, minHeight: 100, textAlignVertical: 'top',
+    },
+    charCount: { fontSize: 11, color: C.textMuted, alignSelf: 'flex-end', marginTop: 4 },
+    modalBtns: { flexDirection: 'row', gap: 10, marginTop: 16 },
+    modalCancelBtn: { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+    modalCancelText: { color: C.textTertiary, fontWeight: '600' },
+    modalReportBtn: { flex: 1, backgroundColor: C.error, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+    modalBtnDisabled: { opacity: 0.5 },
+    modalReportText: { color: '#fff', fontWeight: '700' },
+  });
+}

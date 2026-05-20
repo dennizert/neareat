@@ -1,8 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import type { Restaurant } from '../../types';
 import { formatDistance } from '../../utils/haversine';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 interface Props {
   restaurants: Restaurant[];
@@ -14,6 +16,9 @@ interface Props {
 export default function MapViewScreen({ restaurants, onPressRestaurant, userLat, userLng }: Props) {
   const mapRef = useRef<MapView>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const centerLat = userLat ?? restaurants[0]?.location.lat;
   const centerLng = userLng ?? restaurants[0]?.location.lng;
@@ -115,83 +120,85 @@ export default function MapViewScreen({ restaurants, onPressRestaurant, userLat,
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' },
-  emptyText: { fontSize: 15, color: '#6B7280' },
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1 },
+    map: { flex: 1 },
+    empty: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: C.background },
+    emptyText: { fontSize: 15, color: C.textTertiary },
 
-  markerWrapper: { alignItems: 'center' },
-  markerBubble: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    width: 42,
-    height: 42,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2.5,
-    borderColor: '#FF6B35',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 6,
-  },
-  markerBubbleSelected: {
-    backgroundColor: '#FF6B35',
-    transform: [{ scale: 1.15 }],
-    borderColor: '#fff',
-  },
-  markerIcon: { fontSize: 20 },
-  markerTail: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderTopWidth: 10,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#FF6B35',
-    marginTop: -1,
-  },
-  markerTailSelected: { borderTopColor: '#FF6B35' },
+    markerWrapper: { alignItems: 'center' },
+    markerBubble: {
+      backgroundColor: C.surface,
+      borderRadius: 24,
+      width: 42,
+      height: 42,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2.5,
+      borderColor: C.primary,
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 6,
+    },
+    markerBubbleSelected: {
+      backgroundColor: C.primary,
+      transform: [{ scale: 1.15 }],
+      borderColor: C.surface,
+    },
+    markerIcon: { fontSize: 20 },
+    markerTail: {
+      width: 0,
+      height: 0,
+      borderLeftWidth: 7,
+      borderRightWidth: 7,
+      borderTopWidth: 10,
+      borderLeftColor: 'transparent',
+      borderRightColor: 'transparent',
+      borderTopColor: C.primary,
+      marginTop: -1,
+    },
+    markerTailSelected: { borderTopColor: C.primary },
 
-  callout: { width: 200, padding: 10 },
-  calloutName: { fontWeight: '700', fontSize: 14, color: '#111827', marginBottom: 4 },
-  calloutMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  calloutRating: { fontSize: 13, color: '#F59E0B', fontWeight: '600' },
-  calloutOpen: { fontSize: 12, color: '#10B981', fontWeight: '500' },
-  calloutClosed: { color: '#EF4444' },
-  calloutDist: { fontSize: 12, color: '#6B7280', marginBottom: 8 },
-  calloutBtn: { backgroundColor: '#FF6B35', borderRadius: 8, paddingVertical: 7, alignItems: 'center' },
-  calloutBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    callout: { width: 200, padding: 10 },
+    calloutName: { fontWeight: '700', fontSize: 14, color: C.textPrimary, marginBottom: 4 },
+    calloutMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+    calloutRating: { fontSize: 13, color: C.warning, fontWeight: '600' },
+    calloutOpen: { fontSize: 12, color: C.success, fontWeight: '500' },
+    calloutClosed: { color: C.error },
+    calloutDist: { fontSize: 12, color: C.textTertiary, marginBottom: 8 },
+    calloutBtn: { backgroundColor: C.primary, borderRadius: 8, paddingVertical: 7, alignItems: 'center' },
+    calloutBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 
-  recenterBtn: {
-    position: 'absolute',
-    bottom: 24,
-    right: 16,
-    backgroundColor: '#fff',
-    borderRadius: 28,
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  recenterText: { fontSize: 22, color: '#FF6B35' },
+    recenterBtn: {
+      position: 'absolute',
+      bottom: 24,
+      right: 16,
+      backgroundColor: C.surface,
+      borderRadius: 28,
+      width: 48,
+      height: 48,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    recenterText: { fontSize: 22, color: C.primary },
 
-  countBadge: {
-    position: 'absolute',
-    top: 12,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-  },
-  countText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-});
+    countBadge: {
+      position: 'absolute',
+      top: 12,
+      alignSelf: 'center',
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 5,
+    },
+    countText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  });
+}

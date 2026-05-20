@@ -2,6 +2,7 @@ const prisma = require('../utils/prisma');
 const { awardStars, getLevel } = require('../utils/stars');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
+const { logRequest } = require('../services/logService');
 
 const FREE_DAILY_REC_LIMIT = 2;
 
@@ -13,21 +14,33 @@ async function searchUsers(req, res, next) {
     const q = (req.query.q || '').trim();
     if (!q) return res.json([]);
 
-    // Zaten arkadaş olan kullanıcıları hariç tut
-    const existingRequests = await prisma.friendRequest.findMany({
-      where: {
-        OR: [{ fromUserId: req.user.id }, { toUserId: req.user.id }],
-        status: 'ACCEPTED',
-      },
-      select: { fromUserId: true, toUserId: true },
-    });
-    const friendIds = existingRequests.flatMap(r =>
-      [r.fromUserId, r.toUserId].filter(id => id !== req.user.id),
+    // Mevcut ilişkileri bul (ACCEPTED → isFriend, PENDING sent by me → hasPendingRequest)
+    const [acceptedRequests, pendingSent] = await Promise.all([
+      prisma.friendRequest.findMany({
+        where: {
+          OR: [{ fromUserId: req.user.id }, { toUserId: req.user.id }],
+          status: 'ACCEPTED',
+        },
+        select: { fromUserId: true, toUserId: true },
+      }),
+      prisma.friendRequest.findMany({
+        where: { fromUserId: req.user.id, status: 'PENDING' },
+        select: { toUserId: true },
+      }),
+    ]);
+
+    const friendIds = new Set(
+      acceptedRequests.flatMap(r =>
+        [r.fromUserId, r.toUserId].filter(id => id !== req.user.id),
+      ),
     );
+    const pendingIds = new Set(pendingSent.map(r => r.toUserId));
 
     const users = await prisma.user.findMany({
       where: {
-        id: { notIn: [req.user.id, ...friendIds] },
+        id: { not: req.user.id },
+        role: 'USER',
+        isSuspended: false,
         displayName: { contains: q, mode: 'insensitive' },
       },
       select: {
@@ -37,7 +50,12 @@ async function searchUsers(req, res, next) {
       take: 20,
     });
 
-    res.json(users.map(u => ({ ...u, ...getLevel(u.starCount) })));
+    res.json(users.map(u => ({
+      ...u,
+      ...getLevel(u.starCount),
+      isFriend: friendIds.has(u.id),
+      hasPendingRequest: pendingIds.has(u.id),
+    })));
   } catch (err) {
     next(err);
   }
@@ -64,6 +82,7 @@ async function getFriends(req, res, next) {
       const friend = r.fromUserId === req.user.id ? r.toUser : r.fromUser;
       return {
         id: r.id,
+        userId: friend.id,
         profile: { ...friend, ...getLevel(friend.starCount) },
         createdAt: r.updatedAt,
       };
@@ -111,25 +130,49 @@ async function sendFriendRequest(req, res, next) {
       return res.status(400).json({ error: 'Not en fazla 300 karakter olabilir.' });
     }
 
-    // Karşı yönde bekleyen istek var mı?
+    // Karşı yönde bekleyen istek var mı? → doğrudan kabul et
     const reverse = await prisma.friendRequest.findUnique({
       where: { fromUserId_toUserId: { fromUserId: toUserId, toUserId: req.user.id } },
     });
     if (reverse && reverse.status === 'PENDING') {
-      // Doğrudan kabul et
       const accepted = await prisma.friendRequest.update({
         where: { id: reverse.id },
         data: { status: 'ACCEPTED' },
       });
       await awardStars(req.user.id, 'FRIEND_ADDED', `${toUserId} ile arkadaş oldun`, accepted.id);
-      return res.json({ message: 'Karşılıklı istek — arkadaşlık onaylandı.', request: accepted });
+      logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşlık isteği gönderdi (karşılıklı — otomatik kabul)', details: toUserId }).catch(() => {});
+      return res.json({ message: 'Karşılıklı istek — arkadaşlık onaylandı.', autoAccepted: true, request: accepted });
+    }
+
+    // Kendi yönümde mevcut istek var mı?
+    const existing = await prisma.friendRequest.findUnique({
+      where: { fromUserId_toUserId: { fromUserId: req.user.id, toUserId } },
+    });
+
+    if (existing) {
+      if (existing.status === 'ACCEPTED') {
+        return res.status(400).json({ error: 'Bu kullanıcı zaten arkadaş listenizde.' });
+      }
+      if (existing.status === 'PENDING') {
+        return res.status(409).json({ error: 'Bu kullanıcıya zaten istek gönderildi.' });
+      }
+      // REJECTED → not güncelle ve PENDING'e döndür
+      const updated = await prisma.friendRequest.update({
+        where: { id: existing.id },
+        data: { status: 'PENDING', note: trimmedNote },
+      });
+      const notifBody = trimmedNote
+        ? `${req.user.displayName} sana tekrar arkadaşlık isteği gönderdi: "${trimmedNote}"`
+        : `${req.user.displayName} sana tekrar arkadaşlık isteği gönderdi`;
+      createNotification(toUserId, 'FRIEND_REQUEST', 'Arkadaş Daveti', notifBody,
+        { fromUserId: req.user.id, fromUserName: req.user.displayName, note: trimmedNote }).catch(() => {});
+      return res.status(201).json(updated);
     }
 
     const request = await prisma.friendRequest.create({
       data: { fromUserId: req.user.id, toUserId, note: trimmedNote },
     });
 
-    // Arkadaş daveti bildirimi — not varsa ekle
     const notifBody = trimmedNote
       ? `${req.user.displayName} sana arkadaşlık isteği gönderdi: "${trimmedNote}"`
       : `${req.user.displayName} sana arkadaşlık isteği gönderdi`;
@@ -142,11 +185,9 @@ async function sendFriendRequest(req, res, next) {
       { fromUserId: req.user.id, fromUserName: req.user.displayName, note: trimmedNote },
     ).catch(() => {});
 
+    logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşlık isteği gönderdi', details: toUserId }).catch(() => {});
     res.status(201).json(request);
   } catch (err) {
-    if (err.code === 'P2002') {
-      return res.status(409).json({ error: 'Bu kullanıcıya zaten istek gönderildi.' });
-    }
     next(err);
   }
 }
@@ -174,6 +215,7 @@ async function acceptFriendRequest(req, res, next) {
       updated.id,
     );
 
+    logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşlık isteği kabul etti', details: updated.fromUser.id }).catch(() => {});
     res.json({
       friend: {
         id: updated.id,
@@ -201,6 +243,7 @@ async function rejectFriendRequest(req, res, next) {
       data: { status: 'REJECTED' },
     });
 
+    logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşlık isteği reddetti', details: request.fromUserId }).catch(() => {});
     res.json({ message: 'İstek reddedildi.' });
   } catch (err) {
     next(err);
@@ -216,6 +259,8 @@ async function removeFriend(req, res, next) {
     const isParty = request.fromUserId === req.user.id || request.toUserId === req.user.id;
     if (!isParty) return res.status(403).json({ error: 'Yetkisiz.' });
 
+    const otherId = request.fromUserId === req.user.id ? request.toUserId : request.fromUserId;
+    logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşı kaldırdı', details: otherId }).catch(() => {});
     await prisma.friendRequest.delete({ where: { id: req.params.id } });
     res.json({ message: 'Arkadaşlık kaldırıldı.' });
   } catch (err) {
@@ -293,6 +338,7 @@ async function sendRecommendation(req, res, next) {
       ).catch(() => {});
     }
 
+    logRequest({ req, page: 'Restoran', action: 'Restoran önerdi', details: placeName }).catch(() => {});
     res.status(201).json({ recommendations: created, starEvent: event, newStarCount, newRewards });
   } catch (err) {
     next(err);
@@ -432,6 +478,7 @@ async function rateRestaurant(req, res, next) {
       ratingPremium ? 2 : 1,
     );
 
+    logRequest({ req, page: 'Restoran', action: 'Restoran puanladı', details: placeName }).catch(() => {});
     res.status(201).json({ starEvent: event, newStarCount, newRewards });
   } catch (err) {
     next(err);
@@ -641,6 +688,7 @@ async function reportUser(req, res, next) {
       data: { reporterId, reportedId, reason: reason.trim() },
     });
 
+    logRequest({ req, page: 'Kullanıcı Profili', action: 'Kullanıcı şikayet etti', details: reportedId }).catch(() => {});
     res.status(201).json({ message: 'Şikayetiniz alındı. Admin ekibimiz inceleyecektir.' });
   } catch (err) {
     next(err);

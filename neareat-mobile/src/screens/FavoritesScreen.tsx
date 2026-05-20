@@ -8,6 +8,8 @@ import { useNavigation } from '@react-navigation/native';
 import RestaurantCard from '../components/RestaurantCard';
 import NotificationBell from '../components/NotificationBell';
 import type { Favorite } from '../types';
+import { useTheme } from '../theme';
+import type { Colors } from '../theme';
 
 export default function FavoritesScreen() {
   const navigation = useNavigation<any>();
@@ -15,6 +17,9 @@ export default function FavoritesScreen() {
   const [loading, setLoading] = useState(true);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
+
+  const { C, isDark } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   useEffect(() => {
     async function load() {
@@ -36,7 +41,7 @@ export default function FavoritesScreen() {
     navigation.navigate('RestaurantDetail', { placeId: fav.placeId });
   }
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#FF6B35" />;
+  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color={C.primary} />;
 
   return (
     <View style={styles.container}>
@@ -80,10 +85,12 @@ export default function FavoritesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 56, paddingBottom: 16, backgroundColor: '#fff' },
-  header: { fontSize: 22, fontWeight: '700', color: '#111827' },
-  empty: { textAlign: 'center', color: '#9CA3AF', marginTop: 60, fontSize: 16 },
-  list: { padding: 16 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 56, paddingBottom: 16, backgroundColor: C.surface },
+    header: { fontSize: 22, fontWeight: '700', color: C.textPrimary },
+    empty: { textAlign: 'center', color: C.textMuted, marginTop: 60, fontSize: 16 },
+    list: { padding: 16 },
+  });
+}

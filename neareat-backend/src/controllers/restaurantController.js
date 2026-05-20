@@ -60,17 +60,15 @@ async function getNearby(req, res, next) {
       rawPlaces = await getNearbyRestaurants(userLat, userLng, radiusMeters, placeType);
     }
 
+    // Haversine'i bir kez hesapla, filtre + sıralama + response'ta tekrar kullan
     const filtered = rawPlaces
-      .filter((place) => {
-        if (!place.geometry?.location) return false;
-        const d = haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng);
-        return d <= radiusKm;
+      .map((place) => {
+        if (!place.geometry?.location) return null;
+        const _dist = haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng);
+        return _dist <= radiusKm ? { ...place, _dist } : null;
       })
-      .sort((a, b) => {
-        const da = haversineKm(userLat, userLng, a.geometry.location.lat, a.geometry.location.lng);
-        const db = haversineKm(userLat, userLng, b.geometry.location.lat, b.geometry.location.lng);
-        return da - db;
-      })
+      .filter(Boolean)
+      .sort((a, b) => a._dist - b._dist)
       .slice(0, 60);
 
     // Attach discount + override hours from our DB for matching placeIds
@@ -83,7 +81,7 @@ async function getNearby(req, res, next) {
         placeId: true, discountEnabled: true, discountPercent: true,
         discountNote: true, discountActiveUntil: true,
         announcement: true, announcementActive: true, reservationUrl: true,
-        openingHours: true,
+        openingHours: true, acceptsReservations: true,
       },
     });
     const discountMap = Object.fromEntries(allProfiles.map((p) => [p.placeId, p]));
@@ -106,7 +104,7 @@ async function getNearby(req, res, next) {
         types: place.types,
         isOpenNow,
         location: place.geometry?.location,
-        distanceKm: haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng),
+        distanceKm: place._dist,
         photoUrl: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null,
         discount: hasDiscount ? {
           starDiscountEnabled: !!dp.discountEnabled,
@@ -117,6 +115,7 @@ async function getNearby(req, res, next) {
           activeUntil: dp.discountActiveUntil,
         } : null,
         announcement: dp?.announcementActive ? dp.announcement : null,
+        acceptsReservations: dp?.acceptsReservations ?? false,
       };
     });
 
@@ -180,6 +179,8 @@ async function getDetails(req, res, next) {
       announcement: rp?.announcementActive ? rp.announcement : null,
       reservationUrl: rp?.reservationUrl ?? null,
       openingHoursOverride: rp?.openingHours ?? null,
+      acceptsReservations: rp?.acceptsReservations ?? false,
+      restaurantId: rp?.id ?? null,
       // Menu only for premium users
       menu: premium && rp ? rp.menuItems : [],
       hasMenu: rp ? rp.menuItems.length > 0 : false,

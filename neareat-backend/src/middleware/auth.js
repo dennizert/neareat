@@ -1,6 +1,7 @@
 const { getAuth } = require('../services/firebase');
 const { verifyToken } = require('../utils/jwt');
 const prisma = require('../utils/prisma');
+const { logSecurityEvent, EVENTS } = require('./securityLogger');
 
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -16,7 +17,15 @@ async function authenticate(req, res, next) {
     if (decoded?.sub) {
       const user = await prisma.user.findUnique({ where: { id: decoded.sub } });
       if (user) {
-        if (user.isSuspended) return res.status(403).json({ error: 'Hesabınız askıya alınmıştır.' });
+        if (user.isSuspended) {
+          logSecurityEvent(EVENTS.SUSPENDED_ACCESS, {
+            userId: user.id,
+            ip: req.ip,
+            path: req.path,
+            requestId: req.id,
+          });
+          return res.status(403).json({ error: 'Hesabınız askıya alınmıştır.' });
+        }
         req.user = user;
         return next();
       }
@@ -30,12 +39,32 @@ async function authenticate(req, res, next) {
     const decoded = await getAuth().verifyIdToken(token);
     const user = await prisma.user.findUnique({ where: { googleId: decoded.uid } });
     if (!user) {
+      logSecurityEvent(EVENTS.AUTH_FAILED, {
+        ip: req.ip,
+        path: req.path,
+        requestId: req.id,
+        reason: 'firebase_user_not_found',
+      });
       return res.status(401).json({ error: 'User not found' });
     }
-    if (user.isSuspended) return res.status(403).json({ error: 'Hesabınız askıya alınmıştır.' });
+    if (user.isSuspended) {
+      logSecurityEvent(EVENTS.SUSPENDED_ACCESS, {
+        userId: user.id,
+        ip: req.ip,
+        path: req.path,
+        requestId: req.id,
+      });
+      return res.status(403).json({ error: 'Hesabınız askıya alınmıştır.' });
+    }
     req.user = user;
     next();
   } catch {
+    logSecurityEvent(EVENTS.AUTH_FAILED, {
+      ip: req.ip,
+      path: req.path,
+      requestId: req.id,
+      reason: 'invalid_token',
+    });
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }

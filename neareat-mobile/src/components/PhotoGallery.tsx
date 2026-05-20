@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Image, FlatList, TouchableOpacity, Modal, StyleSheet, Dimensions } from 'react-native';
+import { useTheme } from '../theme';
+import type { Colors } from '../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -9,6 +11,9 @@ interface Props {
 
 export default function PhotoGallery({ photos }: Props) {
   const [fullscreen, setFullscreen] = useState<string | null>(null);
+
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   if (!photos || photos.length === 0) {
     return <View style={styles.placeholder} />;
@@ -40,9 +45,11 @@ export default function PhotoGallery({ photos }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  image: { width: SCREEN_WIDTH, height: 240 },
-  placeholder: { height: 240, backgroundColor: '#F3F4F6' },
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
-  fullImage: { width: SCREEN_WIDTH, height: SCREEN_WIDTH },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    image: { width: SCREEN_WIDTH, height: 240 },
+    placeholder: { height: 240, backgroundColor: C.surfaceAlt },
+    modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
+    fullImage: { width: SCREEN_WIDTH, height: SCREEN_WIDTH },
+  });
+}

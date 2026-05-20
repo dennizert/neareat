@@ -2,13 +2,15 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Image,
+  Image, Alert,
 } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { useMessageStore } from '../../store/messageStore';
 import { getMessages, sendMessage } from '../../services/messages';
 import type { Message } from '../../types';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -25,12 +27,13 @@ function formatDay(dateStr: string): string {
 
 export default function ConversationScreen() {
   const route = useRoute<any>();
-  const navigation = useNavigation<any>();
   const { userId, displayName, photoUrl } = route.params as {
     userId: string; displayName: string; photoUrl?: string | null;
   };
   const { user } = useAuthStore();
   const { markConversationRead, updateConversationAfterSend } = useMessageStore();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +45,6 @@ export default function ConversationScreen() {
   const flatRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    navigation.setOptions({ title: displayName });
     load();
   }, [userId]);
 
@@ -54,6 +56,8 @@ export default function ConversationScreen() {
       setHasMore(data.hasMore);
       setNextCursor(data.nextCursor);
       markConversationRead(userId);
+    } catch {
+      Alert.alert('Hata', 'Mesajlar yüklenemedi. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
     }
@@ -82,8 +86,10 @@ export default function ConversationScreen() {
       setMessages(prev => [...prev, msg]);
       updateConversationAfterSend(userId, { id: userId, displayName, photoUrl }, msg);
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch {
+    } catch (err: any) {
       setText(content);
+      const serverMsg = err?.response?.data?.error;
+      Alert.alert('Mesaj Gönderilemedi', serverMsg ?? 'Bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setSending(false);
     }
@@ -112,7 +118,7 @@ export default function ConversationScreen() {
   }
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#FF6B35" />;
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color={C.primary} />;
   }
 
   return (
@@ -130,7 +136,7 @@ export default function ConversationScreen() {
         onLayout={() => flatRef.current?.scrollToEnd({ animated: false })}
         onStartReached={loadMore}
         onStartReachedThreshold={0.2}
-        ListHeaderComponent={loadingMore ? <ActivityIndicator style={{ margin: 12 }} color="#FF6B35" /> : null}
+        ListHeaderComponent={loadingMore ? <ActivityIndicator style={{ margin: 12 }} color={C.primary} /> : null}
         ListEmptyComponent={
           <View style={styles.emptyChat}>
             <Text style={styles.emptyChatText}>Henüz mesaj yok. İlk mesajı sen gönder!</Text>
@@ -144,7 +150,7 @@ export default function ConversationScreen() {
           value={text}
           onChangeText={setText}
           placeholder="Mesajınızı yazın..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.textMuted}
           multiline
           maxLength={2000}
           returnKeyType="default"
@@ -165,37 +171,39 @@ export default function ConversationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  listContent: { paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 },
-  dayRow: { alignItems: 'center', marginVertical: 12 },
-  dayText: { fontSize: 12, color: '#9CA3AF', backgroundColor: '#F3F4F6', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  bubble: {
-    maxWidth: '78%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8,
-    marginBottom: 4,
-  },
-  bubbleMine: { backgroundColor: '#FF6B35', alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubbleTheir: { backgroundColor: '#fff', alignSelf: 'flex-start', borderBottomLeftRadius: 4, shadowColor: '#000', shadowOpacity: 0.05, elevation: 1 },
-  bubbleText: { fontSize: 15, color: '#111827', lineHeight: 20 },
-  bubbleTextMine: { color: '#fff' },
-  bubbleTime: { fontSize: 10, color: '#9CA3AF', marginTop: 2, alignSelf: 'flex-end' },
-  bubbleTimeMine: { color: 'rgba(255,255,255,0.75)' },
-  emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
-  emptyChatText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
-  inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8,
-    borderTopWidth: 1, borderTopColor: '#E5E7EB', gap: 8,
-  },
-  input: {
-    flex: 1, backgroundColor: '#F3F4F6', borderRadius: 22,
-    paddingHorizontal: 16, paddingVertical: 10, fontSize: 15,
-    color: '#111827', maxHeight: 120,
-  },
-  sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center',
-  },
-  sendBtnDisabled: { backgroundColor: '#D1D5DB' },
-  sendBtnText: { fontSize: 26, color: '#fff', fontWeight: '700', lineHeight: 30 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    listContent: { paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 },
+    dayRow: { alignItems: 'center', marginVertical: 12 },
+    dayText: { fontSize: 12, color: C.textMuted, backgroundColor: C.inputBg, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
+    bubble: {
+      maxWidth: '78%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8,
+      marginBottom: 4,
+    },
+    bubbleMine: { backgroundColor: C.primary, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+    bubbleTheir: { backgroundColor: C.surface, alignSelf: 'flex-start', borderBottomLeftRadius: 4, shadowColor: C.shadow, shadowOpacity: 0.05, elevation: 1 },
+    bubbleText: { fontSize: 15, color: C.textPrimary, lineHeight: 20 },
+    bubbleTextMine: { color: '#fff' },
+    bubbleTime: { fontSize: 10, color: C.textMuted, marginTop: 2, alignSelf: 'flex-end' },
+    bubbleTimeMine: { color: 'rgba(255,255,255,0.75)' },
+    emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+    emptyChatText: { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+    inputBar: {
+      flexDirection: 'row', alignItems: 'flex-end',
+      backgroundColor: C.surface, paddingHorizontal: 12, paddingVertical: 8,
+      borderTopWidth: 1, borderTopColor: C.border, gap: 8,
+    },
+    input: {
+      flex: 1, backgroundColor: C.inputBg, borderRadius: 22,
+      paddingHorizontal: 16, paddingVertical: 10, fontSize: 15,
+      color: C.textPrimary, maxHeight: 120,
+    },
+    sendBtn: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
+    },
+    sendBtnDisabled: { backgroundColor: C.disabled },
+    sendBtnText: { fontSize: 26, color: '#fff', fontWeight: '700', lineHeight: 30 },
+  });
+}

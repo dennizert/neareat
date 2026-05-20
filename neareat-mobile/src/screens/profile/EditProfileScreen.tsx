@@ -8,6 +8,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { updateMyProfile } from '../../services/social';
 import { COUNTRIES, type Country } from '../../data/countriesAndCities';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 const CUISINE_OPTIONS = [
   'Türk Mutfağı', 'İtalyan', 'Japon', 'Fransız', 'Deniz Ürünleri',
@@ -38,6 +40,9 @@ export default function EditProfileScreen() {
   const [showCityModal, setShowCityModal] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   const [pickingPhoto, setPickingPhoto] = useState(false);
+
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   useEffect(() => {
     if (profile) {
@@ -141,7 +146,7 @@ export default function EditProfileScreen() {
           value={displayName}
           onChangeText={setDisplayName}
           placeholder="Adınızı girin"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.placeholder}
           maxLength={50}
         />
       </View>
@@ -154,7 +159,7 @@ export default function EditProfileScreen() {
           value={bio}
           onChangeText={setBio}
           placeholder="Kendinizden bahsedin..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={C.placeholder}
           multiline
           numberOfLines={3}
           maxLength={200}
@@ -250,7 +255,7 @@ export default function EditProfileScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Ülke ara..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.placeholder}
               value={countrySearch}
               onChangeText={setCountrySearch}
             />
@@ -316,98 +321,100 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
 
-  avatarSection: { alignItems: 'center', paddingVertical: 28, backgroundColor: '#fff', marginBottom: 10 },
-  avatarWrapper: { position: 'relative', marginBottom: 10 },
-  avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 2, borderColor: '#FF6B35' },
-  avatarPlaceholder: {
-    width: 90, height: 90, borderRadius: 45, backgroundColor: '#F3F4F6',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#E5E7EB',
-  },
-  avatarEmoji: { fontSize: 40 },
-  avatarBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#fff',
-  },
-  avatarBadgeText: { fontSize: 12 },
-  avatarHint: { fontSize: 12, color: '#9CA3AF' },
+    avatarSection: { alignItems: 'center', paddingVertical: 28, backgroundColor: C.surface, marginBottom: 10 },
+    avatarWrapper: { position: 'relative', marginBottom: 10 },
+    avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 2, borderColor: C.primary },
+    avatarPlaceholder: {
+      width: 90, height: 90, borderRadius: 45, backgroundColor: C.inputBg,
+      alignItems: 'center', justifyContent: 'center',
+      borderWidth: 2, borderColor: C.border,
+    },
+    avatarEmoji: { fontSize: 40 },
+    avatarBadge: {
+      position: 'absolute', bottom: 0, right: 0,
+      width: 28, height: 28, borderRadius: 14,
+      backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
+      borderWidth: 2, borderColor: C.surface,
+    },
+    avatarBadgeText: { fontSize: 12 },
+    avatarHint: { fontSize: 12, color: C.textMuted },
 
-  section: { backgroundColor: '#fff', padding: 16, marginBottom: 10 },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 },
-  input: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#111827',
-    backgroundColor: '#FAFAFA',
-  },
-  textArea: { height: 80, textAlignVertical: 'top' },
-  charCount: { fontSize: 11, color: '#9CA3AF', textAlign: 'right', marginTop: 4 },
+    section: { backgroundColor: C.surface, padding: 16, marginBottom: 10 },
+    label: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 8 },
+    input: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary,
+      backgroundColor: C.inputBg,
+    },
+    textArea: { height: 80, textAlignVertical: 'top' },
+    charCount: { fontSize: 11, color: C.textMuted, textAlign: 'right', marginTop: 4 },
 
-  picker: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 13, backgroundColor: '#FAFAFA',
-  },
-  pickerDisabled: { opacity: 0.5 },
-  pickerText: { fontSize: 15, color: '#111827', flex: 1 },
-  pickerPlaceholder: { color: '#9CA3AF' },
-  pickerArrow: { fontSize: 14, color: '#9CA3AF', marginLeft: 8 },
+    picker: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 13, backgroundColor: C.inputBg,
+    },
+    pickerDisabled: { opacity: 0.5 },
+    pickerText: { fontSize: 15, color: C.textPrimary, flex: 1 },
+    pickerPlaceholder: { color: C.placeholder },
+    pickerArrow: { fontSize: 14, color: C.textMuted, marginLeft: 8 },
 
-  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#F9FAFB',
-  },
-  chipActive: { borderColor: '#FF6B35', backgroundColor: '#FFF0EB' },
-  chipText: { fontSize: 13, color: '#6B7280' },
-  chipTextActive: { color: '#FF6B35', fontWeight: '600' },
+    chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 20,
+      paddingHorizontal: 14, paddingVertical: 6, backgroundColor: C.background,
+    },
+    chipActive: { borderColor: C.primary, backgroundColor: C.primaryLighter },
+    chipText: { fontSize: 13, color: C.textTertiary },
+    chipTextActive: { color: C.primary, fontWeight: '600' },
 
-  toggleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
-    backgroundColor: '#FAFAFA',
-  },
-  toggleRowActive: { borderColor: '#FF6B35', backgroundColor: '#FFF7F4' },
-  toggleTitle: { fontSize: 15, fontWeight: '600', color: '#111827', marginBottom: 2 },
-  toggleSub: { fontSize: 12, color: '#6B7280', maxWidth: 250 },
-  toggle: { width: 46, height: 26, borderRadius: 13, backgroundColor: '#E5E7EB', justifyContent: 'center', padding: 2 },
-  toggleOn: { backgroundColor: '#FF6B35' },
-  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
-  toggleThumbOn: { alignSelf: 'flex-end' },
+    toggleRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      padding: 14, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.inputBg,
+    },
+    toggleRowActive: { borderColor: C.primary, backgroundColor: C.primarySurface },
+    toggleTitle: { fontSize: 15, fontWeight: '600', color: C.textPrimary, marginBottom: 2 },
+    toggleSub: { fontSize: 12, color: C.textTertiary, maxWidth: 250 },
+    toggle: { width: 46, height: 26, borderRadius: 13, backgroundColor: C.border, justifyContent: 'center', padding: 2 },
+    toggleOn: { backgroundColor: C.primary },
+    toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
+    toggleThumbOn: { alignSelf: 'flex-end' },
 
-  saveBtn: {
-    backgroundColor: '#FF6B35', margin: 16, borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center',
-  },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+    saveBtn: {
+      backgroundColor: C.primary, margin: 16, borderRadius: 14,
+      paddingVertical: 16, alignItems: 'center',
+    },
+    saveBtnDisabled: { opacity: 0.6 },
+    saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    maxHeight: '75%', paddingBottom: 30,
-  },
-  modalHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 18, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#111827', flex: 1, marginRight: 12 },
-  modalClose: { fontSize: 18, color: '#6B7280', padding: 4 },
-  searchInput: {
-    margin: 12, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#111827',
-    backgroundColor: '#FAFAFA',
-  },
-  modalItem: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
-  },
-  modalItemActive: { backgroundColor: '#FFF4F0' },
-  modalItemText: { fontSize: 15, color: '#374151' },
-  modalItemTextActive: { color: '#FF6B35', fontWeight: '600' },
-  modalCheck: { fontSize: 16, color: '#FF6B35' },
-});
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+    modalSheet: {
+      backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      maxHeight: '75%', paddingBottom: 30,
+    },
+    modalHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      padding: 18, borderBottomWidth: 1, borderBottomColor: C.separator,
+    },
+    modalTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, flex: 1, marginRight: 12 },
+    modalClose: { fontSize: 18, color: C.textTertiary, padding: 4 },
+    searchInput: {
+      margin: 12, borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: C.textPrimary,
+      backgroundColor: C.inputBg,
+    },
+    modalItem: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.background,
+    },
+    modalItemActive: { backgroundColor: C.primarySurface },
+    modalItemText: { fontSize: 15, color: C.textSecondary },
+    modalItemTextActive: { color: C.primary, fontWeight: '600' },
+    modalCheck: { fontSize: 16, color: C.primary },
+  });
+}

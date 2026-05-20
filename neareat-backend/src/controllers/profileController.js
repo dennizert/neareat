@@ -1,6 +1,7 @@
 const prisma = require('../utils/prisma');
 const { getLevel } = require('../utils/stars');
 const { isActivePremium } = require('../utils/premiumCheck');
+const { logRequest } = require('../services/logService');
 
 function formatProfile(user, subscription = null) {
   const level = getLevel(user.starCount);
@@ -72,6 +73,7 @@ async function updateMe(req, res, next) {
       },
     });
 
+    logRequest({ req, page: 'Profil', action: 'Profil güncelledi' }).catch(() => {});
     res.json(formatProfile(updated));
   } catch (err) {
     next(err);

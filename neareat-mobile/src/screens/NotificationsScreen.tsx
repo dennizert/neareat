@@ -6,6 +6,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useNotificationStore } from '../store/notificationStore';
 import type { AppNotification } from '../types';
+import { useTheme } from '../theme';
+import type { Colors } from '../theme';
 
 const TYPE_ICON: Record<string, string> = {
   FRIEND_REQUEST: '👋',
@@ -28,6 +30,8 @@ function timeAgo(dateStr: string): string {
 export default function NotificationsScreen() {
   const navigation = useNavigation<any>();
   const { notifications, loading, hasMore, unreadCount, fetchNotifications, loadMore, markRead, markAllRead, fetchUnreadCount } = useNotificationStore();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   useEffect(() => {
     fetchNotifications(1);
@@ -59,7 +63,7 @@ export default function NotificationsScreen() {
       <FlatList
         data={notifications}
         keyExtractor={n => n.id}
-        refreshControl={<RefreshControl refreshing={loading && notifications.length === 0} onRefresh={onRefresh} tintColor="#FF6B35" />}
+        refreshControl={<RefreshControl refreshing={loading && notifications.length === 0} onRefresh={onRefresh} tintColor={C.primary} />}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={[styles.item, !item.isRead && styles.itemUnread]}
@@ -79,7 +83,7 @@ export default function NotificationsScreen() {
         )}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator style={{ marginTop: 60 }} size="large" color="#FF6B35" />
+            <ActivityIndicator style={{ marginTop: 60 }} size="large" color={C.primary} />
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🔔</Text>
@@ -90,45 +94,47 @@ export default function NotificationsScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         ListFooterComponent={
-          hasMore ? <ActivityIndicator style={{ margin: 16 }} color="#FF6B35" /> : null
+          hasMore ? <ActivityIndicator style={{ margin: 16 }} color={C.primary} /> : null
         }
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
 
-  markAllBar: {
-    backgroundColor: '#FFF7ED',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FED7AA',
-  },
-  markAllText: { color: '#FF6B35', fontWeight: '600', fontSize: 13 },
+    markAllBar: {
+      backgroundColor: C.primarySurface,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: C.primaryLight,
+    },
+    markAllText: { color: C.primary, fontWeight: '600', fontSize: 13 },
 
-  item: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    gap: 12,
-  },
-  itemUnread: { backgroundColor: '#FFF7ED' },
-  icon: { fontSize: 26, marginTop: 2 },
-  content: { flex: 1 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 },
-  title: { fontSize: 14, fontWeight: '700', color: '#111827', flex: 1, marginRight: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF6B35' },
-  body: { fontSize: 13, color: '#4B5563', lineHeight: 18 },
-  time: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+    item: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: C.surface,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: C.separator,
+      gap: 12,
+    },
+    itemUnread: { backgroundColor: C.primarySurface },
+    icon: { fontSize: 26, marginTop: 2 },
+    content: { flex: 1 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 },
+    title: { fontSize: 14, fontWeight: '700', color: C.textPrimary, flex: 1, marginRight: 8 },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary },
+    body: { fontSize: 13, color: C.textSecondary, lineHeight: 18 },
+    time: { fontSize: 11, color: C.textMuted, marginTop: 4 },
 
-  emptyContainer: { alignItems: 'center', marginTop: 80 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { fontSize: 16, color: '#6B7280' },
-});
+    emptyContainer: { alignItems: 'center', marginTop: 80 },
+    emptyIcon: { fontSize: 48, marginBottom: 12 },
+    emptyText: { fontSize: 16, color: C.textTertiary },
+  });
+}

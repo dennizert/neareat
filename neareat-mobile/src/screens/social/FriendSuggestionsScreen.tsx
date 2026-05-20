@@ -6,10 +6,15 @@ import {
 import { getFriendSuggestions } from '../../services/social';
 import { sendFriendRequest } from '../../services/social';
 import type { FriendSuggestion } from '../../types';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 const MAX_SCORE = 190;
 
 export default function FriendSuggestionsScreen() {
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+
   const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
@@ -31,7 +36,7 @@ export default function FriendSuggestionsScreen() {
   }
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#FF6B35" />;
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color={C.primary} />;
   }
 
   if (suggestions.length === 0) {
@@ -102,53 +107,55 @@ export default function FriendSuggestionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  list: { padding: 16 },
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    list: { padding: 16 },
 
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  emptyDesc: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+    emptyIcon: { fontSize: 48, marginBottom: 16 },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
+    emptyDesc: { fontSize: 14, color: C.textTertiary, textAlign: 'center', lineHeight: 22 },
 
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 }, elevation: 2,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  avatarPlaceholder: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginRight: 12,
-  },
-  avatarIcon: { fontSize: 22 },
-  cardInfo: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  badge: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  city: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  scoreBlock: { alignItems: 'center' },
-  scoreNum: { fontSize: 20, fontWeight: '800', color: '#FF6B35' },
-  scoreLabel: { fontSize: 10, color: '#9CA3AF' },
+    card: {
+      backgroundColor: C.surface, borderRadius: 16, padding: 16, marginBottom: 12,
+      shadowColor: C.shadow, shadowOpacity: 0.05, shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 }, elevation: 2,
+    },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    avatarPlaceholder: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: C.inputBg, justifyContent: 'center', alignItems: 'center', marginRight: 12,
+    },
+    avatarIcon: { fontSize: 22 },
+    cardInfo: { flex: 1 },
+    name: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
+    badge: { fontSize: 12, color: C.textTertiary, marginTop: 2 },
+    city: { fontSize: 12, color: C.textMuted, marginTop: 2 },
+    scoreBlock: { alignItems: 'center' },
+    scoreNum: { fontSize: 20, fontWeight: '800', color: C.primary },
+    scoreLabel: { fontSize: 10, color: C.textMuted },
 
-  progressBar: {
-    height: 6, backgroundColor: '#F3F4F6', borderRadius: 3,
-    marginBottom: 12, overflow: 'hidden',
-  },
-  progressFill: { height: '100%', backgroundColor: '#FF6B35', borderRadius: 3 },
+    progressBar: {
+      height: 6, backgroundColor: C.inputBg, borderRadius: 3,
+      marginBottom: 12, overflow: 'hidden',
+    },
+    progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 3 },
 
-  reasonsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
-  reasonChip: {
-    backgroundColor: '#F0FDF4', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderWidth: 1, borderColor: '#BBF7D0',
-  },
-  reasonText: { fontSize: 11, color: '#065F46', fontWeight: '600' },
+    reasonsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
+    reasonChip: {
+      backgroundColor: C.successSurface, borderRadius: 10,
+      paddingHorizontal: 10, paddingVertical: 4,
+      borderWidth: 1, borderColor: '#BBF7D0',
+    },
+    reasonText: { fontSize: 11, color: '#065F46', fontWeight: '600' },
 
-  addBtn: {
-    backgroundColor: '#FF6B35', borderRadius: 12,
-    paddingVertical: 12, alignItems: 'center',
-  },
-  addBtnSent: { backgroundColor: '#D1FAE5' },
-  addBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  addBtnTextSent: { color: '#065F46' },
-});
+    addBtn: {
+      backgroundColor: C.primary, borderRadius: 12,
+      paddingVertical: 12, alignItems: 'center',
+    },
+    addBtnSent: { backgroundColor: C.successSurface },
+    addBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+    addBtnTextSent: { color: '#065F46' },
+  });
+}

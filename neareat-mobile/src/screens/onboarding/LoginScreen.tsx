@@ -9,6 +9,8 @@ import { useAuthStore } from '../../store/authStore';
 import { useAppInit } from '../../hooks/useAppInit';
 import { MOCK_MODE } from '../../config';
 import { MOCK_USER } from '../../mocks/data';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 type AuthTab = 'email' | 'google';
 
@@ -16,6 +18,8 @@ export default function LoginScreen() {
   const navigation = useNavigation<any>();
   const { setPendingUser, setUser, setSubscription, setRestaurantStatus } = useAuthStore();
   const { initApp } = useAppInit();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [tab, setTab] = useState<AuthTab>('email');
   const [email, setEmail] = useState('');
@@ -114,7 +118,7 @@ export default function LoginScreen() {
             <TextInput
               style={styles.input}
               placeholder="ornek@email.com"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.textMuted}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -127,7 +131,7 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.passwordInput}
                 placeholder="En az 6 karakter"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -150,6 +154,10 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            <TouchableOpacity style={styles.forgotRow} onPress={() => navigation.navigate('ForgotPassword')}>
+              <Text style={styles.forgotText}>Şifremi Unuttum</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Register')}>
               <Text style={styles.linkText}>Hesabın yok mu? <Text style={styles.linkBold}>Kayıt Ol</Text></Text>
             </TouchableOpacity>
@@ -163,7 +171,7 @@ export default function LoginScreen() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#111827" />
+                <ActivityIndicator color={C.textPrimary} />
               ) : (
                 <Text style={styles.googleBtnText}>
                   {MOCK_MODE ? '🧪 Test Kullanıcısı ile Giriş' : 'Google ile Giriş Yap'}
@@ -189,41 +197,46 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#fff' },
-  container: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 28 },
-  logo: { fontSize: 64, marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: '800', color: '#111827', marginBottom: 8, textAlign: 'center' },
-  subtitle: { fontSize: 15, color: '#6B7280', textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: C.surface },
+    container: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 28 },
+    logo: { fontSize: 64, marginBottom: 16 },
+    title: { fontSize: 28, fontWeight: '800', color: C.textPrimary, marginBottom: 8, textAlign: 'center' },
+    subtitle: { fontSize: 15, color: C.textTertiary, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
 
-  tabs: { flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 10, padding: 3, marginBottom: 24, width: '100%' },
-  tab: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center' },
-  tabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 2 },
-  tabText: { fontSize: 14, fontWeight: '500', color: '#6B7280' },
-  tabTextActive: { color: '#111827', fontWeight: '700' },
+    tabs: { flexDirection: 'row', backgroundColor: C.inputBg, borderRadius: 10, padding: 3, marginBottom: 24, width: '100%' },
+    tab: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center' },
+    tabActive: { backgroundColor: C.surface, shadowColor: C.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 2 },
+    tabText: { fontSize: 14, fontWeight: '500', color: C.textTertiary },
+    tabTextActive: { color: C.textPrimary, fontWeight: '700' },
 
-  form: { width: '100%' },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 14 },
-  input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#111827' },
-  passwordRow: { flexDirection: 'row', backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, alignItems: 'center' },
-  passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#111827' },
-  eyeBtn: { paddingHorizontal: 12, paddingVertical: 12 },
-  eyeText: { fontSize: 16 },
+    form: { width: '100%' },
+    label: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6, marginTop: 14 },
+    input: { backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary },
+    passwordRow: { flexDirection: 'row', backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 10, alignItems: 'center' },
+    passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary },
+    eyeBtn: { paddingHorizontal: 12, paddingVertical: 12 },
+    eyeText: { fontSize: 16 },
 
-  primaryBtn: { backgroundColor: '#FF6B35', borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 22 },
-  btnDisabled: { opacity: 0.6 },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    primaryBtn: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 22 },
+    btnDisabled: { opacity: 0.6 },
+    primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
-  linkRow: { alignItems: 'center', marginTop: 16 },
-  linkText: { fontSize: 14, color: '#6B7280' },
-  linkBold: { color: '#FF6B35', fontWeight: '700' },
+    forgotRow: { alignItems: 'flex-end', marginTop: 10 },
+    forgotText: { fontSize: 13, color: C.primary, fontWeight: '600' },
 
-  googleHint: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 20, marginTop: 8 },
-  googleBtn: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
-  googleBtnText: { fontSize: 15, fontWeight: '600', color: '#111827' },
+    linkRow: { alignItems: 'center', marginTop: 16 },
+    linkText: { fontSize: 14, color: C.textTertiary },
+    linkBold: { color: C.primary, fontWeight: '700' },
 
-  mockBadge: { marginTop: 24, fontSize: 11, color: '#9CA3AF', backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
-  restaurantLinkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24, flexWrap: 'wrap', justifyContent: 'center' },
-  restaurantLinkLabel: { fontSize: 13, color: '#9CA3AF' },
-  restaurantLink: { fontSize: 13, color: '#4F46E5', fontWeight: '700' },
-});
+    googleHint: { fontSize: 14, color: C.textTertiary, textAlign: 'center', marginBottom: 20, marginTop: 8 },
+    googleBtn: { backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+    googleBtnText: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
+
+    mockBadge: { marginTop: 24, fontSize: 11, color: C.textMuted, backgroundColor: C.inputBg, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
+    restaurantLinkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24, flexWrap: 'wrap', justifyContent: 'center' },
+    restaurantLinkLabel: { fontSize: 13, color: C.textMuted },
+    restaurantLink: { fontSize: 13, color: '#4F46E5', fontWeight: '700' },
+  });
+}

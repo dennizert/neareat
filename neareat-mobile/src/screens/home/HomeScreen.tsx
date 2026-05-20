@@ -12,6 +12,8 @@ import MapViewScreen from './MapViewScreen';
 import type { Restaurant } from '../../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import NotificationBell from '../../components/NotificationBell';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 const CATEGORIES = [
   { key: 'all',           label: 'Tümü' },
@@ -30,11 +32,14 @@ export default function HomeScreen() {
 
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | undefined>();
   const [refreshing, setRefreshing] = useState(false);
-  const coordsRef = useRef<{ lat: number; lng: number } | undefined>();
+  const coordsRef = useRef<{ lat: number; lng: number } | undefined>(undefined);
   const lastFetchRef = useRef<number>(0);
 
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+
   // Fetch all data — category changes are client-side (instant, no API call)
-  const loadAll = useCallback(async (forceLocation = false) => {
+  const loadAll = useCallback(async (forceLocation: boolean = false) => {
     try {
       setLoading(true);
       setError(null);
@@ -79,9 +84,13 @@ export default function HomeScreen() {
 
   const restaurants = getSortedFiltered();
 
-  function handlePress(restaurant: Restaurant) {
+  const handlePress = useCallback((restaurant: Restaurant) => {
     navigation.navigate('RestaurantDetail', { placeId: restaurant.placeId });
-  }
+  }, [navigation]);
+
+  const renderCard = useCallback(({ item }: { item: Restaurant }) => (
+    <RestaurantCard restaurant={item} onPress={() => handlePress(item)} />
+  ), [handlePress]);
 
   return (
     <View style={styles.container}>
@@ -144,19 +153,21 @@ export default function HomeScreen() {
       ) : (
         <>
           <SortFilterBar />
-          {loading && <ActivityIndicator style={styles.loader} size="large" color="#FF6B35" />}
+          {loading && <ActivityIndicator style={styles.loader} size="large" color={C.primary} />}
           {error && <Text style={styles.errorText}>{error}</Text>}
           {!loading && !error && (
             <FlatList
               data={restaurants}
               keyExtractor={(r) => r.placeId}
-              renderItem={({ item }) => (
-                <RestaurantCard restaurant={item} onPress={() => handlePress(item)} />
-              )}
+              renderItem={renderCard}
               contentContainerStyle={styles.list}
               showsVerticalScrollIndicator={false}
+              windowSize={5}
+              maxToRenderPerBatch={6}
+              initialNumToRender={8}
+              removeClippedSubviews
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF6B35" />
+                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />
               }
             />
           )}
@@ -166,32 +177,34 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
 
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: '#fff',
-  },
-  logo: { fontSize: 22, fontWeight: '800', color: '#FF6B35' },
-  viewToggle: { flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 8, padding: 2 },
-  toggleBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6 },
-  toggleActive: { backgroundColor: '#FF6B35' },
-  toggleText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
-  toggleTextActive: { color: '#fff' },
+    header: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: C.surface,
+    },
+    logo: { fontSize: 22, fontWeight: '800', color: C.primary },
+    viewToggle: { flexDirection: 'row', backgroundColor: C.surfaceAlt, borderRadius: 8, padding: 2 },
+    toggleBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6 },
+    toggleActive: { backgroundColor: C.primary },
+    toggleText: { fontSize: 13, color: C.textTertiary, fontWeight: '500' },
+    toggleTextActive: { color: '#fff' },
 
-  categoryBar: { backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#F0F0F0' },
-  categoryRow: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
-  categoryTab: {
-    height: 34, paddingHorizontal: 18, borderRadius: 17,
-    borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#fff',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  categoryTabActive: { backgroundColor: '#FF6B35', borderColor: '#FF6B35' },
-  categoryLabel: { fontSize: 13, fontWeight: '600', color: '#374151', lineHeight: 18 },
-  categoryLabelActive: { color: '#fff' },
+    categoryBar: { backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.separator },
+    categoryRow: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
+    categoryTab: {
+      height: 34, paddingHorizontal: 18, borderRadius: 17,
+      borderWidth: 1.5, borderColor: C.disabled, backgroundColor: C.surface,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    categoryTabActive: { backgroundColor: C.primary, borderColor: C.primary },
+    categoryLabel: { fontSize: 13, fontWeight: '600', color: C.textSecondary, lineHeight: 18 },
+    categoryLabelActive: { color: '#fff' },
 
-  loader: { marginTop: 40 },
-  errorText: { textAlign: 'center', color: '#EF4444', marginTop: 40, paddingHorizontal: 16 },
-  list: { padding: 16 },
-});
+    loader: { marginTop: 40 },
+    errorText: { textAlign: 'center', color: C.error, marginTop: 40, paddingHorizontal: 16 },
+    list: { padding: 16 },
+  });
+}

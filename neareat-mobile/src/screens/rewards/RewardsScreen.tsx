@@ -5,6 +5,8 @@ import {
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { getRewards, getStarEvents, getNextMilestone, getLeaderboard } from '../../services/social';
 import type { Reward, StarEvent, Leaderboard } from '../../types';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 const STAR_EVENT_LABELS: Record<string, string> = {
   review: '✍️ Yorum',
@@ -15,6 +17,9 @@ const STAR_EVENT_LABELS: Record<string, string> = {
 
 export default function RewardsScreen() {
   const { profile, starEvents, setProfile } = useUserProfileStore();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+
   const [rewards, setRewards] = useState<(Reward & { isUnlocked: boolean })[]>([]);
   const [events, setEvents] = useState<StarEvent[]>([]);
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null);
@@ -40,7 +45,7 @@ export default function RewardsScreen() {
   }, [starCount]);
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#FF6B35" />;
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color={C.primary} />;
   }
 
   const starsToNext = nextMilestone - starCount;
@@ -185,86 +190,88 @@ function timeAgo(isoDate: string): string {
   return `${Math.floor(days / 7)} hafta önce`;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  heroCard: {
-    backgroundColor: '#FF6B35', padding: 28, alignItems: 'center',
-  },
-  heroIcon: { fontSize: 48, marginBottom: 8 },
-  heroLevel: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 2 },
-  heroBadge: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 12 },
-  starCountRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 16 },
-  starCountNum: { fontSize: 48, fontWeight: '800', color: '#fff' },
-  starCountLabel: { fontSize: 18, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
-  progressBar: {
-    width: '80%', height: 8, backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 4, marginBottom: 8, overflow: 'hidden',
-  },
-  progressFill: { height: '100%', backgroundColor: '#fff', borderRadius: 4 },
-  progressText: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'center' },
-  earnSection: { backgroundColor: '#fff', margin: 12, borderRadius: 16, padding: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 },
-  earnRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 10, borderBottomWidth: 1, borderColor: '#F3F4F6',
-  },
-  earnIcon: { fontSize: 20, width: 32 },
-  earnLabel: { flex: 1, fontSize: 14, color: '#374151' },
-  earnBadge: { backgroundColor: '#FFFBEB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  earnAmount: { fontSize: 13, fontWeight: '700', color: '#92400E' },
-  rewardsSection: { backgroundColor: '#fff', margin: 12, borderRadius: 16, padding: 16 },
-  rewardCard: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 14, borderBottomWidth: 1, borderColor: '#F3F4F6', gap: 12,
-  },
-  rewardCardLocked: { opacity: 0.5 },
-  rewardIcon: { fontSize: 32, width: 44, textAlign: 'center' },
-  rewardIconLocked: {},
-  rewardInfo: { flex: 1 },
-  rewardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rewardName: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  rewardNameLocked: { color: '#9CA3AF' },
-  rewardDesc: { fontSize: 12, color: '#6B7280', marginTop: 3, lineHeight: 18 },
-  rewardDescLocked: { color: '#D1D5DB' },
-  rewardRequired: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
-  giftBadge: { backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  giftBadgeText: { fontSize: 10, fontWeight: '700', color: '#92400E' },
-  unlockedBadge: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center',
-  },
-  unlockedText: { color: '#065F46', fontWeight: '700', fontSize: 14 },
-  leaderboardSection: { backgroundColor: '#fff', margin: 12, borderRadius: 16, padding: 16 },
-  leaderRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 10, borderBottomWidth: 1, borderColor: '#F3F4F6', gap: 10,
-  },
-  leaderRowMe: { backgroundColor: '#FFF7ED', borderRadius: 10, paddingHorizontal: 8 },
-  leaderMedal: { fontSize: 22, width: 32, textAlign: 'center' },
-  leaderInfo: { flex: 1 },
-  leaderName: { fontSize: 14, fontWeight: '700', color: '#111827' },
-  leaderNameMe: { color: '#FF6B35' },
-  leaderMeLabel: { fontSize: 12, fontWeight: '500', color: '#FF6B35' },
-  leaderBadge: { fontSize: 11, color: '#6B7280', marginTop: 2 },
-  leaderStars: { flexDirection: 'row', alignItems: 'baseline' },
-  leaderStarNum: { fontSize: 16, fontWeight: '800', color: '#374151' },
-  leaderStarNumMe: { color: '#FF6B35' },
-  leaderStarLabel: { fontSize: 13, color: '#6B7280' },
-  myRankRow: {
-    marginTop: 10, paddingTop: 10,
-    borderTopWidth: 1, borderColor: '#F3F4F6', alignItems: 'center',
-  },
-  myRankText: { fontSize: 13, color: '#6B7280' },
-  myRankNum: { fontWeight: '800', color: '#FF6B35', fontSize: 15 },
-  historySection: { backgroundColor: '#fff', margin: 12, borderRadius: 16, padding: 16 },
-  emptyText: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingVertical: 12 },
-  eventRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 10, borderBottomWidth: 1, borderColor: '#F3F4F6', gap: 10,
-  },
-  eventIcon: { fontSize: 20, width: 32 },
-  eventInfo: { flex: 1 },
-  eventDesc: { fontSize: 13, color: '#374151' },
-  eventDate: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  eventAmount: { fontSize: 13, fontWeight: '700', color: '#F59E0B' },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    heroCard: {
+      backgroundColor: C.primary, padding: 28, alignItems: 'center',
+    },
+    heroIcon: { fontSize: 48, marginBottom: 8 },
+    heroLevel: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 2 },
+    heroBadge: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 12 },
+    starCountRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 16 },
+    starCountNum: { fontSize: 48, fontWeight: '800', color: '#fff' },
+    starCountLabel: { fontSize: 18, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
+    progressBar: {
+      width: '80%', height: 8, backgroundColor: 'rgba(255,255,255,0.3)',
+      borderRadius: 4, marginBottom: 8, overflow: 'hidden',
+    },
+    progressFill: { height: '100%', backgroundColor: '#fff', borderRadius: 4 },
+    progressText: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'center' },
+    earnSection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, padding: 16 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 12 },
+    earnRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingVertical: 10, borderBottomWidth: 1, borderColor: C.separator,
+    },
+    earnIcon: { fontSize: 20, width: 32 },
+    earnLabel: { flex: 1, fontSize: 14, color: C.textSecondary },
+    earnBadge: { backgroundColor: C.warningSurface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+    earnAmount: { fontSize: 13, fontWeight: '700', color: '#92400E' },
+    rewardsSection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, padding: 16 },
+    rewardCard: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingVertical: 14, borderBottomWidth: 1, borderColor: C.separator, gap: 12,
+    },
+    rewardCardLocked: { opacity: 0.5 },
+    rewardIcon: { fontSize: 32, width: 44, textAlign: 'center' },
+    rewardIconLocked: {},
+    rewardInfo: { flex: 1 },
+    rewardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    rewardName: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+    rewardNameLocked: { color: C.textMuted },
+    rewardDesc: { fontSize: 12, color: C.textTertiary, marginTop: 3, lineHeight: 18 },
+    rewardDescLocked: { color: C.disabled },
+    rewardRequired: { fontSize: 11, color: C.textMuted, marginTop: 4 },
+    giftBadge: { backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+    giftBadgeText: { fontSize: 10, fontWeight: '700', color: '#92400E' },
+    unlockedBadge: {
+      width: 28, height: 28, borderRadius: 14,
+      backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center',
+    },
+    unlockedText: { color: '#065F46', fontWeight: '700', fontSize: 14 },
+    leaderboardSection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, padding: 16 },
+    leaderRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingVertical: 10, borderBottomWidth: 1, borderColor: C.separator, gap: 10,
+    },
+    leaderRowMe: { backgroundColor: C.primaryLighter, borderRadius: 10, paddingHorizontal: 8 },
+    leaderMedal: { fontSize: 22, width: 32, textAlign: 'center' },
+    leaderInfo: { flex: 1 },
+    leaderName: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
+    leaderNameMe: { color: C.primary },
+    leaderMeLabel: { fontSize: 12, fontWeight: '500', color: C.primary },
+    leaderBadge: { fontSize: 11, color: C.textTertiary, marginTop: 2 },
+    leaderStars: { flexDirection: 'row', alignItems: 'baseline' },
+    leaderStarNum: { fontSize: 16, fontWeight: '800', color: C.textSecondary },
+    leaderStarNumMe: { color: C.primary },
+    leaderStarLabel: { fontSize: 13, color: C.textTertiary },
+    myRankRow: {
+      marginTop: 10, paddingTop: 10,
+      borderTopWidth: 1, borderColor: C.separator, alignItems: 'center',
+    },
+    myRankText: { fontSize: 13, color: C.textTertiary },
+    myRankNum: { fontWeight: '800', color: C.primary, fontSize: 15 },
+    historySection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, padding: 16 },
+    emptyText: { fontSize: 13, color: C.textMuted, textAlign: 'center', paddingVertical: 12 },
+    eventRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingVertical: 10, borderBottomWidth: 1, borderColor: C.separator, gap: 10,
+    },
+    eventIcon: { fontSize: 20, width: 32 },
+    eventInfo: { flex: 1 },
+    eventDesc: { fontSize: 13, color: C.textSecondary },
+    eventDate: { fontSize: 11, color: C.textMuted, marginTop: 2 },
+    eventAmount: { fontSize: 13, fontWeight: '700', color: C.warning },
+  });
+}

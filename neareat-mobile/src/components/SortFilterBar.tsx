@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { useRestaurantStore } from '../store/restaurantStore';
 import type { SortOption } from '../types';
+import { useTheme } from '../theme';
+import type { Colors } from '../theme';
 
 const SORT_OPTIONS: { key: SortOption; label: string }[] = [
   { key: 'distance',         label: 'En Yakın' },
@@ -17,6 +19,9 @@ export default function SortFilterBar() {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [btnLayout, setBtnLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const sortBtnRef = useRef<View>(null);
+
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const currentSort = SORT_OPTIONS.find((o) => o.key === sortBy) ?? SORT_OPTIONS[0];
   const isOpen = filters.openNow;
@@ -125,112 +130,114 @@ export default function SortFilterBar() {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  spacer: { flex: 1 },
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    bar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: C.surface,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderColor: C.separator,
+    },
+    spacer: { flex: 1 },
 
-  // ── Radio / Open toggle ──────────────────────────────────
-  openToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F9FAFB',
-  },
-  openToggleActive: {
-    borderColor: '#FF6B35',
-    backgroundColor: '#FFF4F0',
-  },
-  radio: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#9CA3AF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
-  },
-  radioActive: { borderColor: '#FF6B35' },
-  radioDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#FF6B35' },
-  openLabel: { fontSize: 13, fontWeight: '700', color: '#6B7280' },
-  openLabelActive: { color: '#FF6B35' },
+    // ── Radio / Open toggle ──────────────────────────────────
+    openToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: C.disabled,
+      backgroundColor: C.background,
+    },
+    openToggleActive: {
+      borderColor: C.primary,
+      backgroundColor: C.primaryLighter,
+    },
+    radio: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: C.textMuted,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 6,
+    },
+    radioActive: { borderColor: C.primary },
+    radioDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.primary },
+    openLabel: { fontSize: 13, fontWeight: '700', color: C.textTertiary },
+    openLabelActive: { color: C.primary },
 
-  // ── Sort pill ────────────────────────────────────────────
-  sortPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F9FAFB',
-  },
-  sortPillOpen: {
-    borderColor: '#FF6B35',
-    backgroundColor: '#FFF4F0',
-  },
-  sortPillInner: { flexDirection: 'row', alignItems: 'baseline' },
-  sortPillHint: { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
-  sortPillValue: { fontSize: 13, color: '#111827', fontWeight: '700' },
-  sortPillValueOpen: { color: '#FF6B35' },
-  sortArrow: { fontSize: 11, color: '#6B7280', marginLeft: 6, fontWeight: '700' },
-  sortArrowOpen: { color: '#FF6B35' },
+    // ── Sort pill ────────────────────────────────────────────
+    sortPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: C.disabled,
+      backgroundColor: C.background,
+    },
+    sortPillOpen: {
+      borderColor: C.primary,
+      backgroundColor: C.primaryLighter,
+    },
+    sortPillInner: { flexDirection: 'row', alignItems: 'baseline' },
+    sortPillHint: { fontSize: 11, color: C.textMuted, fontWeight: '500' },
+    sortPillValue: { fontSize: 13, color: C.textPrimary, fontWeight: '700' },
+    sortPillValueOpen: { color: C.primary },
+    sortArrow: { fontSize: 11, color: C.textTertiary, marginLeft: 6, fontWeight: '700' },
+    sortArrowOpen: { color: C.primary },
 
-  // ── Dropdown card ────────────────────────────────────────
-  dropdown: {
-    position: 'absolute',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 10,
-    overflow: 'hidden',
-  },
-  dropdownHeader: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  dropdownTitle: { fontSize: 11, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  dropdownItemActive: { backgroundColor: '#FFF4F0' },
-  dropdownItemBorder: { borderBottomWidth: 1, borderColor: '#F3F4F6' },
-  itemRadio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  itemRadioActive: { borderColor: '#FF6B35' },
-  itemRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF6B35' },
-  dropdownLabel: { flex: 1, fontSize: 14, color: '#374151', fontWeight: '500' },
-  dropdownLabelActive: { color: '#FF6B35', fontWeight: '700' },
-});
+    // ── Dropdown card ────────────────────────────────────────
+    dropdown: {
+      position: 'absolute',
+      backgroundColor: C.surface,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: C.border,
+      shadowColor: C.shadow,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.14,
+      shadowRadius: 16,
+      elevation: 10,
+      overflow: 'hidden',
+    },
+    dropdownHeader: {
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 8,
+      borderBottomWidth: 1,
+      borderColor: C.separator,
+    },
+    dropdownTitle: { fontSize: 11, fontWeight: '700', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+    dropdownItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    dropdownItemActive: { backgroundColor: C.primaryLighter },
+    dropdownItemBorder: { borderBottomWidth: 1, borderColor: C.separator },
+    itemRadio: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 2,
+      borderColor: C.disabled,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10,
+    },
+    itemRadioActive: { borderColor: C.primary },
+    itemRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary },
+    dropdownLabel: { flex: 1, fontSize: 14, color: C.textSecondary, fontWeight: '500' },
+    dropdownLabelActive: { color: C.primary, fontWeight: '700' },
+  });
+}

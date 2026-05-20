@@ -436,11 +436,11 @@ AdminDashboardScreen
 
 ## Admin Paneli
 
-Production'daki admin hesabı:
-- **E-posta:** `neareatadmin@gmail.com`
-- **Şifre:** `123456789`
+Production'daki admin hesabı `.env` dosyasındaki `ADMIN_EMAIL` ve `ADMIN_PASSWORD` değişkenleri ile yönetilir.
 
 Admin oluşturmak için: `POST /api/admin/seed`
+
+> **Not:** Admin kimlik bilgilerini asla kaynak kodda saklamayın. `.env` dosyasını kullanın.
 
 ---
 

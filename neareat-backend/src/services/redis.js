@@ -9,7 +9,7 @@ function getRedis() {
       enableOfflineQueue: false,
       retryStrategy: () => null, // bağlanamazsa retry yapma
     });
-    client.on('error', () => {}); // hataları sessizce yut
+    client.on('error', (err) => console.warn('[Redis]', err.message)); // hataları logla
   }
   return client;
 }

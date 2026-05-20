@@ -11,6 +11,7 @@ export interface User {
   authProvider: 'google' | 'email';
   role: UserRole;
   isSuspended: boolean;
+  emailVerified: boolean;
 }
 
 export interface UserProfile {
@@ -60,6 +61,7 @@ export interface Restaurant {
   formattedAddress?: string | null;
   discount?: DiscountInfo | null;
   announcement?: string | null;
+  acceptsReservations?: boolean;
 }
 
 export interface OpeningHoursPeriodTime {
@@ -108,6 +110,8 @@ export interface RestaurantDetail extends Restaurant {
   openingHoursOverride?: Record<string, { open: string; close: string; closed: boolean }> | null;
   menu?: RestaurantMenuItemMeta[];
   hasMenu?: boolean;
+  acceptsReservations?: boolean;
+  restaurantId?: string | null;
 }
 
 // ─── Restaurant Account ───────────────────────────────────────────────────────
@@ -133,6 +137,7 @@ export interface RestaurantProfile {
   reservationUrl: string | null;
   announcement: string | null;
   announcementActive: boolean;
+  acceptsReservations: boolean;
   openingHours: Record<string, { open: string; close: string; closed: boolean }> | null;
   discountEnabled: boolean;
   discountPercent: number | null;
@@ -319,7 +324,103 @@ export interface Reward {
   icon: string;
 }
 
-export type NotificationType = 'FRIEND_REQUEST' | 'INSTANT_DISCOUNT' | 'LEVEL_UP' | 'RECOMMENDATION' | 'REVIEW_REPLY' | 'FRIEND_SUGGESTION' | 'REPORT_RESOLVED';
+// ─── Reservations ─────────────────────────────────────────────────────────────
+
+export type ReservationStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED';
+
+export interface Reservation {
+  id: string;
+  userId: string;
+  restaurantId: string;
+  placeId: string;
+  placeName: string;
+  date: string;
+  time: string;
+  guestCount: number;
+  occasion: string | null;
+  specialRequests: string | null;
+  status: ReservationStatus;
+  rejectionReason: string | null;
+  attended: boolean | null;
+  createdAt: string;
+  updatedAt: string;
+  user: { id: string; displayName: string; photoUrl: string | null };
+  restaurant: { id: string; businessName: string; placePhotoUrl: string | null; userId: string };
+}
+
+export interface ReservationMessage {
+  id: string;
+  reservationId: string;
+  senderId: string;
+  senderRole: 'USER' | 'RESTAURANT';
+  content: string;
+  createdAt: string;
+}
+
+export type NotificationType = 'FRIEND_REQUEST' | 'INSTANT_DISCOUNT' | 'LEVEL_UP' | 'RECOMMENDATION' | 'REVIEW_REPLY' | 'FRIEND_SUGGESTION' | 'REPORT_RESOLVED' | 'RESERVATION_REQUEST' | 'RESERVATION_CONFIRMED' | 'RESERVATION_REJECTED' | 'RESERVATION_MESSAGE' | 'RESERVATION_ATTENDED' | 'RESERVATION_NO_SHOW' | 'RESERVATION_CANCELLED' | 'RESERVATION_REMINDER' | 'MEAL_GROUP_INVITE' | 'MEAL_GROUP_JOINED' | 'MEAL_GROUP_POLL' | 'MEAL_GROUP_POLL_CLOSED' | 'FAVORITE_CLOSING_SOON' | 'FAVORITE_ANNOUNCEMENT' | 'STAR_MILESTONE' | 'POLL_VOTE_REMINDER' | 'WEEKLY_DIGEST' | 'INACTIVITY_REMINDER';
+
+// ─── Meal Groups ──────────────────────────────────────────────────────────────
+
+export type MealGroupMemberStatus = 'INVITED' | 'ACCEPTED' | 'DECLINED';
+export type PollVoteValue = 'YES' | 'NO' | 'MAYBE';
+export type PollStatus = 'OPEN' | 'CLOSED';
+
+export interface PollVote {
+  id: string;
+  optionId: string;
+  userId: string;
+  vote: PollVoteValue;
+  user: { id: string; displayName: string; photoUrl: string | null };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PollOption {
+  id: string;
+  pollId: string;
+  placeId: string;
+  placeName: string;
+  placeAddress: string | null;
+  placePhotoUrl: string | null;
+  placeRating: number | null;
+  votes: PollVote[];
+  addedAt: string;
+}
+
+export interface RestaurantPoll {
+  id: string;
+  groupId: string;
+  creatorId: string;
+  creator: { id: string; displayName: string };
+  question: string | null;
+  status: PollStatus;
+  options: PollOption[];
+  createdAt: string;
+  closedAt: string | null;
+  winner?: PollOption | null;
+}
+
+export interface MealGroupMember {
+  id: string;
+  groupId: string;
+  userId: string;
+  status: MealGroupMemberStatus;
+  user: { id: string; displayName: string; photoUrl: string | null };
+  createdAt: string;
+}
+
+export interface MealGroup {
+  id: string;
+  name: string;
+  creatorId: string;
+  creator: { id: string; displayName: string; photoUrl: string | null };
+  members: MealGroupMember[];
+  polls: RestaurantPoll[];
+  myStatus: MealGroupMemberStatus;
+  hasOpenPoll?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Message {
   id: string;
@@ -335,6 +436,18 @@ export interface Conversation {
   profile: { id: string; displayName: string; photoUrl: string | null };
   lastMessage: { content: string; createdAt: string; isRead: boolean; isMine: boolean };
   unreadCount: number;
+}
+
+export interface UserLog {
+  id: string;
+  userId: string | null;
+  username: string | null;
+  email: string | null;
+  page: string;
+  action: string;
+  details: string | null;
+  ip: string | null;
+  createdAt: string;
 }
 
 export interface UserReport {
@@ -420,6 +533,16 @@ export type RootStackParamList = {
   Collections: undefined;
   CollectionDetail: { collectionId: string; title?: string };
   Conversation: { userId: string; displayName: string; photoUrl?: string | null };
+  // Meal Groups
+  MealGroups: undefined;
+  MealGroupDetail: { groupId: string; groupName: string };
+  CreateMealGroup: undefined;
+  // Reservations
+  MakeReservation: { placeId: string; placeName: string; restaurantId: string };
+  MyReservations: undefined;
+  ReservationDetail: { reservationId: string };
+  EditReservation: { reservationId: string };
+  RestaurantReservations: undefined;
   // Restaurant account
   RestaurantRegister: undefined;
   RestaurantPending: { status: ApprovalStatus; rejectionReason?: string | null };
@@ -432,6 +555,7 @@ export type RootStackParamList = {
   // Admin
   AdminDashboard: undefined;
   AdminRestaurantDetail: { restaurantId: string };
+  AdminLogs: undefined;
   // Notifications
   Notifications: undefined;
 };

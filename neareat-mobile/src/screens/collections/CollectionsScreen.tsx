@@ -12,11 +12,15 @@ import {
 } from '../../services/collections';
 import NotificationBell from '../../components/NotificationBell';
 import type { Collection, SharedCollection } from '../../types';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 export default function CollectionsScreen() {
   const navigation = useNavigation<any>();
   const { isPremium } = useAuthStore();
   const { myCollections, sharedWithMe, setMyCollections, setSharedWithMe, addCollection, removeCollection } = useCollectionStore();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -194,14 +198,14 @@ export default function CollectionsScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#FF6B35" style={{ marginTop: 40 }} />
+        <ActivityIndicator color={C.primary} style={{ marginTop: 40 }} />
       ) : activeTab === 'mine' ? (
         <FlatList
           data={myCollections}
           keyExtractor={(c) => c.id}
           renderItem={renderMyCollection}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF6B35" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📋</Text>
@@ -220,7 +224,7 @@ export default function CollectionsScreen() {
           keyExtractor={(s) => s.shareId}
           renderItem={renderSharedCollection}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF6B35" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>👥</Text>
@@ -246,7 +250,7 @@ export default function CollectionsScreen() {
             <Text style={styles.modalTitle}>Yeni Koleksiyon</Text>
             <TouchableOpacity onPress={handleCreate} disabled={creating}>
               {creating
-                ? <ActivityIndicator size="small" color="#FF6B35" />
+                ? <ActivityIndicator size="small" color={C.primary} />
                 : <Text style={styles.modalSave}>Kaydet</Text>}
             </TouchableOpacity>
           </View>
@@ -257,7 +261,7 @@ export default function CollectionsScreen() {
             value={newName}
             onChangeText={setNewName}
             placeholder="Örn: Hafta Sonu Brunch"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.textMuted}
             maxLength={100}
             autoFocus
           />
@@ -268,7 +272,7 @@ export default function CollectionsScreen() {
             value={newDesc}
             onChangeText={setNewDesc}
             placeholder="Bu liste hakkında kısa bir not..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.textMuted}
             multiline
             numberOfLines={3}
             maxLength={300}
@@ -292,78 +296,80 @@ export default function CollectionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: '#fff',
-  },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
-  createBtn: {
-    backgroundColor: '#FF6B35', borderRadius: 10,
-    paddingHorizontal: 16, paddingVertical: 8,
-  },
-  createBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  premiumBanner: {
-    backgroundColor: '#FFF7ED', padding: 12,
-    borderBottomWidth: 1, borderBottomColor: '#FED7AA',
-  },
-  premiumBannerText: { color: '#92400E', fontSize: 13, fontWeight: '600', textAlign: 'center' },
-  tabRow: {
-    flexDirection: 'row', backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
-  },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#FF6B35' },
-  tabText: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
-  tabTextActive: { color: '#FF6B35', fontWeight: '700' },
-  list: { padding: 16, flexGrow: 1 },
-  card: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    borderRadius: 14, padding: 14, marginBottom: 10,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
-  cardIcon: {
-    width: 48, height: 48, borderRadius: 12, backgroundColor: '#F0F4FF',
-    alignItems: 'center', justifyContent: 'center', marginRight: 14,
-  },
-  cardBody: { flex: 1 },
-  cardName: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  cardDesc: { fontSize: 12, color: '#6B7280', marginBottom: 4 },
-  cardMeta: { flexDirection: 'row' },
-  cardMetaText: { fontSize: 12, color: '#9CA3AF' },
-  chevron: { fontSize: 22, color: '#D1D5DB', marginLeft: 8 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 32 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#374151', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
-  // Modal
-  modalContainer: { flex: 1, backgroundColor: '#fff', padding: 20 },
-  modalHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingBottom: 20, borderBottomWidth: 1, borderColor: '#F3F4F6', marginBottom: 20,
-  },
-  modalCancel: { fontSize: 16, color: '#6B7280' },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  modalSave: { fontSize: 16, color: '#FF6B35', fontWeight: '700' },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 4 },
-  input: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15,
-    color: '#111827', backgroundColor: '#FAFAFA', marginBottom: 16,
-  },
-  inputMultiline: { height: 80, textAlignVertical: 'top' },
-  toggleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, marginTop: 4,
-  },
-  toggleLabel: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  toggleSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  toggle: {
-    width: 48, height: 28, borderRadius: 14,
-    backgroundColor: '#E5E7EB', justifyContent: 'center', paddingHorizontal: 2,
-  },
-  toggleOn: { backgroundColor: '#FF6B35' },
-  toggleThumb: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff' },
-  toggleThumbOn: { alignSelf: 'flex-end' },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: C.surface,
+    },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: C.textPrimary },
+    createBtn: {
+      backgroundColor: C.primary, borderRadius: 10,
+      paddingHorizontal: 16, paddingVertical: 8,
+    },
+    createBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    premiumBanner: {
+      backgroundColor: '#FFF7ED', padding: 12,
+      borderBottomWidth: 1, borderBottomColor: '#FED7AA',
+    },
+    premiumBannerText: { color: '#92400E', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    tabRow: {
+      flexDirection: 'row', backgroundColor: C.surface,
+      borderBottomWidth: 1, borderBottomColor: C.border,
+    },
+    tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+    tabActive: { borderBottomWidth: 2, borderBottomColor: C.primary },
+    tabText: { fontSize: 13, color: C.textMuted, fontWeight: '500' },
+    tabTextActive: { color: C.primary, fontWeight: '700' },
+    list: { padding: 16, flexGrow: 1 },
+    card: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+      borderRadius: 14, padding: 14, marginBottom: 10,
+      shadowColor: C.shadow, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    },
+    cardIcon: {
+      width: 48, height: 48, borderRadius: 12, backgroundColor: '#F0F4FF',
+      alignItems: 'center', justifyContent: 'center', marginRight: 14,
+    },
+    cardBody: { flex: 1 },
+    cardName: { fontSize: 15, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
+    cardDesc: { fontSize: 12, color: C.textTertiary, marginBottom: 4 },
+    cardMeta: { flexDirection: 'row' },
+    cardMetaText: { fontSize: 12, color: C.textMuted },
+    chevron: { fontSize: 22, color: C.disabled, marginLeft: 8 },
+    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 32 },
+    emptyIcon: { fontSize: 48, marginBottom: 12 },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: C.textSecondary, marginBottom: 8 },
+    emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+    // Modal
+    modalContainer: { flex: 1, backgroundColor: C.surface, padding: 20 },
+    modalHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingBottom: 20, borderBottomWidth: 1, borderColor: C.separator, marginBottom: 20,
+    },
+    modalCancel: { fontSize: 16, color: C.textTertiary },
+    modalTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
+    modalSave: { fontSize: 16, color: C.primary, fontWeight: '700' },
+    fieldLabel: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 8, marginTop: 4 },
+    input: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 12, fontSize: 15,
+      color: C.textPrimary, backgroundColor: C.inputBg, marginBottom: 16,
+    },
+    inputMultiline: { height: 80, textAlignVertical: 'top' },
+    toggleRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: C.background, borderRadius: 12, padding: 16, marginTop: 4,
+    },
+    toggleLabel: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
+    toggleSub: { fontSize: 12, color: C.textMuted, marginTop: 2 },
+    toggle: {
+      width: 48, height: 28, borderRadius: 14,
+      backgroundColor: C.border, justifyContent: 'center', paddingHorizontal: 2,
+    },
+    toggleOn: { backgroundColor: C.primary },
+    toggleThumb: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#fff' },
+    toggleThumbOn: { alignSelf: 'flex-end' },
+  });
+}

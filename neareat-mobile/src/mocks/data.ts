@@ -357,6 +357,7 @@ export const MOCK_FRIEND_REQUESTS: FriendRequest[] = [
     fromUserId: 'mock-user-004',
     fromProfile: MOCK_USER_PROFILES[3],
     status: 'pending',
+    note: null,
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
   },
 ];

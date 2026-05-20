@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Alert,
-  ScrollView, Image, RefreshControl,
+  ScrollView, Image, RefreshControl, Switch, InteractionManager,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { useFavoriteStore } from '../store/favoriteStore';
 import { useUserProfileStore } from '../store/userProfileStore';
@@ -12,46 +12,61 @@ import { useRecommendationStore } from '../store/recommendationStore';
 import { signOut } from '../services/auth';
 import {
   getMyProfile, getMyRecommendations, getReceivedRecommendations,
-  getPendingRequests, getStarEvents,
+  getPendingRequests, getStarEvents, getFriends,
 } from '../services/social';
 import api from '../services/api';
 import type { Recommendation } from '../types';
 import StarRating from '../components/StarRating';
 import NotificationBell from '../components/NotificationBell';
+import { useTheme } from '../theme';
+import type { Colors } from '../theme';
+import { useThemeStore } from '../store/themeStore';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { user, subscription, isPremium, clear } = useAuthStore();
   const { setFavorites } = useFavoriteStore();
-  const { profile, starEvents, setProfile, clear: clearProfile } = useUserProfileStore();
+  const { profile, starEvents, setProfile, setStarEvents, clear: clearProfile } = useUserProfileStore();
   const { friends, pendingRequests, setFriends, setPendingRequests, clear: clearFriends } = useFriendStore();
   const {
     myRecommendations, receivedRecommendations,
     setMyRecommendations, setReceivedRecommendations, clear: clearRecs,
   } = useRecommendationStore();
+  const { isDark: darkModeOn, toggle: toggleDarkMode } = useThemeStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [activeRecTab, setActiveRecTab] = useState<'received' | 'mine'>('received');
+  const lastFetchRef = useRef<number>(0);
   const premium = isPremium();
 
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+
   async function loadAll() {
-    try {
-      const [p, mine, received, reqs, events] = await Promise.all([
-        getMyProfile(),
-        getMyRecommendations(),
-        getReceivedRecommendations(),
-        getPendingRequests(),
-        getStarEvents(),
-      ]);
-      setProfile(p);
-      setMyRecommendations(mine);
-      setReceivedRecommendations(received);
-      setPendingRequests(reqs);
-      // update star events in store (setProfile handles star count)
-    } catch { /* swallow - offline tolerance */ }
+    const [pRes, mineRes, receivedRes, reqsRes, eventsRes, friendsRes] = await Promise.allSettled([
+      getMyProfile(),
+      getMyRecommendations(),
+      getReceivedRecommendations(),
+      getPendingRequests(),
+      getStarEvents(),
+      getFriends(),
+    ]);
+    if (pRes.status === 'fulfilled') setProfile(pRes.value);
+    if (mineRes.status === 'fulfilled') setMyRecommendations(mineRes.value);
+    if (receivedRes.status === 'fulfilled') setReceivedRecommendations(receivedRes.value);
+    if (reqsRes.status === 'fulfilled') setPendingRequests(reqsRes.value);
+    if (eventsRes.status === 'fulfilled') setStarEvents(eventsRes.value);
+    if (friendsRes.status === 'fulfilled') setFriends(friendsRes.value);
   }
 
-  useEffect(() => { loadAll(); }, []);
+  useFocusEffect(useCallback(() => {
+    if (Date.now() - lastFetchRef.current > 30_000) {
+      const task = InteractionManager.runAfterInteractions(() => {
+        loadAll().then(() => { lastFetchRef.current = Date.now(); });
+      });
+      return () => task.cancel();
+    }
+  }, []));
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -92,7 +107,7 @@ export default function ProfileScreen() {
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#FF6B35" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
     >
       {/* Profile Header */}
       <View style={styles.headerCard}>
@@ -190,6 +205,16 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Grup Yemek Planları */}
+      <TouchableOpacity
+        style={styles.menuRow}
+        onPress={() => navigation.navigate('MealGroups')}
+      >
+        <Text style={styles.menuRowIcon}>🍽️</Text>
+        <Text style={styles.menuRowLabel}>Grup Yemek Planları</Text>
+        <Text style={styles.menuRowChevron}>›</Text>
+      </TouchableOpacity>
+
       {/* Membership */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Üyelik</Text>
@@ -241,7 +266,7 @@ export default function ProfileScreen() {
           receivedRecommendations.length === 0
             ? <Text style={styles.emptyRec}>Arkadaşlarından gelen öneri yok.</Text>
             : receivedRecommendations.slice(0, 5).map(r => (
-              <RecCard key={r.id} rec={r} onPress={() => navigation.navigate('RestaurantDetail', { placeId: r.restaurant.placeId })} />
+              <RecCard key={r.id} rec={r} onPress={() => navigation.navigate('RestaurantDetail', { placeId: r.restaurant.placeId })} styles={styles} C={C} />
             ))
         )}
 
@@ -249,18 +274,31 @@ export default function ProfileScreen() {
           myRecommendations.length === 0
             ? <Text style={styles.emptyRec}>Henüz öneri paylaşmadın. Restoran detayından paylaşabilirsin!</Text>
             : myRecommendations.slice(0, 5).map(r => (
-              <RecCard key={r.id} rec={r} onPress={() => navigation.navigate('RestaurantDetail', { placeId: r.restaurant.placeId })} />
+              <RecCard key={r.id} rec={r} onPress={() => navigation.navigate('RestaurantDetail', { placeId: r.restaurant.placeId })} styles={styles} C={C} />
             ))
         )}
       </View>
 
       {/* Actions */}
       <View style={styles.actionsSection}>
-        <ActionRow label="👥 Arkadaşlar" onPress={() => navigation.navigate('Friends')} />
-        <ActionRow label="⭐ Yıldızlarım & Ödüller" onPress={() => navigation.navigate('Rewards')} />
-        <ActionRow label="✏️ Profili Düzenle" onPress={() => navigation.navigate('EditProfile')} />
-        <ActionRow label="Çıkış Yap" onPress={handleSignOut} />
-        <ActionRow label="Hesabı Sil" onPress={handleDeleteAccount} danger />
+        <ActionRow label="👥 Arkadaşlar" onPress={() => navigation.navigate('Friends')} styles={styles} />
+        <ActionRow label="📅 Rezervasyonlarım" onPress={() => navigation.navigate('MyReservations')} styles={styles} />
+        <ActionRow label="⭐ Yıldızlarım & Ödüller" onPress={() => navigation.navigate('Rewards')} styles={styles} />
+        <ActionRow label="✏️ Profili Düzenle" onPress={() => navigation.navigate('EditProfile')} styles={styles} />
+
+        {/* Dark Mode Toggle Row */}
+        <View style={styles.actionRow}>
+          <Text style={styles.actionText}>{darkModeOn ? '🌙 Karanlık Mod' : '☀️ Karanlık Mod'}</Text>
+          <Switch
+            value={darkModeOn}
+            onValueChange={toggleDarkMode}
+            trackColor={{ false: C.border, true: C.primary }}
+            thumbColor={darkModeOn ? '#fff' : '#fff'}
+          />
+        </View>
+
+        <ActionRow label="Çıkış Yap" onPress={handleSignOut} styles={styles} />
+        <ActionRow label="Hesabı Sil" onPress={handleDeleteAccount} danger styles={styles} />
       </View>
 
       <View style={{ height: 32 }} />
@@ -268,7 +306,7 @@ export default function ProfileScreen() {
   );
 }
 
-function RecCard({ rec, onPress }: { rec: Recommendation; onPress: () => void }) {
+function RecCard({ rec, onPress, styles, C }: { rec: Recommendation; onPress: () => void; styles: ReturnType<typeof makeStyles>; C: Colors }) {
   return (
     <TouchableOpacity style={styles.recCard} onPress={onPress}>
       {rec.restaurant.photoUrl ? (
@@ -296,7 +334,7 @@ function RecCard({ rec, onPress }: { rec: Recommendation; onPress: () => void })
   );
 }
 
-function ActionRow({ label, onPress, danger = false }: { label: string; onPress: () => void; danger?: boolean }) {
+function ActionRow({ label, onPress, danger = false, styles }: { label: string; onPress: () => void; danger?: boolean; styles: ReturnType<typeof makeStyles> }) {
   return (
     <TouchableOpacity style={styles.actionRow} onPress={onPress}>
       <Text style={[styles.actionText, danger && styles.actionDanger]}>{label}</Text>
@@ -305,91 +343,100 @@ function ActionRow({ label, onPress, danger = false }: { label: string; onPress:
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  headerCard: { backgroundColor: '#fff', alignItems: 'center', padding: 24, paddingTop: 52 },
-  headerTopRow: { position: 'absolute', top: 52, right: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  editBtn: { backgroundColor: '#F3F4F6', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 7 },
-  editBtnText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 12 },
-  avatarPlaceholder: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: '#FFE8DF', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-  },
-  avatarLetter: { fontSize: 32, fontWeight: '700', color: '#FF6B35' },
-  displayNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  displayName: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  premiumRozet: {
-    backgroundColor: '#FFF7ED', borderRadius: 10, borderWidth: 1,
-    borderColor: '#FED7AA', paddingHorizontal: 8, paddingVertical: 3,
-  },
-  premiumRozetText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
-  email: { fontSize: 13, color: '#9CA3AF', marginBottom: 4 },
-  city: { fontSize: 13, color: '#6B7280', marginBottom: 4 },
-  bio: { fontSize: 13, color: '#374151', textAlign: 'center', lineHeight: 18, paddingHorizontal: 16, marginTop: 4 },
-  cuisineRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 10 },
-  cuisineChip: { backgroundColor: '#FFF0EB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-  cuisineText: { fontSize: 11, color: '#FF6B35' },
-  starsCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff', margin: 12, borderRadius: 16,
-    padding: 16, marginBottom: 0,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-  },
-  starsLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  badgeIcon: { fontSize: 28 },
-  badgeName: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  badgeSub: { fontSize: 12, color: '#9CA3AF' },
-  starsRight: { alignItems: 'flex-end', marginRight: 8 },
-  starNum: { fontSize: 26, fontWeight: '800', color: '#FF6B35' },
-  starLabel: { fontSize: 12, color: '#9CA3AF' },
-  chevron: { fontSize: 22, color: '#9CA3AF' },
-  statsRow: {
-    flexDirection: 'row', backgroundColor: '#fff',
-    margin: 12, marginTop: 8, borderRadius: 16, padding: 16,
-  },
-  statItem: { flex: 1, alignItems: 'center', position: 'relative' },
-  statNum: { fontSize: 22, fontWeight: '800', color: '#111827' },
-  statLabel: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  statDivider: { width: 1, backgroundColor: '#F3F4F6', marginVertical: 4 },
-  badge: {
-    position: 'absolute', top: -4, right: 8,
-    backgroundColor: '#EF4444', borderRadius: 8,
-    paddingHorizontal: 5, paddingVertical: 1, minWidth: 16, alignItems: 'center',
-  },
-  badgeText: { fontSize: 10, color: '#fff', fontWeight: '700' },
-  section: { backgroundColor: '#fff', padding: 16, margin: 12, marginTop: 0, borderRadius: 16 },
-  sectionLabel: { fontSize: 12, fontWeight: '600', color: '#9CA3AF', marginBottom: 10, textTransform: 'uppercase' },
-  membershipRow: { gap: 8 },
-  statusBadge: { alignSelf: 'flex-start', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6 },
-  premiumBadge: { backgroundColor: '#FEF3C7' },
-  freeBadge: { backgroundColor: '#F3F4F6' },
-  statusText: { fontWeight: '600', color: '#111827' },
-  expiryText: { fontSize: 12, color: '#9CA3AF' },
-  upgradeBtn: { backgroundColor: '#FF6B35', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  upgradeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  recSection: { backgroundColor: '#fff', margin: 12, borderRadius: 16, overflow: 'hidden' },
-  recTabRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#F3F4F6' },
-  recTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  recTabActive: { borderBottomWidth: 2, borderColor: '#FF6B35' },
-  recTabText: { fontSize: 13, color: '#9CA3AF' },
-  recTabTextActive: { color: '#FF6B35', fontWeight: '700' },
-  emptyRec: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', padding: 20, lineHeight: 20 },
-  recCard: { flexDirection: 'row', padding: 12, borderBottomWidth: 1, borderColor: '#F9FAFB' },
-  recPhoto: { width: 56, height: 56, borderRadius: 8, marginRight: 12 },
-  recPhotoPlaceholder: { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  recCardInfo: { flex: 1 },
-  recCardName: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  recCardMsg: { fontSize: 12, color: '#6B7280', fontStyle: 'italic', marginTop: 3, lineHeight: 17 },
-  recCardFrom: { fontSize: 11, color: '#9CA3AF', marginTop: 3 },
-  actionsSection: { backgroundColor: '#fff', margin: 12, borderRadius: 16, overflow: 'hidden' },
-  actionRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 16,
-    borderBottomWidth: 1, borderColor: '#F9FAFB',
-  },
-  actionText: { flex: 1, fontSize: 15, color: '#374151' },
-  actionDanger: { color: '#EF4444' },
-  actionChevron: { fontSize: 20, color: '#D1D5DB' },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    headerCard: { backgroundColor: C.surface, alignItems: 'center', padding: 24, paddingTop: 52 },
+    headerTopRow: { position: 'absolute', top: 52, right: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    editBtn: { backgroundColor: C.inputBg, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 7 },
+    editBtnText: { fontSize: 13, fontWeight: '600', color: C.textSecondary },
+    avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 12 },
+    avatarPlaceholder: {
+      width: 80, height: 80, borderRadius: 40,
+      backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+    },
+    avatarLetter: { fontSize: 32, fontWeight: '700', color: C.primary },
+    displayNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+    displayName: { fontSize: 20, fontWeight: '700', color: C.textPrimary },
+    premiumRozet: {
+      backgroundColor: '#FFF7ED', borderRadius: 10, borderWidth: 1,
+      borderColor: '#FED7AA', paddingHorizontal: 8, paddingVertical: 3,
+    },
+    premiumRozetText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
+    email: { fontSize: 13, color: C.textMuted, marginBottom: 4 },
+    city: { fontSize: 13, color: C.textTertiary, marginBottom: 4 },
+    bio: { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 18, paddingHorizontal: 16, marginTop: 4 },
+    cuisineRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 10 },
+    cuisineChip: { backgroundColor: C.primaryLighter, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+    cuisineText: { fontSize: 11, color: C.primary },
+    starsCard: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: C.surface, margin: 12, borderRadius: 16,
+      padding: 16, marginBottom: 0,
+      shadowColor: C.shadow, shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    },
+    starsLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+    badgeIcon: { fontSize: 28 },
+    badgeName: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+    badgeSub: { fontSize: 12, color: C.textMuted },
+    starsRight: { alignItems: 'flex-end', marginRight: 8 },
+    starNum: { fontSize: 26, fontWeight: '800', color: C.primary },
+    starLabel: { fontSize: 12, color: C.textMuted },
+    chevron: { fontSize: 22, color: C.textMuted },
+    statsRow: {
+      flexDirection: 'row', backgroundColor: C.surface,
+      margin: 12, marginTop: 8, borderRadius: 16, padding: 16,
+    },
+    statItem: { flex: 1, alignItems: 'center', position: 'relative' },
+    statNum: { fontSize: 22, fontWeight: '800', color: C.textPrimary },
+    statLabel: { fontSize: 12, color: C.textMuted, marginTop: 2 },
+    statDivider: { width: 1, backgroundColor: C.separator, marginVertical: 4 },
+    badge: {
+      position: 'absolute', top: -4, right: 8,
+      backgroundColor: C.error, borderRadius: 8,
+      paddingHorizontal: 5, paddingVertical: 1, minWidth: 16, alignItems: 'center',
+    },
+    badgeText: { fontSize: 10, color: '#fff', fontWeight: '700' },
+    menuRow: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+      margin: 12, marginTop: 0, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14,
+    },
+    menuRowIcon: { fontSize: 20, marginRight: 12 },
+    menuRowLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: C.textPrimary },
+    menuRowChevron: { fontSize: 22, color: C.textMuted },
+    section: { backgroundColor: C.surface, padding: 16, margin: 12, marginTop: 0, borderRadius: 16 },
+    sectionLabel: { fontSize: 12, fontWeight: '600', color: C.textMuted, marginBottom: 10, textTransform: 'uppercase' },
+    membershipRow: { gap: 8 },
+    statusBadge: { alignSelf: 'flex-start', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6 },
+    premiumBadge: { backgroundColor: '#FEF3C7' },
+    freeBadge: { backgroundColor: C.inputBg },
+    statusText: { fontWeight: '600', color: C.textPrimary },
+    expiryText: { fontSize: 12, color: C.textMuted },
+    upgradeBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+    upgradeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    recSection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, overflow: 'hidden' },
+    recTabRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: C.separator },
+    recTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+    recTabActive: { borderBottomWidth: 2, borderColor: C.primary },
+    recTabText: { fontSize: 13, color: C.textMuted },
+    recTabTextActive: { color: C.primary, fontWeight: '700' },
+    emptyRec: { fontSize: 13, color: C.textMuted, textAlign: 'center', padding: 20, lineHeight: 20 },
+    recCard: { flexDirection: 'row', padding: 12, borderBottomWidth: 1, borderColor: C.background },
+    recPhoto: { width: 56, height: 56, borderRadius: 8, marginRight: 12 },
+    recPhotoPlaceholder: { backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center' },
+    recCardInfo: { flex: 1 },
+    recCardName: { fontSize: 14, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
+    recCardMsg: { fontSize: 12, color: C.textTertiary, fontStyle: 'italic', marginTop: 3, lineHeight: 17 },
+    recCardFrom: { fontSize: 11, color: C.textMuted, marginTop: 3 },
+    actionsSection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, overflow: 'hidden' },
+    actionRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 16, paddingVertical: 16,
+      borderBottomWidth: 1, borderColor: C.background,
+    },
+    actionText: { flex: 1, fontSize: 15, color: C.textSecondary },
+    actionDanger: { color: C.error },
+    actionChevron: { fontSize: 20, color: C.disabled },
+  });
+}

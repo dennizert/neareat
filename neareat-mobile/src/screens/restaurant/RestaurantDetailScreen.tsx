@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking,
   ActivityIndicator, Alert, Share, Image, TextInput, Modal, FlatList,
+  InteractionManager,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -19,6 +20,8 @@ import PhotoGallery from '../../components/PhotoGallery';
 import type { RestaurantDetail, AppReview, Collection } from '../../types';
 import { formatDistance } from '../../utils/haversine';
 import NotificationBell from '../../components/NotificationBell';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 const PRICE_MAP: Record<number, string> = { 1: '₺', 2: '₺₺', 3: '₺₺₺', 4: '₺₺₺₺' };
 
@@ -41,6 +44,8 @@ export default function RestaurantDetailScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { placeId } = route.params;
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [detail, setDetail] = useState<RestaurantDetail | null>(null);
   const [appReviews, setAppReviews] = useState<AppReview[]>([]);
@@ -78,25 +83,28 @@ export default function RestaurantDetailScreen() {
   const favorited = isFavorite(placeId);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const [d, reviews, savedRating] = await Promise.all([
-          fetchRestaurantDetail(placeId),
-          fetchAppReviews(placeId),
-          AsyncStorage.getItem(`quick_rating:${placeId}`),
-        ]);
-        setDetail(d);
-        setAppReviews(reviews);
-        if (savedRating) {
-          setQuickRating(parseInt(savedRating, 10));
-          setQuickRatingDone(true);
+    const task = InteractionManager.runAfterInteractions(() => {
+      (async () => {
+        try {
+          const [d, reviews, savedRating] = await Promise.all([
+            fetchRestaurantDetail(placeId),
+            fetchAppReviews(placeId),
+            AsyncStorage.getItem(`quick_rating:${placeId}`),
+          ]);
+          setDetail(d);
+          setAppReviews(reviews);
+          if (savedRating) {
+            setQuickRating(parseInt(savedRating, 10));
+            setQuickRatingDone(true);
+          }
+        } catch (err: any) {
+          Alert.alert('Hata', err.message);
+        } finally {
+          setLoading(false);
         }
-      } catch (err: any) {
-        Alert.alert('Hata', err.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
+      })();
+    });
+    return () => task.cancel();
   }, [placeId]);
 
   async function toggleFavorite() {
@@ -288,7 +296,7 @@ export default function RestaurantDetailScreen() {
   }
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color="#FF6B35" />;
+    return <ActivityIndicator style={{ flex: 1 }} size="large" color={C.primary} />;
   }
 
   if (!detail) return null;
@@ -422,7 +430,19 @@ export default function RestaurantDetailScreen() {
             <TouchableOpacity style={[styles.actionBtn, styles.collectionBtn]} onPress={handleOpenCollectionModal}>
               <Text style={[styles.actionBtnText, styles.collectionBtnText]}>📋 Liste</Text>
             </TouchableOpacity>
-            {detail.reservationUrl && (
+            {detail.acceptsReservations && detail.restaurantId && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.reservationBtn]}
+                onPress={() => navigation.navigate('MakeReservation', {
+                  placeId: detail.placeId,
+                  placeName: detail.name,
+                  restaurantId: detail.restaurantId!,
+                })}
+              >
+                <Text style={[styles.actionBtnText, styles.reservationBtnText]}>📅 Rezervasyon</Text>
+              </TouchableOpacity>
+            )}
+            {!detail.acceptsReservations && detail.reservationUrl && (
               <TouchableOpacity
                 style={[styles.actionBtn, styles.reservationBtn]}
                 onPress={() => Linking.openURL(detail.reservationUrl!)}
@@ -560,7 +580,7 @@ export default function RestaurantDetailScreen() {
               <TextInput
                 style={styles.inlineInput}
                 placeholder="Liste adı"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={C.textMuted}
                 value={newCollName}
                 onChangeText={setNewCollName}
                 autoFocus
@@ -578,7 +598,7 @@ export default function RestaurantDetailScreen() {
           )}
 
           {loadingCollections ? (
-            <ActivityIndicator color="#FF6B35" style={{ marginTop: 40 }} />
+            <ActivityIndicator color={C.primary} style={{ marginTop: 40 }} />
           ) : collections.length === 0 && !showInlineCreate ? (
             <View style={styles.emptyCollections}>
               <Text style={styles.emptyCollectionsTitle}>Henüz koleksiyon yok</Text>
@@ -644,7 +664,7 @@ export default function RestaurantDetailScreen() {
             <Text style={styles.modalTitle}>Yorum Yaz</Text>
             <TouchableOpacity onPress={handleSubmitReview} disabled={submittingReview}>
               {submittingReview
-                ? <ActivityIndicator size="small" color="#FF6B35" />
+                ? <ActivityIndicator size="small" color={C.primary} />
                 : <Text style={styles.modalSubmit}>Gönder</Text>}
             </TouchableOpacity>
           </View>
@@ -664,7 +684,7 @@ export default function RestaurantDetailScreen() {
             value={reviewBody}
             onChangeText={setReviewBody}
             placeholder="Deneyiminizi paylaşın..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={C.textMuted}
             multiline
             autoFocus
             maxLength={500}
@@ -679,161 +699,163 @@ export default function RestaurantDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 16 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  name: { fontSize: 22, fontWeight: '700', color: '#111827' },
-  meta: { fontSize: 14, color: '#6B7280', marginTop: 2 },
-  favoriteBtn: { padding: 8 },
-  heartIcon: { fontSize: 24 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  ratingText: { fontSize: 14, color: '#374151' },
-  openBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
-  openBadgeOpen: { backgroundColor: '#D1FAE5' },
-  openBadgeClosed: { backgroundColor: '#FEE2E2' },
-  openBadgeClosingSoon: { backgroundColor: '#FEF3C7' },
-  openBadgeClosingVery: { backgroundColor: '#FEE2E2' },
-  openBadgeText: { fontSize: 12, fontWeight: '600', color: '#111827' },
-  closingBanner: {
-    backgroundColor: '#FFFBEB', borderRadius: 10, padding: 12,
-    marginBottom: 12, borderLeftWidth: 3, borderLeftColor: '#F59E0B',
-  },
-  closingBannerUrgent: { backgroundColor: '#FEF2F2', borderLeftColor: '#EF4444' },
-  closingBannerText: { fontSize: 13, fontWeight: '600', color: '#92400E' },
-  quickRatingSection: {
-    backgroundColor: '#FFFBEB', borderRadius: 12,
-    padding: 12, marginBottom: 16, alignItems: 'center',
-  },
-  quickRatingLabel: { fontSize: 13, color: '#92400E', fontWeight: '600', marginBottom: 8 },
-  quickStars: { flexDirection: 'row', gap: 8 },
-  quickStar: { fontSize: 26 },
-  actionRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  actionBtn: { flex: 1, backgroundColor: '#F3F4F6', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  actionBtnText: { fontSize: 12, fontWeight: '600', color: '#374151' },
-  recommendBtn: { backgroundColor: '#FFF0EB' },
-  recommendBtnText: { color: '#FF6B35' },
-  collectionBtn: { backgroundColor: '#F0F4FF' },
-  collectionBtnText: { color: '#4F46E5' },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  hourLine: { fontSize: 13, color: '#6B7280', marginBottom: 2 },
-  todayLine: { fontWeight: '700', color: '#111827' },
-  premiumHint: { fontSize: 13, color: '#9CA3AF' },
-  blurSection: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 20 },
-  blurText: { fontSize: 15, color: '#FF6B35', fontWeight: '600' },
-  tabRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#E5E7EB', marginBottom: 16 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderColor: '#FF6B35' },
-  tabText: { fontSize: 14, color: '#9CA3AF' },
-  tabTextActive: { color: '#FF6B35', fontWeight: '600' },
-  writeReviewBtn: {
-    backgroundColor: '#FFF0EB', borderRadius: 12, padding: 14,
-    alignItems: 'center', marginBottom: 14,
-  },
-  writeReviewText: { color: '#FF6B35', fontWeight: '700', fontSize: 15 },
-  reviewCard: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, marginBottom: 10 },
-  reviewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 10 },
-  reviewAvatar: { width: 32, height: 32, borderRadius: 16 },
-  reviewAvatarPlaceholder: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: '#FFE8DF', alignItems: 'center', justifyContent: 'center',
-  },
-  reviewAuthor: { fontWeight: '600', color: '#111827', marginBottom: 2 },
-  reviewDate: { fontSize: 11, color: '#9CA3AF', marginBottom: 4 },
-  reviewBody: { fontSize: 13, color: '#374151', lineHeight: 20 },
-  emptyText: { textAlign: 'center', color: '#9CA3AF', marginTop: 20 },
-  paywallHint: { backgroundColor: '#FFF7ED', borderRadius: 12, padding: 16, alignItems: 'center' },
-  paywallHintText: { color: '#FF6B35', fontWeight: '600' },
-  backBtn: {
-    position: 'absolute', top: 44, left: 16,
-    backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 22,
-    width: 44, height: 44,
-    alignItems: 'center', justifyContent: 'center', zIndex: 10,
-  },
-  backBtnText: { color: '#fff', fontSize: 28, fontWeight: '300', lineHeight: 34 },
-  notifBellOverlay: {
-    position: 'absolute', top: 44, right: 16,
-    backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 22,
-    padding: 8, zIndex: 10,
-  },
-  // Review modal
-  modalContainer: { flex: 1, backgroundColor: '#fff', padding: 20 },
-  modalHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingBottom: 16, borderBottomWidth: 1, borderColor: '#F3F4F6',
-  },
-  modalCancel: { fontSize: 16, color: '#6B7280' },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  modalSubmit: { fontSize: 16, color: '#FF6B35', fontWeight: '700' },
-  modalRestaurant: { fontSize: 16, fontWeight: '600', color: '#374151', marginTop: 16, marginBottom: 12 },
-  modalStarsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  modalStar: { fontSize: 32 },
-  modalInput: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, color: '#111827', minHeight: 120,
-    textAlignVertical: 'top', backgroundColor: '#FAFAFA',
-  },
-  starEarnHint: {
-    backgroundColor: '#FFFBEB', borderRadius: 12, padding: 14,
-    alignItems: 'center', marginTop: 16,
-  },
-  starEarnHintText: { color: '#92400E', fontWeight: '600', fontSize: 14 },
-  // Koleksiyon modal stilleri
-  emptyCollections: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyCollectionsTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  emptyCollectionsText: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 20 },
-  goCollectionsBtn: {
-    backgroundColor: '#FF6B35', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24,
-  },
-  goCollectionsBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  collectionRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    borderRadius: 12, padding: 14, marginBottom: 10,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
-  },
-  collectionRowIcon: {
-    width: 44, height: 44, borderRadius: 12, backgroundColor: '#F0F4FF',
-    alignItems: 'center', justifyContent: 'center', marginRight: 14,
-  },
-  collectionRowName: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  collectionRowMeta: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  collectionRowAdd: { fontSize: 22, color: '#4F46E5', fontWeight: '700', paddingLeft: 8 },
-  // Announcement & discount banners
-  announcementBanner: { backgroundColor: '#EEF2FF', borderRadius: 10, padding: 10, marginBottom: 10 },
-  announcementBannerText: { fontSize: 13, color: '#4F46E5', fontWeight: '600' },
-  discountBanner: { borderRadius: 10, padding: 12, marginBottom: 12 },
-  discountBannerInstant: { backgroundColor: '#FFFBEB', borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
-  discountBannerStar: { backgroundColor: '#EEF2FF', borderLeftWidth: 3, borderLeftColor: '#4F46E5' },
-  discountBannerText: { fontSize: 13, fontWeight: '700', color: '#111827' },
-  discountBannerNote: { fontSize: 12, color: '#6B7280', marginTop: 4 },
-  // Reservation button
-  reservationBtn: { backgroundColor: '#F0FDF4' },
-  reservationBtnText: { color: '#16A34A' },
-  // Review reply
-  replyBox: { backgroundColor: '#F0F9FF', borderRadius: 8, padding: 10, marginTop: 8, borderLeftWidth: 2, borderLeftColor: '#0EA5E9' },
-  replyLabel: { fontSize: 11, fontWeight: '700', color: '#0369A1', marginBottom: 3 },
-  replyContent: { fontSize: 13, color: '#0C4A6E' },
-  // Menu thumbnails
-  menuThumb: { width: 80, height: 80, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 8, overflow: 'hidden' },
-  menuThumbImage: { width: 80, height: 80, borderRadius: 10 },
-  menuThumbLabel: { fontSize: 10, color: '#9CA3AF', marginTop: 4, textAlign: 'center', paddingHorizontal: 2 },
-  // Menü resmi tam ekran görüntüleyici
-  imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
-  imageViewerClose: {
-    position: 'absolute', top: 52, right: 20, zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 22,
-    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
-  },
-  imageViewerCloseText: { color: '#fff', fontSize: 20, fontWeight: '600' },
-  imageViewerImage: { width: '100%', height: '80%' },
-  // Inline koleksiyon oluşturma
-  inlineCreate: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', gap: 10 },
-  inlineInput: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: '#111827',
-  },
-  inlineCreateBtn: { backgroundColor: '#FF6B35', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  inlineCreateBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.surface },
+    content: { padding: 16 },
+    titleRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+    name: { fontSize: 22, fontWeight: '700', color: C.textPrimary },
+    meta: { fontSize: 14, color: C.textTertiary, marginTop: 2 },
+    favoriteBtn: { padding: 8 },
+    heartIcon: { fontSize: 24 },
+    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    ratingText: { fontSize: 14, color: C.textSecondary },
+    openBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
+    openBadgeOpen: { backgroundColor: '#D1FAE5' },
+    openBadgeClosed: { backgroundColor: '#FEE2E2' },
+    openBadgeClosingSoon: { backgroundColor: '#FEF3C7' },
+    openBadgeClosingVery: { backgroundColor: '#FEE2E2' },
+    openBadgeText: { fontSize: 12, fontWeight: '600', color: C.textPrimary },
+    closingBanner: {
+      backgroundColor: C.warningSurface, borderRadius: 10, padding: 12,
+      marginBottom: 12, borderLeftWidth: 3, borderLeftColor: C.warning,
+    },
+    closingBannerUrgent: { backgroundColor: C.errorSurface, borderLeftColor: C.error },
+    closingBannerText: { fontSize: 13, fontWeight: '600', color: '#92400E' },
+    quickRatingSection: {
+      backgroundColor: C.warningSurface, borderRadius: 12,
+      padding: 12, marginBottom: 16, alignItems: 'center',
+    },
+    quickRatingLabel: { fontSize: 13, color: '#92400E', fontWeight: '600', marginBottom: 8 },
+    quickStars: { flexDirection: 'row', gap: 8 },
+    quickStar: { fontSize: 26 },
+    actionRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+    actionBtn: { flex: 1, backgroundColor: C.inputBg, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+    actionBtnText: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
+    recommendBtn: { backgroundColor: C.primaryLighter },
+    recommendBtnText: { color: C.primary },
+    collectionBtn: { backgroundColor: '#F0F4FF' },
+    collectionBtnText: { color: '#4F46E5' },
+    section: { marginBottom: 20 },
+    sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
+    hourLine: { fontSize: 13, color: C.textTertiary, marginBottom: 2 },
+    todayLine: { fontWeight: '700', color: C.textPrimary },
+    premiumHint: { fontSize: 13, color: C.textMuted },
+    blurSection: { backgroundColor: C.background, borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 20 },
+    blurText: { fontSize: 15, color: C.primary, fontWeight: '600' },
+    tabRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: C.border, marginBottom: 16 },
+    tab: { flex: 1, paddingVertical: 10, alignItems: 'center' },
+    tabActive: { borderBottomWidth: 2, borderColor: C.primary },
+    tabText: { fontSize: 14, color: C.textMuted },
+    tabTextActive: { color: C.primary, fontWeight: '600' },
+    writeReviewBtn: {
+      backgroundColor: C.primaryLighter, borderRadius: 12, padding: 14,
+      alignItems: 'center', marginBottom: 14,
+    },
+    writeReviewText: { color: C.primary, fontWeight: '700', fontSize: 15 },
+    reviewCard: { backgroundColor: C.background, borderRadius: 12, padding: 14, marginBottom: 10 },
+    reviewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 10 },
+    reviewAvatar: { width: 32, height: 32, borderRadius: 16 },
+    reviewAvatarPlaceholder: {
+      width: 32, height: 32, borderRadius: 16,
+      backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center',
+    },
+    reviewAuthor: { fontWeight: '600', color: C.textPrimary, marginBottom: 2 },
+    reviewDate: { fontSize: 11, color: C.textMuted, marginBottom: 4 },
+    reviewBody: { fontSize: 13, color: C.textSecondary, lineHeight: 20 },
+    emptyText: { textAlign: 'center', color: C.textMuted, marginTop: 20 },
+    paywallHint: { backgroundColor: C.primaryLighter, borderRadius: 12, padding: 16, alignItems: 'center' },
+    paywallHintText: { color: C.primary, fontWeight: '600' },
+    backBtn: {
+      position: 'absolute', top: 44, left: 16,
+      backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 22,
+      width: 44, height: 44,
+      alignItems: 'center', justifyContent: 'center', zIndex: 10,
+    },
+    backBtnText: { color: '#fff', fontSize: 28, fontWeight: '300', lineHeight: 34 },
+    notifBellOverlay: {
+      position: 'absolute', top: 44, right: 16,
+      backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 22,
+      padding: 8, zIndex: 10,
+    },
+    // Review modal
+    modalContainer: { flex: 1, backgroundColor: C.surface, padding: 20 },
+    modalHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingBottom: 16, borderBottomWidth: 1, borderColor: C.separator,
+    },
+    modalCancel: { fontSize: 16, color: C.textTertiary },
+    modalTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
+    modalSubmit: { fontSize: 16, color: C.primary, fontWeight: '700' },
+    modalRestaurant: { fontSize: 16, fontWeight: '600', color: C.textSecondary, marginTop: 16, marginBottom: 12 },
+    modalStarsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+    modalStar: { fontSize: 32 },
+    modalInput: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 12,
+      paddingHorizontal: 16, paddingVertical: 14,
+      fontSize: 15, color: C.textPrimary, minHeight: 120,
+      textAlignVertical: 'top', backgroundColor: C.inputBg,
+    },
+    starEarnHint: {
+      backgroundColor: C.warningSurface, borderRadius: 12, padding: 14,
+      alignItems: 'center', marginTop: 16,
+    },
+    starEarnHintText: { color: '#92400E', fontWeight: '600', fontSize: 14 },
+    // Koleksiyon modal stilleri
+    emptyCollections: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
+    emptyCollectionsTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
+    emptyCollectionsText: { fontSize: 14, color: C.textTertiary, textAlign: 'center', marginBottom: 20 },
+    goCollectionsBtn: {
+      backgroundColor: C.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24,
+    },
+    goCollectionsBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    collectionRow: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+      borderRadius: 12, padding: 14, marginBottom: 10,
+      shadowColor: C.shadow, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    },
+    collectionRowIcon: {
+      width: 44, height: 44, borderRadius: 12, backgroundColor: '#F0F4FF',
+      alignItems: 'center', justifyContent: 'center', marginRight: 14,
+    },
+    collectionRowName: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
+    collectionRowMeta: { fontSize: 12, color: C.textMuted, marginTop: 2 },
+    collectionRowAdd: { fontSize: 22, color: '#4F46E5', fontWeight: '700', paddingLeft: 8 },
+    // Announcement & discount banners
+    announcementBanner: { backgroundColor: '#EEF2FF', borderRadius: 10, padding: 10, marginBottom: 10 },
+    announcementBannerText: { fontSize: 13, color: '#4F46E5', fontWeight: '600' },
+    discountBanner: { borderRadius: 10, padding: 12, marginBottom: 12 },
+    discountBannerInstant: { backgroundColor: C.warningSurface, borderLeftWidth: 3, borderLeftColor: C.warning },
+    discountBannerStar: { backgroundColor: '#EEF2FF', borderLeftWidth: 3, borderLeftColor: '#4F46E5' },
+    discountBannerText: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
+    discountBannerNote: { fontSize: 12, color: C.textTertiary, marginTop: 4 },
+    // Reservation button
+    reservationBtn: { backgroundColor: C.successSurface },
+    reservationBtnText: { color: '#16A34A' },
+    // Review reply
+    replyBox: { backgroundColor: '#F0F9FF', borderRadius: 8, padding: 10, marginTop: 8, borderLeftWidth: 2, borderLeftColor: '#0EA5E9' },
+    replyLabel: { fontSize: 11, fontWeight: '700', color: '#0369A1', marginBottom: 3 },
+    replyContent: { fontSize: 13, color: '#0C4A6E' },
+    // Menu thumbnails
+    menuThumb: { width: 80, height: 80, backgroundColor: C.inputBg, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 8, overflow: 'hidden' },
+    menuThumbImage: { width: 80, height: 80, borderRadius: 10 },
+    menuThumbLabel: { fontSize: 10, color: C.textMuted, marginTop: 4, textAlign: 'center', paddingHorizontal: 2 },
+    // Menü resmi tam ekran görüntüleyici
+    imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
+    imageViewerClose: {
+      position: 'absolute', top: 52, right: 20, zIndex: 10,
+      backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 22,
+      width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+    },
+    imageViewerCloseText: { color: '#fff', fontSize: 20, fontWeight: '600' },
+    imageViewerImage: { width: '100%', height: '80%' },
+    // Inline koleksiyon oluşturma
+    inlineCreate: { padding: 16, borderBottomWidth: 1, borderBottomColor: C.separator, gap: 10 },
+    inlineInput: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: C.textPrimary,
+    },
+    inlineCreateBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+    inlineCreateBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  });
+}

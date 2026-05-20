@@ -3,6 +3,7 @@ const prisma = require('../utils/prisma');
 const { signToken } = require('../utils/jwt');
 const { createNotificationsForUsers, createNotification } = require('../services/notificationService');
 const { containsOffensiveContent } = require('../utils/contentFilter');
+const { logRequest } = require('../services/logService');
 
 const RESTAURANT_SELECT = {
   id: true, userId: true, businessName: true, ownerName: true,
@@ -12,7 +13,7 @@ const RESTAURANT_SELECT = {
   approvedAt: true, reservationUrl: true, announcement: true,
   announcementActive: true, openingHours: true, discountEnabled: true,
   discountPercent: true, discountMinStars: true, discountNote: true,
-  discountActiveUntil: true, createdAt: true, updatedAt: true,
+  discountActiveUntil: true, acceptsReservations: true, createdAt: true, updatedAt: true,
 };
 
 async function registerRestaurant(req, res, next) {
@@ -64,6 +65,7 @@ async function registerRestaurant(req, res, next) {
     });
 
     const token = signToken(user.id);
+    logRequest({ req: { ...req, user }, page: 'Restoran Kaydı', action: 'Restoran kaydı oluşturdu', details: businessName }).catch(() => {});
     res.status(201).json({ token, user: { id: user.id, email: user.email, role: user.role, displayName: user.displayName }, restaurantProfile: user.restaurantProfile });
   } catch (err) {
     next(err);
@@ -160,7 +162,7 @@ async function replyToReview(req, res, next) {
     if (!content || !content.trim()) return res.status(400).json({ error: 'İçerik gerekli' });
     if (content.length > 500) return res.status(400).json({ error: 'Cevap 500 karakteri geçemez' });
     if (containsOffensiveContent(content)) {
-      return res.status(400).json({ error: 'Cevabınız uygunsuz içerik barındırıyor. Lütfen saygılı bir dil kullanın.' });
+      return res.status(400).json({ error: 'Cevabınız uygunsuz içerik (hakaret, argo veya küfür) içerdiği için gönderilemedi. Lütfen saygılı bir dil kullanın.' });
     }
 
     const profile = await prisma.restaurantProfile.findUnique({ where: { userId: req.user.id } });
@@ -176,6 +178,7 @@ async function replyToReview(req, res, next) {
       update: { content: content.trim() },
       create: { restaurantId: profile.id, reviewId, content: content.trim() },
     });
+    logRequest({ req, page: 'Restoran Paneli', action: 'Yoruma cevap verdi', details: reviewId }).catch(() => {});
     res.json(reply);
 
     // Yorum sahibine bildirim gönder
@@ -282,6 +285,12 @@ async function deactivateInstantDiscount(req, res, next) {
 async function updateAnnouncement(req, res, next) {
   try {
     const { announcement, announcementActive } = req.body;
+
+    const prev = await prisma.restaurantProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { announcementActive: true, placeId: true, placeName: true, businessName: true },
+    });
+
     const profile = await prisma.restaurantProfile.update({
       where: { userId: req.user.id },
       data: {
@@ -291,6 +300,24 @@ async function updateAnnouncement(req, res, next) {
       select: RESTAURANT_SELECT,
     });
     res.json(profile);
+
+    // Duyuru yeni aktifleştirildiyse favorileyen kullanıcılara bildirim gönder
+    const isNewlyActive = announcementActive && !prev?.announcementActive;
+    if (isNewlyActive && announcement && prev?.placeId) {
+      prisma.favorite.findMany({
+        where: { placeId: prev.placeId },
+        select: { userId: true },
+      }).then(favUsers => {
+        const userIds = favUsers.map(f => f.userId).filter(id => id !== req.user.id);
+        return createNotificationsForUsers(
+          userIds,
+          'FAVORITE_ANNOUNCEMENT',
+          `📢 ${prev.placeName || prev.businessName}'den duyuru`,
+          announcement.slice(0, 200),
+          { placeId: prev.placeId, restaurantName: prev.placeName || prev.businessName },
+        );
+      }).catch(() => {});
+    }
   } catch (err) {
     next(err);
   }
@@ -298,7 +325,7 @@ async function updateAnnouncement(req, res, next) {
 
 async function updateInfo(req, res, next) {
   try {
-    const { reservationUrl, phone, contactEmail, address } = req.body;
+    const { reservationUrl, phone, contactEmail, address, acceptsReservations } = req.body;
     const profile = await prisma.restaurantProfile.update({
       where: { userId: req.user.id },
       data: {
@@ -306,9 +333,11 @@ async function updateInfo(req, res, next) {
         phone: phone || undefined,
         contactEmail: contactEmail || undefined,
         address: address || undefined,
+        acceptsReservations: typeof acceptsReservations === 'boolean' ? acceptsReservations : undefined,
       },
       select: RESTAURANT_SELECT,
     });
+    logRequest({ req, page: 'Restoran Paneli', action: 'İletişim bilgilerini güncelledi' }).catch(() => {});
     res.json(profile);
   } catch (err) {
     next(err);

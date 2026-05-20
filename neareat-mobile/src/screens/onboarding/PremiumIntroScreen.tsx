@@ -5,6 +5,8 @@ import { MOCK_MODE } from '../../config';
 import { MOCK_SUBSCRIPTION } from '../../mocks/data';
 import api from '../../services/api';
 import { useAppInit } from '../../hooks/useAppInit';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 const FEATURES = [
   '📍 Sınırsız mesafede restoran ara',
@@ -18,6 +20,8 @@ const FEATURES = [
 export default function PremiumIntroScreen() {
   const { pendingUser, setUser, setSubscription } = useAuthStore();
   const { initApp } = useAppInit();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
   const [loading, setLoading] = useState(false);
 
   async function handleTrial() {
@@ -63,12 +67,14 @@ export default function PremiumIntroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, backgroundColor: '#fff' },
-  title: { fontSize: 26, fontWeight: '700', color: '#111827', marginBottom: 28, textAlign: 'center' },
-  featureList: { width: '100%', marginBottom: 36 },
-  featureItem: { fontSize: 16, color: '#374151', marginBottom: 10, lineHeight: 24 },
-  primaryBtn: { backgroundColor: '#FF6B35', borderRadius: 14, paddingVertical: 16, paddingHorizontal: 48, marginBottom: 16 },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  skipText: { color: '#9CA3AF', fontSize: 14 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, backgroundColor: C.surface },
+    title: { fontSize: 26, fontWeight: '700', color: C.textPrimary, marginBottom: 28, textAlign: 'center' },
+    featureList: { width: '100%', marginBottom: 36 },
+    featureItem: { fontSize: 16, color: C.textSecondary, marginBottom: 10, lineHeight: 24 },
+    primaryBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 48, marginBottom: 16 },
+    primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    skipText: { color: C.textMuted, fontSize: 14 },
+  });
+}

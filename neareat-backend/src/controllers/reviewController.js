@@ -1,6 +1,7 @@
 const prisma = require('../utils/prisma');
 const { awardStars } = require('../utils/stars');
 const { containsOffensiveContent } = require('../utils/contentFilter');
+const { logRequest } = require('../services/logService');
 
 async function verifyReviewOwnership(reviewId, userId) {
   const review = await prisma.review.findUnique({ where: { id: reviewId } });
@@ -39,7 +40,7 @@ async function createReview(req, res, next) {
       return res.status(400).json({ error: 'rating must be 1-5' });
     }
     if (containsOffensiveContent(body)) {
-      return res.status(400).json({ error: 'Yorumunuz uygunsuz içerik barındırıyor. Lütfen saygılı bir dil kullanın.' });
+      return res.status(400).json({ error: 'Yorumunuz uygunsuz içerik (hakaret, argo veya küfür) içerdiği için gönderilemedi. Lütfen saygılı bir dil kullanın.' });
     }
 
     const existing = await prisma.review.findUnique({
@@ -64,6 +65,8 @@ async function createReview(req, res, next) {
       newRewards = result.newRewards;
     }
 
+    const action = existing ? 'Yorumunu güncelledi' : 'Yorum yazdı';
+    logRequest({ req, page: 'Restoran Detay', action, details: placeName || placeId }).catch(() => {});
     res.status(201).json({ review, starEvent, newStarCount, newRewards });
   } catch (err) {
     next(err);
@@ -78,13 +81,14 @@ async function updateReview(req, res, next) {
     const review = await verifyReviewOwnership(reviewId, req.user.id);
     if (!review) return res.status(404).json({ error: 'Review not found' });
     if (body && containsOffensiveContent(body)) {
-      return res.status(400).json({ error: 'Yorumunuz uygunsuz içerik barındırıyor. Lütfen saygılı bir dil kullanın.' });
+      return res.status(400).json({ error: 'Yorumunuz uygunsuz içerik (hakaret, argo veya küfür) içerdiği için gönderilemedi. Lütfen saygılı bir dil kullanın.' });
     }
 
     const updated = await prisma.review.update({
       where: { id: reviewId },
       data: { rating, body },
     });
+    logRequest({ req, page: 'Restoran Detay', action: 'Yorumunu güncelledi', details: review.placeId }).catch(() => {});
     res.json(updated);
   } catch (err) {
     next(err);
@@ -96,6 +100,7 @@ async function deleteReview(req, res, next) {
     const { reviewId } = req.params;
     const review = await verifyReviewOwnership(reviewId, req.user.id);
     if (!review) return res.status(404).json({ error: 'Review not found' });
+    logRequest({ req, page: 'Restoran Detay', action: 'Yorumunu sildi', details: review.placeId }).catch(() => {});
     await prisma.review.delete({ where: { id: reviewId } });
     res.json({ message: 'Deleted' });
   } catch (err) {

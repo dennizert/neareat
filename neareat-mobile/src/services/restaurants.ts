@@ -1,3 +1,10 @@
+/**
+ * Restoran Servisi
+ *
+ * Restoran listeleme, detay görüntüleme ve yorum (review) işlemlerini yönetir.
+ * Google Places API üzerinden backend'e istek atar.
+ * MOCK_MODE aktifken sahte verilerle çalışır — backend gerektirmez.
+ */
 import { MOCK_MODE } from '../config';
 import {
   MOCK_RESTAURANTS,
@@ -7,9 +14,18 @@ import {
 import api from './api';
 import type { Restaurant, RestaurantDetail, AppReview, StarEvent, Reward } from '../types';
 
-// in-memory mock reviews for the session
+/** Mock modda session boyunca tutulan geçici yorum listesi */
 let sessionReviews: AppReview[] = [...MOCK_APP_REVIEWS];
 
+/**
+ * Kullanıcının konumuna yakın restoranları getirir.
+ * Backend, Google Places Nearby Search API'yi çağırır ve sonuçları döner.
+ *
+ * @param lat - Kullanıcının enlemi
+ * @param lng - Kullanıcının boylamı
+ * @param type - Restoran türü filtresi (varsayılan: 'all')
+ * @returns Restoran listesi ve arama yarıçapı
+ */
 export async function fetchNearby(
   lat: number,
   lng: number,
@@ -22,6 +38,15 @@ export async function fetchNearby(
   return data;
 }
 
+/**
+ * Belirli bir restoranın detay bilgilerini getirir.
+ * Fotoğraflar, çalışma saatleri, yorumlar, menü, indirim bilgileri vb. içerir.
+ *
+ * @param placeId - Google Places ID
+ * @param lat - Mesafe hesabı için kullanıcı enlemi (opsiyonel)
+ * @param lng - Mesafe hesabı için kullanıcı boylamı (opsiyonel)
+ * @returns Restoran detay bilgisi
+ */
 export async function fetchRestaurantDetail(
   placeId: string,
   lat?: number,
@@ -36,6 +61,13 @@ export async function fetchRestaurantDetail(
   return data;
 }
 
+/**
+ * Belirli bir restoranın uygulama içi yorumlarını getirir.
+ * Google yorumlarından ayrıdır — NearEat kullanıcılarının yazdığı yorumlardır.
+ *
+ * @param placeId - Google Places ID
+ * @returns Yorum listesi
+ */
 export async function fetchAppReviews(placeId: string): Promise<AppReview[]> {
   if (MOCK_MODE) {
     return sessionReviews.filter((r) => r.placeId === placeId);
@@ -44,13 +76,27 @@ export async function fetchAppReviews(placeId: string): Promise<AppReview[]> {
   return data;
 }
 
+/** createReview fonksiyonunun dönüş tipi */
 export interface CreateReviewResult {
   review: AppReview;
+  /** Yorum yazarak kazanılan yıldız olayı (ilk yorum ise) */
   starEvent: StarEvent | null;
+  /** Güncel toplam yıldız sayısı */
   newStarCount: number | null;
+  /** Yeni açılan ödüller */
   newRewards: Reward[];
 }
 
+/**
+ * Restoran için yeni yorum oluşturur veya mevcut yorumu günceller.
+ * İlk kez yorum yazan kullanıcı 5 yıldız kazanır (gamification).
+ *
+ * @param placeId - Google Places ID
+ * @param rating - Puan (1-5)
+ * @param body - Yorum metni
+ * @param placeName - Restoran adı (yıldız olayı açıklaması için)
+ * @returns Oluşturulan yorum, yıldız olayı ve yeni ödüller
+ */
 export async function createReview(
   placeId: string,
   rating: number,
@@ -79,6 +125,14 @@ export async function createReview(
   return data;
 }
 
+/**
+ * Mevcut yorumu günceller (puan ve metin değiştirilebilir).
+ *
+ * @param reviewId - Güncellenecek yorumun ID'si
+ * @param rating - Yeni puan
+ * @param body - Yeni yorum metni
+ * @returns Güncellenmiş yorum
+ */
 export async function updateReview(
   reviewId: string,
   rating: number,
@@ -93,6 +147,11 @@ export async function updateReview(
   return data;
 }
 
+/**
+ * Yorumu siler.
+ *
+ * @param reviewId - Silinecek yorumun ID'si
+ */
 export async function deleteReview(reviewId: string): Promise<void> {
   if (MOCK_MODE) {
     sessionReviews = sessionReviews.filter((r) => r.id !== reviewId);

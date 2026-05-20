@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/roles');
+const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
 const {
   adminLogin, getPendingRestaurants, getRestaurantDetail, getTaxCertificate,
   approveRestaurant, rejectRestaurant, getPlatformStats,
@@ -10,8 +11,27 @@ const {
   getReports, handleReport,
 } = require('../controllers/adminController');
 
-// One-time seed (no auth — only works if no admin exists)
-router.post('/seed', seedAdmin);
+// One-time seed — ADMIN_SEED_SECRET env var ile korunur
+router.post('/seed', (req, res, next) => {
+  const secret = process.env.ADMIN_SEED_SECRET;
+  if (!secret) {
+    logSecurityEvent(EVENTS.SEED_BLOCKED, {
+      ip: req.ip,
+      requestId: req.id,
+      reason: 'ADMIN_SEED_SECRET env var tanımlı değil',
+    });
+    return res.status(503).json({ error: 'Seed devre dışı' });
+  }
+  if (req.headers['x-seed-secret'] !== secret) {
+    logSecurityEvent(EVENTS.SEED_BLOCKED, {
+      ip: req.ip,
+      requestId: req.id,
+      reason: 'Geçersiz seed secret',
+    });
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}, seedAdmin);
 
 // Admin login (no auth middleware — returns token)
 router.post('/login', adminLogin);

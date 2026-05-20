@@ -10,6 +10,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#FF6B35"
     },
+    "scheme": "neareat",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.neareat.app",
@@ -39,7 +40,15 @@
         "googleMaps": {
           "apiKey": "AIzaSyAD4j5kODLae1uLpZpy3pbKkm7DNhruAoU"
         }
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [{ "scheme": "neareat" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "plugins": [
       "./plugins/withAndroidBuildFixes",

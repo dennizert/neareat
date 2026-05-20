@@ -6,8 +6,13 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { getMyRestaurantProfile, uploadMenuItem, deleteMenuItem } from '../../services/restaurantAccount';
 import type { RestaurantMenuItemMeta } from '../../types';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 export default function RestaurantMenuScreen() {
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+
   const [items, setItems] = useState<RestaurantMenuItemMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -58,7 +63,7 @@ export default function RestaurantMenuScreen() {
     ]);
   }
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} color="#FF6B35" size="large" />;
+  if (loading) return <ActivityIndicator style={{ flex: 1 }} color={C.primary} size="large" />;
 
   return (
     <View style={styles.container}>
@@ -108,25 +113,27 @@ export default function RestaurantMenuScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  topBar: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6', gap: 10 },
-  hint: { fontSize: 12, color: '#6B7280', lineHeight: 18 },
-  uploadBtn: { backgroundColor: '#FF6B35', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  uploadBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#374151', marginBottom: 6 },
-  emptyText: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
-  grid: { padding: 16, gap: 10 },
-  gridItem: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12,
-    alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, elevation: 2,
-  },
-  gridItemImg: { width: '100%', aspectRatio: 1, backgroundColor: '#F3F4F6', borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden' },
-  gridItemPhoto: { width: '100%', height: '100%', borderRadius: 10 },
-  gridItemName: { fontSize: 11, color: '#6B7280', textAlign: 'center', marginBottom: 2 },
-  gridItemDate: { fontSize: 11, color: '#9CA3AF', marginBottom: 6 },
-  deleteBtn: { backgroundColor: '#FEE2E2', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5 },
-  deleteBtnText: { color: '#EF4444', fontWeight: '700', fontSize: 12 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    topBar: { padding: 16, backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.separator, gap: 10 },
+    hint: { fontSize: 12, color: C.textTertiary, lineHeight: 18 },
+    uploadBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+    uploadBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+    emptyIcon: { fontSize: 48, marginBottom: 12 },
+    emptyTitle: { fontSize: 17, fontWeight: '700', color: C.textSecondary, marginBottom: 6 },
+    emptyText: { fontSize: 13, color: C.textMuted, textAlign: 'center' },
+    grid: { padding: 16, gap: 10 },
+    gridItem: {
+      flex: 1, backgroundColor: C.surface, borderRadius: 14, padding: 12,
+      alignItems: 'center', shadowColor: C.shadow, shadowOpacity: 0.05, elevation: 2,
+    },
+    gridItemImg: { width: '100%', aspectRatio: 1, backgroundColor: C.inputBg, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 8, overflow: 'hidden' },
+    gridItemPhoto: { width: '100%', height: '100%', borderRadius: 10 },
+    gridItemName: { fontSize: 11, color: C.textTertiary, textAlign: 'center', marginBottom: 2 },
+    gridItemDate: { fontSize: 11, color: C.textMuted, marginBottom: 6 },
+    deleteBtn: { backgroundColor: C.errorSurface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5 },
+    deleteBtnText: { color: C.error, fontWeight: '700', fontSize: 12 },
+  });
+}

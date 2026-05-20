@@ -8,6 +8,8 @@ import {
   activateInstantDiscount, deactivateInstantDiscount,
 } from '../../services/restaurantAccount';
 import type { RestaurantProfile } from '../../types';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 const STAR_RATES = [
   { label: 'Seviye 2 (10+ ⭐)', pct: 10 },
@@ -24,6 +26,9 @@ const DURATION_OPTIONS = [
 ];
 
 export default function RestaurantDiscountScreen() {
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+
   const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,7 +93,7 @@ export default function RestaurantDiscountScreen() {
     }
   }
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} color="#FF6B35" size="large" />;
+  if (loading) return <ActivityIndicator style={{ flex: 1 }} color={C.primary} size="large" />;
 
   const now = new Date();
   const instantActive = profile?.discountActiveUntil && new Date(profile.discountActiveUntil) > now;
@@ -103,7 +108,7 @@ export default function RestaurantDiscountScreen() {
           <Switch
             value={starEnabled}
             onValueChange={setStarEnabled}
-            trackColor={{ false: '#E5E7EB', true: '#4F46E5' }}
+            trackColor={{ false: C.border, true: '#4F46E5' }}
             thumbColor="#fff"
           />
         </View>
@@ -169,7 +174,7 @@ export default function RestaurantDiscountScreen() {
               onChangeText={setInstantPercent}
               keyboardType="numeric"
               placeholder="Örn: 20"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.textMuted}
             />
 
             <Text style={styles.fieldLabel}>Not (opsiyonel)</Text>
@@ -178,7 +183,7 @@ export default function RestaurantDiscountScreen() {
               value={instantNote}
               onChangeText={setInstantNote}
               placeholder="Örn: Yalnızca hafta içi geçerli"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={C.textMuted}
             />
 
             <Text style={styles.fieldLabel}>Süre Seç</Text>
@@ -202,51 +207,53 @@ export default function RestaurantDiscountScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  body: { padding: 16, gap: 14, paddingBottom: 40 },
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    shadowColor: '#000', shadowOpacity: 0.05, elevation: 2,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
-  cardSubtitle: { fontSize: 13, color: '#6B7280', lineHeight: 18, marginBottom: 14 },
-  rateTable: {
-    backgroundColor: '#F9FAFB', borderRadius: 12, overflow: 'hidden',
-    borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 14,
-  },
-  rateTableHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#EEF2FF',
-  },
-  rateHeaderText: { fontSize: 12, fontWeight: '700', color: '#4F46E5' },
-  rateRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: '#E5E7EB',
-  },
-  rateLevelText: { fontSize: 13, color: '#374151' },
-  ratePctBadge: { backgroundColor: '#EEF2FF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
-  ratePctText: { fontSize: 13, fontWeight: '800', color: '#4F46E5' },
-  saveBtn: { backgroundColor: '#4F46E5', borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 4 },
-  input: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 10, fontSize: 15,
-    color: '#111827', backgroundColor: '#FAFAFA', marginBottom: 12,
-  },
-  activeBanner: { backgroundColor: '#DCFCE7', borderRadius: 10, padding: 12, marginBottom: 10 },
-  activeBannerText: { color: '#166534', fontWeight: '600', fontSize: 13 },
-  activeBannerNote: { color: '#166534', fontSize: 12, marginTop: 4 },
-  deactivateBtn: { backgroundColor: '#EF4444', borderRadius: 10, padding: 12, alignItems: 'center' },
-  deactivateBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  durationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  durationBtn: {
-    flex: 1, minWidth: '40%', backgroundColor: '#FF6B35', borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center',
-  },
-  durationBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  durationBtnSub: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 2 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    body: { padding: 16, gap: 14, paddingBottom: 40 },
+    card: {
+      backgroundColor: C.surface, borderRadius: 16, padding: 16,
+      shadowColor: C.shadow, shadowOpacity: 0.05, elevation: 2,
+    },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    cardTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
+    cardSubtitle: { fontSize: 13, color: C.textTertiary, lineHeight: 18, marginBottom: 14 },
+    rateTable: {
+      backgroundColor: C.background, borderRadius: 12, overflow: 'hidden',
+      borderWidth: 1, borderColor: C.border, marginBottom: 14,
+    },
+    rateTableHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#EEF2FF',
+    },
+    rateHeaderText: { fontSize: 12, fontWeight: '700', color: '#4F46E5' },
+    rateRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 14, paddingVertical: 10,
+      borderTopWidth: 1, borderTopColor: C.border,
+    },
+    rateLevelText: { fontSize: 13, color: C.textSecondary },
+    ratePctBadge: { backgroundColor: '#EEF2FF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+    ratePctText: { fontSize: 13, fontWeight: '800', color: '#4F46E5' },
+    saveBtn: { backgroundColor: '#4F46E5', borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+    saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    fieldLabel: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6, marginTop: 4 },
+    input: {
+      borderWidth: 1, borderColor: C.border, borderRadius: 10,
+      paddingHorizontal: 14, paddingVertical: 10, fontSize: 15,
+      color: C.textPrimary, backgroundColor: C.inputBg, marginBottom: 12,
+    },
+    activeBanner: { backgroundColor: '#DCFCE7', borderRadius: 10, padding: 12, marginBottom: 10 },
+    activeBannerText: { color: '#166534', fontWeight: '600', fontSize: 13 },
+    activeBannerNote: { color: '#166534', fontSize: 12, marginTop: 4 },
+    deactivateBtn: { backgroundColor: C.error, borderRadius: 10, padding: 12, alignItems: 'center' },
+    deactivateBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    durationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    durationBtn: {
+      flex: 1, minWidth: '40%', backgroundColor: C.primary, borderRadius: 12,
+      paddingVertical: 14, alignItems: 'center',
+    },
+    durationBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+    durationBtnSub: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 2 },
+  });
+}

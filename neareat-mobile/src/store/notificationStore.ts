@@ -1,3 +1,9 @@
+/**
+ * Bildirim Store'u (Zustand)
+ *
+ * Uygulama içi bildirimleri yönetir: sayfalı yükleme, okunmamış sayacı,
+ * tek/toplu okundu işaretleme. NotificationBell ve NotificationsScreen tarafından kullanılır.
+ */
 import { create } from 'zustand';
 import type { AppNotification } from '../types';
 import { getUnreadCount, getNotifications, markAsRead as apiMarkAsRead, markAllAsRead as apiMarkAllRead } from '../services/notifications';
@@ -9,7 +15,6 @@ interface NotificationState {
   hasMore: boolean;
   loading: boolean;
   currentPage: number;
-
   fetchUnreadCount: () => Promise<void>;
   fetchNotifications: (page?: number) => Promise<void>;
   loadMore: () => Promise<void>;
@@ -26,6 +31,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   loading: false,
   currentPage: 1,
 
+  /** Okunmamış bildirim sayısını çeker (badge için) */
   async fetchUnreadCount() {
     try {
       const count = await getUnreadCount();
@@ -33,6 +39,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     } catch { /* network hatası — sessizce geç */ }
   },
 
+  /** Bildirim listesini sayfalı çeker. page=1 → sıfırdan, page>1 → listeye ekler */
   async fetchNotifications(page = 1) {
     if (get().loading) return;
     set({ loading: true });
@@ -49,12 +56,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  /** Sonraki sayfayı yükler (infinite scroll) */
   async loadMore() {
     const { hasMore, loading, currentPage } = get();
     if (!hasMore || loading) return;
     await get().fetchNotifications(currentPage + 1);
   },
 
+  /** Tek bildirimi okundu işaretler */
   async markRead(id: string) {
     try {
       await apiMarkAsRead(id);
@@ -65,6 +74,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     } catch { /* sessizce geç */ }
   },
 
+  /** Tüm bildirimleri toplu okundu işaretler */
   async markAllRead() {
     try {
       await apiMarkAllRead();
@@ -75,6 +85,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     } catch { /* sessizce geç */ }
   },
 
+  /** Çıkış yapıldığında tüm bildirim verilerini temizler */
   clear() {
     set({ notifications: [], unreadCount: 0, total: 0, hasMore: false, currentPage: 1 });
   },

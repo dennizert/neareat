@@ -8,11 +8,15 @@ import { getCollection, removeFromCollection, shareCollection, unshareCollection
 import { useFriendStore } from '../../store/friendStore';
 import { getFriends } from '../../services/social';
 import type { Collection, CollectionItem } from '../../types';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 export default function CollectionDetailScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { collectionId } = route.params as { collectionId: string; title?: string };
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [collection, setCollection] = useState<Collection | null>(null);
   const [loading, setLoading] = useState(true);
@@ -130,7 +134,7 @@ export default function CollectionDetailScreen() {
   }
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} color="#FF6B35" size="large" />;
+    return <ActivityIndicator style={{ flex: 1 }} color={C.primary} size="large" />;
   }
 
   if (!collection) return null;
@@ -207,7 +211,7 @@ export default function CollectionDetailScreen() {
           </View>
 
           {loadingFriends ? (
-            <ActivityIndicator color="#FF6B35" style={{ marginTop: 40 }} />
+            <ActivityIndicator color={C.primary} style={{ marginTop: 40 }} />
           ) : friends.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>Henüz arkadaşın yok.</Text>
@@ -244,75 +248,77 @@ export default function CollectionDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  collectionHeader: {
-    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
-    backgroundColor: '#fff', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  collectionHeaderLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
-  collectionIcon: { fontSize: 28, marginRight: 12 },
-  collectionName: { fontSize: 18, fontWeight: '800', color: '#111827' },
-  collectionDesc: { fontSize: 13, color: '#6B7280', marginTop: 2, marginBottom: 2 },
-  collectionMeta: { fontSize: 12, color: '#9CA3AF' },
-  shareBtn: {
-    backgroundColor: '#4F46E5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
-  },
-  shareBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  sharedWithRow: {
-    flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
-    backgroundColor: '#EEF2FF', paddingHorizontal: 16, paddingVertical: 8,
-    borderBottomWidth: 1, borderBottomColor: '#E0E7FF',
-  },
-  sharedWithLabel: { fontSize: 12, color: '#4F46E5', fontWeight: '600' },
-  sharedWithName: {
-    fontSize: 12, color: '#4F46E5', backgroundColor: '#E0E7FF',
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginRight: 6, marginBottom: 2,
-  },
-  list: { padding: 16, flexGrow: 1 },
-  itemCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    borderRadius: 14, marginBottom: 10, overflow: 'hidden',
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
-  itemPhoto: { width: 72, height: 72 },
-  itemPhotoPlaceholder: { backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  itemBody: { flex: 1, padding: 12 },
-  itemName: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  itemAddress: { fontSize: 12, color: '#9CA3AF', marginBottom: 2 },
-  itemNote: { fontSize: 12, color: '#6B7280', fontStyle: 'italic', marginBottom: 2 },
-  itemRating: { fontSize: 12, color: '#F59E0B', fontWeight: '600' },
-  removeBtn: {
-    padding: 12, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
-  },
-  removeBtnText: { fontSize: 16, color: '#EF4444' },
-  empty: { flex: 1, alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#374151', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
-  // Modal
-  modalContainer: { flex: 1, backgroundColor: '#fff' },
-  modalHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  modalClose: { fontSize: 16, color: '#6B7280' },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  friendRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  friendRowShared: { backgroundColor: '#F0F4FF', borderRadius: 10, paddingHorizontal: 8 },
-  friendAvatar: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFE8DF',
-    alignItems: 'center', justifyContent: 'center', marginRight: 12, overflow: 'hidden',
-  },
-  friendAvatarImg: { width: 40, height: 40 },
-  friendName: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' },
-  friendToggle: {
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6,
-    backgroundColor: '#4F46E5',
-  },
-  friendToggleOn: { backgroundColor: '#D1FAE5' },
-  friendToggleText: { fontSize: 13, fontWeight: '600', color: '#fff' },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    collectionHeader: {
+      flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
+      backgroundColor: C.surface, padding: 16, borderBottomWidth: 1, borderBottomColor: C.separator,
+    },
+    collectionHeaderLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
+    collectionIcon: { fontSize: 28, marginRight: 12 },
+    collectionName: { fontSize: 18, fontWeight: '800', color: C.textPrimary },
+    collectionDesc: { fontSize: 13, color: C.textTertiary, marginTop: 2, marginBottom: 2 },
+    collectionMeta: { fontSize: 12, color: C.textMuted },
+    shareBtn: {
+      backgroundColor: '#4F46E5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
+    },
+    shareBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+    sharedWithRow: {
+      flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
+      backgroundColor: '#EEF2FF', paddingHorizontal: 16, paddingVertical: 8,
+      borderBottomWidth: 1, borderBottomColor: '#E0E7FF',
+    },
+    sharedWithLabel: { fontSize: 12, color: '#4F46E5', fontWeight: '600' },
+    sharedWithName: {
+      fontSize: 12, color: '#4F46E5', backgroundColor: '#E0E7FF',
+      borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginRight: 6, marginBottom: 2,
+    },
+    list: { padding: 16, flexGrow: 1 },
+    itemCard: {
+      flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
+      borderRadius: 14, marginBottom: 10, overflow: 'hidden',
+      shadowColor: C.shadow, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    },
+    itemPhoto: { width: 72, height: 72 },
+    itemPhotoPlaceholder: { backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center' },
+    itemBody: { flex: 1, padding: 12 },
+    itemName: { fontSize: 14, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
+    itemAddress: { fontSize: 12, color: C.textMuted, marginBottom: 2 },
+    itemNote: { fontSize: 12, color: C.textTertiary, fontStyle: 'italic', marginBottom: 2 },
+    itemRating: { fontSize: 12, color: C.warning, fontWeight: '600' },
+    removeBtn: {
+      padding: 12, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center',
+    },
+    removeBtnText: { fontSize: 16, color: C.error },
+    empty: { flex: 1, alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
+    emptyIcon: { fontSize: 48, marginBottom: 12 },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: C.textSecondary, marginBottom: 8 },
+    emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+    // Modal
+    modalContainer: { flex: 1, backgroundColor: C.surface },
+    modalHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      padding: 16, borderBottomWidth: 1, borderBottomColor: C.separator,
+    },
+    modalClose: { fontSize: 16, color: C.textTertiary },
+    modalTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
+    friendRow: {
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
+      borderBottomWidth: 1, borderBottomColor: C.separator,
+    },
+    friendRowShared: { backgroundColor: '#F0F4FF', borderRadius: 10, paddingHorizontal: 8 },
+    friendAvatar: {
+      width: 40, height: 40, borderRadius: 20, backgroundColor: C.primaryLight,
+      alignItems: 'center', justifyContent: 'center', marginRight: 12, overflow: 'hidden',
+    },
+    friendAvatarImg: { width: 40, height: 40 },
+    friendName: { flex: 1, fontSize: 15, fontWeight: '600', color: C.textPrimary },
+    friendToggle: {
+      borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6,
+      backgroundColor: '#4F46E5',
+    },
+    friendToggleOn: { backgroundColor: '#D1FAE5' },
+    friendToggleText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  });
+}

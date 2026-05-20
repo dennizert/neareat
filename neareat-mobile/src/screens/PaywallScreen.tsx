@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { useTheme } from '../theme';
+import type { Colors } from '../theme';
 
 const FEATURES = [
   '📍 Sınırsız mesafede restoran ara',
@@ -17,6 +19,9 @@ const FEATURES = [
 export default function PaywallScreen() {
   const navigation = useNavigation<any>();
   const { setSubscription } = useAuthStore();
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<'yearly' | 'monthly'>('yearly');
 
@@ -79,23 +84,25 @@ export default function PaywallScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 24, paddingTop: 48 },
-  closeBtn: { position: 'absolute', top: 48, right: 24, zIndex: 10 },
-  closeBtnText: { fontSize: 20, color: '#9CA3AF' },
-  title: { fontSize: 26, fontWeight: '800', color: '#111827', textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 15, color: '#6B7280', textAlign: 'center', marginBottom: 24 },
-  featureList: { marginBottom: 24 },
-  featureItem: { fontSize: 15, color: '#374151', marginBottom: 8, lineHeight: 22 },
-  planRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  planCard: { flex: 1, borderRadius: 14, borderWidth: 2, borderColor: '#E5E7EB', padding: 16, alignItems: 'center' },
-  planCardActive: { borderColor: '#FF6B35', backgroundColor: '#FFF7ED' },
-  popularBadge: { backgroundColor: '#FF6B35', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 6 },
-  popularText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  planName: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  planPrice: { fontSize: 13, color: '#6B7280', marginTop: 2 },
-  planSavings: { fontSize: 11, color: '#10B981', marginTop: 2 },
-  primaryBtn: { backgroundColor: '#FF6B35', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 16 },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  legal: { fontSize: 11, color: '#9CA3AF', textAlign: 'center', lineHeight: 16 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.surface, padding: 24, paddingTop: 48 },
+    closeBtn: { position: 'absolute', top: 48, right: 24, zIndex: 10 },
+    closeBtnText: { fontSize: 20, color: C.textMuted },
+    title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, textAlign: 'center', marginBottom: 4 },
+    subtitle: { fontSize: 15, color: C.textTertiary, textAlign: 'center', marginBottom: 24 },
+    featureList: { marginBottom: 24 },
+    featureItem: { fontSize: 15, color: C.textSecondary, marginBottom: 8, lineHeight: 22 },
+    planRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+    planCard: { flex: 1, borderRadius: 14, borderWidth: 2, borderColor: C.border, padding: 16, alignItems: 'center' },
+    planCardActive: { borderColor: C.primary, backgroundColor: C.primaryLighter },
+    popularBadge: { backgroundColor: C.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginBottom: 6 },
+    popularText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+    planName: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+    planPrice: { fontSize: 13, color: C.textTertiary, marginTop: 2 },
+    planSavings: { fontSize: 11, color: C.success, marginTop: 2 },
+    primaryBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 16 },
+    primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    legal: { fontSize: 11, color: C.textMuted, textAlign: 'center', lineHeight: 16 },
+  });
+}

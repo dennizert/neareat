@@ -1,4 +1,6 @@
 const prisma = require('../utils/prisma');
+const { containsOffensiveContent } = require('../utils/contentFilter');
+const { logRequest } = require('../services/logService');
 
 const USER_SELECT = {
   id: true, displayName: true, photoUrl: true,
@@ -154,6 +156,9 @@ async function sendMessage(req, res, next) {
     if (!content?.trim()) return res.status(400).json({ error: 'Mesaj içeriği boş olamaz.' });
     if (content.trim().length > 2000) return res.status(400).json({ error: 'Mesaj en fazla 2000 karakter olabilir.' });
     if (otherId === userId) return res.status(400).json({ error: 'Kendinize mesaj gönderemezsiniz.' });
+    if (containsOffensiveContent(content)) {
+      return res.status(400).json({ error: 'Mesajınız uygunsuz içerik (hakaret, argo veya küfür) içerdiği için gönderilemedi. Lütfen saygılı bir dil kullanın.' });
+    }
 
     // Sadece arkadaşlarla mesajlaşılabilir
     const friendship = await prisma.friendRequest.findFirst({
@@ -172,6 +177,7 @@ async function sendMessage(req, res, next) {
       select: { id: true, content: true, isRead: true, createdAt: true, senderId: true, receiverId: true },
     });
 
+    logRequest({ req, page: 'Mesajlar', action: 'Mesaj gönderdi', details: otherId }).catch(() => {});
     res.status(201).json(message);
   } catch (err) {
     next(err);

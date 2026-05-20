@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../utils/prisma');
 const { signToken } = require('../utils/jwt');
+const { logRequest } = require('../services/logService');
 
 const PROFILE_SUMMARY = {
   id: true, businessName: true, ownerName: true, taxNumber: true,
@@ -98,6 +99,7 @@ async function approveRestaurant(req, res, next) {
       data: { status: 'APPROVED', approvedAt: new Date(), reviewedByAdminId: req.user.id, rejectionReason: null },
       select: PROFILE_SUMMARY,
     });
+    logRequest({ req, page: 'Admin - Restoran Onayları', action: 'Restoran onayladı', details: profile.businessName }).catch(() => {});
     res.json(profile);
   } catch (err) {
     next(err);
@@ -116,6 +118,7 @@ async function rejectRestaurant(req, res, next) {
       data: { status: 'REJECTED', rejectionReason: rejectionReason.trim(), reviewedByAdminId: req.user.id },
       select: PROFILE_SUMMARY,
     });
+    logRequest({ req, page: 'Admin - Restoran Onayları', action: 'Restoran reddetti', details: `${profile.businessName} — ${rejectionReason.trim()}` }).catch(() => {});
     res.json(profile);
   } catch (err) {
     next(err);
@@ -208,6 +211,7 @@ async function suspendUser(req, res, next) {
       data: { isSuspended: true },
       select: { id: true, email: true, displayName: true, isSuspended: true },
     });
+    logRequest({ req, page: 'Admin - Kullanıcılar', action: 'Kullanıcı askıya aldı', details: `${user.displayName} (${user.email})` }).catch(() => {});
     res.json(user);
   } catch (err) {
     next(err);
@@ -222,6 +226,7 @@ async function unsuspendUser(req, res, next) {
       data: { isSuspended: false },
       select: { id: true, email: true, displayName: true, isSuspended: true },
     });
+    logRequest({ req, page: 'Admin - Kullanıcılar', action: 'Kullanıcı askıyı kaldırdı', details: `${user.displayName} (${user.email})` }).catch(() => {});
     res.json(user);
   } catch (err) {
     next(err);
@@ -235,6 +240,7 @@ async function deleteReview(req, res, next) {
     const { id } = req.params;
     const review = await prisma.review.findUnique({ where: { id } });
     if (!review) return res.status(404).json({ error: 'Yorum bulunamadı' });
+    logRequest({ req, page: 'Admin - Yorumlar', action: 'Yorum sildi', details: `placeId: ${review.placeId}` }).catch(() => {});
     await prisma.review.delete({ where: { id } });
     res.json({ message: 'Yorum silindi' });
   } catch (err) {
@@ -331,6 +337,7 @@ async function handleReport(req, res, next) {
     const { createNotification } = require('../services/notificationService');
     createNotification(report.reporterId, 'REPORT_RESOLVED', notifTitle, notifBody, { reportId: id, action }).catch(() => {});
 
+    logRequest({ req, page: 'Admin - Şikayetler', action: 'Şikayet işledi', details: `${action} — ${report.reported.displayName}` }).catch(() => {});
     res.json({ message: 'Şikayet işlemi tamamlandı.' });
   } catch (err) {
     next(err);

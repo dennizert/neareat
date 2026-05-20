@@ -4,6 +4,8 @@ import {
   ActivityIndicator, Alert, Switch,
 } from 'react-native';
 import { getMyRestaurantProfile, updateHours } from '../../services/restaurantAccount';
+import { useTheme } from '../../theme';
+import type { Colors } from '../../theme';
 
 const DAYS = [
   { key: 'monday', label: 'Pazartesi' },
@@ -19,12 +21,14 @@ const DEFAULT_HOURS = Object.fromEntries(
   DAYS.map(d => [d.key, { open: '09:00', close: '22:00', closed: false }])
 );
 
-const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => `${h.toString().padStart(2, '0')}:00`);
 const TIME_OPTIONS = [
   ...Array.from({ length: 24 }, (_, h) => [`${h.toString().padStart(2, '0')}:00`, `${h.toString().padStart(2, '0')}:30`]).flat()
 ];
 
 export default function RestaurantHoursScreen() {
+  const { C } = useTheme();
+  const styles = React.useMemo(() => makeStyles(C), [C]);
+
   const [hours, setHours] = useState<Record<string, { open: string; close: string; closed: boolean }>>(DEFAULT_HOURS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,7 +56,7 @@ export default function RestaurantHoursScreen() {
     }
   }
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} color="#FF6B35" size="large" />;
+  if (loading) return <ActivityIndicator style={{ flex: 1 }} color={C.primary} size="large" />;
 
   return (
     <View style={styles.container}>
@@ -70,7 +74,7 @@ export default function RestaurantHoursScreen() {
                   <Switch
                     value={day.closed}
                     onValueChange={val => setField(key, 'closed', val)}
-                    trackColor={{ false: '#E5E7EB', true: '#EF4444' }}
+                    trackColor={{ false: C.border, true: C.error }}
                     thumbColor="#fff"
                   />
                 </View>
@@ -133,38 +137,40 @@ export default function RestaurantHoursScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  body: { padding: 16, paddingBottom: 32 },
-  hint: { fontSize: 13, color: '#6B7280', marginBottom: 16, lineHeight: 18 },
-  dayCard: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10,
-    shadowColor: '#000', shadowOpacity: 0.04, elevation: 1,
-  },
-  dayCardClosed: { opacity: 0.6 },
-  dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  dayLabel: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  dayLabelClosed: { color: '#9CA3AF' },
-  closedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  closedLabel: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
-  timePicker: {
-    flex: 1, backgroundColor: '#F9FAFB', borderRadius: 10, padding: 10,
-    borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center',
-  },
-  timePickerLabel: { fontSize: 11, color: '#9CA3AF', marginBottom: 2 },
-  timePickerValue: { fontSize: 18, fontWeight: '700', color: '#FF6B35' },
-  timeSep: { fontSize: 16, color: '#9CA3AF' },
-  pickerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  pickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32 },
-  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  pickerTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  pickerClose: { fontSize: 15, color: '#6B7280' },
-  timeOption: { paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  timeOptionActive: { backgroundColor: '#FFF0EA' },
-  timeOptionText: { fontSize: 15, color: '#374151' },
-  timeOptionTextActive: { color: '#FF6B35', fontWeight: '700' },
-  footer: { padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  saveBtn: { backgroundColor: '#FF6B35', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-});
+function makeStyles(C: Colors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: C.background },
+    body: { padding: 16, paddingBottom: 32 },
+    hint: { fontSize: 13, color: C.textTertiary, marginBottom: 16, lineHeight: 18 },
+    dayCard: {
+      backgroundColor: C.surface, borderRadius: 14, padding: 14, marginBottom: 10,
+      shadowColor: C.shadow, shadowOpacity: 0.04, elevation: 1,
+    },
+    dayCardClosed: { opacity: 0.6 },
+    dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    dayLabel: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+    dayLabelClosed: { color: C.textMuted },
+    closedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    closedLabel: { fontSize: 13, color: C.error, fontWeight: '600' },
+    timeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+    timePicker: {
+      flex: 1, backgroundColor: C.background, borderRadius: 10, padding: 10,
+      borderWidth: 1, borderColor: C.border, alignItems: 'center',
+    },
+    timePickerLabel: { fontSize: 11, color: C.textMuted, marginBottom: 2 },
+    timePickerValue: { fontSize: 18, fontWeight: '700', color: C.primary },
+    timeSep: { fontSize: 16, color: C.textMuted },
+    pickerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    pickerSheet: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32 },
+    pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: C.separator },
+    pickerTitle: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+    pickerClose: { fontSize: 15, color: C.textTertiary },
+    timeOption: { paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: C.separator },
+    timeOptionActive: { backgroundColor: C.primaryLighter },
+    timeOptionText: { fontSize: 15, color: C.textSecondary },
+    timeOptionTextActive: { color: C.primary, fontWeight: '700' },
+    footer: { padding: 16, backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.separator },
+    saveBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+    saveBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  });
+}
