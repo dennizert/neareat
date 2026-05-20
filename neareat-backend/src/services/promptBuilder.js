@@ -39,6 +39,7 @@ const prisma = require('../utils/prisma');
 const MAX_RECENT_REVIEWS = 20;
 const MAX_FAVORITES = 25;
 const MAX_STAR_EVENTS = 30;
+const MAX_FRIEND_CUISINE_TYPES = 5;
 
 /**
  * Stabil JSON serializer — anahtarlar alfabetik sıralı.
@@ -129,6 +130,20 @@ kişisel gerekçe yaz. ÇIKTI FORMATINA harfiyen uy (aşağıda).
    veya kullanıcının tarzına hiç uymuyorsa, dürüst ol: noteToUser'da
    "Şu an yakınında pek uygun seçenek yok, biraz uzaklaşmaya değer
    olabilir." de ve yine de en iyi 1-2'yi öner.
+
+6. **Arkadaş Sinyalleri (Varsa)**: Kullanıcı profili "friendSignals"
+   array'i içeriyorsa, bu anonim arkadaş tercihlerini destekleyici sinyal
+   olarak kullan:
+   - Zayıf sinyal (reviewCount < 3): karar verici değil, çok hafifçe.
+   - Güçlü sinyal (reviewCount ≥ 5 ve avgRating ≥ 4.0): öneri kararını
+     güçlendirebilir — aynı tarzı seven arkadaşlar varsa sosyal onay sinyali.
+   - Birden çok arkadaş aynı mutfak türünü paylaşıyorsa bu güçlü onay —
+     gerekçede "bu tarzı seven çevrenden de var" şeklinde doğal belirtebilirsin.
+   - friendSignals YOKSA (free kullanıcı veya opt-in arkadaş yok): tamamen
+     görmezden gel, bu bölümü hiç işleme.
+   - ASLA: "arkadaş 2 buraya gitmiş", "arkadaş 1 bu puanı vermiş" gibi
+     spesifik bilgi ifşa etme. Sadece genel mutfak eğilim seviyesinde kal.
+   - ASLA: Anonim label'ları (arkadaş 1, arkadaş 2) kullanıcıya aktarma.
 
 # Gerekçe Yazma Standardı
 
@@ -386,6 +401,99 @@ function buildSystemBlock() {
 }
 
 /**
+ * Premium kullanıcının opt-in arkadaşlarından anonim mutfak sinyalleri toplar.
+ *
+ * KVKK: shareWithFriendsRecommender=true olmayan arkadaşlar HİÇBİR ŞEKİLDE dahil edilmez.
+ * Deterministik: queryler ID sıralı; label'lar ID sırasından türetilir → aynı veri = aynı çıktı.
+ *
+ * @param {string} userId
+ * @returns {Promise<Array>}
+ */
+async function buildFriendSignals(userId) {
+  // Adım 1: Kabul edilmiş arkadaş isteği kayıtları
+  const friendRequests = await prisma.friendRequest.findMany({
+    where: {
+      status: 'ACCEPTED',
+      OR: [{ fromUserId: userId }, { toUserId: userId }],
+    },
+    orderBy: { id: 'asc' },
+    select: { fromUserId: true, toUserId: true },
+  });
+
+  if (!friendRequests.length) return [];
+
+  // Eşsiz arkadaş ID'leri — deterministik sıra için sort
+  const rawIds = friendRequests.map((fr) =>
+    fr.fromUserId === userId ? fr.toUserId : fr.fromUserId
+  );
+  const uniqueFriendIds = [...new Set(rawIds)].sort();
+
+  // Adım 2: Sadece opt-in olanlar (KVKK)
+  const optInFriends = await prisma.user.findMany({
+    where: { id: { in: uniqueFriendIds }, shareWithFriendsRecommender: true },
+    orderBy: { id: 'asc' },
+    select: { id: true },
+  });
+
+  if (!optInFriends.length) return [];
+
+  const optInIds = optInFriends.map((f) => f.id);
+
+  // Adım 3: Mutfak sinyalleri + puan geçmişi (paralel)
+  const [friendRecs, friendReviews] = await Promise.all([
+    prisma.recommendation.findMany({
+      where: { fromUserId: { in: optInIds } },
+      orderBy: { id: 'asc' },
+      select: { fromUserId: true, placeTypes: true },
+    }),
+    prisma.review.findMany({
+      where: { userId: { in: optInIds } },
+      orderBy: { id: 'asc' },
+      select: { userId: true, rating: true },
+    }),
+  ]);
+
+  // Adım 4: Her arkadaş için anonim sinyal objesi (ID sırası → deterministik label)
+  const signals = [];
+  for (let i = 0; i < optInIds.length; i++) {
+    const fid = optInIds[i];
+    const fRecs = friendRecs.filter((r) => r.fromUserId === fid);
+    const fReviews = friendReviews.filter((r) => r.userId === fid);
+
+    // Mutfak tipi frekansı
+    const typeCounts = new Map();
+    for (const rec of fRecs) {
+      for (const t of rec.placeTypes || []) {
+        const k = String(t).toLowerCase();
+        typeCounts.set(k, (typeCounts.get(k) || 0) + 1);
+      }
+    }
+    const topCuisineTypes = [...typeCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, MAX_FRIEND_CUISINE_TYPES)
+      .map(([type]) => type);
+
+    const avgRating = fReviews.length
+      ? Number(
+          (fReviews.reduce((s, r) => s + r.rating, 0) / fReviews.length).toFixed(2)
+        )
+      : null;
+
+    // Sinyal yoksa dahil etme
+    if (topCuisineTypes.length === 0 && fReviews.length === 0) continue;
+
+    signals.push({
+      label: `arkadaş ${i + 1}`,
+      topCuisineTypes,
+      avgRating,
+      reviewCount: fReviews.length,
+    });
+  }
+
+  return signals;
+}
+
+/**
  * Kullanıcı profil özetini DB'den deterministik şekilde topla.
  *
  * DETERMİNİZM KURALLARI:
@@ -395,9 +503,14 @@ function buildSystemBlock() {
  *   - Cache pencere (~5dk) içinde aynı bytes → cache hit
  *
  * Kullanıcı yeni yorum yazarsa profil değişir → cache miss → yeniden yazılır. Beklenen davranış.
+ *
+ * @param {string} userId
+ * @param {{ tier?: 'free' | 'premium' }} [options]
  */
-async function buildUserProfileSummary(userId) {
-  const [user, reviews, favorites, starEvents, sentRecs] = await Promise.all([
+async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
+  const isPremium = tier === 'premium';
+
+  const [user, reviews, favorites, starEvents, sentRecs, friendSignalsData] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -432,6 +545,8 @@ async function buildUserProfileSummary(userId) {
       take: 20,
       select: { placeName: true, placeTypes: true, message: true },
     }),
+    // Premium only — free tier'da friend signals yok (cache key stabil kalır)
+    isPremium ? buildFriendSignals(userId) : Promise.resolve([]),
   ]);
 
   if (!user) {
@@ -492,6 +607,11 @@ async function buildUserProfileSummary(userId) {
       message: (r.message || '').slice(0, 200),
     })),
   };
+
+  // Arkadaş sinyalleri — sadece premium ve sinyal varsa (KVKK: opt-in only)
+  if (isPremium && friendSignalsData.length > 0) {
+    profile.friendSignals = friendSignalsData;
+  }
 
   const text =
     '# Kullanıcı Profili\n\n' +
@@ -616,5 +736,6 @@ module.exports = {
     buildSystemBlock,
     buildProfileBlock,
     buildVariableBlock,
+    buildFriendSignals,
   },
 };

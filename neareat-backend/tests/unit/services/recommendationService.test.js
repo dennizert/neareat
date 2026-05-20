@@ -8,11 +8,12 @@
  */
 
 const mockPrisma = {
-  user: { findUnique: jest.fn() },
+  user: { findUnique: jest.fn(), findMany: jest.fn() },
   favorite: { findMany: jest.fn() },
   review: { findMany: jest.fn() },
   starEvent: { findMany: jest.fn() },
   recommendation: { findMany: jest.fn() },
+  friendRequest: { findMany: jest.fn() },
   aiRecommendationLog: { create: jest.fn(), count: jest.fn() },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
@@ -147,6 +148,7 @@ describe('recommend (end-to-end with mocks)', () => {
     mockPrisma.review.findMany.mockResolvedValue([]);
     mockPrisma.starEvent.findMany.mockResolvedValue([]);
     mockPrisma.recommendation.findMany.mockResolvedValue([]);
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
     mockPrisma.aiRecommendationLog.create.mockResolvedValue({ id: 'log-1' });
   }
 
