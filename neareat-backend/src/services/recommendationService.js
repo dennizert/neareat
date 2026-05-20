@@ -203,10 +203,12 @@ async function recommend({ userId, location, mood, isPremium = false }) {
     });
   }
 
-  // 5. Audit log
+  // 5. Audit log — fire-and-forget (Sprint-2 Task #2).
+  // DB write'ı await ETMEZ; response gönderildikten sonra event loop'ta tamamlanır.
+  // Hata olursa console'a yazılır, kullanıcı akışı bozulmaz.
   const usage = summarizeUsage(model, response.usage);
-  try {
-    await prisma.aiRecommendationLog.create({
+  prisma.aiRecommendationLog
+    .create({
       data: {
         userId,
         model,
@@ -223,11 +225,10 @@ async function recommend({ userId, location, mood, isPremium = false }) {
         lng: location.lng,
         responseJson: parsed ?? { raw: textBlock?.text?.slice(0, 1000) },
       },
+    })
+    .catch((logErr) => {
+      console.error('[recommend] AiRecommendationLog write failed:', logErr.message);
     });
-  } catch (logErr) {
-    // Audit log fail'i öneri akışını bozmasın — ama console'a yazılsın
-    console.error('[recommend] AiRecommendationLog write failed:', logErr.message);
-  }
 
   logUsage({ userId, model, usage: response.usage, latencyMs });
 
