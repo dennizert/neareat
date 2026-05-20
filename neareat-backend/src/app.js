@@ -30,6 +30,7 @@ const adminRoutes = require('./routes/admin');
 const reservationRoutes = require('./routes/reservations');
 const logRoutes = require('./routes/logs');
 const mealGroupRoutes = require('./routes/mealGroups');
+const recommendationRoutes = require('./routes/recommendations');
 const errorHandler = require('./middleware/errorHandler');
 const requestId = require('./middleware/requestId');
 const sanitize = require('./middleware/sanitize');
@@ -134,6 +135,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/meal-groups', mealGroupRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 // Email linklerinden gelen deep link yönlendirmeleri
 // Email istemcileri neareat:// şemasını bloke eder; HTTPS link → deep link
