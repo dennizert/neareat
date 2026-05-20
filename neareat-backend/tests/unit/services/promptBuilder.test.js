@@ -6,11 +6,12 @@
  */
 
 const mockPrisma = {
-  user: { findUnique: jest.fn() },
+  user: { findUnique: jest.fn(), findMany: jest.fn() },
   review: { findMany: jest.fn() },
   favorite: { findMany: jest.fn() },
   starEvent: { findMany: jest.fn() },
   recommendation: { findMany: jest.fn() },
+  friendRequest: { findMany: jest.fn() },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
@@ -18,7 +19,7 @@ const {
   buildUserProfileSummary,
   buildClaudeRequest,
   SYSTEM_PROMPT,
-  __test: { stableStringify, approxTokens, buildSystemBlock, buildProfileBlock, buildVariableBlock },
+  __test: { stableStringify, approxTokens, buildSystemBlock, buildProfileBlock, buildVariableBlock, buildFriendSignals },
 } = require('../../../src/services/promptBuilder');
 
 beforeEach(() => {
@@ -330,5 +331,210 @@ describe('buildClaudeRequest', () => {
       for (const b of m.content) if (b.cache_control) count++;
     }
     expect(count).toBe(2);
+  });
+});
+
+// ─── buildFriendSignals ──────────────────────────────────────────────────────
+
+describe('buildFriendSignals', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns empty array when user has no accepted friend requests', async () => {
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+
+    const result = await buildFriendSignals('u1');
+
+    expect(result).toEqual([]);
+    expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns empty array when no friends opted-in (KVKK)', async () => {
+    mockPrisma.friendRequest.findMany.mockResolvedValue([
+      { fromUserId: 'u1', toUserId: 'f1' },
+    ]);
+    // f1 hasn't opted-in
+    mockPrisma.user.findMany.mockResolvedValue([]);
+
+    const result = await buildFriendSignals('u1');
+
+    expect(result).toEqual([]);
+  });
+
+  it('returns anonymized signals for opted-in friends', async () => {
+    mockPrisma.friendRequest.findMany.mockResolvedValue([
+      { fromUserId: 'u1', toUserId: 'f1' },
+      { fromUserId: 'f2', toUserId: 'u1' },
+    ]);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 'f1' }, { id: 'f2' }]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([
+      { fromUserId: 'f1', placeTypes: ['italian_restaurant', 'restaurant'] },
+      { fromUserId: 'f1', placeTypes: ['italian_restaurant'] },
+      { fromUserId: 'f2', placeTypes: ['sushi_restaurant'] },
+    ]);
+    mockPrisma.review.findMany.mockResolvedValue([
+      { userId: 'f1', rating: 5 },
+      { userId: 'f1', rating: 4 },
+      { userId: 'f2', rating: 4 },
+    ]);
+
+    const result = await buildFriendSignals('u1');
+
+    expect(result).toHaveLength(2);
+    // No real IDs or names
+    expect(result[0].label).toBe('arkadaş 1');
+    expect(result[1].label).toBe('arkadaş 2');
+    // f1: italian appears twice → top type
+    expect(result[0].topCuisineTypes).toContain('italian_restaurant');
+    expect(result[0].reviewCount).toBe(2);
+    expect(result[0].avgRating).toBeCloseTo(4.5, 1);
+    // f2: sushi
+    expect(result[1].topCuisineTypes).toContain('sushi_restaurant');
+  });
+
+  it('excludes friends with no cuisine signal and no reviews', async () => {
+    mockPrisma.friendRequest.findMany.mockResolvedValue([
+      { fromUserId: 'u1', toUserId: 'f1' },
+    ]);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 'f1' }]);
+    // f1 has no recs and no reviews
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+    mockPrisma.review.findMany.mockResolvedValue([]);
+
+    const result = await buildFriendSignals('u1');
+
+    expect(result).toEqual([]);
+  });
+
+  it('is deterministic — same data yields identical output twice', async () => {
+    const setupMocks = () => {
+      mockPrisma.friendRequest.findMany.mockResolvedValue([
+        { fromUserId: 'u1', toUserId: 'f1' },
+      ]);
+      mockPrisma.user.findMany.mockResolvedValue([{ id: 'f1' }]);
+      mockPrisma.recommendation.findMany.mockResolvedValue([
+        { fromUserId: 'f1', placeTypes: ['cafe', 'italian_restaurant'] },
+      ]);
+      mockPrisma.review.findMany.mockResolvedValue([
+        { userId: 'f1', rating: 4 },
+      ]);
+    };
+
+    setupMocks();
+    const r1 = await buildFriendSignals('u1');
+    setupMocks();
+    const r2 = await buildFriendSignals('u1');
+
+    expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
+  });
+
+  it('does NOT expose friend IDs or names in output', async () => {
+    mockPrisma.friendRequest.findMany.mockResolvedValue([
+      { fromUserId: 'u1', toUserId: 'real-uuid-friend-123' },
+    ]);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 'real-uuid-friend-123' }]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([
+      { fromUserId: 'real-uuid-friend-123', placeTypes: ['cafe'] },
+    ]);
+    mockPrisma.review.findMany.mockResolvedValue([
+      { userId: 'real-uuid-friend-123', rating: 4 },
+    ]);
+
+    const result = await buildFriendSignals('u1');
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).not.toContain('real-uuid-friend-123');
+    expect(result[0].label).toBe('arkadaş 1');
+  });
+});
+
+// ─── buildUserProfileSummary — tier integration ──────────────────────────────
+
+describe('buildUserProfileSummary — free vs premium tier', () => {
+  function setupBaseUser() {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      displayName: 'Test User',
+      favoriteCuisines: [],
+      starCount: 0,
+      city: null,
+      bio: null,
+    });
+    mockPrisma.favorite.findMany.mockResolvedValue([]);
+    mockPrisma.starEvent.findMany.mockResolvedValue([]);
+  }
+
+  it('does NOT call friendRequest for free tier (cache stabil)', async () => {
+    setupBaseUser();
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+
+    await buildUserProfileSummary('u1', { tier: 'free' });
+
+    expect(mockPrisma.friendRequest.findMany).not.toHaveBeenCalled();
+  });
+
+  it('does NOT include friendSignals key for free tier', async () => {
+    setupBaseUser();
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+
+    const r = await buildUserProfileSummary('u1', { tier: 'free' });
+
+    expect(r.profile.friendSignals).toBeUndefined();
+  });
+
+  it('does NOT include friendSignals when no opt-in friends (premium)', async () => {
+    setupBaseUser();
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+
+    const r = await buildUserProfileSummary('u1', { tier: 'premium' });
+
+    expect(r.profile.friendSignals).toBeUndefined();
+  });
+
+  it('includes friendSignals in profile for premium with opted-in friends', async () => {
+    setupBaseUser();
+    // User's own queries — distinguish by query shape
+    mockPrisma.review.findMany.mockImplementation(({ where }) => {
+      if (where?.userId?.in) return Promise.resolve([{ userId: 'f1', rating: 5 }]);
+      return Promise.resolve([]); // user's own reviews
+    });
+    mockPrisma.recommendation.findMany.mockImplementation(({ where }) => {
+      if (where?.fromUserId?.in) {
+        return Promise.resolve([{ fromUserId: 'f1', placeTypes: ['italian_restaurant'] }]);
+      }
+      return Promise.resolve([]); // user's sent recs
+    });
+    mockPrisma.friendRequest.findMany.mockResolvedValue([
+      { fromUserId: 'u1', toUserId: 'f1' },
+    ]);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: 'f1' }]);
+
+    const r = await buildUserProfileSummary('u1', { tier: 'premium' });
+
+    expect(Array.isArray(r.profile.friendSignals)).toBe(true);
+    expect(r.profile.friendSignals).toHaveLength(1);
+    expect(r.profile.friendSignals[0].label).toBe('arkadaş 1');
+    expect(r.profile.friendSignals[0].topCuisineTypes).toContain('italian_restaurant');
+  });
+
+  it('free and premium profiles with same user data differ only in friendSignals presence', async () => {
+    setupBaseUser();
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+
+    const free = await buildUserProfileSummary('u1', { tier: 'free' });
+    const premium = await buildUserProfileSummary('u1', { tier: 'premium' });
+
+    // Both have same base fields
+    expect(free.profile.displayName).toBe(premium.profile.displayName);
+    // Free has no friendSignals key at all
+    expect('friendSignals' in free.profile).toBe(false);
+    // Premium with no opt-in friends also has no key
+    expect('friendSignals' in premium.profile).toBe(false);
   });
 });

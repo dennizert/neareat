@@ -41,6 +41,7 @@ const mockPrisma = {
   starEvent: { findMany: jest.fn(), create: jest.fn() },
   recommendation: { findMany: jest.fn(), count: jest.fn() },
   aiRecommendationLog: { create: jest.fn(), count: jest.fn() },
+  friendRequest: { findMany: jest.fn() },
   userLog: { create: jest.fn() },
   notification: { create: jest.fn() },
   $queryRaw: jest.fn(),
@@ -144,6 +145,7 @@ beforeEach(() => {
   mockPrisma.review.findMany.mockResolvedValue([]);
   mockPrisma.starEvent.findMany.mockResolvedValue([]);
   mockPrisma.recommendation.findMany.mockResolvedValue([]);
+  mockPrisma.friendRequest.findMany.mockResolvedValue([]);
   mockPrisma.subscription.findUnique.mockResolvedValue(null);
   mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
   mockPrisma.userLog.create.mockResolvedValue({});

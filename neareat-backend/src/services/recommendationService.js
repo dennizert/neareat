@@ -159,8 +159,8 @@ async function recommend({ userId, location, mood, isPremium = false }) {
     return { noCandidates: true, meta: { candidates: candMeta } };
   }
 
-  // 2. Prompt
-  const profileSummary = await buildUserProfileSummary(userId);
+  // 2. Prompt (premium'da arkadaş sinyalleri dahil edilir)
+  const profileSummary = await buildUserProfileSummary(userId, { tier });
   const req = buildClaudeRequest({ profileSummary, candidates, location, mood });
 
   // 3. LLM
