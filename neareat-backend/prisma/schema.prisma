@@ -70,6 +70,7 @@ model User {
   pollsCreated            RestaurantPoll[]      @relation("PollsCreated")
   pollVotes               PollVote[]            @relation("PollVotes")
   aiRecommendationLogs    AiRecommendationLog[]
+  recommendationFeedbacks RecommendationFeedback[]
 
   @@map("users")
 }
@@ -663,10 +664,32 @@ model AiRecommendationLog {
   lng               Float?
   responseJson      Json?    @map("response_json")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedbacks RecommendationFeedback[]
 
   @@index([userId, requestedAt])
   @@map("ai_recommendation_logs")
+}
+
+/// Kullanıcının AI öneri sonrası verdiği 👍/👎 feedback.
+/// Sprint-2 Task #4 — öneri kalitesi ölçümü + gelecek sprint'te iyileştirme sinyali.
+model RecommendationFeedback {
+  id                    String   @id @default(uuid())
+  userId                String   @map("user_id")
+  aiRecommendationLogId String?  @map("ai_recommendation_log_id")
+  placeId               String   @map("place_id")
+  sentiment             String   // 'positive' | 'negative'
+  comment               String?  @db.VarChar(500)
+  visited               Boolean  @default(false)
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiRecLog AiRecommendationLog?  @relation(fields: [aiRecommendationLogId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([aiRecommendationLogId])
+  @@index([placeId, sentiment])
+  @@map("recommendation_feedback")
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
