@@ -216,6 +216,10 @@ JSON dışında HİÇBİR şey yazma. Çıktın "{" ile başlasın "}" ile bitsi
 - placeId yerine sadece restoran adı vermek.
 - Tek cümlelik veya 4+ cümlelik gerekçe. Sweet spot 2-3 cümle.
 - Markdown formatlama: **bold**, # heading, - bullet (gerekçe içinde).
+- "priceLevel" kelimesini veya rakamını gerekçede kullanmak. Fiyat hakkında
+  konuşmak istersen doğal Türkçe kullan: "ekonomik", "orta fiyatlı", "biraz pahalı",
+  "uygun fiyatlı", "₺₺" gibi ifadeler. "priceLevel 2" veya "priceLevel: 3" gibi
+  teknik ifadeler KESİNLİKLE yasak.
 - "Yorumlarına baktım" / "verilerine baktım" / "konum geçmişini gördüm"
   — sen sadece sana verilen JSON profili görüyorsun, fazlasını uydurma.
 - Kullanıcının kişisel verisini gerekçenin dışında tekrar ifşa etmek
@@ -685,6 +689,15 @@ function buildProfileBlock(profileText) {
 }
 
 /**
+ * Ham priceLevel (0-4) → Türkçe doğal dil.
+ * Claude'a gönderilen aday listesinde "priceLevel: 2" yerine "orta fiyatlı (₺₺)" görünür.
+ */
+function formatPriceTR(level) {
+  const map = { 0: 'ücretsiz', 1: 'ekonomik (₺)', 2: 'orta fiyatlı (₺₺)', 3: 'pahalı (₺₺₺)', 4: 'çok pahalı (₺₺₺₺)' };
+  return (level != null && map[level]) ? map[level] : 'fiyat bilgisi yok';
+}
+
+/**
  * USER MESSAGE'IN DEĞİŞKEN KISMI — Cache yok.
  * Bu blok her istekte değişir: konum, aday liste, mood, tarih.
  */
@@ -701,12 +714,12 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
     return (
       `${i + 1}. ${c.name}\n` +
       `   placeId: ${c.placeId}\n` +
-      `   distance: ${c.distanceKm} km\n` +
-      `   rating: ${c.rating ?? 'N/A'} (${c.userRatingsTotal ?? 0} oy)\n` +
-      `   priceLevel: ${c.priceLevel ?? 'belirsiz'}\n` +
-      `   types: ${(c.types || []).slice(0, 6).join(', ')}\n` +
+      `   mesafe: ${c.distanceKm} km\n` +
+      `   puan: ${c.rating ?? 'N/A'} (${c.userRatingsTotal ?? 0} oy)\n` +
+      `   fiyat: ${formatPriceTR(c.priceLevel)}\n` +
+      `   kategoriler: ${(c.types || []).slice(0, 6).join(', ')}\n` +
       `   adres: ${c.vicinity ?? '—'}\n` +
-      `   openNow: ${c.openNow === false ? 'KAPALI' : c.openNow === true ? 'AÇIK' : 'belirsiz'}`
+      `   durum: ${c.openNow === false ? 'KAPALI' : c.openNow === true ? 'AÇIK' : 'belirsiz'}`
     );
   });
 
