@@ -327,7 +327,8 @@ export async function getRouteRecommendation(
   try {
     const { data } = await api.post<RouteRecommendationResponse>(
       '/recommendations/route-tonight',
-      params
+      params,
+      { timeout: 40000 } // Rota: Places API (3 waypoint) + Claude ≈ 20-25sn
     );
     return data;
   } catch (err: any) {
