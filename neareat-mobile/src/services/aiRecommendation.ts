@@ -20,6 +20,8 @@ import type {
   AiRecommendationResponse,
   AiRecommendationLimitInfo,
   FeedbackRequest,
+  RouteRecommendationRequest,
+  RouteRecommendationResponse,
 } from '../types';
 
 /**
@@ -278,6 +280,74 @@ export async function streamDinnerRecommendation(
     }
   } finally {
     reader.releaseLock();
+  }
+}
+
+/**
+ * Rota üzerinde yemek önerisi al — A'dan B'ye giderken duraklar.
+ *
+ * @throws {AiRecommendationLimitError} 429 LIMIT_EXCEEDED
+ * @throws {AiRecommendationNoCandidatesError} 404 NO_CANDIDATES veya NO_ROUTE_FOUND
+ */
+export async function getRouteRecommendation(
+  params: RouteRecommendationRequest
+): Promise<RouteRecommendationResponse> {
+  if (MOCK_MODE) {
+    return {
+      recommendations: [
+        {
+          placeId: 'mock_route_p1',
+          reason: 'Mock route mode aktif — 1. durak örnek öneri.',
+          restaurant: {
+            name: 'Mock Route Restaurant',
+            types: ['restaurant'],
+            rating: 4.3,
+            userRatingsTotal: 80,
+            priceLevel: 2,
+            vicinity: 'Mock Route Address',
+            location: { lat: params.originLat, lng: params.originLng },
+            distanceKm: 1.2,
+            openNow: true,
+            photoUrl: null,
+            sequenceOrder: 1,
+          },
+        },
+      ],
+      totalRouteDistanceKm: 12.5,
+      totalRouteDurationMin: 25,
+      noteToUser: '',
+      tier: 'free',
+      model: 'mock-model',
+      remainingToday: 2,
+      resetAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      latencyMs: 0,
+    };
+  }
+
+  try {
+    const { data } = await api.post<RouteRecommendationResponse>(
+      '/recommendations/route-tonight',
+      params
+    );
+    return data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const body = err?.response?.data;
+
+    if (status === 429 && body?.error === 'LIMIT_EXCEEDED') {
+      throw new AiRecommendationLimitError({
+        message: body.message || 'Günlük öneri hakkın doldu.',
+        resetAt: body.resetAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+
+    if (status === 404) {
+      throw new AiRecommendationNoCandidatesError(
+        body?.message || 'Rota boyunca uygun restoran bulamadık.'
+      );
+    }
+
+    throw err;
   }
 }
 

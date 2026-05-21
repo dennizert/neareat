@@ -24,11 +24,18 @@ import { create } from 'zustand';
 import {
   getDinnerRecommendation,
   streamDinnerRecommendation,
+  getRouteRecommendation,
   postFeedback,
   AiRecommendationLimitError,
   AiRecommendationNoCandidatesError,
 } from '../services/aiRecommendation';
-import type { AiRecommendation, FeedbackSentiment, StreamingStatus } from '../types';
+import type {
+  AiRecommendation,
+  FeedbackSentiment,
+  StreamingStatus,
+  RouteRecommendation,
+  RouteRecommendationRequest,
+} from '../types';
 
 interface AiRecommendationState {
   loading: boolean;
@@ -48,6 +55,13 @@ interface AiRecommendationState {
   streamingStatus: StreamingStatus;
   /** Aktif SSE stream'i iptal etmek için — cancelStream() kullanır */
   abortController: AbortController | null;
+  /** Rota önerisi sonuçları — sequenceOrder ile sıralı */
+  routeRecommendations: RouteRecommendation[];
+  routeMeta: { totalDistanceKm: number; totalDurationMin: number } | null;
+  routeLoading: boolean;
+  routeError: string | null;
+  routeLimitReached: boolean;
+  routeNoCandidates: boolean;
 
   fetchDinnerRecommendation: (lat: number, lng: number, mood?: string) => Promise<void>;
   /** SSE streaming versiyon — kartlar birer birer store'a push edilir */
@@ -56,6 +70,8 @@ interface AiRecommendationState {
   cancelStream: () => void;
   /** Optimistic feedback gönder; hata olursa rollback yapıp throw eder */
   submitFeedback: (placeId: string, sentiment: FeedbackSentiment) => Promise<void>;
+  fetchRouteRecommendation: (params: RouteRecommendationRequest) => Promise<void>;
+  resetRoute: () => void;
   clear: () => void;
 }
 
@@ -72,6 +88,12 @@ const INITIAL_STATE = {
   feedbackByPlaceId: {} as Record<string, FeedbackSentiment>,
   streamingStatus: 'idle' as StreamingStatus,
   abortController: null as AbortController | null,
+  routeRecommendations: [] as RouteRecommendation[],
+  routeMeta: null as { totalDistanceKm: number; totalDurationMin: number } | null,
+  routeLoading: false,
+  routeError: null as string | null,
+  routeLimitReached: false,
+  routeNoCandidates: false,
 };
 
 export const useAiRecommendationStore = create<AiRecommendationState>((set) => ({
@@ -253,6 +275,64 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
       });
       throw new Error('Feedback gönderilemedi.');
     }
+  },
+
+  async fetchRouteRecommendation(params) {
+    set({
+      routeLoading: true,
+      routeError: null,
+      routeLimitReached: false,
+      routeNoCandidates: false,
+      routeRecommendations: [],
+      routeMeta: null,
+    });
+
+    try {
+      const result = await getRouteRecommendation(params);
+      set({
+        routeLoading: false,
+        routeRecommendations: result.recommendations,
+        routeMeta: {
+          totalDistanceKm: result.totalRouteDistanceKm,
+          totalDurationMin: result.totalRouteDurationMin,
+        },
+        routeError: null,
+        routeLimitReached: false,
+        routeNoCandidates: false,
+      });
+    } catch (err) {
+      if (err instanceof AiRecommendationLimitError) {
+        set({
+          routeLoading: false,
+          routeLimitReached: true,
+          routeError: err.userMessage,
+        });
+        return;
+      }
+      if (err instanceof AiRecommendationNoCandidatesError) {
+        set({
+          routeLoading: false,
+          routeNoCandidates: true,
+          routeError: err.userMessage,
+        });
+        return;
+      }
+      set({
+        routeLoading: false,
+        routeError: 'Rota önerisi alınamadı. İnternet bağlantını kontrol edip tekrar dene.',
+      });
+    }
+  },
+
+  resetRoute() {
+    set({
+      routeRecommendations: [],
+      routeMeta: null,
+      routeLoading: false,
+      routeError: null,
+      routeLimitReached: false,
+      routeNoCandidates: false,
+    });
   },
 
   clear() {

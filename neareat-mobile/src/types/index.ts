@@ -582,6 +582,50 @@ export interface AiRecommendationLimitInfo {
 
 export type StreamingStatus = 'idle' | 'streaming' | 'done' | 'error' | 'cancelled';
 
+/** Rota üzerindeki restoran — sequenceOrder ile sıralı duraklar */
+export interface RouteRestaurant {
+  name: string;
+  types: string[];
+  rating: number | null;
+  userRatingsTotal: number | null;
+  priceLevel: number | null;
+  vicinity: string | null;
+  location: { lat: number; lng: number } | null;
+  distanceKm: number;
+  openNow: boolean | null;
+  photoUrl: string | null;
+  sequenceOrder: number;
+}
+
+/** Rota öneri tek eleman */
+export interface RouteRecommendation {
+  placeId: string;
+  reason: string;
+  restaurant: RouteRestaurant;
+}
+
+/** POST /api/recommendations/route-tonight request payload */
+export interface RouteRecommendationRequest {
+  originLat: number;
+  originLng: number;
+  destLat: number;
+  destLng: number;
+  mood?: string;
+}
+
+/** POST /api/recommendations/route-tonight başarılı response */
+export interface RouteRecommendationResponse {
+  recommendations: RouteRecommendation[];
+  totalRouteDistanceKm: number;
+  totalRouteDurationMin: number;
+  noteToUser: string;
+  tier: 'free' | 'premium';
+  model: string;
+  remainingToday: number | null;
+  resetAt: string | null;
+  latencyMs: number;
+}
+
 export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
