@@ -354,4 +354,26 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
     const { candidates } = await getCandidates('u1', { lat: 41.04, lng: 28.98 });
     expect(candidates[0].photoUrl).toBeNull();
   });
+
+  it('circuit breaker: getPlaceDetails never runs more than 2 concurrently', async () => {
+    setupNoUserHistory();
+    const places = Array.from({ length: 5 }, (_, i) => makePlace(i + 1));
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue(places);
+
+    let concurrentCount = 0;
+    let maxConcurrent = 0;
+
+    mockGooglePlaces.getPlaceDetails.mockImplementation(async () => {
+      concurrentCount++;
+      maxConcurrent = Math.max(maxConcurrent, concurrentCount);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      concurrentCount--;
+      return {};
+    });
+
+    await getCandidates('u1', { lat: 41.04, lng: 28.98 });
+
+    expect(mockGooglePlaces.getPlaceDetails).toHaveBeenCalledTimes(5);
+    expect(maxConcurrent).toBeLessThanOrEqual(2);
+  });
 });
