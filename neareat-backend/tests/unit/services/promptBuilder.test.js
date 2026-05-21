@@ -12,6 +12,7 @@ const mockPrisma = {
   starEvent: { findMany: jest.fn() },
   recommendation: { findMany: jest.fn() },
   friendRequest: { findMany: jest.fn() },
+  recommendationFeedback: { findMany: jest.fn().mockResolvedValue([]) },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
@@ -19,7 +20,7 @@ const {
   buildUserProfileSummary,
   buildClaudeRequest,
   SYSTEM_PROMPT,
-  __test: { stableStringify, approxTokens, buildSystemBlock, buildProfileBlock, buildVariableBlock, buildFriendSignals },
+  __test: { stableStringify, approxTokens, buildSystemBlock, buildProfileBlock, buildVariableBlock, buildFriendSignals, buildFeedbackHistory },
 } = require('../../../src/services/promptBuilder');
 
 beforeEach(() => {
@@ -599,5 +600,99 @@ describe('buildUserProfileSummary — free vs premium tier', () => {
     expect('friendSignals' in free.profile).toBe(false);
     // Premium with no opt-in friends also has no key
     expect('friendSignals' in premium.profile).toBe(false);
+  });
+
+  it('includes feedbackHistory in profile when user has positive feedback', async () => {
+    setupBaseUser();
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+    mockPrisma.recommendationFeedback.findMany.mockResolvedValue([
+      { placeId: 'p1', sentiment: 'positive' },
+      { placeId: 'p2', sentiment: 'positive' },
+    ]);
+
+    const r = await buildUserProfileSummary('u1');
+
+    expect(r.profile.feedbackHistory).toBeDefined();
+    expect(r.profile.feedbackHistory.likedPlaceIds).toEqual(['p1', 'p2']);
+    expect(r.profile.feedbackHistory.dislikedPlaceIds).toEqual([]);
+  });
+
+  it('does NOT include feedbackHistory key when user has no feedback', async () => {
+    setupBaseUser();
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+    mockPrisma.recommendationFeedback.findMany.mockResolvedValue([]);
+
+    const r = await buildUserProfileSummary('u1');
+
+    expect(r.profile.feedbackHistory).toBeUndefined();
+  });
+});
+
+// ─── buildFeedbackHistory ────────────────────────────────────────────────────
+
+describe('buildFeedbackHistory', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns empty liked and disliked arrays when no feedback exists', async () => {
+    mockPrisma.recommendationFeedback.findMany.mockResolvedValue([]);
+
+    const result = await buildFeedbackHistory('u1');
+
+    expect(result).toEqual({ liked: [], disliked: [] });
+  });
+
+  it('separates positive sentiments into liked array', async () => {
+    mockPrisma.recommendationFeedback.findMany.mockResolvedValue([
+      { placeId: 'p1', sentiment: 'positive' },
+      { placeId: 'p2', sentiment: 'positive' },
+    ]);
+
+    const result = await buildFeedbackHistory('u1');
+
+    expect(result.liked).toEqual(['p1', 'p2']);
+    expect(result.disliked).toEqual([]);
+  });
+
+  it('separates negative sentiments into disliked array', async () => {
+    mockPrisma.recommendationFeedback.findMany.mockResolvedValue([
+      { placeId: 'p3', sentiment: 'negative' },
+    ]);
+
+    const result = await buildFeedbackHistory('u1');
+
+    expect(result.liked).toEqual([]);
+    expect(result.disliked).toEqual(['p3']);
+  });
+
+  it('correctly splits mixed positive and negative feedback', async () => {
+    mockPrisma.recommendationFeedback.findMany.mockResolvedValue([
+      { placeId: 'p1', sentiment: 'positive' },
+      { placeId: 'p2', sentiment: 'negative' },
+      { placeId: 'p3', sentiment: 'positive' },
+      { placeId: 'p4', sentiment: 'negative' },
+    ]);
+
+    const result = await buildFeedbackHistory('u1');
+
+    expect(result.liked).toEqual(['p1', 'p3']);
+    expect(result.disliked).toEqual(['p2', 'p4']);
+  });
+
+  it('queries with take:20 limit for determinism and cache stability', async () => {
+    mockPrisma.recommendationFeedback.findMany.mockResolvedValue([]);
+
+    await buildFeedbackHistory('u1');
+
+    expect(mockPrisma.recommendationFeedback.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'u1' },
+        orderBy: { id: 'asc' },
+        take: 20,
+      })
+    );
   });
 });
