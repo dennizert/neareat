@@ -659,4 +659,72 @@ npm run test:stores
 4. mood 100 char → trim + 50 char kesilir
 5. mood "   " whitespace → null
 6. No auth → 401
+
+---
+
+## AI Yemek Önerisi Senaryoları — Sprint-2 Eklemeleri (2026-05-21)
+
+### Fotoğraf zenginleştirme (Sprint-2 Task #3)
+1. RecommendationCard üst kısmında restoran fotoğrafı görünüyor (16:9 ratio)
+2. Fotoğraf yüklenemezse 🍽️ placeholder görünüyor (onError fallback)
+3. Backend: top 5 aday için `getPlaceDetails` paralel (Promise.all) — `photoUrl` response'a eklendi
+4. Place Details hata atarsa `photoUrl: null` döner, flow kırılmaz
+5. photoUrl Redis 24h cache pattern'ı korunuyor (Place ID bazlı)
+
+### Feedback loop (Sprint-2 Task #4-#6)
+
+#### Backend — POST /api/recommendations/feedback
+1. Geçerli placeId + sentiment=LIKE → 201 + feedback objesi
+2. Geçerli placeId + sentiment=DISLIKE → 201 + feedback objesi
+3. comment opsiyonel (max 500 char, trim edilir)
+4. visited opsiyonel boolean
+5. sentiment eksik → 400 "sentiment zorunlu"
+6. sentiment geçersiz değer → 400 "LIKE veya DISLIKE"
+7. placeId eksik → 400 "placeId zorunlu"
+8. No auth → 401
+9. Günde 50 feedback aşımı → 429 FEEDBACK_LIMIT
+10. `AiRecommendationLogId` opsiyonel FK — log ile ilişkilendirme
+
+#### Mobile — Feedback UI
+1. RecommendationCard footer'ında 👍 / 👎 butonları görünüyor
+2. 👍 tıkla → turuncu aktif border, optimistic UI hemen güncellenir
+3. 👎 tıkla → mavi aktif border
+4. Tekrar aynı sentinel → deselect (ikinci tap)
+5. Network hata → rollback + Alert gösterilir
+6. Feedback gönderilirken buton disabled (debounce guard)
+7. Uygulama yeniden açılırsa feedback state sıfırlanır (session only, persist yok)
+
+### Arkadaş sinyali (Sprint-2 Task #7)
+
+#### Opt-in akışı (backend)
+1. User shareWithFriendsRecommender=false (default) → buildFriendSignals boş döner
+2. User PUT /profile/me { shareWithFriendsRecommender: true } → opt-in kaydedilir
+3. Opt-in kullanıcının arkadaşlarına gönderilen öneri gerekçesinde "arkadaş N" ifadesi var (premium user)
+4. Free user ile çağrı → arkadaş sinyali prompt'a eklenmez (tier='free' kontrolü)
+
+#### Premium arkadaş sinyali dahil öneri
+1. Premium user + en az 1 ACCEPTED arkadaş + arkadaş opt-in=true
+2. Arkadaş Türk mutfağına 5 yıldız verdiyse → prompt "arkadaş 1: Türk (5 öneri, ort. 4.8★)"
+3. Response model = Sonnet 4.6 (premium)
+4. Prompt'ta hiçbir zaman gerçek arkadaş ID'si veya adı geçmiyor (anonimlik)
+5. Arkadaş opt-in=false → sinyale dahil edilmiyor, veri çekilmiyor
+
+#### Edge case'ler
+1. Arkadaş yok → buildFriendSignals boş dizi döner, prompt değişmez
+2. Tüm arkadaşlar opt-out → boş dizi, prompt değişmez
+3. Arkadaş öneri/yorum kaydı yok → empty signal, dahil edilmiyor (en az veri filtresi)
+4. 6+ arkadaş opt-in → MAX_FRIEND_CUISINE_TYPES=5 truncation uygulanır
+
+### Latency benchmarkleri (Sprint-2 Task #1-#2)
+1. `npm test -- tests/integration/recommendations-perf.test.js`
+2. 10 ardışık call → p95 < 5000ms (simulated 250ms LLM)
+3. 1000ms audit log delay → endpoint <800ms döner (fire-and-forget kanıtı)
+4. Audit log DB throw → endpoint yine 200 döner
+
+### parseLlmJson savunmacı parse (kapsamlı)
+1. `{invalid: syntax}` → null (catch branch)
+2. `{key: value, another: thing}` → null (catch branch)
+3. Normal JSON → parse edilir
+4. Markdown code fence → strip edilir
+5. Preamble + postamble → strip edilir
 7. Malformed Bearer → 401
