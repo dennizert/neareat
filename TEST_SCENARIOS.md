@@ -728,3 +728,103 @@ npm run test:stores
 4. Markdown code fence → strip edilir
 5. Preamble + postamble → strip edilir
 7. Malformed Bearer → 401
+
+---
+
+## AI Yemek Önerisi Senaryoları — Sprint-3 Eklemeleri (2026-05-21)
+
+### Feedback → LLM signal (Sprint-3 Task #1)
+
+#### Backend — promptBuilder buildFeedbackHistory
+1. Kullanıcı 3 pozitif + 2 negatif feedback → sistem prompt'unda "Geçmiş Beğeniler" bölümü görünür
+2. Pozitif feedback placeType'ları "sevdikleri" listesine eklenir
+3. Negatif feedback placeType'ları "kaçındıkları" listesine eklenir
+4. 20'den fazla kayıt → sadece son 20 alınır (truncation)
+5. Hiç feedback yok → "Geçmiş Beğeniler" bölümü prompt'ta yer almaz (boş)
+6. 30 günden eski feedback → sorgu dışı kalır
+
+### Circuit breaker — photo enrichment (Sprint-3 Task #2)
+
+#### Backend — candidateService PHOTO_ENRICH_CONCURRENCY
+1. 5 adayın photo enrichment'ı aynı anda max 2 paralel `getPlaceDetails` çağrısı yapar
+2. Chunk başına `Promise.allSettled` — bir Place Details hatası diğer chunk'ı engellemez
+3. Rate limit koruma: yüksek trafikte 2'den fazla eşzamanlı Google API isteği gitmiyor
+
+### SSE Streaming endpoint (Sprint-3 Task #3)
+
+#### Backend — POST /api/recommendations/dinner-tonight/stream
+1. Geçerli auth + lat/lng → `Content-Type: text/event-stream` header'ı döner
+2. Her kart hazır olduğunda `data: {"type":"card","recommendation":{...}}\n\n` emit edilir
+3. Not varsa `data: {"type":"note","noteToUser":"..."}\n\n` emit edilir
+4. Stream bitince `data: {"type":"done","tier":"...","remainingToday":N,...}\n\n` + `res.end()`
+5. Free tier limit doluysa → `data: {"type":"error","code":"LIMIT_EXCEEDED","resetAt":"..."}\n\n`
+6. Yakında restoran yoksa → `data: {"type":"error","code":"NO_CANDIDATES"}\n\n`
+7. Client bağlantıyı kapatırsa → `req.on('close')` ile Anthropic stream abort edilir
+8. No auth → 401 (SSE başlamadan önce)
+9. lat/lng eksik → 400 (SSE başlamadan önce)
+10. `/dinner-tonight` (non-streaming) endpoint hâlâ çalışıyor (geriye dönük uyum)
+
+### Progressive card reveal UI (Sprint-3 Task #4-#5)
+
+#### Mobile — RecommendationScreen streaming
+1. "Öner" butonuna basılınca `/dinner-tonight/stream` endpoint'i çağrılır
+2. İlk kart gelmeden → skeleton/loading gösterilir
+3. İlk kart gelince → skeleton kalkar, kart `FadeIn` animasyonuyla görünür
+4. Sonraki kartlar da sırayla `FadeIn` ile eklenir
+5. `streamingStatus === 'streaming'` iken "Durdur" butonu aktif
+6. "Durdur" butonuna basılınca `cancelStream()` → SSE kesilir, mevcut kartlar kalır
+7. `streamingStatus === 'done'` → noteToUser, tier badge, limit info normal görünür
+8. `streamingStatus === 'error'` + `limitReached` → PremiumUpsellScreen'e auto-navigate
+9. `streamingStatus === 'error'` + `noCandidates` → "biraz uzaklaş" mesajı
+10. `streamingStatus === 'cancelled'` → "İptal edildi" state (yeniden dene butonu görünür)
+
+#### Mobile store — streamingStatus transitions
+1. fetchDinnerRecommendation çağrısı başlar → `loading: true`
+2. streamDinnerRecommendation başlar → `streamingStatus: 'streaming'`, `loading: true`
+3. İlk `onCard` → `loading: false`, kart store'a push edilir
+4. `onDone` → `streamingStatus: 'done'`, tier/remainingToday/resetAt güncellenir
+5. `cancelStream()` → `streamingStatus: 'cancelled'`, `abortController: null`
+6. `onError` LIMIT_EXCEEDED → `streamingStatus: 'error'`, `limitReached: true`
+
+### Rota önerisi backend (Sprint-3 Task #6)
+
+#### Backend — POST /api/recommendations/route-tonight
+1. Geçerli auth + originLat/originLng/destLat/destLng → 200 + sıralı öneriler
+2. Response: `recommendations[].restaurant.sequenceOrder` 1'den başlar, artarak devam eder
+3. Response: `totalRouteDistanceKm` ve `totalRouteDurationMin` dolu
+4. mood opsiyonel — verilirse prompt'a eklenir, verilmezse `null`
+5. No auth → 401
+6. originLat eksik → 400 "originLat ve originLng zorunlu"
+7. Geçersiz koordinat (lat > 90) → 400
+8. Directions API sıfır waypoint döndürürse → 404 NO_CANDIDATES
+9. Free tier günde 3 hak — `/dinner-tonight` ile ORTAK sayaç
+10. Premium user → rate limit yok, Sonnet 4.6 modeli kullanılır
+11. Free user günde 3 haktan 1'ini route için harcadıysa → dinner-tonight'ta 2 hak kaldı
+
+#### Backend — getRouteWaypoints
+1. Google Directions API çağrısı yapılır (mode=driving)
+2. Yanıt Redis'te 1 saat cache'lenir (aynı origin/dest için)
+3. Max 3 ara nokta döndürür
+4. Directions API hata → servise yansır (NO_CANDIDATES)
+
+### Rota önerisi mobile (Sprint-3 Task #7-#8)
+
+#### Mobile — RouteRecommendationScreen
+1. HomeScreen'deki "🗺️ Yolda ne yesem?" banner'a tıklanınca RouteRecommendationScreen açılır
+2. 3 preset hedef butonu: Kadıköy / Havalimanı / Şişli
+3. Bir preset seçince buton highlight olur (aktif seçim)
+4. Mevcut konum alınamıyorsa → hata mesajı gösterilir
+5. "Rotamı Öner" butonuna basılınca → loading başlar
+6. Sonuçlar gelince: her önerinin üstünde "N. Durak" etiketi görünür
+7. Rota özet satırı: "~X km · ~Y dk" gösterilir
+8. noteToUser varsa ekranın altında görünür
+9. `routeLimitReached` → PremiumUpsellScreen'e auto-navigate
+10. `routeNoCandidates` → "Bu rotada uygun restoran bulunamadı" mesajı
+11. Ekrandan çıkınca `resetRoute()` çağrılır (cleanup)
+
+#### Mobile store — fetchRouteRecommendation
+1. Başarılı fetch → `routeRecommendations`, `routeMeta`, `routeNoteToUser` güncellenir
+2. 429 error → `routeLimitReached: true`, `routeError` set edilir
+3. 404 NO_CANDIDATES → `routeNoCandidates: true`, `routeError` set edilir
+4. Generic hata → `routeError: 'Rota önerisi alınamadı...'`
+5. `resetRoute()` → tüm route state INITIAL değerlerine döner
