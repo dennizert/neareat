@@ -1,8 +1,9 @@
 /**
  * RouteRecommendationScreen — "Yolda ne yesem?" ekranı (Sprint-3 Task #8).
  *
- * Kullanıcı konum alır, preset hedef seçer, mood seçer (opsiyonel),
- * "Rotamı Öner" ile rota boyunca en iyi durakları getirir.
+ * Kullanıcı çıkış ve varış noktasını il/ilçe autocomplete ile seçer,
+ * opsiyonel mood seçer, "Rotamı Öner" ile rota boyunca en iyi durakları getirir.
+ * GPS gerekmiyor — koordinatlar statik listeden alınır.
  */
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
@@ -11,17 +12,12 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAiRecommendationStore } from '../store/aiRecommendationStore';
-import { getCurrentLocation } from '../services/location';
+import PlaceSearchInput from '../components/PlaceSearchInput';
 import RecommendationCard from '../components/RecommendationCard';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
+import type { TurkishPlace } from '../data/turkishPlaces';
 import type { AiRecommendation } from '../types';
-
-const PRESET_DESTINATIONS = [
-  { key: 'kadikoy',  label: 'Kadıköy',    lat: 40.9919, lng: 29.0226 },
-  { key: 'airport',  label: 'Havalimanı', lat: 41.2753, lng: 28.7519 },
-  { key: 'sisli',    label: 'Şişli',      lat: 41.0602, lng: 28.9870 },
-];
 
 const MOOD_OPTIONS = [
   { key: 'hızlı',         label: 'Hızlı',    emoji: '⚡' },
@@ -49,10 +45,9 @@ export default function RouteRecommendationScreen() {
     resetRoute,
   } = useAiRecommendationStore();
 
-  const [selectedDest, setSelectedDest] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<TurkishPlace | null>(null);
+  const [destination, setDestination] = useState<TurkishPlace | null>(null);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
-  const [locating, setLocating] = useState(false);
-  const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const prevLimitRef = useRef(false);
   useEffect(() => {
@@ -65,55 +60,45 @@ export default function RouteRecommendationScreen() {
   useEffect(() => () => { resetRoute(); }, []);
 
   const handleFetch = useCallback(async () => {
-    if (!selectedDest) return;
-    const dest = PRESET_DESTINATIONS.find((d) => d.key === selectedDest);
-    if (!dest) return;
-
-    setLocating(true);
-    let coords = originCoords;
-    try {
-      if (!coords) {
-        coords = await getCurrentLocation();
-        setOriginCoords(coords);
-      }
-    } catch {
-      setLocating(false);
-      return;
-    }
-    setLocating(false);
-
+    if (!origin || !destination) return;
     await fetchRouteRecommendation({
-      originLat: coords.lat,
-      originLng: coords.lng,
-      destLat: dest.lat,
-      destLng: dest.lng,
+      originLat: origin.lat,
+      originLng: origin.lng,
+      destLat: destination.lat,
+      destLng: destination.lng,
       mood: selectedMood ?? undefined,
     });
-  }, [selectedDest, selectedMood, originCoords, fetchRouteRecommendation]);
+  }, [origin, destination, selectedMood, fetchRouteRecommendation]);
 
-  const isBusy = locating || routeLoading;
+  const canFetch = !!origin && !!destination;
   const hasResults = routeRecommendations.length > 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Yolda ne yesem?</Text>
-      <Text style={styles.subtitle}>Rotana göre en iyi durakları bul</Text>
+      <Text style={styles.subtitle}>Rotana göre en iyi yemek duraklarını bul</Text>
 
-      {/* Hedef seçici */}
-      <Text style={styles.sectionLabel}>HEDEF</Text>
-      <View style={styles.destRow}>
-        {PRESET_DESTINATIONS.map((d) => (
-          <TouchableOpacity
-            key={d.key}
-            style={[styles.destChip, selectedDest === d.key && styles.destChipActive]}
-            onPress={() => setSelectedDest(d.key)}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.destLabel, selectedDest === d.key && styles.destLabelActive]}>
-              {d.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Konum girişleri */}
+      <View style={styles.routeInputs}>
+        <PlaceSearchInput
+          label="Çıkış Noktası"
+          value={origin}
+          onChange={setOrigin}
+          placeholder="Nereden? (ör. Ankara, Çankaya...)"
+        />
+        <View style={styles.routeArrow}>
+          <Text style={styles.routeArrowText}>↓</Text>
+        </View>
+        <PlaceSearchInput
+          label="Varış Noktası"
+          value={destination}
+          onChange={setDestination}
+          placeholder="Nereye? (ör. İstanbul, Kadıköy...)"
+        />
       </View>
 
       {/* Mood seçici */}
@@ -139,17 +124,15 @@ export default function RouteRecommendationScreen() {
 
       {/* Ana CTA */}
       <TouchableOpacity
-        style={[styles.cta, (isBusy || !selectedDest) && styles.ctaDisabled]}
+        style={[styles.cta, (!canFetch || routeLoading) && styles.ctaDisabled]}
         onPress={handleFetch}
-        disabled={isBusy || !selectedDest}
+        disabled={!canFetch || routeLoading}
         activeOpacity={0.85}
       >
-        {isBusy ? (
+        {routeLoading ? (
           <>
             <ActivityIndicator color="#fff" size="small" />
-            <Text style={styles.ctaText}>
-              {locating ? 'Konum alınıyor…' : 'Rota önerileri hazırlanıyor…'}
-            </Text>
+            <Text style={styles.ctaText}>Rota önerileri hazırlanıyor…</Text>
           </>
         ) : (
           <Text style={styles.ctaText}>
@@ -240,7 +223,7 @@ export default function RouteRecommendationScreen() {
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🗺️</Text>
           <Text style={styles.emptyText}>
-            Hedefinizi seç ve rotandaki en iyi yemek duraklarını bul
+            Çıkış ve varış noktalarını seç, rotandaki en iyi yemek duraklarını bul
           </Text>
         </View>
       )}
@@ -259,26 +242,22 @@ function FadeInCard({ children }: { children: React.ReactNode }) {
 function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
-    content: { padding: 16, paddingBottom: 32 },
+    content: { padding: 16, paddingBottom: 40 },
 
     title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, marginBottom: 4 },
-    subtitle: { fontSize: 14, color: C.textTertiary, marginBottom: 16 },
+    subtitle: { fontSize: 14, color: C.textTertiary, marginBottom: 20 },
+
+    routeInputs: { marginBottom: 4 },
+
+    routeArrow: { alignItems: 'center', marginVertical: 2 },
+    routeArrowText: { fontSize: 20, color: C.textMuted },
 
     sectionLabel: {
       fontSize: 11, fontWeight: '700', color: C.textTertiary,
       letterSpacing: 0.5, marginBottom: 10,
     },
 
-    destRow: { flexDirection: 'row', gap: 8, marginBottom: 18, flexWrap: 'wrap' },
-    destChip: {
-      paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
-      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border,
-    },
-    destChipActive: { backgroundColor: C.primarySurface, borderColor: C.primary },
-    destLabel: { fontSize: 14, fontWeight: '600', color: C.textSecondary },
-    destLabelActive: { color: C.primary, fontWeight: '700' },
-
-    moodSection: { marginBottom: 18 },
+    moodSection: { marginBottom: 18, marginTop: 6 },
     moodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     moodChip: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -338,6 +317,6 @@ function makeStyles(C: Colors) {
 
     emptyState: { paddingVertical: 40, alignItems: 'center' },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },
-    emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+    emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center', lineHeight: 20 },
   });
 }

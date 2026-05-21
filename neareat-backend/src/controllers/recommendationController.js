@@ -162,6 +162,7 @@ function sseWrite(res, payload) {
  * Mevcut /dinner-tonight endpoint'i silinmez — backward compat için kalır.
  */
 async function getDinnerTonightStream(req, res, next) {
+  let keepAlive = null;
   try {
     const { lat, lng, mood } = req.body || {};
 
@@ -205,9 +206,16 @@ async function getDinnerTonightStream(req, res, next) {
       }
     }
 
+    // Proxy idle-timeout'u önlemek için her 15 sn bir SSE comment satırı gönder.
+    // Railway/Nginx varsayılan idle timeout ~30-60 sn; bu ping bağlantıyı ayakta tutar.
+    keepAlive = setInterval(() => {
+      if (!res.writableEnded) res.write(': ping\n\n');
+    }, 15_000);
+
     // Client bağlantıyı koparırsa stream durdur
     const abortRef = { abort: null };
     req.on('close', () => {
+      clearInterval(keepAlive);
       if (abortRef.abort) abortRef.abort();
     });
 
@@ -224,6 +232,7 @@ async function getDinnerTonightStream(req, res, next) {
         sseWrite(res, { type: 'note', noteToUser });
       },
       onDone: ({ tier, model, latencyMs }) => {
+        clearInterval(keepAlive);
         if (!isPremium) remaining = Math.max(0, remaining - 1);
         sseWrite(res, {
           type: 'done',
@@ -238,6 +247,7 @@ async function getDinnerTonightStream(req, res, next) {
     });
 
     if (result?.noCandidates) {
+      clearInterval(keepAlive);
       sseWrite(res, {
         type: 'error',
         code: 'NO_CANDIDATES',
@@ -246,6 +256,7 @@ async function getDinnerTonightStream(req, res, next) {
       res.end();
     }
   } catch (err) {
+    if (keepAlive) clearInterval(keepAlive);
     if (!res.headersSent) {
       next(err);
     } else {

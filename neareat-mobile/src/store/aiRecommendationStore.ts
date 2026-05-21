@@ -217,6 +217,14 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
           });
         },
       }, controller.signal);
+
+      // onDone çağrılmadan stream bittiyse (proxy drop) → stuck 'streaming' guard
+      set((s) => {
+        if (s.streamingStatus === 'streaming') {
+          return { streamingStatus: 'idle', loading: false, abortController: null };
+        }
+        return {};
+      });
     } catch (err: any) {
       if (err?.name === 'AbortError') {
         // cancelStream() tarafından iptal edildi — status zaten 'cancelled'
