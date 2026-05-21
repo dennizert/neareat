@@ -58,6 +58,7 @@ interface AiRecommendationState {
   /** Rota önerisi sonuçları — sequenceOrder ile sıralı */
   routeRecommendations: RouteRecommendation[];
   routeMeta: { totalDistanceKm: number; totalDurationMin: number } | null;
+  routeNoteToUser: string;
   routeLoading: boolean;
   routeError: string | null;
   routeLimitReached: boolean;
@@ -90,6 +91,7 @@ const INITIAL_STATE = {
   abortController: null as AbortController | null,
   routeRecommendations: [] as RouteRecommendation[],
   routeMeta: null as { totalDistanceKm: number; totalDurationMin: number } | null,
+  routeNoteToUser: '',
   routeLoading: false,
   routeError: null as string | null,
   routeLimitReached: false,
@@ -296,6 +298,7 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
           totalDistanceKm: result.totalRouteDistanceKm,
           totalDurationMin: result.totalRouteDurationMin,
         },
+        routeNoteToUser: result.noteToUser ?? '',
         routeError: null,
         routeLimitReached: false,
         routeNoCandidates: false,
@@ -328,6 +331,7 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
     set({
       routeRecommendations: [],
       routeMeta: null,
+      routeNoteToUser: '',
       routeLoading: false,
       routeError: null,
       routeLimitReached: false,

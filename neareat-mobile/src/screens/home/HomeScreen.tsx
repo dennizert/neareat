@@ -114,22 +114,38 @@ export default function HomeScreen() {
         <NotificationBell />
       </View>
 
-      {/* AI Recommendation CTA — Sprint-1 Task #8 */}
+      {/* AI Recommendation CTAs */}
       {viewMode === 'list' && (
-        <TouchableOpacity
-          style={styles.aiCta}
-          onPress={() => navigation.navigate('Recommendation')}
-          activeOpacity={0.85}
-        >
-          <View style={styles.aiCtaIcon}>
-            <Text style={styles.aiCtaEmoji}>🤖</Text>
-          </View>
-          <View style={styles.aiCtaContent}>
-            <Text style={styles.aiCtaTitle}>Bu akşam ne yesem?</Text>
-            <Text style={styles.aiCtaSubtitle}>AI sana kişisel öneri hazırlasın</Text>
-          </View>
-          <Text style={styles.aiCtaArrow}>›</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={styles.aiCta}
+            onPress={() => navigation.navigate('Recommendation')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.aiCtaIcon}>
+              <Text style={styles.aiCtaEmoji}>🤖</Text>
+            </View>
+            <View style={styles.aiCtaContent}>
+              <Text style={styles.aiCtaTitle}>Bu akşam ne yesem?</Text>
+              <Text style={styles.aiCtaSubtitle}>AI sana kişisel öneri hazırlasın</Text>
+            </View>
+            <Text style={styles.aiCtaArrow}>›</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.routeCta}
+            onPress={() => navigation.navigate('RouteRecommendation')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.routeCtaIcon}>
+              <Text style={styles.aiCtaEmoji}>🗺️</Text>
+            </View>
+            <View style={styles.aiCtaContent}>
+              <Text style={styles.routeCtaTitle}>Yolda ne yesem?</Text>
+              <Text style={styles.routeCtaSubtitle}>Rota boyunca en iyi duraklar</Text>
+            </View>
+            <Text style={styles.routeCtaArrow}>›</Text>
+          </TouchableOpacity>
+        </>
       )}
 
       {/* Category Tabs */}
@@ -237,6 +253,28 @@ function makeStyles(C: Colors) {
     aiCtaTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
     aiCtaSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
     aiCtaArrow: { color: '#fff', fontSize: 24, fontWeight: '300' },
+
+    routeCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: C.surface,
+      marginHorizontal: 16,
+      marginBottom: 8,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: C.border,
+    },
+    routeCtaIcon: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: C.surfaceAlt,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    routeCtaTitle: { color: C.textPrimary, fontSize: 15, fontWeight: '700' },
+    routeCtaSubtitle: { color: C.textTertiary, fontSize: 12, marginTop: 2 },
+    routeCtaArrow: { color: C.textMuted, fontSize: 24, fontWeight: '300' },
 
     categoryBar: { backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.separator },
     categoryRow: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
