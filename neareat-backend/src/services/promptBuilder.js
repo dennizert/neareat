@@ -40,6 +40,7 @@ const MAX_RECENT_REVIEWS = 20;
 const MAX_FAVORITES = 25;
 const MAX_STAR_EVENTS = 30;
 const MAX_FRIEND_CUISINE_TYPES = 5;
+const MAX_FEEDBACK_HISTORY = 20;
 
 /**
  * Stabil JSON serializer — anahtarlar alfabetik sıralı.
@@ -144,6 +145,18 @@ kişisel gerekçe yaz. ÇIKTI FORMATINA harfiyen uy (aşağıda).
    - ASLA: "arkadaş 2 buraya gitmiş", "arkadaş 1 bu puanı vermiş" gibi
      spesifik bilgi ifşa etme. Sadece genel mutfak eğilim seviyesinde kal.
    - ASLA: Anonim label'ları (arkadaş 1, arkadaş 2) kullanıcıya aktarma.
+
+7. **Geçmiş Beğeniler (feedbackHistory, varsa)**: Kullanıcı profili
+   "feedbackHistory" içeriyorsa, önceki AI önerilerine 👍/👎 vermiş demektir:
+   - likedPlaceIds: Kullanıcının beğendiği placeId'ler — bu tarzda devam
+     edebilirsin. Aynı placeId'yi yeniden önerme (kullanıcı zaten biliyor),
+     ama aynı mutfak/tarz mantıklı bir seçimdir.
+   - dislikedPlaceIds: Kullanıcının beğenmediği placeId'ler — BU placeId'leri
+     KESİNLİKLE önerme. Aynı kategoriden birden çok beğenmeme varsa o mutfak
+     tarzından uzak dur.
+   - feedbackHistory YOKSA: tamamen görmezden gel, bu bölümü hiç işleme.
+   - Gerekçede doğrudan "daha önce beğendin" veya "beğenmemiştin" gibi
+     sinyale atıf yapabilirsin — bu kullanıcıya şeffaf ve yararlı.
 
 # Gerekçe Yazma Standardı
 
@@ -494,6 +507,27 @@ async function buildFriendSignals(userId) {
 }
 
 /**
+ * Son MAX_FEEDBACK_HISTORY adet beğeni/beğenmeme kaydını döner.
+ * Deterministik: ID'ye göre sıralı (zaman filtresi yok — cache stabilitesi için).
+ *
+ * @param {string} userId
+ * @returns {Promise<{ liked: string[], disliked: string[] }>}
+ */
+async function buildFeedbackHistory(userId) {
+  const records = await prisma.recommendationFeedback.findMany({
+    where: { userId },
+    orderBy: { id: 'asc' },
+    take: MAX_FEEDBACK_HISTORY,
+    select: { placeId: true, sentiment: true },
+  });
+
+  const liked = records.filter((r) => r.sentiment === 'positive').map((r) => r.placeId);
+  const disliked = records.filter((r) => r.sentiment === 'negative').map((r) => r.placeId);
+
+  return { liked, disliked };
+}
+
+/**
  * Kullanıcı profil özetini DB'den deterministik şekilde topla.
  *
  * DETERMİNİZM KURALLARI:
@@ -510,7 +544,7 @@ async function buildFriendSignals(userId) {
 async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
   const isPremium = tier === 'premium';
 
-  const [user, reviews, favorites, starEvents, sentRecs, friendSignalsData] = await Promise.all([
+  const [user, reviews, favorites, starEvents, sentRecs, friendSignalsData, feedbackData] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -547,6 +581,7 @@ async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
     }),
     // Premium only — free tier'da friend signals yok (cache key stabil kalır)
     isPremium ? buildFriendSignals(userId) : Promise.resolve([]),
+    buildFeedbackHistory(userId),
   ]);
 
   if (!user) {
@@ -611,6 +646,14 @@ async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
   // Arkadaş sinyalleri — sadece premium ve sinyal varsa (KVKK: opt-in only)
   if (isPremium && friendSignalsData.length > 0) {
     profile.friendSignals = friendSignalsData;
+  }
+
+  // Geçmiş beğeniler — tüm tier'lar, sadece kayıt varsa
+  if (feedbackData.liked.length > 0 || feedbackData.disliked.length > 0) {
+    profile.feedbackHistory = {
+      likedPlaceIds: feedbackData.liked,
+      dislikedPlaceIds: feedbackData.disliked,
+    };
   }
 
   const text =
@@ -737,5 +780,6 @@ module.exports = {
     buildProfileBlock,
     buildVariableBlock,
     buildFriendSignals,
+    buildFeedbackHistory,
   },
 };
