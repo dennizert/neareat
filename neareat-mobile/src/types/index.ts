@@ -543,6 +543,8 @@ export interface AiRecommendation {
   placeId: string;
   /** LLM'in 2-3 cümle kişisel gerekçesi */
   reason: string;
+  /** Kullanıcının daha önce bu mekânı favorilememesi veya yorum yazmaması */
+  neverVisited?: boolean;
   restaurant: {
     name: string;
     types: string[];

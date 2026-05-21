@@ -112,6 +112,7 @@ async function getDinnerTonight(req, res, next) {
     const recommendations = result.recommendations.map((r) => ({
       placeId: r.placeId,
       reason: r.reason,
+      neverVisited: r.neverVisited ?? false,
       restaurant: {
         name: r.candidate.name,
         types: r.candidate.types,

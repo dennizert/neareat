@@ -195,6 +195,7 @@ export default function RecommendationScreen() {
                 onPressDetails={handleDetails}
                 feedbackSentiment={feedbackByPlaceId[rec.placeId] ?? null}
                 onFeedback={submitFeedback}
+                neverVisited={rec.neverVisited ?? false}
               />
             </FadeInCard>
           ))}

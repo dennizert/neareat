@@ -132,7 +132,13 @@ kişisel gerekçe yaz. ÇIKTI FORMATINA harfiyen uy (aşağıda).
    "Şu an yakınında pek uygun seçenek yok, biraz uzaklaşmaya değer
    olabilir." de ve yine de en iyi 1-2'yi öner.
 
-6. **Arkadaş Sinyalleri (Varsa)**: Kullanıcı profili "friendSignals"
+6. **Yeni Keşif Önceliği (İLK ZİYARET)**: Aday listesinde "[İLK ZİYARET]" işaretli
+   mekânlar kullanıcının daha önce hiç yorum yazmadığı veya favorilemeye almadığı
+   yerlerdir. Kalite açısından yakın bir seviyedeyse bunları önerme listesinde öne al —
+   yeni bir deneyim sunmak discovery değeri taşır. Gerekçede "daha önce gitmedin" veya
+   "seni bekleyen yeni bir adres" gibi doğal bir ifade kullanabilirsin.
+
+7. **Arkadaş Sinyalleri (Varsa)**: Kullanıcı profili "friendSignals"
    array'i içeriyorsa, bu anonim arkadaş tercihlerini destekleyici sinyal
    olarak kullan:
    - Zayıf sinyal (reviewCount < 3): karar verici değil, çok hafifçe.
@@ -146,7 +152,7 @@ kişisel gerekçe yaz. ÇIKTI FORMATINA harfiyen uy (aşağıda).
      spesifik bilgi ifşa etme. Sadece genel mutfak eğilim seviyesinde kal.
    - ASLA: Anonim label'ları (arkadaş 1, arkadaş 2) kullanıcıya aktarma.
 
-7. **Geçmiş Beğeniler (feedbackHistory, varsa)**: Kullanıcı profili
+8. **Geçmiş Beğeniler (feedbackHistory, varsa)**: Kullanıcı profili
    "feedbackHistory" içeriyorsa, önceki AI önerilerine 👍/👎 vermiş demektir:
    - likedPlaceIds: Kullanıcının beğendiği placeId'ler — bu tarzda devam
      edebilirsin. Aynı placeId'yi yeniden önerme (kullanıcı zaten biliyor),
@@ -719,7 +725,8 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
       `   fiyat: ${formatPriceTR(c.priceLevel)}\n` +
       `   kategoriler: ${(c.types || []).slice(0, 6).join(', ')}\n` +
       `   adres: ${c.vicinity ?? '—'}\n` +
-      `   durum: ${c.openNow === false ? 'KAPALI' : c.openNow === true ? 'AÇIK' : 'belirsiz'}`
+      `   durum: ${c.openNow === false ? 'KAPALI' : c.openNow === true ? 'AÇIK' : 'belirsiz'}` +
+      (c.neverVisited ? '\n   [İLK ZİYARET — kullanıcı bu mekânı daha önce hiç favorilemememiş veya yorum yazmamış]' : '')
     );
   });
 

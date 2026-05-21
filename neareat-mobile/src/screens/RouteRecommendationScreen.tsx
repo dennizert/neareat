@@ -9,7 +9,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Animated, Linking, Alert,
+  ActivityIndicator, Animated, Linking,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
@@ -32,24 +32,9 @@ function slotToHHMM(slot: number): string {
 
 const ISTANBUL_OFFSET_MS = 3 * 60 * 60 * 1000;
 
-function openNavigation(lat: number, lng: number, name: string) {
-  Alert.alert(
-    'Yol Tarifi Al',
-    name,
-    [
-      {
-        text: 'Google Maps',
-        onPress: () =>
-          Linking.openURL(
-            `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
-          ),
-      },
-      {
-        text: 'Waze',
-        onPress: () => Linking.openURL(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`),
-      },
-      { text: 'İptal', style: 'cancel' },
-    ]
+function openNavigation(lat: number, lng: number, _name: string) {
+  Linking.openURL(
+    `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
   );
 }
 

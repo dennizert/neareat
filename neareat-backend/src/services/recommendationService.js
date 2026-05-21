@@ -249,6 +249,7 @@ async function recommend({ userId, location, isPremium = false }) {
     validRecs.push({
       placeId: rec.placeId,
       reason: typeof rec.reason === 'string' ? rec.reason.trim() : '',
+      neverVisited: candidate.neverVisited ?? false,
       candidate,
     });
   }
@@ -362,6 +363,7 @@ async function recommendStream({ userId, location, isPremium = false, abortRef, 
     validRecs.push({
       placeId: rec.placeId,
       reason: typeof rec.reason === 'string' ? rec.reason.trim() : '',
+      neverVisited: candidate.neverVisited ?? false,
       candidate,
     });
   }
@@ -371,6 +373,7 @@ async function recommendStream({ userId, location, isPremium = false, abortRef, 
     onCard({
       placeId: r.placeId,
       reason: r.reason,
+      neverVisited: r.neverVisited ?? false,
       restaurant: {
         name: r.candidate.name,
         types: r.candidate.types,

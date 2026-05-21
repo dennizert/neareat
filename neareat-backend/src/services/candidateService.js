@@ -28,6 +28,51 @@ const MIN_RATING = 3.5;
 const FETCH_TYPE = 'restaurant';
 
 /**
+ * Arkadaşların opt-in (shareWithFriendsRecommender=true) aktivitelerinden
+ * sosyal sinyal placeId setleri oluşturur.
+ * KVKK: opt-in olmayan arkadaşların verisi kesinlikle dahil edilmez.
+ */
+async function fetchFriendSocialSignals(userId) {
+  const empty = { friendFavPlaceIds: new Set(), friendHighRatedPlaceIds: new Set(), friendCollectionPlaceIds: new Set() };
+
+  const friendRequests = await prisma.friendRequest.findMany({
+    where: { status: 'ACCEPTED', OR: [{ fromUserId: userId }, { toUserId: userId }] },
+    select: { fromUserId: true, toUserId: true },
+  });
+  if (!friendRequests.length) return empty;
+
+  const rawIds = friendRequests.map((fr) => (fr.fromUserId === userId ? fr.toUserId : fr.fromUserId));
+  const uniqueFriendIds = [...new Set(rawIds)];
+
+  const optInFriends = await prisma.user.findMany({
+    where: { id: { in: uniqueFriendIds }, shareWithFriendsRecommender: true },
+    select: { id: true },
+  });
+  if (!optInFriends.length) return empty;
+
+  const optInIds = optInFriends.map((f) => f.id);
+
+  const [favs, highReviews, collItems, recItems] = await Promise.all([
+    prisma.favorite.findMany({ where: { userId: { in: optInIds } }, select: { placeId: true } }),
+    prisma.review.findMany({ where: { userId: { in: optInIds }, rating: { gte: 4 } }, select: { placeId: true } }),
+    prisma.collectionItem.findMany({
+      where: { collection: { userId: { in: optInIds } } },
+      select: { placeId: true },
+    }),
+    prisma.recommendation.findMany({ where: { fromUserId: { in: optInIds } }, select: { placeId: true } }),
+  ]);
+
+  return {
+    friendFavPlaceIds: new Set(favs.map((f) => f.placeId)),
+    friendHighRatedPlaceIds: new Set(highReviews.map((r) => r.placeId)),
+    friendCollectionPlaceIds: new Set([
+      ...collItems.map((c) => c.placeId),
+      ...recItems.map((r) => r.placeId),
+    ]),
+  };
+}
+
+/**
  * Kullanıcı tercihlerini DB'den topla.
  * - favoriteCuisines: kullanıcının onboarding'de söylediği serbest metinler ("Türk", "İtalyan")
  * - recentPlaceIds: son 30 favori/yorum → "yakın zamanda denedi" sinyali (penalty)
@@ -139,14 +184,24 @@ function scoreCandidate(place, distanceKm, prefs) {
     noveltyScore = prefs.likedPlaceIds.has(place.place_id) ? 1 : -2;
   }
 
-  return distanceScore + ratingScore + cuisineScore + popularityScore + noveltyScore;
+  // Sosyal sinyal — arkadaşların opt-in verileri (KVKK uyumlu)
+  let socialScore = 0;
+  const pid = place.place_id;
+  if (prefs.friendFavPlaceIds?.has(pid)) socialScore += 1.5;      // arkadaş favorisi: güçlü sinyal
+  if (prefs.friendHighRatedPlaceIds?.has(pid)) socialScore += 1.0; // arkadaş 4+ puan: orta sinyal
+  if (prefs.friendCollectionPlaceIds?.has(pid)) socialScore += 0.5; // koleksiyon/öneri: zayıf sinyal
+
+  // Discovery boost — kullanıcının daha önce hiç favorilememediği veya yorum yazmadığı yer
+  const discoveryBoost = prefs.recentPlaceIds.has(pid) ? 0 : 0.5;
+
+  return distanceScore + ratingScore + cuisineScore + popularityScore + noveltyScore + socialScore + discoveryBoost;
 }
 
 /**
  * Google Places place objesini LLM-dostu hafif şekle dönüştür.
  * Token tasarrufu için sadece gerekli alanlar.
  */
-function toCandidate(place, distanceKm, score, photoUrl = null) {
+function toCandidate(place, distanceKm, score, photoUrl = null, neverVisited = false) {
   return {
     placeId: place.place_id,
     name: place.name,
@@ -159,8 +214,9 @@ function toCandidate(place, distanceKm, score, photoUrl = null) {
       ? { lat: place.geometry.location.lat, lng: place.geometry.location.lng }
       : null,
     distanceKm: Number(distanceKm.toFixed(2)),
-    openNow: place.opening_hours?.open_now ?? null, // null = bilinmiyor
+    openNow: place.opening_hours?.open_now ?? null,
     photoUrl,
+    neverVisited,
     score: Number(score.toFixed(3)),
   };
 }
@@ -178,12 +234,16 @@ async function getCandidates(userId, { lat, lng }) {
   }
 
   const t0 = Date.now();
-  // Sprint-2 Task #1: getNearbyRestaurantsFast — tek sayfa, no 2× pagination delay.
-  // Önceki getNearbyRestaurants 3 sayfa çekerek ~5sn ekliyordu; bu sürüm <1sn (cache miss'te).
-  const [prefs, places] = await Promise.all([
+  const [prefs, places, friendSignals] = await Promise.all([
     fetchUserPrefs(userId),
     getNearbyRestaurantsFast(lat, lng, FETCH_TYPE),
+    fetchFriendSocialSignals(userId),
   ]);
+
+  // Sosyal sinyalleri prefs'e aktar — scoreCandidate erişmesi için
+  prefs.friendFavPlaceIds = friendSignals.friendFavPlaceIds;
+  prefs.friendHighRatedPlaceIds = friendSignals.friendHighRatedPlaceIds;
+  prefs.friendCollectionPlaceIds = friendSignals.friendCollectionPlaceIds;
 
   const enriched = [];
   for (const place of places || []) {
@@ -202,7 +262,8 @@ async function getCandidates(userId, { lat, lng }) {
       place.geometry.location.lng
     );
     const score = scoreCandidate(place, distanceKm, prefs);
-    enriched.push({ place, distanceKm, score });
+    const neverVisited = !prefs.recentPlaceIds.has(place.place_id);
+    enriched.push({ place, distanceKm, score, neverVisited });
   }
 
   enriched.sort((a, b) => b.score - a.score);
@@ -228,7 +289,7 @@ async function getCandidates(userId, { lat, lng }) {
   }
 
   const candidates = top.map((e) =>
-    toCandidate(e.place, e.distanceKm, e.score, photoMap.get(e.place.place_id) ?? null)
+    toCandidate(e.place, e.distanceKm, e.score, photoMap.get(e.place.place_id) ?? null, e.neverVisited)
   );
 
   return {

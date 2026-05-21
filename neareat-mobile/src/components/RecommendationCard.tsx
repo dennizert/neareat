@@ -27,6 +27,8 @@ interface Props {
   feedbackSentiment?: FeedbackSentiment | null;
   /** Feedback gönder callback — store.submitFeedback'e bağlanır */
   onFeedback?: (placeId: string, sentiment: FeedbackSentiment) => Promise<void>;
+  /** Kullanıcı bu mekânı daha önce favorilememişse veya yorum yazmamışsa true */
+  neverVisited?: boolean;
 }
 
 const RecommendationCard = React.memo(function RecommendationCard({
@@ -35,6 +37,7 @@ const RecommendationCard = React.memo(function RecommendationCard({
   onPressDetails,
   feedbackSentiment = null,
   onFeedback,
+  neverVisited = false,
 }: Props) {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
@@ -123,6 +126,13 @@ const RecommendationCard = React.memo(function RecommendationCard({
             </View>
           )}
         </View>
+
+        {/* "Daha önce gitmediniz" uyarısı */}
+        {neverVisited && (
+          <View style={styles.newPlaceBadge}>
+            <Text style={styles.newPlaceBadgeText}>✨ Daha önce gitmediniz</Text>
+          </View>
+        )}
 
         {/* LLM gerekçesi — bu kartın yıldız özelliği */}
         <View style={styles.reasonBox}>
@@ -303,6 +313,22 @@ function makeStyles(C: Colors) {
       marginLeft: 4,
     },
     closedText: { fontSize: 11, color: C.error, fontWeight: '600' },
+
+    newPlaceBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: '#F0FDF4',
+      borderWidth: 1,
+      borderColor: '#86EFAC',
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      marginBottom: 10,
+    },
+    newPlaceBadgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#16A34A',
+    },
 
     reasonBox: {
       backgroundColor: C.primarySurface,
