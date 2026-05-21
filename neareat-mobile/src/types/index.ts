@@ -673,6 +673,8 @@ export type RootStackParamList = {
   Notifications: undefined;
   // AI Recommendation (Sprint-1 Task #8)
   Recommendation: undefined;
+  // Route recommendation (Sprint-3 Task #8)
+  RouteRecommendation: undefined;
   // AI-specific paywall (Sprint-1 Task #10)
   PremiumUpsell: { resetAt?: string };
 };

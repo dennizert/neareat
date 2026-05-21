@@ -43,6 +43,7 @@ import AdminRestaurantDetailScreen from '../screens/admin/AdminRestaurantDetailS
 import AdminLogsScreen from '../screens/admin/AdminLogsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import RecommendationScreen from '../screens/RecommendationScreen';
+import RouteRecommendationScreen from '../screens/RouteRecommendationScreen';
 import PremiumUpsellScreen from '../screens/PremiumUpsellScreen';
 import NotificationBell from '../components/NotificationBell';
 import MessagesScreen from '../screens/messages/MessagesScreen';
@@ -385,6 +386,11 @@ export default function Navigation() {
                 name="Recommendation"
                 component={RecommendationScreen}
                 options={{ ...H, title: 'AI Öneriler' }}
+              />
+              <Stack.Screen
+                name="RouteRecommendation"
+                component={RouteRecommendationScreen}
+                options={{ ...H, title: 'Yolda Ne Yesem?' }}
               />
               <Stack.Screen
                 name="PremiumUpsell"
