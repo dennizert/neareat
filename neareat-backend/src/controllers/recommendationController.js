@@ -185,6 +185,8 @@ async function getDinnerTonightStream(req, res, next) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    // Railway/nginx proxy buffering'i kapat — yoksa tüm eventler res.end()'e kadar tutulur
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
     const isPremium = await isPremiumUser(req.user.id);
