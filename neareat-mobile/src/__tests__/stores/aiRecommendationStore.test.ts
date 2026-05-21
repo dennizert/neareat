@@ -11,6 +11,7 @@ jest.mock('../../services/aiRecommendation', () => {
   return {
     ...actual,
     getDinnerRecommendation: jest.fn(),
+    getRouteRecommendation: jest.fn(),
     postFeedback: jest.fn(),
   };
 });
@@ -18,13 +19,15 @@ jest.mock('../../services/aiRecommendation', () => {
 import { useAiRecommendationStore } from '../../store/aiRecommendationStore';
 import {
   getDinnerRecommendation,
+  getRouteRecommendation,
   postFeedback,
   AiRecommendationLimitError,
   AiRecommendationNoCandidatesError,
 } from '../../services/aiRecommendation';
-import type { AiRecommendationResponse } from '../../types';
+import type { AiRecommendationResponse, RouteRecommendationResponse } from '../../types';
 
 const mockedGetDinner = getDinnerRecommendation as jest.MockedFunction<typeof getDinnerRecommendation>;
+const mockedGetRoute = getRouteRecommendation as jest.MockedFunction<typeof getRouteRecommendation>;
 const mockedPostFeedback = postFeedback as jest.MockedFunction<typeof postFeedback>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -357,5 +360,169 @@ describe('aiRecommendationStore — submitFeedback', () => {
     await useAiRecommendationStore.getState().submitFeedback('p1', 'negative');
 
     expect(useAiRecommendationStore.getState().feedbackByPlaceId['p1']).toBe('negative');
+  });
+});
+
+// ─── fetchRouteRecommendation (Sprint-3 Task #7) ─────────────────────────────
+
+function makeRouteResponse(overrides: Partial<RouteRecommendationResponse> = {}): RouteRecommendationResponse {
+  return {
+    recommendations: [
+      {
+        placeId: 'rp1',
+        reason: 'Rota üzerinde ideal.',
+        restaurant: {
+          name: 'Route Place 1',
+          types: ['restaurant'],
+          rating: 4.3,
+          userRatingsTotal: 80,
+          priceLevel: 2,
+          vicinity: 'Test St',
+          location: { lat: 41.04, lng: 28.98 },
+          distanceKm: 1.2,
+          openNow: true,
+          photoUrl: null,
+          sequenceOrder: 1,
+        },
+      },
+    ],
+    totalRouteDistanceKm: 10.5,
+    totalRouteDurationMin: 25,
+    noteToUser: '',
+    tier: 'free',
+    model: 'claude-haiku-4-5-20251001',
+    remainingToday: 2,
+    resetAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+    latencyMs: 400,
+    ...overrides,
+  };
+}
+
+const ROUTE_PARAMS = {
+  originLat: 41.04,
+  originLng: 28.98,
+  destLat: 40.99,
+  destLng: 29.02,
+};
+
+describe('aiRecommendationStore — fetchRouteRecommendation', () => {
+  beforeEach(() => {
+    useAiRecommendationStore.setState({
+      routeRecommendations: [],
+      routeMeta: null,
+      routeNoteToUser: '',
+      routeLoading: false,
+      routeError: null,
+      routeLimitReached: false,
+      routeNoCandidates: false,
+    });
+  });
+
+  it('sets routeRecommendations and routeMeta on success', async () => {
+    mockedGetRoute.mockResolvedValueOnce(makeRouteResponse());
+
+    await useAiRecommendationStore.getState().fetchRouteRecommendation(ROUTE_PARAMS);
+
+    const state = useAiRecommendationStore.getState();
+    expect(state.routeRecommendations).toHaveLength(1);
+    expect(state.routeRecommendations[0].placeId).toBe('rp1');
+    expect(state.routeMeta).toEqual({ totalDistanceKm: 10.5, totalDurationMin: 25 });
+    expect(state.routeLoading).toBe(false);
+    expect(state.routeError).toBeNull();
+  });
+
+  it('stores noteToUser from response', async () => {
+    mockedGetRoute.mockResolvedValueOnce(makeRouteResponse({ noteToUser: 'Rota boyunca güzel seçenekler var.' }));
+
+    await useAiRecommendationStore.getState().fetchRouteRecommendation(ROUTE_PARAMS);
+
+    expect(useAiRecommendationStore.getState().routeNoteToUser).toBe('Rota boyunca güzel seçenekler var.');
+  });
+
+  it('sets routeLoading=true during fetch, false after', async () => {
+    let loadingDuringFetch = false;
+    mockedGetRoute.mockImplementation(async () => {
+      loadingDuringFetch = useAiRecommendationStore.getState().routeLoading;
+      return makeRouteResponse();
+    });
+
+    await useAiRecommendationStore.getState().fetchRouteRecommendation(ROUTE_PARAMS);
+
+    expect(loadingDuringFetch).toBe(true);
+    expect(useAiRecommendationStore.getState().routeLoading).toBe(false);
+  });
+
+  it('sets routeLimitReached=true on AiRecommendationLimitError (429)', async () => {
+    mockedGetRoute.mockRejectedValueOnce(
+      new AiRecommendationLimitError({ message: 'Limit doldu.', resetAt: '2026-05-22T00:00:00.000Z' }),
+    );
+
+    await useAiRecommendationStore.getState().fetchRouteRecommendation(ROUTE_PARAMS);
+
+    const state = useAiRecommendationStore.getState();
+    expect(state.routeLimitReached).toBe(true);
+    expect(state.routeLoading).toBe(false);
+    expect(state.routeError).toBe('Limit doldu.');
+  });
+
+  it('sets routeNoCandidates=true on AiRecommendationNoCandidatesError (404)', async () => {
+    mockedGetRoute.mockRejectedValueOnce(
+      new AiRecommendationNoCandidatesError('Rota boyunca restoran bulunamadı.'),
+    );
+
+    await useAiRecommendationStore.getState().fetchRouteRecommendation(ROUTE_PARAMS);
+
+    const state = useAiRecommendationStore.getState();
+    expect(state.routeNoCandidates).toBe(true);
+    expect(state.routeLoading).toBe(false);
+    expect(state.routeError).toBe('Rota boyunca restoran bulunamadı.');
+  });
+
+  it('sets routeError on generic network failure', async () => {
+    mockedGetRoute.mockRejectedValueOnce(new Error('Network error'));
+
+    await useAiRecommendationStore.getState().fetchRouteRecommendation(ROUTE_PARAMS);
+
+    const state = useAiRecommendationStore.getState();
+    expect(state.routeError).toMatch(/alınamadı/);
+    expect(state.routeLoading).toBe(false);
+    expect(state.routeRecommendations).toHaveLength(0);
+  });
+
+  it('clears previous results before each new fetch', async () => {
+    useAiRecommendationStore.setState({
+      routeRecommendations: [makeRouteResponse().recommendations[0]],
+      routeError: 'önceki hata',
+    });
+    mockedGetRoute.mockResolvedValueOnce(makeRouteResponse());
+
+    await useAiRecommendationStore.getState().fetchRouteRecommendation(ROUTE_PARAMS);
+
+    expect(useAiRecommendationStore.getState().routeError).toBeNull();
+  });
+});
+
+describe('aiRecommendationStore — resetRoute', () => {
+  it('clears all route state to initial values', () => {
+    useAiRecommendationStore.setState({
+      routeRecommendations: [makeRouteResponse().recommendations[0]],
+      routeMeta: { totalDistanceKm: 10, totalDurationMin: 20 },
+      routeNoteToUser: 'bir not',
+      routeLoading: true,
+      routeError: 'bir hata',
+      routeLimitReached: true,
+      routeNoCandidates: true,
+    });
+
+    useAiRecommendationStore.getState().resetRoute();
+
+    const state = useAiRecommendationStore.getState();
+    expect(state.routeRecommendations).toHaveLength(0);
+    expect(state.routeMeta).toBeNull();
+    expect(state.routeNoteToUser).toBe('');
+    expect(state.routeLoading).toBe(false);
+    expect(state.routeError).toBeNull();
+    expect(state.routeLimitReached).toBe(false);
+    expect(state.routeNoCandidates).toBe(false);
   });
 });
