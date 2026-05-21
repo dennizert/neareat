@@ -13,8 +13,9 @@
  */
 
 import { MOCK_MODE } from '../config';
-import api from './api';
+import api, { BASE_URL, getToken } from './api';
 import type {
+  AiRecommendation,
   AiRecommendationRequest,
   AiRecommendationResponse,
   AiRecommendationLimitInfo,
@@ -138,6 +139,145 @@ export async function getDinnerRecommendation(
     }
 
     throw err;
+  }
+}
+
+interface SseStreamCallbacks {
+  onCard: (rec: AiRecommendation) => void;
+  onNote: (note: string) => void;
+  onDone: (meta: {
+    tier: string;
+    model: string;
+    remainingToday: number | null;
+    resetAt: string | null;
+    latencyMs: number;
+  }) => void;
+  onError: (event: { code?: string; message?: string; upgrade?: boolean; resetAt?: string }) => void;
+}
+
+/**
+ * SSE streaming öneri — her kart geldiğinde onCard callback çağrılır.
+ * React Native 0.76 / Hermes: fetch + response.body.getReader() destekli.
+ *
+ * @param signal - AbortController.signal (cancelStream için)
+ */
+export async function streamDinnerRecommendation(
+  lat: number,
+  lng: number,
+  mood: string | undefined,
+  callbacks: SseStreamCallbacks,
+  signal?: AbortSignal
+): Promise<void> {
+  if (MOCK_MODE) {
+    await new Promise((r) => setTimeout(r, 400));
+    callbacks.onCard({
+      placeId: 'mock_stream_p1',
+      reason: 'Mock stream mode aktif — kart 1.',
+      restaurant: {
+        name: 'Mock Stream Restaurant',
+        types: ['restaurant'],
+        rating: 4.5,
+        userRatingsTotal: 100,
+        priceLevel: 2,
+        vicinity: 'Mock Address',
+        location: { lat, lng },
+        distanceKm: 0.5,
+        openNow: true,
+        photoUrl: null,
+      },
+    });
+    callbacks.onDone({
+      tier: 'free',
+      model: 'mock',
+      remainingToday: 2,
+      resetAt: null,
+      latencyMs: 400,
+    });
+    return;
+  }
+
+  const token = await getToken();
+  const url = `${BASE_URL}/recommendations/dinner-tonight/stream`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ lat, lng, ...(mood?.trim() ? { mood: mood.trim() } : {}) }),
+    signal,
+  });
+
+  // SSE headers flushed edildi, ama HTTP level hata olabilir (401, 400 vb.)
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as any;
+    if (response.status === 429 && body?.error === 'LIMIT_EXCEEDED') {
+      throw new AiRecommendationLimitError({
+        message: body.message || 'Günlük öneri hakkın doldu.',
+        resetAt: body.resetAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+    if (response.status === 404 && body?.error === 'NO_CANDIDATES') {
+      throw new AiRecommendationNoCandidatesError(
+        body.message || 'Şu an yakınında uygun restoran bulamadık.'
+      );
+    }
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  if (!response.body) {
+    throw new Error('Streaming desteklenmiyor.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE events: double-newline ayraçlı
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() ?? '';
+
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const event = JSON.parse(line.slice(6)) as any;
+          switch (event.type) {
+            case 'card':
+              callbacks.onCard(event.recommendation);
+              break;
+            case 'note':
+              if (event.noteToUser) callbacks.onNote(event.noteToUser);
+              break;
+            case 'done':
+              callbacks.onDone({
+                tier: event.tier,
+                model: event.model,
+                remainingToday: event.remainingToday ?? null,
+                resetAt: event.resetAt ?? null,
+                latencyMs: event.latencyMs ?? 0,
+              });
+              break;
+            case 'error':
+              callbacks.onError(event);
+              break;
+          }
+        } catch {
+          // Malformed JSON chunk — skip
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
   }
 }
 

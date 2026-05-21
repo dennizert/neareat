@@ -23,11 +23,12 @@
 import { create } from 'zustand';
 import {
   getDinnerRecommendation,
+  streamDinnerRecommendation,
   postFeedback,
   AiRecommendationLimitError,
   AiRecommendationNoCandidatesError,
 } from '../services/aiRecommendation';
-import type { AiRecommendation, FeedbackSentiment } from '../types';
+import type { AiRecommendation, FeedbackSentiment, StreamingStatus } from '../types';
 
 interface AiRecommendationState {
   loading: boolean;
@@ -43,8 +44,16 @@ interface AiRecommendationState {
   noCandidates: boolean;
   /** placeId → kullanıcının verdiği feedback (optimistic) */
   feedbackByPlaceId: Record<string, FeedbackSentiment>;
+  /** SSE stream durumu — skeleton/durdur butonu kontrolü için */
+  streamingStatus: StreamingStatus;
+  /** Aktif SSE stream'i iptal etmek için — cancelStream() kullanır */
+  abortController: AbortController | null;
 
   fetchDinnerRecommendation: (lat: number, lng: number, mood?: string) => Promise<void>;
+  /** SSE streaming versiyon — kartlar birer birer store'a push edilir */
+  streamDinnerRecommendation: (lat: number, lng: number, mood?: string) => Promise<void>;
+  /** Aktif SSE stream'i iptal et (Durdur butonu) */
+  cancelStream: () => void;
   /** Optimistic feedback gönder; hata olursa rollback yapıp throw eder */
   submitFeedback: (placeId: string, sentiment: FeedbackSentiment) => Promise<void>;
   clear: () => void;
@@ -61,6 +70,8 @@ const INITIAL_STATE = {
   limitReached: false,
   noCandidates: false,
   feedbackByPlaceId: {} as Record<string, FeedbackSentiment>,
+  streamingStatus: 'idle' as StreamingStatus,
+  abortController: null as AbortController | null,
 };
 
 export const useAiRecommendationStore = create<AiRecommendationState>((set) => ({
@@ -114,6 +125,116 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
         error: 'Öneri alınamadı. İnternet bağlantını kontrol edip tekrar dene.',
       });
     }
+  },
+
+  async streamDinnerRecommendation(lat, lng, mood) {
+    const controller = new AbortController();
+    set({
+      loading: true,
+      streamingStatus: 'streaming',
+      error: null,
+      limitReached: false,
+      noCandidates: false,
+      recommendations: [],
+      noteToUser: '',
+      abortController: controller,
+    });
+
+    try {
+      await streamDinnerRecommendation(lat, lng, mood, {
+        onCard: (rec) => {
+          set((s) => ({
+            loading: false, // skeleton ilk kartta kalkar
+            recommendations: [...s.recommendations, rec],
+          }));
+        },
+        onNote: (note) => {
+          set({ noteToUser: note });
+        },
+        onDone: ({ tier, remainingToday, resetAt }) => {
+          set({
+            streamingStatus: 'done',
+            loading: false,
+            tier: tier as 'free' | 'premium',
+            remainingToday,
+            resetAt,
+            abortController: null,
+          });
+        },
+        onError: (event) => {
+          if (event.code === 'LIMIT_EXCEEDED') {
+            set({
+              streamingStatus: 'error',
+              loading: false,
+              limitReached: true,
+              remainingToday: 0,
+              resetAt: event.resetAt ?? null,
+              tier: 'free',
+              error: event.message ?? 'Günlük öneri hakkın doldu.',
+              abortController: null,
+            });
+            return;
+          }
+          if (event.code === 'NO_CANDIDATES') {
+            set({
+              streamingStatus: 'error',
+              loading: false,
+              noCandidates: true,
+              error: event.message ?? 'Şu an yakınında uygun restoran bulamadık.',
+              abortController: null,
+            });
+            return;
+          }
+          set({
+            streamingStatus: 'error',
+            loading: false,
+            error: event.message ?? 'Öneri alınamadı.',
+            abortController: null,
+          });
+        },
+      }, controller.signal);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        // cancelStream() tarafından iptal edildi — status zaten 'cancelled'
+        return;
+      }
+      if (err instanceof AiRecommendationLimitError) {
+        set({
+          streamingStatus: 'error',
+          loading: false,
+          limitReached: true,
+          remainingToday: 0,
+          resetAt: err.resetAt,
+          tier: 'free',
+          error: err.userMessage,
+          abortController: null,
+        });
+        return;
+      }
+      if (err instanceof AiRecommendationNoCandidatesError) {
+        set({
+          streamingStatus: 'error',
+          loading: false,
+          noCandidates: true,
+          error: err.userMessage,
+          abortController: null,
+        });
+        return;
+      }
+      set({
+        streamingStatus: 'error',
+        loading: false,
+        error: 'Öneri alınamadı. İnternet bağlantını kontrol edip tekrar dene.',
+        abortController: null,
+      });
+    }
+  },
+
+  cancelStream() {
+    set((s) => {
+      s.abortController?.abort();
+      return { streamingStatus: 'cancelled', loading: false, abortController: null };
+    });
   },
 
   async submitFeedback(placeId, sentiment) {

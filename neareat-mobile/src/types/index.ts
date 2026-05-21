@@ -580,6 +580,8 @@ export interface AiRecommendationLimitInfo {
   resetAt: string;
 }
 
+export type StreamingStatus = 'idle' | 'streaming' | 'done' | 'error' | 'cancelled';
+
 export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
