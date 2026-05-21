@@ -11,6 +11,7 @@ jest.mock('../../services/aiRecommendation', () => {
   return {
     ...actual,
     getDinnerRecommendation: jest.fn(),
+    streamDinnerRecommendation: jest.fn(),
     getRouteRecommendation: jest.fn(),
     postFeedback: jest.fn(),
   };
@@ -19,6 +20,7 @@ jest.mock('../../services/aiRecommendation', () => {
 import { useAiRecommendationStore } from '../../store/aiRecommendationStore';
 import {
   getDinnerRecommendation,
+  streamDinnerRecommendation,
   getRouteRecommendation,
   postFeedback,
   AiRecommendationLimitError,
@@ -27,6 +29,7 @@ import {
 import type { AiRecommendationResponse, RouteRecommendationResponse } from '../../types';
 
 const mockedGetDinner = getDinnerRecommendation as jest.MockedFunction<typeof getDinnerRecommendation>;
+const mockedStreamDinner = streamDinnerRecommendation as jest.MockedFunction<typeof streamDinnerRecommendation>;
 const mockedGetRoute = getRouteRecommendation as jest.MockedFunction<typeof getRouteRecommendation>;
 const mockedPostFeedback = postFeedback as jest.MockedFunction<typeof postFeedback>;
 
@@ -524,5 +527,195 @@ describe('aiRecommendationStore — resetRoute', () => {
     expect(state.routeError).toBeNull();
     expect(state.routeLimitReached).toBe(false);
     expect(state.routeNoCandidates).toBe(false);
+  });
+});
+
+// ─── streamDinnerRecommendation (Sprint-3 Task #4) ───────────────────────────
+
+const STREAM_CARD = {
+  placeId: 's1',
+  reason: 'Streaming test.',
+  restaurant: {
+    name: 'Stream Place',
+    types: ['restaurant'],
+    rating: 4.2,
+    userRatingsTotal: 60,
+    priceLevel: 2,
+    vicinity: 'Stream St',
+    location: { lat: 41.04, lng: 28.98 },
+    distanceKm: 0.8,
+    openNow: true,
+    photoUrl: null,
+  },
+};
+
+describe('aiRecommendationStore — streamDinnerRecommendation — success', () => {
+  it('sets streamingStatus=streaming and loading=true at start', async () => {
+    let statusDuringCall: string | undefined;
+    let loadingDuringCall: boolean | undefined;
+
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+      statusDuringCall = useAiRecommendationStore.getState().streamingStatus;
+      loadingDuringCall = useAiRecommendationStore.getState().loading;
+      callbacks.onDone({ tier: 'free', remainingToday: 2, resetAt: '2026-05-22T00:00:00.000Z', model: 'claude-haiku-4-5-20251001', latencyMs: 300 });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    expect(statusDuringCall).toBe('streaming');
+    expect(loadingDuringCall).toBe(true);
+  });
+
+  it('pushes card to recommendations on onCard; loading goes false', async () => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+      callbacks.onCard(STREAM_CARD as any);
+      callbacks.onDone({ tier: 'free', remainingToday: 2, resetAt: '2026-05-22T00:00:00.000Z', model: 'claude-haiku-4-5-20251001', latencyMs: 300 });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.recommendations).toHaveLength(1);
+    expect(s.recommendations[0].placeId).toBe('s1');
+    expect(s.loading).toBe(false);
+  });
+
+  it('sets noteToUser on onNote callback', async () => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+      callbacks.onNote('Yakında güzel bir seçenek var.');
+      callbacks.onDone({ tier: 'free', remainingToday: 1, resetAt: null, model: 'claude-haiku-4-5-20251001', latencyMs: 200 });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    expect(useAiRecommendationStore.getState().noteToUser).toBe('Yakında güzel bir seçenek var.');
+  });
+
+  it('sets streamingStatus=done and updates tier/remaining on onDone', async () => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+      callbacks.onDone({ tier: 'premium', remainingToday: null, resetAt: null, model: 'claude-sonnet-4-6', latencyMs: 500 });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.streamingStatus).toBe('done');
+    expect(s.tier).toBe('premium');
+    expect(s.remainingToday).toBeNull();
+    expect(s.abortController).toBeNull();
+    expect(s.loading).toBe(false);
+  });
+
+  it('clears previous recommendations at the start of a new stream', async () => {
+    useAiRecommendationStore.setState({ recommendations: [STREAM_CARD as any] });
+
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+      callbacks.onDone({ tier: 'free', remainingToday: 2, resetAt: null, model: 'claude-haiku-4-5-20251001', latencyMs: 300 });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    expect(useAiRecommendationStore.getState().recommendations).toHaveLength(0);
+  });
+});
+
+describe('aiRecommendationStore — streamDinnerRecommendation — errors', () => {
+  it('sets limitReached=true and streamingStatus=error on onError LIMIT_EXCEEDED', async () => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+      callbacks.onError({ code: 'LIMIT_EXCEEDED', message: 'Günlük hakkın doldu.', resetAt: '2026-05-22T00:00:00.000Z' });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.streamingStatus).toBe('error');
+    expect(s.limitReached).toBe(true);
+    expect(s.remainingToday).toBe(0);
+    expect(s.tier).toBe('free');
+    expect(s.error).toBe('Günlük hakkın doldu.');
+    expect(s.loading).toBe(false);
+    expect(s.abortController).toBeNull();
+  });
+
+  it('sets noCandidates=true and streamingStatus=error on onError NO_CANDIDATES', async () => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+      callbacks.onError({ code: 'NO_CANDIDATES', message: 'Yakında uygun restoran yok.' });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.streamingStatus).toBe('error');
+    expect(s.noCandidates).toBe(true);
+    expect(s.error).toBe('Yakında uygun restoran yok.');
+    expect(s.loading).toBe(false);
+  });
+
+  it('sets streamingStatus=error on generic onError', async () => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+      callbacks.onError({ code: 'UNKNOWN', message: 'Bağlantı kesildi.' });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.streamingStatus).toBe('error');
+    expect(s.error).toBe('Bağlantı kesildi.');
+  });
+
+  it('sets streamingStatus=error on thrown AiRecommendationLimitError', async () => {
+    mockedStreamDinner.mockRejectedValueOnce(
+      new AiRecommendationLimitError({ message: 'Limit.', resetAt: '2026-05-22T00:00:00.000Z' }),
+    );
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.streamingStatus).toBe('error');
+    expect(s.limitReached).toBe(true);
+    expect(s.loading).toBe(false);
+  });
+
+  it('sets streamingStatus=error on generic thrown error', async () => {
+    mockedStreamDinner.mockRejectedValueOnce(new Error('Network error'));
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.streamingStatus).toBe('error');
+    expect(s.error).toMatch(/Öneri alınamadı/);
+    expect(s.loading).toBe(false);
+  });
+});
+
+// ─── cancelStream (Sprint-3 Task #4) ────────────────────────────────────────
+
+describe('aiRecommendationStore — cancelStream', () => {
+  it('sets streamingStatus=cancelled and loading=false', () => {
+    useAiRecommendationStore.setState({ streamingStatus: 'streaming', loading: true });
+
+    useAiRecommendationStore.getState().cancelStream();
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.streamingStatus).toBe('cancelled');
+    expect(s.loading).toBe(false);
+    expect(s.abortController).toBeNull();
+  });
+
+  it('calls abort() on active abortController', () => {
+    const mockAbort = jest.fn();
+    const fakeController = { abort: mockAbort, signal: {} } as unknown as AbortController;
+    useAiRecommendationStore.setState({ abortController: fakeController, streamingStatus: 'streaming' });
+
+    useAiRecommendationStore.getState().cancelStream();
+
+    expect(mockAbort).toHaveBeenCalledTimes(1);
+  });
+
+  it('can be called when no active stream without throwing', () => {
+    useAiRecommendationStore.setState({ abortController: null, streamingStatus: 'idle' });
+
+    expect(() => useAiRecommendationStore.getState().cancelStream()).not.toThrow();
+    expect(useAiRecommendationStore.getState().streamingStatus).toBe('cancelled');
   });
 });
