@@ -101,17 +101,24 @@ async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
 const ROUTE_WAYPOINTS_TTL = 3600; // 1 saat — rota sık değişmez
 
 /**
- * Google Directions API → rota boyunca max 3 arama noktası döner.
- * origin her zaman dahil. Rota uzunluğuna göre 1-2 ara nokta eklenir:
- *   < 5 km: sadece origin
- *   5-20 km: origin + %50 noktası
- *   > 20 km: origin + %33 + %66 noktaları
+ * Google Directions API → rota boyunca arama noktaları döner.
+ *
+ * Arama bölgesi: rotanın orta yarısı (%25 → %75).
+ * D = toplam mesafe, x = D/4 olduğunda çıkıştan x km sonrası ile
+ * varıştan x km öncesi arasındaki segment aranır.
+ *
+ *   ≤ 20 km: 1 waypoint (%50 — orta nokta)
+ *   > 20 km: 3 waypoint (%25, %50, %75)
+ *
+ * Örnek (800 km): 200 km, 400 km, 600 km noktaları → çıkış/varışa yakın
+ * lokasyonlar hiç dahil edilmez.
  *
  * @returns {{ waypoints: Array<{lat,lng}>, totalDistanceKm: number, totalDurationMin: number } | null}
  *   null → rota bulunamadı (geçersiz koordinat, ulaşılamaz)
  */
 async function getRouteWaypoints(originLat, originLng, destLat, destLng) {
-  const cacheKey = `routeWaypoints:${originLat.toFixed(3)}:${originLng.toFixed(3)}:${destLat.toFixed(3)}:${destLng.toFixed(3)}`;
+  // v2: orta-bölge mantığı — cache key güncellendi
+  const cacheKey = `routeWaypoints2:${originLat.toFixed(3)}:${originLng.toFixed(3)}:${destLat.toFixed(3)}:${destLng.toFixed(3)}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -134,25 +141,20 @@ async function getRouteWaypoints(originLat, originLng, destLat, destLng) {
   const totalDistanceKm = Math.round((totalDistanceM / 1000) * 10) / 10;
   const totalDurationMin = Math.round(totalDurationS / 60);
 
-  const waypoints = [{ lat: originLat, lng: originLng }];
+  // Sadece ortadaki %50'yi tara: çıkıştan D/4 sonrası — varıştan D/4 öncesi
+  const targets = totalDistanceKm > 20
+    ? [totalDistanceM * 0.25, totalDistanceM * 0.5, totalDistanceM * 0.75]
+    : [totalDistanceM * 0.5];
 
-  let targets = [];
-  if (totalDistanceKm > 20) {
-    targets = [totalDistanceM * 0.33, totalDistanceM * 0.66];
-  } else if (totalDistanceKm >= 5) {
-    targets = [totalDistanceM * 0.5];
-  }
-
-  if (targets.length > 0) {
-    let cumDist = 0;
-    let targetIdx = 0;
-    for (const step of allSteps) {
-      if (targetIdx >= targets.length) break;
-      cumDist += step.distance.value;
-      if (cumDist >= targets[targetIdx]) {
-        waypoints.push({ lat: step.end_location.lat, lng: step.end_location.lng });
-        targetIdx++;
-      }
+  const waypoints = [];
+  let cumDist = 0;
+  let targetIdx = 0;
+  for (const step of allSteps) {
+    if (targetIdx >= targets.length) break;
+    cumDist += step.distance.value;
+    if (cumDist >= targets[targetIdx]) {
+      waypoints.push({ lat: step.end_location.lat, lng: step.end_location.lng });
+      targetIdx++;
     }
   }
 

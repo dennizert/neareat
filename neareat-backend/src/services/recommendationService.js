@@ -426,8 +426,8 @@ async function recommendForRoute({ userId, origin, destination, mood, isPremium 
   const profileSummary = await buildUserProfileSummary(userId, { tier });
   const routeContext =
     `Rota uzunluğu: ~${totalDistanceKm} km, ~${totalDurationMin} dakika.\n` +
-    `Adaylar rotanın ${waypoints.length > 1 ? 'farklı noktalarından' : 'başlangıç noktasından'} seçildi.\n` +
-    `Önerirken yolda kolayca durulabilecek yerleri tercih et.`;
+    `Adaylar rotanın orta bölümünden seçildi (çıkış ve varış noktasından ~${Math.round(totalDistanceKm / 4)} km uzakta).\n` +
+    `Önerirken yolda kolayca durulabilecek, rotaya yakın yerleri tercih et.`;
   const req = buildClaudeRequest({ profileSummary, candidates, location: origin, mood, routeContext });
 
   const client = getClient();
