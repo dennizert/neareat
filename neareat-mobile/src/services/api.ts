@@ -47,6 +47,14 @@ export function setTokenGetter(getter: () => Promise<string | null>) {
   idTokenGetter = getter;
 }
 
+/** SSE streaming gibi axios dışı fetch isteklerinde kullanmak için token al. */
+export async function getToken(): Promise<string | null> {
+  if (!idTokenGetter) return null;
+  return idTokenGetter();
+}
+
+export { BASE_URL };
+
 /**
  * Request interceptor — her API isteğinden önce otomatik çalışır.
  * Token getter mevcutsa, token'ı alır ve Authorization header'ına ekler.
