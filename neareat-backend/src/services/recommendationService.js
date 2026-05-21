@@ -13,7 +13,8 @@
 
 const Anthropic = require('@anthropic-ai/sdk');
 const prisma = require('../utils/prisma');
-const { getCandidates } = require('./candidateService');
+const { getCandidates, MAX_CANDIDATES } = require('./candidateService');
+const { getRouteWaypoints } = require('./googlePlaces');
 const { buildUserProfileSummary, buildClaudeRequest } = require('./promptBuilder');
 
 const MODELS = Object.freeze({
@@ -372,6 +373,143 @@ async function recommendStream({ userId, location, mood, isPremium = false, abor
   return {};
 }
 
+/**
+ * Rota üzerinde yemek önerisi — "yolda ne yesem?" (Sprint-3 Task #6).
+ *
+ * @param {object} p
+ * @param {string} p.userId
+ * @param {{ lat: number, lng: number }} p.origin
+ * @param {{ lat: number, lng: number }} p.destination
+ * @param {string} [p.mood]
+ * @param {boolean} [p.isPremium=false]
+ * @returns {Promise<object>}
+ *   { noRoute: true } → Directions API rota bulamadı
+ *   { noCandidates: true } → Rota boyunca aday yok
+ *   Başarılı: { recommendations, noteToUser, totalRouteDistanceKm, totalRouteDurationMin, tier, model, latencyMs, usage }
+ */
+async function recommendForRoute({ userId, origin, destination, mood, isPremium = false }) {
+  const routeData = await getRouteWaypoints(origin.lat, origin.lng, destination.lat, destination.lng);
+  if (!routeData || !routeData.waypoints.length) {
+    return { noRoute: true };
+  }
+
+  const { waypoints, totalDistanceKm, totalDurationMin } = routeData;
+  const tier = isPremium ? 'premium' : 'free';
+  const model = modelForTier(tier);
+
+  // Her ara nokta için aday çek — ardışık (Redis cache sayesinde tekrar noktalar hızlı)
+  const wpCandidatesAll = [];
+  for (let i = 0; i < waypoints.length; i++) {
+    const wp = waypoints[i];
+    const result = await getCandidates(userId, { lat: wp.lat, lng: wp.lng });
+    for (const c of result.candidates) {
+      wpCandidatesAll.push({ ...c, waypointIndex: i });
+    }
+  }
+
+  // Dedupe: aynı placeId için en yüksek score'lu kaydı tut
+  const candidateMap = new Map();
+  for (const c of wpCandidatesAll) {
+    const existing = candidateMap.get(c.placeId);
+    if (!existing || c.score > existing.score) {
+      candidateMap.set(c.placeId, c);
+    }
+  }
+  const candidates = [...candidateMap.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_CANDIDATES);
+
+  if (!candidates.length) {
+    return { noCandidates: true };
+  }
+
+  const profileSummary = await buildUserProfileSummary(userId, { tier });
+  const routeContext =
+    `Rota uzunluğu: ~${totalDistanceKm} km, ~${totalDurationMin} dakika.\n` +
+    `Adaylar rotanın ${waypoints.length > 1 ? 'farklı noktalarından' : 'başlangıç noktasından'} seçildi.\n` +
+    `Önerirken yolda kolayca durulabilecek yerleri tercih et.`;
+  const req = buildClaudeRequest({ profileSummary, candidates, location: origin, mood, routeContext });
+
+  const client = getClient();
+  const t0 = Date.now();
+  let response;
+  try {
+    response = await client.messages.create({
+      model,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      system: req.system,
+      messages: req.messages,
+    });
+  } catch (err) {
+    err.context = { userId, model, latencyMs: Date.now() - t0 };
+    throw err;
+  }
+  const latencyMs = Date.now() - t0;
+
+  const textBlock = response.content?.find((b) => b.type === 'text');
+  const parsed = parseLlmJson(textBlock?.text);
+  const rawRecs = Array.isArray(parsed?.recommendations) ? parsed.recommendations : [];
+  const candidatesByPlaceId = new Map(candidates.map((c) => [c.placeId, c]));
+
+  const validRecs = [];
+  const seen = new Set();
+  for (const rec of rawRecs) {
+    if (!rec?.placeId || typeof rec.placeId !== 'string') continue;
+    if (seen.has(rec.placeId)) continue;
+    const candidate = candidatesByPlaceId.get(rec.placeId);
+    if (!candidate) continue;
+    seen.add(rec.placeId);
+    validRecs.push({
+      placeId: rec.placeId,
+      reason: typeof rec.reason === 'string' ? rec.reason.trim() : '',
+      candidate,
+      waypointIndex: candidate.waypointIndex ?? 0,
+    });
+  }
+
+  // Rota akışına göre sırala (origin → ara nokta → ...)
+  validRecs.sort((a, b) => a.waypointIndex - b.waypointIndex);
+
+  // Fire-and-forget audit log
+  const usage = summarizeUsage(model, response.usage);
+  prisma.aiRecommendationLog
+    .create({
+      data: {
+        userId,
+        model,
+        candidatePlaceIds: candidates.map((c) => c.placeId),
+        suggestedPlaceIds: validRecs.map((r) => r.placeId),
+        promptTokens:
+          (response.usage?.input_tokens || 0) +
+          (response.usage?.cache_creation_input_tokens || 0) +
+          (response.usage?.cache_read_input_tokens || 0),
+        completionTokens: response.usage?.output_tokens || 0,
+        cachedTokens: response.usage?.cache_read_input_tokens || 0,
+        latencyMs,
+        mood: mood || null,
+        lat: origin.lat,
+        lng: origin.lng,
+        responseJson: parsed ?? { raw: textBlock?.text?.slice(0, 1000) },
+      },
+    })
+    .catch((logErr) => {
+      console.error('[recommendForRoute] AiRecommendationLog write failed:', logErr.message);
+    });
+
+  logUsage({ userId, model, usage: response.usage, latencyMs });
+
+  return {
+    recommendations: validRecs,
+    noteToUser: typeof parsed?.noteToUser === 'string' ? parsed.noteToUser.trim() : '',
+    totalRouteDistanceKm: totalDistanceKm,
+    totalRouteDurationMin: totalDurationMin,
+    tier,
+    model,
+    latencyMs,
+    usage,
+  };
+}
+
 module.exports = {
   MODELS,
   PRICING,
@@ -382,6 +520,7 @@ module.exports = {
   logUsage,
   recommend,
   recommendStream,
+  recommendForRoute,
   // testable
   __test: {
     parseLlmJson,

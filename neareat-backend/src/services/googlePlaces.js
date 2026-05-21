@@ -98,6 +98,69 @@ async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
   return results;
 }
 
+const ROUTE_WAYPOINTS_TTL = 3600; // 1 saat — rota sık değişmez
+
+/**
+ * Google Directions API → rota boyunca max 3 arama noktası döner.
+ * origin her zaman dahil. Rota uzunluğuna göre 1-2 ara nokta eklenir:
+ *   < 5 km: sadece origin
+ *   5-20 km: origin + %50 noktası
+ *   > 20 km: origin + %33 + %66 noktaları
+ *
+ * @returns {{ waypoints: Array<{lat,lng}>, totalDistanceKm: number, totalDurationMin: number } | null}
+ *   null → rota bulunamadı (geçersiz koordinat, ulaşılamaz)
+ */
+async function getRouteWaypoints(originLat, originLng, destLat, destLng) {
+  const cacheKey = `routeWaypoints:${originLat.toFixed(3)}:${originLng.toFixed(3)}:${destLat.toFixed(3)}:${destLng.toFixed(3)}`;
+  const cached = await cacheGet(cacheKey);
+  if (cached) return cached;
+
+  const url =
+    `https://maps.googleapis.com/maps/api/directions/json` +
+    `?origin=${originLat},${originLng}&destination=${destLat},${destLng}` +
+    `&mode=driving&language=tr&key=${API_KEY}`;
+
+  const data = await fetchJson(url);
+
+  if (data.status !== 'OK' || !data.routes?.length) {
+    return null;
+  }
+
+  const route = data.routes[0];
+  const allSteps = route.legs.flatMap((leg) => leg.steps);
+
+  const totalDistanceM = route.legs.reduce((s, l) => s + l.distance.value, 0);
+  const totalDurationS = route.legs.reduce((s, l) => s + l.duration.value, 0);
+  const totalDistanceKm = Math.round((totalDistanceM / 1000) * 10) / 10;
+  const totalDurationMin = Math.round(totalDurationS / 60);
+
+  const waypoints = [{ lat: originLat, lng: originLng }];
+
+  let targets = [];
+  if (totalDistanceKm > 20) {
+    targets = [totalDistanceM * 0.33, totalDistanceM * 0.66];
+  } else if (totalDistanceKm >= 5) {
+    targets = [totalDistanceM * 0.5];
+  }
+
+  if (targets.length > 0) {
+    let cumDist = 0;
+    let targetIdx = 0;
+    for (const step of allSteps) {
+      if (targetIdx >= targets.length) break;
+      cumDist += step.distance.value;
+      if (cumDist >= targets[targetIdx]) {
+        waypoints.push({ lat: step.end_location.lat, lng: step.end_location.lng });
+        targetIdx++;
+      }
+    }
+  }
+
+  const result = { waypoints, totalDistanceKm, totalDurationMin };
+  await cacheSet(cacheKey, result, ROUTE_WAYPOINTS_TTL);
+  return result;
+}
+
 async function getPlaceDetails(placeId) {
   const cacheKey = `place:${placeId}`;
   const cached = await cacheGet(cacheKey);
@@ -131,4 +194,4 @@ function getPhotoUrl(photoReference, maxWidth = 800) {
   );
 }
 
-module.exports = { getNearbyRestaurants, getNearbyRestaurantsFast, getPlaceDetails, getPhotoUrl };
+module.exports = { getNearbyRestaurants, getNearbyRestaurantsFast, getRouteWaypoints, getPlaceDetails, getPhotoUrl };
