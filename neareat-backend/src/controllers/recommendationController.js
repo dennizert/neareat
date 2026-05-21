@@ -15,7 +15,7 @@
 
 const prisma = require('../utils/prisma');
 const { isPremiumUser } = require('../utils/premiumCheck');
-const { recommend, recommendStream } = require('../services/recommendationService');
+const { recommend, recommendStream, recommendForRoute } = require('../services/recommendationService');
 
 const FREE_DAILY_LIMIT = 3;
 const FEEDBACK_DAILY_LIMIT = 50;
@@ -320,9 +320,115 @@ async function postFeedback(req, res, next) {
   }
 }
 
+/**
+ * POST /api/recommendations/route-tonight
+ * body: { originLat, originLng, destLat, destLng, mood? }
+ * Rota üzerindeki en iyi 1-3 restoranı önerir.
+ * Aynı günlük sayacı /dinner-tonight ile paylaşır (free: 3/gün).
+ */
+async function getRouteTonightRecommendation(req, res, next) {
+  try {
+    const { originLat, originLng, destLat, destLng, mood } = req.body || {};
+
+    if (
+      typeof originLat !== 'number' || typeof originLng !== 'number' ||
+      typeof destLat !== 'number' || typeof destLng !== 'number'
+    ) {
+      return res.status(400).json({ error: 'originLat, originLng, destLat, destLng zorunlu (number)' });
+    }
+    if (originLat < -90 || originLat > 90 || destLat < -90 || destLat > 90) {
+      return res.status(400).json({ error: 'lat değerleri −90..90 arasında olmalı' });
+    }
+    if (originLng < -180 || originLng > 180 || destLng < -180 || destLng > 180) {
+      return res.status(400).json({ error: 'lng değerleri −180..180 arasında olmalı' });
+    }
+    let trimmedMood = null;
+    if (mood != null) {
+      if (typeof mood !== 'string') return res.status(400).json({ error: 'mood string olmalı' });
+      trimmedMood = mood.trim().slice(0, MAX_MOOD_LENGTH) || null;
+    }
+
+    const isPremium = await isPremiumUser(req.user.id);
+    let remaining = null;
+
+    if (!isPremium) {
+      const used = await countTodayCalls(req.user.id);
+      remaining = Math.max(0, FREE_DAILY_LIMIT - used);
+      if (used >= FREE_DAILY_LIMIT) {
+        return res.status(429).json({
+          error: 'LIMIT_EXCEEDED',
+          message: 'Günlük 3 AI öneri hakkın doldu. Premium\'a geçerek limitsiz öneri al.',
+          upgrade: true,
+          remaining: 0,
+          resetAt: getNextIstanbulMidnightUtc().toISOString(),
+        });
+      }
+    }
+
+    const result = await recommendForRoute({
+      userId: req.user.id,
+      origin: { lat: originLat, lng: originLng },
+      destination: { lat: destLat, lng: destLng },
+      mood: trimmedMood,
+      isPremium,
+    });
+
+    if (result.noRoute) {
+      return res.status(404).json({
+        error: 'NO_ROUTE_FOUND',
+        message: 'Verilen koordinatlar arasında rota bulunamadı.',
+      });
+    }
+
+    if (result.noCandidates) {
+      return res.status(404).json({
+        error: 'NO_CANDIDATES',
+        message: 'Rota boyunca uygun restoran bulamadık.',
+      });
+    }
+
+    if (!isPremium) {
+      remaining = Math.max(0, remaining - 1);
+    }
+
+    const recommendations = result.recommendations.map((r, i) => ({
+      placeId: r.placeId,
+      reason: r.reason,
+      restaurant: {
+        name: r.candidate.name,
+        types: r.candidate.types,
+        rating: r.candidate.rating,
+        userRatingsTotal: r.candidate.userRatingsTotal,
+        priceLevel: r.candidate.priceLevel,
+        vicinity: r.candidate.vicinity,
+        location: r.candidate.location,
+        distanceKm: r.candidate.distanceKm,
+        openNow: r.candidate.openNow,
+        photoUrl: r.candidate.photoUrl ?? null,
+        sequenceOrder: i + 1,
+      },
+    }));
+
+    return res.json({
+      recommendations,
+      noteToUser: result.noteToUser,
+      totalRouteDistanceKm: result.totalRouteDistanceKm,
+      totalRouteDurationMin: result.totalRouteDurationMin,
+      tier: result.tier,
+      model: result.model,
+      remainingToday: isPremium ? null : remaining,
+      resetAt: isPremium ? null : getNextIstanbulMidnightUtc().toISOString(),
+      latencyMs: result.latencyMs,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getDinnerTonight,
   getDinnerTonightStream,
+  getRouteTonightRecommendation,
   postFeedback,
   // testable internals
   __test: {

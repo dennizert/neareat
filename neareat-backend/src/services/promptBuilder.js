@@ -688,7 +688,7 @@ function buildProfileBlock(profileText) {
  * USER MESSAGE'IN DEĞİŞKEN KISMI — Cache yok.
  * Bu blok her istekte değişir: konum, aday liste, mood, tarih.
  */
-function buildVariableBlock({ candidates, location, mood, now }) {
+function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
   const nowIso = now || new Date().toISOString();
   const localTime = new Date(nowIso).toLocaleString('tr-TR', {
     timeZone: 'Europe/Istanbul',
@@ -723,6 +723,10 @@ function buildVariableBlock({ candidates, location, mood, now }) {
     'cümle kişisel gerekçe yaz. Sistem promptundaki ÇIKTI FORMATINA harfiyen uy.\n' +
     'Sadece JSON döndür.';
 
+  if (routeContext) {
+    text += '\n\n# Rota Bağlamı\n\n' + routeContext;
+  }
+
   return {
     type: 'text',
     text,
@@ -740,10 +744,10 @@ function buildVariableBlock({ candidates, location, mood, now }) {
  * @param {string} [params.now] - test/determinism için override edilebilir ISO string
  * @returns {{ system, messages, tokenEstimate: object }}
  */
-function buildClaudeRequest({ profileSummary, candidates, location, mood, now }) {
+function buildClaudeRequest({ profileSummary, candidates, location, mood, now, routeContext }) {
   const system = buildSystemBlock();
   const profileBlock = buildProfileBlock(profileSummary.text);
-  const variableBlock = buildVariableBlock({ candidates, location, mood, now });
+  const variableBlock = buildVariableBlock({ candidates, location, mood, now, routeContext });
 
   const messages = [
     {
