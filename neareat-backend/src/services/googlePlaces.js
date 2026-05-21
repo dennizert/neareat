@@ -196,4 +196,38 @@ function getPhotoUrl(photoReference, maxWidth = 800) {
   );
 }
 
-module.exports = { getNearbyRestaurants, getNearbyRestaurantsFast, getRouteWaypoints, getPlaceDetails, getPhotoUrl };
+/**
+ * Google Places opening_hours.periods formatına göre belirli bir gün+saatte açık mı kontrol eder.
+ *
+ * @param {Array} periods - Place Details opening_hours.periods dizisi
+ * @param {number} dayOfWeek - 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi (lokal saat)
+ * @param {string} timeHHMM  - "HHMM" formatında lokal saat (örn. "1430")
+ * @returns {boolean|null} true=açık, false=kapalı, null=belirsiz (periods eksik)
+ */
+function isOpenAtTime(periods, dayOfWeek, timeHHMM) {
+  if (!Array.isArray(periods) || periods.length === 0) return null;
+
+  // 24/7: tek eleman, close yok
+  if (periods.length === 1 && !periods[0].close) return true;
+
+  for (const period of periods) {
+    if (!period.open) continue;
+    const openDay  = period.open.day;
+    const openTime = period.open.time;
+    if (!period.close) continue;
+    const closeDay  = period.close.day;
+    const closeTime = period.close.time;
+
+    if (openDay === closeDay) {
+      // Aynı gün kapanıyor
+      if (openDay === dayOfWeek && timeHHMM >= openTime && timeHHMM < closeTime) return true;
+    } else {
+      // Gece yarısını geçiyor
+      if (openDay === dayOfWeek && timeHHMM >= openTime) return true;
+      if (closeDay === dayOfWeek && timeHHMM < closeTime) return true;
+    }
+  }
+  return false;
+}
+
+module.exports = { getNearbyRestaurants, getNearbyRestaurantsFast, getRouteWaypoints, getPlaceDetails, getPhotoUrl, isOpenAtTime };

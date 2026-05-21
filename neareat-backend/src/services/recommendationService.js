@@ -14,7 +14,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const prisma = require('../utils/prisma');
 const { getCandidates, MAX_CANDIDATES } = require('./candidateService');
-const { getRouteWaypoints } = require('./googlePlaces');
+const { getRouteWaypoints, getPlaceDetails, isOpenAtTime } = require('./googlePlaces');
 const { buildUserProfileSummary, buildClaudeRequest } = require('./promptBuilder');
 
 const MODELS = Object.freeze({
@@ -106,6 +106,55 @@ function logUsage({ userId, model, usage, latencyMs }) {
 
 const MAX_OUTPUT_TOKENS = 1024;
 
+// Turkey is UTC+3 year-round (no DST)
+const ISTANBUL_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function istanbulTimeAtMs(timestampMs) {
+  const d = new Date(timestampMs + ISTANBUL_OFFSET_MS);
+  const dayOfWeek = d.getUTCDay();
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+  return { dayOfWeek, timeHHMM: hh + mm };
+}
+
+/**
+ * Fetches Place Details for each candidate (concurrency=3) and attaches:
+ *   detourKm = round(distanceKm * 2, 1)  — rough round-trip off-route estimate
+ *   openAtArrival = true | false | null   — null when periods missing or fetch fails
+ *
+ * @param {Array} candidates
+ * @param {Map<number,number>} waypointArrivalTimes  — waypointIndex → timestampMs
+ */
+async function enrichOpenAtArrival(candidates, waypointArrivalTimes) {
+  const enriched = [];
+  for (let i = 0; i < candidates.length; i += 3) {
+    const batch = candidates.slice(i, i + 3);
+    const results = await Promise.allSettled(
+      batch.map(async (c) => {
+        const detourKm = Math.round(c.distanceKm * 2 * 10) / 10;
+        const arrivalMs = waypointArrivalTimes.get(c.waypointIndex ?? 0);
+        if (arrivalMs == null) return { ...c, detourKm, openAtArrival: null };
+        try {
+          const details = await getPlaceDetails(c.placeId);
+          const periods = details?.opening_hours?.periods;
+          const { dayOfWeek, timeHHMM } = istanbulTimeAtMs(arrivalMs);
+          return { ...c, detourKm, openAtArrival: isOpenAtTime(periods, dayOfWeek, timeHHMM) };
+        } catch {
+          return { ...c, detourKm, openAtArrival: null };
+        }
+      })
+    );
+    for (let j = 0; j < results.length; j++) {
+      if (results[j].status === 'fulfilled') {
+        enriched.push(results[j].value);
+      } else {
+        enriched.push({ ...batch[j], detourKm: Math.round(batch[j].distanceKm * 2 * 10) / 10, openAtArrival: null });
+      }
+    }
+  }
+  return enriched;
+}
+
 /**
  * LLM JSON response'unu temizle ve parse et.
  * Sistem promptu markdown yasakladı ama bazen LLM ```json ... ``` ekleyebilir;
@@ -150,7 +199,7 @@ function parseLlmJson(text) {
  * @param {boolean} [params.isPremium=false] - controller'dan geliyor
  * @returns {Promise<object>}
  */
-async function recommend({ userId, location, mood, isPremium = false }) {
+async function recommend({ userId, location, isPremium = false }) {
   const tier = isPremium ? 'premium' : 'free';
   const model = modelForTier(tier);
 
@@ -162,7 +211,7 @@ async function recommend({ userId, location, mood, isPremium = false }) {
 
   // 2. Prompt (premium'da arkadaş sinyalleri dahil edilir)
   const profileSummary = await buildUserProfileSummary(userId, { tier });
-  const req = buildClaudeRequest({ profileSummary, candidates, location, mood });
+  const req = buildClaudeRequest({ profileSummary, candidates, location });
 
   // 3. LLM
   const client = getClient();
@@ -221,7 +270,7 @@ async function recommend({ userId, location, mood, isPremium = false }) {
         completionTokens: response.usage?.output_tokens || 0,
         cachedTokens: response.usage?.cache_read_input_tokens || 0,
         latencyMs,
-        mood: mood || null,
+        mood: null,
         lat: location.lat,
         lng: location.lng,
         responseJson: parsed ?? { raw: textBlock?.text?.slice(0, 1000) },
@@ -263,7 +312,7 @@ async function recommend({ userId, location, mood, isPremium = false }) {
  * @param {(meta: object) => void} p.onDone
  * @returns {Promise<{ noCandidates?: true }>}
  */
-async function recommendStream({ userId, location, mood, isPremium = false, abortRef, onCard, onNote, onDone }) {
+async function recommendStream({ userId, location, isPremium = false, abortRef, onCard, onNote, onDone }) {
   const tier = isPremium ? 'premium' : 'free';
   const model = modelForTier(tier);
 
@@ -273,7 +322,7 @@ async function recommendStream({ userId, location, mood, isPremium = false, abor
   }
 
   const profileSummary = await buildUserProfileSummary(userId, { tier });
-  const req = buildClaudeRequest({ profileSummary, candidates, location, mood });
+  const req = buildClaudeRequest({ profileSummary, candidates, location });
 
   const client = getClient();
   const t0 = Date.now();
@@ -356,7 +405,7 @@ async function recommendStream({ userId, location, mood, isPremium = false, abor
         completionTokens: finalMsg.usage?.output_tokens || 0,
         cachedTokens: finalMsg.usage?.cache_read_input_tokens || 0,
         latencyMs,
-        mood: mood || null,
+        mood: null,
         lat: location.lat,
         lng: location.lng,
         responseJson: parsed ?? { raw: textBlock?.text?.slice(0, 1000) },
@@ -387,7 +436,7 @@ async function recommendStream({ userId, location, mood, isPremium = false, abor
  *   { noCandidates: true } → Rota boyunca aday yok
  *   Başarılı: { recommendations, noteToUser, totalRouteDistanceKm, totalRouteDurationMin, tier, model, latencyMs, usage }
  */
-async function recommendForRoute({ userId, origin, destination, mood, isPremium = false }) {
+async function recommendForRoute({ userId, origin, destination, departureTime, isPremium = false }) {
   const routeData = await getRouteWaypoints(origin.lat, origin.lng, destination.lat, destination.lng);
   if (!routeData || !routeData.waypoints.length) {
     return { noRoute: true };
@@ -396,6 +445,16 @@ async function recommendForRoute({ userId, origin, destination, mood, isPremium 
   const { waypoints, totalDistanceKm, totalDurationMin } = routeData;
   const tier = isPremium ? 'premium' : 'free';
   const model = modelForTier(tier);
+
+  // Waypoint arrival times — fraction = (i+1)/(n+1) → [0.25, 0.50, 0.75] for 3 waypoints
+  const waypointArrivalTimes = new Map();
+  const departureMs = departureTime ? new Date(departureTime).getTime() : null;
+  if (departureMs && !isNaN(departureMs)) {
+    for (let i = 0; i < waypoints.length; i++) {
+      const fraction = (i + 1) / (waypoints.length + 1);
+      waypointArrivalTimes.set(i, departureMs + fraction * totalDurationMin * 60 * 1000);
+    }
+  }
 
   // Her ara nokta için aday çek — ardışık (Redis cache sayesinde tekrar noktalar hızlı)
   const wpCandidatesAll = [];
@@ -415,7 +474,7 @@ async function recommendForRoute({ userId, origin, destination, mood, isPremium 
       candidateMap.set(c.placeId, c);
     }
   }
-  const candidates = [...candidateMap.values()]
+  let candidates = [...candidateMap.values()]
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_CANDIDATES);
 
@@ -423,12 +482,34 @@ async function recommendForRoute({ userId, origin, destination, mood, isPremium 
     return { noCandidates: true };
   }
 
+  // Enrich each candidate: detourKm + openAtArrival from Place Details
+  candidates = await enrichOpenAtArrival(candidates, waypointArrivalTimes);
+
+  // If ≥3 candidates are open at arrival time, drop definitely-closed ones
+  const openCandidates = candidates.filter((c) => c.openAtArrival !== false);
+  if (openCandidates.length >= 3) {
+    candidates = openCandidates;
+  }
+
   const profileSummary = await buildUserProfileSummary(userId, { tier });
-  const routeContext =
+
+  // Route context for Claude — include departure/arrival hint when available
+  const DAY_NAMES = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  let routeContext =
     `Rota uzunluğu: ~${totalDistanceKm} km, ~${totalDurationMin} dakika.\n` +
-    `Adaylar rotanın orta bölümünden seçildi (çıkış ve varış noktasından ~${Math.round(totalDistanceKm / 4)} km uzakta).\n` +
-    `Önerirken yolda kolayca durulabilecek, rotaya yakın yerleri tercih et.`;
-  const req = buildClaudeRequest({ profileSummary, candidates, location: origin, mood, routeContext });
+    `Adaylar rotanın orta bölümünden seçildi (çıkış ve varış noktasından ~${Math.round(totalDistanceKm / 4)} km uzakta).\n`;
+  let nowOverride;
+  if (departureMs && !isNaN(departureMs)) {
+    const midArrivalMs = departureMs + 0.5 * totalDurationMin * 60 * 1000;
+    const { dayOfWeek, timeHHMM } = istanbulTimeAtMs(midArrivalMs);
+    routeContext +=
+      `Tahmini rota orta noktasına ulaşım: ${DAY_NAMES[dayOfWeek]} ~${timeHHMM.slice(0, 2)}:${timeHHMM.slice(2)} (Türkiye saati).\n` +
+      `Kesinlikle kapalı restoranlar filtrelendi; geri kalanlar bu saatte açık veya açılış bilgisi belirsiz.\n`;
+    nowOverride = new Date(midArrivalMs).toISOString();
+  }
+  routeContext += `Önerirken yolda kolayca durulabilecek, rotaya yakın yerleri tercih et.`;
+
+  const req = buildClaudeRequest({ profileSummary, candidates, location: origin, routeContext, now: nowOverride });
 
   const client = getClient();
   const t0 = Date.now();
@@ -486,7 +567,7 @@ async function recommendForRoute({ userId, origin, destination, mood, isPremium 
         completionTokens: response.usage?.output_tokens || 0,
         cachedTokens: response.usage?.cache_read_input_tokens || 0,
         latencyMs,
-        mood: mood || null,
+        mood: null,
         lat: origin.lat,
         lng: origin.lng,
         responseJson: parsed ?? { raw: textBlock?.text?.slice(0, 1000) },
@@ -499,7 +580,11 @@ async function recommendForRoute({ userId, origin, destination, mood, isPremium 
   logUsage({ userId, model, usage: response.usage, latencyMs });
 
   return {
-    recommendations: validRecs,
+    recommendations: validRecs.map((r) => ({
+      ...r,
+      detourKm: r.candidate.detourKm ?? null,
+      openAtArrival: r.candidate.openAtArrival ?? null,
+    })),
     noteToUser: typeof parsed?.noteToUser === 'string' ? parsed.noteToUser.trim() : '',
     totalRouteDistanceKm: totalDistanceKm,
     totalRouteDurationMin: totalDurationMin,

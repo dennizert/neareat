@@ -58,7 +58,7 @@ async function countTodayCalls(userId) {
 
 async function getDinnerTonight(req, res, next) {
   try {
-    const { lat, lng, mood } = req.body || {};
+    const { lat, lng } = req.body || {};
 
     // Validation
     if (typeof lat !== 'number' || typeof lng !== 'number') {
@@ -66,14 +66,6 @@ async function getDinnerTonight(req, res, next) {
     }
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return res.status(400).json({ error: 'Geçersiz koordinat' });
-    }
-    let trimmedMood = null;
-    if (mood != null) {
-      if (typeof mood !== 'string') {
-        return res.status(400).json({ error: 'mood string olmalı' });
-      }
-      trimmedMood = mood.trim().slice(0, MAX_MOOD_LENGTH);
-      if (!trimmedMood) trimmedMood = null;
     }
 
     // Tier
@@ -99,7 +91,6 @@ async function getDinnerTonight(req, res, next) {
     const result = await recommend({
       userId: req.user.id,
       location: { lat, lng },
-      mood: trimmedMood,
       isPremium,
     });
 
@@ -164,21 +155,13 @@ function sseWrite(res, payload) {
 async function getDinnerTonightStream(req, res, next) {
   let keepAlive = null;
   try {
-    const { lat, lng, mood } = req.body || {};
+    const { lat, lng } = req.body || {};
 
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       return res.status(400).json({ error: 'lat ve lng zorunlu (number)' });
     }
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return res.status(400).json({ error: 'Geçersiz koordinat' });
-    }
-    let trimmedMood = null;
-    if (mood != null) {
-      if (typeof mood !== 'string') {
-        return res.status(400).json({ error: 'mood string olmalı' });
-      }
-      trimmedMood = mood.trim().slice(0, MAX_MOOD_LENGTH);
-      if (!trimmedMood) trimmedMood = null;
     }
 
     // SSE headers — sonraki her yazma istemciye uçar
@@ -225,7 +208,6 @@ async function getDinnerTonightStream(req, res, next) {
     const result = await recommendStream({
       userId: req.user.id,
       location: { lat, lng },
-      mood: trimmedMood,
       isPremium,
       abortRef,
       onCard: (recommendation) => {
@@ -342,7 +324,7 @@ async function postFeedback(req, res, next) {
  */
 async function getRouteTonightRecommendation(req, res, next) {
   try {
-    const { originLat, originLng, destLat, destLng, mood } = req.body || {};
+    const { originLat, originLng, destLat, destLng, departureTime } = req.body || {};
 
     if (
       typeof originLat !== 'number' || typeof originLng !== 'number' ||
@@ -356,10 +338,17 @@ async function getRouteTonightRecommendation(req, res, next) {
     if (originLng < -180 || originLng > 180 || destLng < -180 || destLng > 180) {
       return res.status(400).json({ error: 'lng değerleri −180..180 arasında olmalı' });
     }
-    let trimmedMood = null;
-    if (mood != null) {
-      if (typeof mood !== 'string') return res.status(400).json({ error: 'mood string olmalı' });
-      trimmedMood = mood.trim().slice(0, MAX_MOOD_LENGTH) || null;
+    // departureTime: optional ISO date string
+    let validDepartureTime = null;
+    if (departureTime != null) {
+      if (typeof departureTime !== 'string') {
+        return res.status(400).json({ error: 'departureTime string (ISO) olmalı' });
+      }
+      const t = new Date(departureTime).getTime();
+      if (isNaN(t)) {
+        return res.status(400).json({ error: 'departureTime geçerli bir tarih olmalı' });
+      }
+      validDepartureTime = departureTime;
     }
 
     const isPremium = await isPremiumUser(req.user.id);
@@ -383,7 +372,7 @@ async function getRouteTonightRecommendation(req, res, next) {
       userId: req.user.id,
       origin: { lat: originLat, lng: originLng },
       destination: { lat: destLat, lng: destLng },
-      mood: trimmedMood,
+      departureTime: validDepartureTime,
       isPremium,
     });
 
@@ -420,6 +409,8 @@ async function getRouteTonightRecommendation(req, res, next) {
         openNow: r.candidate.openNow,
         photoUrl: r.candidate.photoUrl ?? null,
         sequenceOrder: i + 1,
+        detourKm: r.detourKm ?? null,
+        openAtArrival: r.openAtArrival ?? null,
       },
     }));
 

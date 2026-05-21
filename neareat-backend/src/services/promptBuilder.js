@@ -713,8 +713,7 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
   let text =
     '# Şu Anki Sorgu\n\n' +
     `Zaman: ${localTime} (Türkiye saati)\n` +
-    `Konum: ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}\n` +
-    `Mood (kullanıcı belirttiyse): ${mood ? mood : 'belirtilmedi'}\n\n` +
+    `Konum: ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}\n\n` +
     '# Aday Restoranlar\n\n' +
     `Toplam ${candidates.length} aday. Sıralama bizim skor algoritmamızdan; sen kendi mantığına göre değerlendir.\n\n` +
     candidateLines.join('\n\n') +
