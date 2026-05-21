@@ -206,11 +206,11 @@ async function getDinnerTonightStream(req, res, next) {
       }
     }
 
-    // Proxy idle-timeout'u önlemek için her 15 sn bir SSE comment satırı gönder.
-    // Railway/Nginx varsayılan idle timeout ~30-60 sn; bu ping bağlantıyı ayakta tutar.
+    // Proxy idle-timeout'u önlemek için her 8 sn bir SSE comment satırı gönder.
+    // Railway proxy'si ~10-12 sn idle timeout uygular; 8 sn ping bunu aşıyor.
     keepAlive = setInterval(() => {
       if (!res.writableEnded) res.write(': ping\n\n');
-    }, 15_000);
+    }, 8_000);
 
     // Client bağlantıyı koparırsa stream durdur
     const abortRef = { abort: null };
