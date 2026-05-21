@@ -710,7 +710,7 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
     );
   });
 
-  const text =
+  let text =
     '# Şu Anki Sorgu\n\n' +
     `Zaman: ${localTime} (Türkiye saati)\n` +
     `Konum: ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}\n` +

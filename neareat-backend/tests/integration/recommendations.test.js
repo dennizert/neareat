@@ -66,6 +66,7 @@ const mockGooglePlaces = {
   getNearbyRestaurantsFast: jest.fn(),
   getPlaceDetails: jest.fn(),
   getPhotoUrl: jest.fn(),
+  getRouteWaypoints: jest.fn(),
 };
 jest.mock('../../src/services/googlePlaces', () => mockGooglePlaces);
 
@@ -157,6 +158,13 @@ beforeEach(() => {
     makePlace(4, { types: ['restaurant'] }),
     makePlace(5, { types: ['restaurant'] }),
   ]);
+
+  // Route waypoints default — single waypoint (origin only)
+  mockGooglePlaces.getRouteWaypoints.mockResolvedValue({
+    waypoints: [{ lat: 41.04, lng: 28.98 }],
+    totalDistanceKm: 10.5,
+    totalDurationMin: 25,
+  });
 
   // Default LLM response — returns first 2
   mockAnthropicCreate.mockResolvedValue(mockAnthropicResponse({
@@ -688,5 +696,174 @@ describe('POST /api/recommendations/feedback — DB error propagation', () => {
       .send({ placeId: 'p1', sentiment: 'positive' });
 
     expect(res.status).toBe(500);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ROUTE-TONIGHT (Sprint-3 Task #6)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('POST /api/recommendations/route-tonight — auth + validation', () => {
+  it('returns 401 without token', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when originLat is missing', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when destLng is missing', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99 });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when coords are strings instead of numbers', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: '41.04', originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for out-of-range originLat', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 100, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for out-of-range destLng', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 200 });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when mood is not a string', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02, mood: 99 });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/recommendations/route-tonight — happy path', () => {
+  beforeEach(() => {
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
+    // Premium — no rate limit concerns
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      userId: testUser.id,
+      status: 'active',
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+  });
+
+  it('returns 200 with recommendations and route meta', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.recommendations)).toBe(true);
+    expect(typeof res.body.totalRouteDistanceKm).toBe('number');
+    expect(typeof res.body.totalRouteDurationMin).toBe('number');
+    expect(res.body.tier).toBe('premium');
+  });
+
+  it('each recommendation has restaurant with sequenceOrder', async () => {
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+
+    expect(res.status).toBe(200);
+    if (res.body.recommendations.length > 0) {
+      const first = res.body.recommendations[0];
+      expect(first.placeId).toBeDefined();
+      expect(first.reason).toBeDefined();
+      expect(first.restaurant).toBeDefined();
+      expect(first.restaurant.sequenceOrder).toBe(1);
+    }
+  });
+
+  it('calls getRouteWaypoints with origin and destination coords', async () => {
+    await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+
+    expect(mockGooglePlaces.getRouteWaypoints).toHaveBeenCalledWith(41.04, 28.98, 40.99, 29.02);
+  });
+
+  it('returns 404 NO_ROUTE_FOUND when getRouteWaypoints returns null', async () => {
+    mockGooglePlaces.getRouteWaypoints.mockResolvedValueOnce(null);
+
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('NO_ROUTE_FOUND');
+    expect(mockAnthropicCreate).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 NO_CANDIDATES when no nearby restaurants found', async () => {
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([]);
+
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('NO_CANDIDATES');
+  });
+});
+
+describe('POST /api/recommendations/route-tonight — rate limit (shared counter)', () => {
+  it('returns 429 LIMIT_EXCEEDED for free user at daily limit', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(3);
+
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error).toBe('LIMIT_EXCEEDED');
+    expect(res.body.upgrade).toBe(true);
+    expect(mockAnthropicCreate).not.toHaveBeenCalled();
+  });
+
+  it('premium user is not rate limited on route-tonight', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      userId: testUser.id,
+      status: 'active',
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(100);
+
+    const res = await request(app)
+      .post('/api/recommendations/route-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
+
+    expect(res.status).toBe(200);
   });
 });

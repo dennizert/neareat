@@ -674,12 +674,12 @@ npm run test:stores
 ### Feedback loop (Sprint-2 Task #4-#6)
 
 #### Backend — POST /api/recommendations/feedback
-1. Geçerli placeId + sentiment=LIKE → 201 + feedback objesi
-2. Geçerli placeId + sentiment=DISLIKE → 201 + feedback objesi
+1. Geçerli placeId + sentiment=positive → 201 + feedback objesi
+2. Geçerli placeId + sentiment=negative → 201 + feedback objesi
 3. comment opsiyonel (max 500 char, trim edilir)
 4. visited opsiyonel boolean
 5. sentiment eksik → 400 "sentiment zorunlu"
-6. sentiment geçersiz değer → 400 "LIKE veya DISLIKE"
+6. sentiment geçersiz değer → 400 "positive veya negative"
 7. placeId eksik → 400 "placeId zorunlu"
 8. No auth → 401
 9. Günde 50 feedback aşımı → 429 FEEDBACK_LIMIT
