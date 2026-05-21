@@ -247,6 +247,131 @@ async function recommend({ userId, location, mood, isPremium = false }) {
   };
 }
 
+/**
+ * Streaming versiyonu — her öneri kartı hazır olduğunda callbacks ile emit eder.
+ * Controller, SSE `data:` satırlarını doğrudan yazabilir.
+ *
+ * @param {object} p
+ * @param {string} p.userId
+ * @param {{ lat: number, lng: number }} p.location
+ * @param {string} [p.mood]
+ * @param {boolean} [p.isPremium=false]
+ * @param {{ abort: Function|null }} p.abortRef  - req.on('close') için dışarıdan bağlanır
+ * @param {(rec: object) => void} p.onCard
+ * @param {(note: string) => void} p.onNote
+ * @param {(meta: object) => void} p.onDone
+ * @returns {Promise<{ noCandidates?: true }>}
+ */
+async function recommendStream({ userId, location, mood, isPremium = false, abortRef, onCard, onNote, onDone }) {
+  const tier = isPremium ? 'premium' : 'free';
+  const model = modelForTier(tier);
+
+  const { candidates, meta: candMeta } = await getCandidates(userId, location);
+  if (!candidates.length) {
+    return { noCandidates: true, meta: { candidates: candMeta } };
+  }
+
+  const profileSummary = await buildUserProfileSummary(userId, { tier });
+  const req = buildClaudeRequest({ profileSummary, candidates, location, mood });
+
+  const client = getClient();
+  const t0 = Date.now();
+
+  const stream = client.messages.stream({
+    model,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    system: req.system,
+    messages: req.messages,
+  });
+
+  // Dışarıdan abort edilebilsin (req.on('close'))
+  if (abortRef) abortRef.abort = () => stream.abort();
+
+  let finalMsg;
+  try {
+    finalMsg = await stream.finalMessage();
+  } catch (err) {
+    err.context = { userId, model, latencyMs: Date.now() - t0 };
+    throw err;
+  }
+  const latencyMs = Date.now() - t0;
+
+  const textBlock = finalMsg.content?.find((b) => b.type === 'text');
+  const parsed = parseLlmJson(textBlock?.text);
+  const rawRecs = Array.isArray(parsed?.recommendations) ? parsed.recommendations : [];
+  const candidatesByPlaceId = new Map(candidates.map((c) => [c.placeId, c]));
+
+  const validRecs = [];
+  const seen = new Set();
+  for (const rec of rawRecs) {
+    if (!rec?.placeId || typeof rec.placeId !== 'string') continue;
+    if (seen.has(rec.placeId)) continue;
+    const candidate = candidatesByPlaceId.get(rec.placeId);
+    if (!candidate) continue;
+    seen.add(rec.placeId);
+    validRecs.push({
+      placeId: rec.placeId,
+      reason: typeof rec.reason === 'string' ? rec.reason.trim() : '',
+      candidate,
+    });
+  }
+
+  // Kartları birer birer emit et
+  for (const r of validRecs) {
+    onCard({
+      placeId: r.placeId,
+      reason: r.reason,
+      restaurant: {
+        name: r.candidate.name,
+        types: r.candidate.types,
+        rating: r.candidate.rating,
+        userRatingsTotal: r.candidate.userRatingsTotal,
+        priceLevel: r.candidate.priceLevel,
+        vicinity: r.candidate.vicinity,
+        location: r.candidate.location,
+        distanceKm: r.candidate.distanceKm,
+        openNow: r.candidate.openNow,
+        photoUrl: r.candidate.photoUrl ?? null,
+      },
+    });
+  }
+
+  const noteToUser = typeof parsed?.noteToUser === 'string' ? parsed.noteToUser.trim() : '';
+  if (noteToUser) onNote(noteToUser);
+
+  // Fire-and-forget audit log
+  const usage = summarizeUsage(model, finalMsg.usage);
+  prisma.aiRecommendationLog
+    .create({
+      data: {
+        userId,
+        model,
+        candidatePlaceIds: candidates.map((c) => c.placeId),
+        suggestedPlaceIds: validRecs.map((r) => r.placeId),
+        promptTokens:
+          (finalMsg.usage?.input_tokens || 0) +
+          (finalMsg.usage?.cache_creation_input_tokens || 0) +
+          (finalMsg.usage?.cache_read_input_tokens || 0),
+        completionTokens: finalMsg.usage?.output_tokens || 0,
+        cachedTokens: finalMsg.usage?.cache_read_input_tokens || 0,
+        latencyMs,
+        mood: mood || null,
+        lat: location.lat,
+        lng: location.lng,
+        responseJson: parsed ?? { raw: textBlock?.text?.slice(0, 1000) },
+      },
+    })
+    .catch((logErr) => {
+      console.error('[recommendStream] AiRecommendationLog write failed:', logErr.message);
+    });
+
+  logUsage({ userId, model, usage: finalMsg.usage, latencyMs });
+
+  onDone({ tier, model, latencyMs, usage });
+
+  return {};
+}
+
 module.exports = {
   MODELS,
   PRICING,
@@ -256,6 +381,7 @@ module.exports = {
   summarizeUsage,
   logUsage,
   recommend,
+  recommendStream,
   // testable
   __test: {
     parseLlmJson,

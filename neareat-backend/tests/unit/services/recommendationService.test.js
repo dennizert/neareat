@@ -14,6 +14,7 @@ const mockPrisma = {
   starEvent: { findMany: jest.fn() },
   recommendation: { findMany: jest.fn() },
   friendRequest: { findMany: jest.fn() },
+  recommendationFeedback: { findMany: jest.fn().mockResolvedValue([]) },
   aiRecommendationLog: { create: jest.fn(), count: jest.fn() },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
