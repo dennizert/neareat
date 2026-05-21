@@ -46,6 +46,15 @@ const INITIAL_STATE = {
   limitReached: false,
   noCandidates: false,
   feedbackByPlaceId: {},
+  streamingStatus: 'idle' as const,
+  abortController: null,
+  routeRecommendations: [],
+  routeMeta: null,
+  routeNoteToUser: '',
+  routeLoading: false,
+  routeError: null,
+  routeLimitReached: false,
+  routeNoCandidates: false,
 };
 
 function resetStore() {
@@ -101,6 +110,12 @@ describe('aiRecommendationStore — initial state', () => {
     expect(s.error).toBeNull();
     expect(s.limitReached).toBe(false);
     expect(s.noCandidates).toBe(false);
+    expect(s.streamingStatus).toBe('idle');
+    expect(s.abortController).toBeNull();
+    expect(s.routeRecommendations).toEqual([]);
+    expect(s.routeMeta).toBeNull();
+    expect(s.routeLoading).toBe(false);
+    expect(s.routeError).toBeNull();
   });
 });
 
@@ -265,6 +280,7 @@ describe('aiRecommendationStore — clear()', () => {
     // Önce state'i değiştir
     mockedGetDinner.mockResolvedValueOnce(makeResponse());
     await useAiRecommendationStore.getState().fetchDinnerRecommendation(41.04, 28.98);
+    useAiRecommendationStore.setState({ streamingStatus: 'error', abortController: {} as AbortController });
 
     expect(useAiRecommendationStore.getState().recommendations).toHaveLength(1);
 
@@ -279,6 +295,8 @@ describe('aiRecommendationStore — clear()', () => {
     expect(s.limitReached).toBe(false);
     expect(s.noCandidates).toBe(false);
     expect(s.loading).toBe(false);
+    expect(s.streamingStatus).toBe('idle');
+    expect(s.abortController).toBeNull();
   });
 
   it('can be called multiple times safely', () => {
