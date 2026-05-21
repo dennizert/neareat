@@ -34,7 +34,7 @@ const mockPrisma = {
   starEvent: { findMany: jest.fn(), create: jest.fn() },
   recommendation: { findMany: jest.fn(), count: jest.fn() },
   aiRecommendationLog: { create: jest.fn(), count: jest.fn() },
-  recommendationFeedback: { create: jest.fn(), count: jest.fn() },
+  recommendationFeedback: { create: jest.fn(), count: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
   friendRequest: { findMany: jest.fn() },
   userLog: { create: jest.fn() },
   notification: { create: jest.fn() },

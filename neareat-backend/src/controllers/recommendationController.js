@@ -15,7 +15,7 @@
 
 const prisma = require('../utils/prisma');
 const { isPremiumUser } = require('../utils/premiumCheck');
-const { recommend } = require('../services/recommendationService');
+const { recommend, recommendStream } = require('../services/recommendationService');
 
 const FREE_DAILY_LIMIT = 3;
 const FEEDBACK_DAILY_LIMIT = 50;
@@ -150,6 +150,112 @@ async function getDinnerTonight(req, res, next) {
 }
 
 /**
+ * SSE yardımcı — tek event satırı yazar.
+ */
+function sseWrite(res, payload) {
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+/**
+ * POST /api/recommendations/dinner-tonight/stream
+ * SSE endpoint — her kart hazır olduğunda data: event gönderir.
+ * Mevcut /dinner-tonight endpoint'i silinmez — backward compat için kalır.
+ */
+async function getDinnerTonightStream(req, res, next) {
+  try {
+    const { lat, lng, mood } = req.body || {};
+
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      return res.status(400).json({ error: 'lat ve lng zorunlu (number)' });
+    }
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return res.status(400).json({ error: 'Geçersiz koordinat' });
+    }
+    let trimmedMood = null;
+    if (mood != null) {
+      if (typeof mood !== 'string') {
+        return res.status(400).json({ error: 'mood string olmalı' });
+      }
+      trimmedMood = mood.trim().slice(0, MAX_MOOD_LENGTH);
+      if (!trimmedMood) trimmedMood = null;
+    }
+
+    // SSE headers — sonraki her yazma istemciye uçar
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const isPremium = await isPremiumUser(req.user.id);
+    let remaining = null;
+
+    if (!isPremium) {
+      const used = await countTodayCalls(req.user.id);
+      remaining = Math.max(0, FREE_DAILY_LIMIT - used);
+      if (used >= FREE_DAILY_LIMIT) {
+        sseWrite(res, {
+          type: 'error',
+          code: 'LIMIT_EXCEEDED',
+          message: 'Günlük 3 AI öneri hakkın doldu. Premium\'a geçerek limitsiz öneri al.',
+          upgrade: true,
+          resetAt: getNextIstanbulMidnightUtc().toISOString(),
+        });
+        res.end();
+        return;
+      }
+    }
+
+    // Client bağlantıyı koparırsa stream durdur
+    const abortRef = { abort: null };
+    req.on('close', () => {
+      if (abortRef.abort) abortRef.abort();
+    });
+
+    const result = await recommendStream({
+      userId: req.user.id,
+      location: { lat, lng },
+      mood: trimmedMood,
+      isPremium,
+      abortRef,
+      onCard: (recommendation) => {
+        sseWrite(res, { type: 'card', recommendation });
+      },
+      onNote: (noteToUser) => {
+        sseWrite(res, { type: 'note', noteToUser });
+      },
+      onDone: ({ tier, model, latencyMs }) => {
+        if (!isPremium) remaining = Math.max(0, remaining - 1);
+        sseWrite(res, {
+          type: 'done',
+          tier,
+          model,
+          remainingToday: isPremium ? null : remaining,
+          resetAt: isPremium ? null : getNextIstanbulMidnightUtc().toISOString(),
+          latencyMs,
+        });
+        res.end();
+      },
+    });
+
+    if (result?.noCandidates) {
+      sseWrite(res, {
+        type: 'error',
+        code: 'NO_CANDIDATES',
+        message: 'Şu an yakınında uygun restoran bulamadık. Konum güncellemeyi dene veya biraz uzaklaş.',
+      });
+      res.end();
+    }
+  } catch (err) {
+    if (!res.headersSent) {
+      next(err);
+    } else {
+      sseWrite(res, { type: 'error', message: err.message || 'Internal server error' });
+      res.end();
+    }
+  }
+}
+
+/**
  * Kullanıcının bugün verdiği feedback sayısını say (anti-spam).
  */
 async function countTodayFeedback(userId) {
@@ -216,6 +322,7 @@ async function postFeedback(req, res, next) {
 
 module.exports = {
   getDinnerTonight,
+  getDinnerTonightStream,
   postFeedback,
   // testable internals
   __test: {
