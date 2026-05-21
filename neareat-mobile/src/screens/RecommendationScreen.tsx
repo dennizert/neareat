@@ -46,9 +46,7 @@ export default function RecommendationScreen() {
     limitReached,
     noCandidates,
     feedbackByPlaceId,
-    streamingStatus,
-    streamDinnerRecommendation,
-    cancelStream,
+    fetchDinnerRecommendation,
     submitFeedback,
   } = useAiRecommendationStore();
 
@@ -69,18 +67,17 @@ export default function RecommendationScreen() {
     try {
       const coords = await getCurrentLocation();
       setLocating(false);
-      await streamDinnerRecommendation(coords.lat, coords.lng, selectedMood ?? undefined);
+      await fetchDinnerRecommendation(coords.lat, coords.lng, selectedMood ?? undefined);
     } catch {
       setLocating(false);
     }
-  }, [streamDinnerRecommendation, selectedMood]);
+  }, [fetchDinnerRecommendation, selectedMood]);
 
   const handleDetails = useCallback((placeId: string) => {
     navigation.navigate('RestaurantDetail', { placeId });
   }, [navigation]);
 
-  const isStreaming = streamingStatus === 'streaming';
-  const isBusy = locating || loading || isStreaming;
+  const isBusy = locating || loading;
   const hasResults = recommendations.length > 0;
   const showSkeleton = loading && !hasResults;
 
@@ -156,18 +153,7 @@ export default function RecommendationScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Durdur butonu — aktif stream sırasında */}
-      {isStreaming && (
-        <TouchableOpacity
-          style={styles.stopBtn}
-          onPress={cancelStream}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.stopBtnText}>⏹ Durdur</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Skeleton — ilk kart gelene kadar */}
+      {/* Skeleton — yükleme sırasında */}
       {showSkeleton && (
         <View style={styles.resultsSection}>
           <SkeletonCard C={C} />
@@ -247,7 +233,7 @@ export default function RecommendationScreen() {
       )}
 
       {/* Empty state */}
-      {!hasResults && !loading && !error && streamingStatus === 'idle' && (
+      {!hasResults && !loading && !error && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🤔</Text>
           <Text style={styles.emptyText}>
@@ -370,16 +356,6 @@ function makeStyles(C: Colors) {
     },
     ctaDisabled: { opacity: 0.7 },
     ctaText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-
-    stopBtn: {
-      alignItems: 'center',
-      paddingVertical: 10,
-      borderRadius: 14,
-      marginBottom: 16,
-      borderWidth: 1.5,
-      borderColor: C.border,
-    },
-    stopBtnText: { fontSize: 15, fontWeight: '600', color: C.textSecondary },
 
     errorBox: {
       backgroundColor: C.surface,

@@ -120,7 +120,8 @@ export async function getDinnerRecommendation(
   try {
     const { data } = await api.post<AiRecommendationResponse>(
       '/recommendations/dinner-tonight',
-      payload
+      payload,
+      { timeout: 40000 } // Claude + Places API ≈ 10-25sn
     );
     return data;
   } catch (err: any) {
