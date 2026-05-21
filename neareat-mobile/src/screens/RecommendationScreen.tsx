@@ -1,15 +1,7 @@
 /**
  * RecommendationScreen — "Bu akşam ne yesem?" ana ekranı (Sprint-1 Task #8).
- *
- * Akış:
- *   1. Mood seçici (opsiyonel) — hızlı / şık / romantik / aile + serbest
- *   2. "Önerileri Getir" butonu → konum al → store.fetchDinnerRecommendation
- *   3. Loading: skeleton (4 placeholder kart)
- *   4. Sonuç: 1-3 RecommendationCard + opsiyonel noteToUser
- *   5. Hata:
- *      - limitReached → inline banner (Task #10'da PremiumUpsell ekranına yönlenecek)
- *      - noCandidates → "uzaklaş" mesajı
- *      - generic → tekrar dene butonu
+ * Sprint-3 Task #5: streamDinnerRecommendation ile progressive kart reveal,
+ * Durdur butonu, skeleton loading.
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
@@ -20,6 +12,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAiRecommendationStore } from '../store/aiRecommendationStore';
@@ -29,12 +22,12 @@ import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
 const MOOD_OPTIONS: Array<{ key: string; label: string; emoji: string }> = [
-  { key: 'hızlı',     label: 'Hızlı',     emoji: '⚡' },
-  { key: 'şık',       label: 'Şık',       emoji: '✨' },
-  { key: 'romantik',  label: 'Romantik',  emoji: '🌹' },
-  { key: 'aile',      label: 'Aile',      emoji: '👨‍👩‍👧' },
-  { key: 'sağlıklı',  label: 'Sağlıklı',  emoji: '🥗' },
-  { key: 'uygun fiyatlı', label: 'Bütçeli', emoji: '💰' },
+  { key: 'hızlı',          label: 'Hızlı',    emoji: '⚡' },
+  { key: 'şık',            label: 'Şık',      emoji: '✨' },
+  { key: 'romantik',       label: 'Romantik', emoji: '🌹' },
+  { key: 'aile',           label: 'Aile',     emoji: '👨‍👩‍👧' },
+  { key: 'sağlıklı',       label: 'Sağlıklı', emoji: '🥗' },
+  { key: 'uygun fiyatlı',  label: 'Bütçeli',  emoji: '💰' },
 ];
 
 export default function RecommendationScreen() {
@@ -53,16 +46,16 @@ export default function RecommendationScreen() {
     limitReached,
     noCandidates,
     feedbackByPlaceId,
-    fetchDinnerRecommendation,
+    streamingStatus,
+    streamDinnerRecommendation,
+    cancelStream,
     submitFeedback,
   } = useAiRecommendationStore();
 
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
 
-  // Auto-navigate to PremiumUpsell on 429 transition (Sprint-1 Task #10).
-  // useRef ile transition'ı tespit ediyoruz — sadece false→true geçişinde push,
-  // ekran focus geri geldiğinde tekrar push olmasın diye.
+  // Auto-navigate to PremiumUpsell on 429 — sadece false→true geçişinde
   const prevLimitReachedRef = useRef(false);
   useEffect(() => {
     if (limitReached && !prevLimitReachedRef.current) {
@@ -76,25 +69,27 @@ export default function RecommendationScreen() {
     try {
       const coords = await getCurrentLocation();
       setLocating(false);
-      await fetchDinnerRecommendation(coords.lat, coords.lng, selectedMood ?? undefined);
-    } catch (err) {
+      await streamDinnerRecommendation(coords.lat, coords.lng, selectedMood ?? undefined);
+    } catch {
       setLocating(false);
     }
-  }, [fetchDinnerRecommendation, selectedMood]);
+  }, [streamDinnerRecommendation, selectedMood]);
 
   const handleDetails = useCallback((placeId: string) => {
     navigation.navigate('RestaurantDetail', { placeId });
   }, [navigation]);
 
-  const isBusy = locating || loading;
+  const isStreaming = streamingStatus === 'streaming';
+  const isBusy = locating || loading || isStreaming;
   const hasResults = recommendations.length > 0;
+  const showSkeleton = loading && !hasResults;
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={isBusy} onRefresh={handleFetch} tintColor={C.primary} />
+        <RefreshControl refreshing={locating} onRefresh={handleFetch} tintColor={C.primary} />
       }
     >
       {/* Başlık */}
@@ -103,7 +98,7 @@ export default function RecommendationScreen() {
         Geçmişine ve tercihlerine göre kişisel öneri al
       </Text>
 
-      {/* Tier rozeti — sonuç geldikten sonra göster */}
+      {/* Tier rozeti */}
       {tier && (
         <View style={styles.tierRow}>
           <View style={[styles.tierBadge, tier === 'premium' && styles.tierBadgePremium]}>
@@ -147,7 +142,7 @@ export default function RecommendationScreen() {
         disabled={isBusy}
         activeOpacity={0.85}
       >
-        {isBusy ? (
+        {(locating || loading) ? (
           <>
             <ActivityIndicator color="#fff" size="small" />
             <Text style={styles.ctaText}>
@@ -160,6 +155,26 @@ export default function RecommendationScreen() {
           </Text>
         )}
       </TouchableOpacity>
+
+      {/* Durdur butonu — aktif stream sırasında */}
+      {isStreaming && (
+        <TouchableOpacity
+          style={styles.stopBtn}
+          onPress={cancelStream}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.stopBtnText}>⏹ Durdur</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Skeleton — ilk kart gelene kadar */}
+      {showSkeleton && (
+        <View style={styles.resultsSection}>
+          <SkeletonCard C={C} />
+          <SkeletonCard C={C} />
+          <SkeletonCard C={C} />
+        </View>
+      )}
 
       {/* Hata: limit doldu */}
       {limitReached && (
@@ -214,24 +229,25 @@ export default function RecommendationScreen() {
         </View>
       )}
 
-      {/* Sonuç kartları */}
+      {/* Sonuç kartları — her biri fade-in ile */}
       {hasResults && (
         <View style={styles.resultsSection}>
           {recommendations.map((rec, i) => (
-            <RecommendationCard
-              key={rec.placeId}
-              recommendation={rec}
-              index={i + 1}
-              onPressDetails={handleDetails}
-              feedbackSentiment={feedbackByPlaceId[rec.placeId] ?? null}
-              onFeedback={submitFeedback}
-            />
+            <FadeInCard key={rec.placeId}>
+              <RecommendationCard
+                recommendation={rec}
+                index={i + 1}
+                onPressDetails={handleDetails}
+                feedbackSentiment={feedbackByPlaceId[rec.placeId] ?? null}
+                onFeedback={submitFeedback}
+              />
+            </FadeInCard>
           ))}
         </View>
       )}
 
-      {/* Empty state — hiç sorgu yapılmadıysa */}
-      {!hasResults && !loading && !error && (
+      {/* Empty state */}
+      {!hasResults && !loading && !error && streamingStatus === 'idle' && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🤔</Text>
           <Text style={styles.emptyText}>
@@ -240,6 +256,41 @@ export default function RecommendationScreen() {
         </View>
       )}
     </ScrollView>
+  );
+}
+
+function FadeInCard({ children }: { children: React.ReactNode }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 350,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+  return <Animated.View style={{ opacity }}>{children}</Animated.View>;
+}
+
+function SkeletonCard({ C }: { C: Colors }) {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.8, duration: 600, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 600, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <Animated.View
+      style={{
+        backgroundColor: C.surfaceAlt,
+        borderRadius: 14,
+        height: 120,
+        marginBottom: 12,
+        opacity,
+      }}
+    />
   );
 }
 
@@ -264,12 +315,7 @@ function makeStyles(C: Colors) {
     title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, marginBottom: 4 },
     subtitle: { fontSize: 14, color: C.textTertiary, marginBottom: 16 },
 
-    tierRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      marginBottom: 16,
-    },
+    tierRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
     tierBadge: {
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -302,10 +348,7 @@ function makeStyles(C: Colors) {
       borderWidth: 1.5,
       borderColor: C.border,
     },
-    moodChipActive: {
-      backgroundColor: C.primarySurface,
-      borderColor: C.primary,
-    },
+    moodChipActive: { backgroundColor: C.primarySurface, borderColor: C.primary },
     moodEmoji: { fontSize: 14 },
     moodLabel: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
     moodLabelActive: { color: C.primary, fontWeight: '700' },
@@ -318,7 +361,7 @@ function makeStyles(C: Colors) {
       backgroundColor: C.primary,
       paddingVertical: 14,
       borderRadius: 14,
-      marginBottom: 20,
+      marginBottom: 12,
       shadowColor: C.primary,
       shadowOpacity: 0.3,
       shadowRadius: 8,
@@ -327,6 +370,16 @@ function makeStyles(C: Colors) {
     },
     ctaDisabled: { opacity: 0.7 },
     ctaText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+    stopBtn: {
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderRadius: 14,
+      marginBottom: 16,
+      borderWidth: 1.5,
+      borderColor: C.border,
+    },
+    stopBtnText: { fontSize: 15, fontWeight: '600', color: C.textSecondary },
 
     errorBox: {
       backgroundColor: C.surface,
@@ -367,10 +420,7 @@ function makeStyles(C: Colors) {
 
     resultsSection: { marginTop: 4 },
 
-    emptyState: {
-      paddingVertical: 40,
-      alignItems: 'center',
-    },
+    emptyState: { paddingVertical: 40, alignItems: 'center' },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },
     emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center' },
   });
