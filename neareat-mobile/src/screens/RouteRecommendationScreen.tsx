@@ -4,12 +4,14 @@
  * Kullanıcı çıkış ve varış noktasını il/ilçe autocomplete ile seçer,
  * opsiyonel yola çıkış zamanı girer, "Rotamı Öner" ile rota boyunca
  * en iyi durakları getirir. GPS gerekmiyor.
+ * Sprint-4: Harita görselleştirmesi + Google Maps / Waze navigasyon.
  */
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  ActivityIndicator, Animated,
+  ActivityIndicator, Animated, Linking, Alert,
 } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
 import { useAiRecommendationStore } from '../store/aiRecommendationStore';
 import PlaceSearchInput from '../components/PlaceSearchInput';
@@ -17,10 +19,9 @@ import RecommendationCard from '../components/RecommendationCard';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 import type { TurkishPlace } from '../data/turkishPlaces';
-import type { AiRecommendation } from '../types';
+import type { AiRecommendation, RouteRecommendation } from '../types';
 
 const DAY_LABELS = ['Bugün', 'Yarın', 'Öbür gün'];
-// 48 half-hour slots: 00:00 → 23:30
 const MAX_SLOT = 47;
 
 function slotToHHMM(slot: number): string {
@@ -29,8 +30,28 @@ function slotToHHMM(slot: number): string {
   return `${String(h).padStart(2, '0')}:${m}`;
 }
 
-// Istanbul = UTC+3, no DST
 const ISTANBUL_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function openNavigation(lat: number, lng: number, name: string) {
+  Alert.alert(
+    'Yol Tarifi Al',
+    name,
+    [
+      {
+        text: 'Google Maps',
+        onPress: () =>
+          Linking.openURL(
+            `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`
+          ),
+      },
+      {
+        text: 'Waze',
+        onPress: () => Linking.openURL(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`),
+      },
+      { text: 'İptal', style: 'cancel' },
+    ]
+  );
+}
 
 export default function RouteRecommendationScreen() {
   const navigation = useNavigation<any>();
@@ -51,30 +72,24 @@ export default function RouteRecommendationScreen() {
 
   const [origin, setOrigin] = useState<TurkishPlace | null>(null);
   const [destination, setDestination] = useState<TurkishPlace | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const mapRef = useRef<MapView>(null);
 
-  // Departure time picker — day offset (0/1/2) + half-hour slot (0-47)
+  // Departure time picker
   const [depDayOffset, setDepDayOffset] = useState(0);
   const [depSlot, setDepSlot] = useState(() => {
-    // Default to current Istanbul hour rounded up to next half-hour
     const localMs = Date.now() + ISTANBUL_OFFSET_MS;
     const d = new Date(localMs);
-    const slot = d.getUTCHours() * 2 + (d.getUTCMinutes() >= 30 ? 1 : 0) + 1;
-    return Math.min(slot, MAX_SLOT);
+    return Math.min(d.getUTCHours() * 2 + (d.getUTCMinutes() >= 30 ? 1 : 0) + 1, MAX_SLOT);
   });
 
   const departureTimeISO = useMemo(() => {
-    // Istanbul midnight for today
-    const nowMs = Date.now();
-    const localMs = nowMs + ISTANBUL_OFFSET_MS;
+    const localMs = Date.now() + ISTANBUL_OFFSET_MS;
     const d = new Date(localMs);
-    d.setUTCHours(0, 0, 0, 0); // midnight in Istanbul-shifted clock
-    // Add day offset (in local time)
+    d.setUTCHours(0, 0, 0, 0);
     const midnightLocalMs = d.getTime() + depDayOffset * 24 * 60 * 60 * 1000;
-    // Add half-hour slot
-    const slotMs = Math.floor(depSlot / 2) * 3600_000 + (depSlot % 2) * 1800_000;
-    // Convert back to UTC
-    const utcMs = midnightLocalMs + slotMs - ISTANBUL_OFFSET_MS;
-    return new Date(utcMs).toISOString();
+    const slotMs = Math.floor(depSlot / 2) * 3_600_000 + (depSlot % 2) * 1_800_000;
+    return new Date(midnightLocalMs + slotMs - ISTANBUL_OFFSET_MS).toISOString();
   }, [depDayOffset, depSlot]);
 
   const prevLimitRef = useRef(false);
@@ -86,6 +101,11 @@ export default function RouteRecommendationScreen() {
   }, [routeLimitReached, navigation]);
 
   useEffect(() => () => { resetRoute(); }, []);
+
+  // Hide map when results are reset
+  useEffect(() => {
+    if (routeRecommendations.length === 0) setShowMap(false);
+  }, [routeRecommendations.length]);
 
   const handleFetch = useCallback(async () => {
     if (!origin || !destination) return;
@@ -100,6 +120,31 @@ export default function RouteRecommendationScreen() {
 
   const canFetch = !!origin && !!destination;
   const hasResults = routeRecommendations.length > 0;
+
+  // Map coordinates: origin → stops (in order) → destination
+  const mapCoords = useMemo(() => {
+    if (!origin || !destination) return [];
+    const stops = routeRecommendations
+      .filter((r) => r.restaurant.location)
+      .map((r) => ({
+        latitude: r.restaurant.location!.lat,
+        longitude: r.restaurant.location!.lng,
+      }));
+    return [
+      { latitude: origin.lat, longitude: origin.lng },
+      ...stops,
+      { latitude: destination.lat, longitude: destination.lng },
+    ];
+  }, [origin, destination, routeRecommendations]);
+
+  function handleMapReady() {
+    if (mapCoords.length >= 2) {
+      mapRef.current?.fitToCoordinates(mapCoords, {
+        edgePadding: { top: 60, right: 40, bottom: 40, left: 40 },
+        animated: true,
+      });
+    }
+  }
 
   return (
     <ScrollView
@@ -195,12 +240,88 @@ export default function RouteRecommendationScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Rota özeti */}
+      {/* Rota özeti + harita toggle */}
       {routeMeta && hasResults && (
-        <View style={styles.routeSummary}>
+        <View style={styles.routeSummaryRow}>
           <Text style={styles.routeSummaryText}>
             ~{routeMeta.totalDistanceKm} km  ·  ~{routeMeta.totalDurationMin} dk
           </Text>
+          <TouchableOpacity
+            style={styles.mapToggleBtn}
+            onPress={() => setShowMap((v) => !v)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.mapToggleBtnText}>
+              {showMap ? '🗺️ Gizle' : '🗺️ Haritada gör'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Harita */}
+      {hasResults && showMap && mapCoords.length >= 2 && (
+        <View style={styles.mapContainer}>
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            provider={PROVIDER_GOOGLE}
+            onMapReady={handleMapReady}
+            initialRegion={{
+              latitude: (origin!.lat + destination!.lat) / 2,
+              longitude: (origin!.lng + destination!.lng) / 2,
+              latitudeDelta: Math.abs(origin!.lat - destination!.lat) * 1.8 + 0.05,
+              longitudeDelta: Math.abs(origin!.lng - destination!.lng) * 1.8 + 0.05,
+            }}
+          >
+            {/* Rota çizgisi */}
+            <Polyline
+              coordinates={mapCoords}
+              strokeColor={C.primary}
+              strokeWidth={3}
+              lineDashPattern={[8, 4]}
+            />
+
+            {/* Çıkış noktası */}
+            <Marker coordinate={{ latitude: origin!.lat, longitude: origin!.lng }} anchor={{ x: 0.5, y: 1 }}>
+              <View style={styles.pinOrigin}>
+                <Text style={styles.pinLabel}>Çıkış</Text>
+              </View>
+            </Marker>
+
+            {/* Varış noktası */}
+            <Marker coordinate={{ latitude: destination!.lat, longitude: destination!.lng }} anchor={{ x: 0.5, y: 1 }}>
+              <View style={styles.pinDest}>
+                <Text style={styles.pinLabel}>Varış</Text>
+              </View>
+            </Marker>
+
+            {/* Restoran durakları */}
+            {routeRecommendations.map((rec) => {
+              if (!rec.restaurant.location) return null;
+              return (
+                <Marker
+                  key={rec.placeId}
+                  coordinate={{
+                    latitude: rec.restaurant.location.lat,
+                    longitude: rec.restaurant.location.lng,
+                  }}
+                  anchor={{ x: 0.5, y: 1 }}
+                  onPress={() => openNavigation(
+                    rec.restaurant.location!.lat,
+                    rec.restaurant.location!.lng,
+                    rec.restaurant.name
+                  )}
+                >
+                  <View style={styles.pinStop}>
+                    <Text style={styles.pinStopText}>{rec.restaurant.sequenceOrder}</Text>
+                  </View>
+                </Marker>
+              );
+            })}
+          </MapView>
+          <View style={styles.mapLegend}>
+            <Text style={styles.mapLegendText}>Durak numarasına tıkla → yol tarifi al</Text>
+          </View>
         </View>
       )}
 
@@ -257,6 +378,7 @@ export default function RouteRecommendationScreen() {
         <View style={styles.resultsSection}>
           {routeRecommendations.map((rec) => (
             <FadeInCard key={rec.placeId}>
+              {/* Stop header */}
               <View style={styles.stopHeader}>
                 <Text style={styles.stopLabelText}>{rec.restaurant.sequenceOrder}. Durak</Text>
                 <View style={styles.stopMeta}>
@@ -273,6 +395,7 @@ export default function RouteRecommendationScreen() {
                   )}
                 </View>
               </View>
+
               <RecommendationCard
                 recommendation={rec as unknown as AiRecommendation}
                 index={rec.restaurant.sequenceOrder}
@@ -280,6 +403,21 @@ export default function RouteRecommendationScreen() {
                   navigation.navigate('RestaurantDetail', { placeId })
                 }
               />
+
+              {/* Navigasyon butonu */}
+              {rec.restaurant.location && (
+                <TouchableOpacity
+                  style={styles.navBtn}
+                  onPress={() => openNavigation(
+                    rec.restaurant.location!.lat,
+                    rec.restaurant.location!.lng,
+                    rec.restaurant.name
+                  )}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.navBtnText}>🧭 Yol Tarifi Al</Text>
+                </TouchableOpacity>
+              )}
             </FadeInCard>
           ))}
         </View>
@@ -347,11 +485,46 @@ function makeStyles(C: Colors) {
     ctaDisabled: { opacity: 0.5 },
     ctaText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-    routeSummary: {
-      backgroundColor: C.surfaceAlt, borderRadius: 10, padding: 10,
-      alignItems: 'center', marginBottom: 16,
+    routeSummaryRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: C.surfaceAlt, borderRadius: 10, padding: 10, marginBottom: 8,
     },
     routeSummaryText: { fontSize: 13, fontWeight: '600', color: C.textSecondary },
+    mapToggleBtn: {
+      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
+      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border,
+    },
+    mapToggleBtnText: { fontSize: 12, fontWeight: '700', color: C.primary },
+
+    mapContainer: {
+      borderRadius: 14, overflow: 'hidden', marginBottom: 12,
+      borderWidth: 1, borderColor: C.border,
+    },
+    map: { height: 260, width: '100%' },
+    mapLegend: {
+      backgroundColor: C.surface, padding: 8, alignItems: 'center',
+    },
+    mapLegendText: { fontSize: 11, color: C.textMuted },
+
+    // Map pins
+    pinOrigin: {
+      backgroundColor: '#16a34a', paddingHorizontal: 10, paddingVertical: 5,
+      borderRadius: 12, borderWidth: 2, borderColor: '#fff',
+      shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
+    },
+    pinDest: {
+      backgroundColor: '#dc2626', paddingHorizontal: 10, paddingVertical: 5,
+      borderRadius: 12, borderWidth: 2, borderColor: '#fff',
+      shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
+    },
+    pinLabel: { color: '#fff', fontSize: 11, fontWeight: '700' },
+    pinStop: {
+      width: 32, height: 32, borderRadius: 16,
+      backgroundColor: C.primary, borderWidth: 2, borderColor: '#fff',
+      justifyContent: 'center', alignItems: 'center',
+      shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
+    },
+    pinStopText: { color: '#fff', fontSize: 13, fontWeight: '800' },
 
     errorBox: {
       backgroundColor: C.surface, borderRadius: 14, padding: 20,
@@ -390,6 +563,13 @@ function makeStyles(C: Colors) {
     openAtText: { fontSize: 11, fontWeight: '700' },
     openAtOpen: { color: '#16a34a' },
     openAtClosed: { color: '#dc2626' },
+
+    navBtn: {
+      flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.primary,
+      borderRadius: 12, paddingVertical: 10, marginTop: 2, marginBottom: 4,
+    },
+    navBtnText: { fontSize: 14, fontWeight: '700', color: C.primary },
 
     emptyState: { paddingVertical: 40, alignItems: 'center' },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },
