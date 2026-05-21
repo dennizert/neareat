@@ -536,8 +536,6 @@ export interface FeedbackRequest {
 export interface AiRecommendationRequest {
   lat: number;
   lng: number;
-  /** Opsiyonel kullanıcı mood'u — örn. 'hızlı' | 'şık' | 'romantik' | 'aile' */
-  mood?: string;
 }
 
 /** Bir restoranın AI tarafında oluşturulan kişisel öneri detayı */
@@ -595,6 +593,10 @@ export interface RouteRestaurant {
   openNow: boolean | null;
   photoUrl: string | null;
   sequenceOrder: number;
+  /** Rotadan sapma tahmini (km) — distanceKm × 2 round-trip */
+  detourKm?: number | null;
+  /** Tahmini varış saatinde açık mı? null = bilgi yok */
+  openAtArrival?: boolean | null;
 }
 
 /** Rota öneri tek eleman */
@@ -610,7 +612,8 @@ export interface RouteRecommendationRequest {
   originLng: number;
   destLat: number;
   destLng: number;
-  mood?: string;
+  /** ISO date string — yola çıkış zamanı (opsiyonel) */
+  departureTime?: string;
 }
 
 /** POST /api/recommendations/route-tonight başarılı response */

@@ -21,15 +21,6 @@ import RecommendationCard from '../components/RecommendationCard';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
-const MOOD_OPTIONS: Array<{ key: string; label: string; emoji: string }> = [
-  { key: 'hızlı',          label: 'Hızlı',    emoji: '⚡' },
-  { key: 'şık',            label: 'Şık',      emoji: '✨' },
-  { key: 'romantik',       label: 'Romantik', emoji: '🌹' },
-  { key: 'aile',           label: 'Aile',     emoji: '👨‍👩‍👧' },
-  { key: 'sağlıklı',       label: 'Sağlıklı', emoji: '🥗' },
-  { key: 'uygun fiyatlı',  label: 'Bütçeli',  emoji: '💰' },
-];
-
 export default function RecommendationScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
@@ -50,7 +41,6 @@ export default function RecommendationScreen() {
     submitFeedback,
   } = useAiRecommendationStore();
 
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
 
   // Auto-navigate to PremiumUpsell on 429 — sadece false→true geçişinde
@@ -67,11 +57,11 @@ export default function RecommendationScreen() {
     try {
       const coords = await getCurrentLocation();
       setLocating(false);
-      await fetchDinnerRecommendation(coords.lat, coords.lng, selectedMood ?? undefined);
+      await fetchDinnerRecommendation(coords.lat, coords.lng);
     } catch {
       setLocating(false);
     }
-  }, [fetchDinnerRecommendation, selectedMood]);
+  }, [fetchDinnerRecommendation]);
 
   const handleDetails = useCallback((placeId: string) => {
     navigation.navigate('RestaurantDetail', { placeId });
@@ -110,27 +100,6 @@ export default function RecommendationScreen() {
           )}
         </View>
       )}
-
-      {/* Mood seçici */}
-      <View style={styles.moodSection}>
-        <Text style={styles.sectionLabel}>RUH HALİ (OPSİYONEL)</Text>
-        <View style={styles.moodGrid}>
-          {MOOD_OPTIONS.map((m) => {
-            const active = selectedMood === m.key;
-            return (
-              <TouchableOpacity
-                key={m.key}
-                style={[styles.moodChip, active && styles.moodChipActive]}
-                onPress={() => setSelectedMood(active ? null : m.key)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.moodEmoji}>{m.emoji}</Text>
-                <Text style={[styles.moodLabel, active && styles.moodLabelActive]}>{m.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
 
       {/* Ana CTA */}
       <TouchableOpacity
@@ -313,31 +282,6 @@ function makeStyles(C: Colors) {
     tierBadgeTextPremium: { color: '#92400E' },
     remaining: { fontSize: 13, color: C.textTertiary },
     remainingNumber: { fontWeight: '700', color: C.primary },
-
-    moodSection: { marginBottom: 18 },
-    sectionLabel: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: C.textTertiary,
-      letterSpacing: 0.5,
-      marginBottom: 10,
-    },
-    moodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    moodChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 20,
-      backgroundColor: C.surface,
-      borderWidth: 1.5,
-      borderColor: C.border,
-    },
-    moodChipActive: { backgroundColor: C.primarySurface, borderColor: C.primary },
-    moodEmoji: { fontSize: 14 },
-    moodLabel: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
-    moodLabelActive: { color: C.primary, fontWeight: '700' },
 
     cta: {
       flexDirection: 'row',

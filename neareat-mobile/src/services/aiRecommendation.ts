@@ -81,8 +81,7 @@ export class AiRecommendationNoCandidatesError extends Error {
  */
 export async function getDinnerRecommendation(
   lat: number,
-  lng: number,
-  mood?: string
+  lng: number
 ): Promise<AiRecommendationResponse> {
   if (MOCK_MODE) {
     // Mock mode için minimum response — geliştirme ekranlarını test ederken
@@ -115,7 +114,6 @@ export async function getDinnerRecommendation(
   }
 
   const payload: AiRecommendationRequest = { lat, lng };
-  if (mood && mood.trim()) payload.mood = mood.trim();
 
   try {
     const { data } = await api.post<AiRecommendationResponse>(
@@ -167,7 +165,6 @@ interface SseStreamCallbacks {
 export async function streamDinnerRecommendation(
   lat: number,
   lng: number,
-  mood: string | undefined,
   callbacks: SseStreamCallbacks,
   signal?: AbortSignal
 ): Promise<void> {
@@ -209,7 +206,7 @@ export async function streamDinnerRecommendation(
       'ngrok-skip-browser-warning': 'true',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ lat, lng, ...(mood?.trim() ? { mood: mood.trim() } : {}) }),
+    body: JSON.stringify({ lat, lng }),
     signal,
   });
 

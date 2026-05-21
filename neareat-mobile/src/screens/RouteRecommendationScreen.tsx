@@ -2,10 +2,10 @@
  * RouteRecommendationScreen — "Yolda ne yesem?" ekranı (Sprint-3 Task #8).
  *
  * Kullanıcı çıkış ve varış noktasını il/ilçe autocomplete ile seçer,
- * opsiyonel mood seçer, "Rotamı Öner" ile rota boyunca en iyi durakları getirir.
- * GPS gerekmiyor — koordinatlar statik listeden alınır.
+ * opsiyonel yola çıkış zamanı girer, "Rotamı Öner" ile rota boyunca
+ * en iyi durakları getirir. GPS gerekmiyor.
  */
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   ActivityIndicator, Animated,
@@ -19,14 +19,18 @@ import type { Colors } from '../theme';
 import type { TurkishPlace } from '../data/turkishPlaces';
 import type { AiRecommendation } from '../types';
 
-const MOOD_OPTIONS = [
-  { key: 'hızlı',         label: 'Hızlı',    emoji: '⚡' },
-  { key: 'şık',           label: 'Şık',      emoji: '✨' },
-  { key: 'romantik',      label: 'Romantik', emoji: '🌹' },
-  { key: 'aile',          label: 'Aile',     emoji: '👨‍👩‍👧' },
-  { key: 'sağlıklı',      label: 'Sağlıklı', emoji: '🥗' },
-  { key: 'uygun fiyatlı', label: 'Bütçeli',  emoji: '💰' },
-];
+const DAY_LABELS = ['Bugün', 'Yarın', 'Öbür gün'];
+// 48 half-hour slots: 00:00 → 23:30
+const MAX_SLOT = 47;
+
+function slotToHHMM(slot: number): string {
+  const h = Math.floor(slot / 2);
+  const m = slot % 2 === 0 ? '00' : '30';
+  return `${String(h).padStart(2, '0')}:${m}`;
+}
+
+// Istanbul = UTC+3, no DST
+const ISTANBUL_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 export default function RouteRecommendationScreen() {
   const navigation = useNavigation<any>();
@@ -47,7 +51,31 @@ export default function RouteRecommendationScreen() {
 
   const [origin, setOrigin] = useState<TurkishPlace | null>(null);
   const [destination, setDestination] = useState<TurkishPlace | null>(null);
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+
+  // Departure time picker — day offset (0/1/2) + half-hour slot (0-47)
+  const [depDayOffset, setDepDayOffset] = useState(0);
+  const [depSlot, setDepSlot] = useState(() => {
+    // Default to current Istanbul hour rounded up to next half-hour
+    const localMs = Date.now() + ISTANBUL_OFFSET_MS;
+    const d = new Date(localMs);
+    const slot = d.getUTCHours() * 2 + (d.getUTCMinutes() >= 30 ? 1 : 0) + 1;
+    return Math.min(slot, MAX_SLOT);
+  });
+
+  const departureTimeISO = useMemo(() => {
+    // Istanbul midnight for today
+    const nowMs = Date.now();
+    const localMs = nowMs + ISTANBUL_OFFSET_MS;
+    const d = new Date(localMs);
+    d.setUTCHours(0, 0, 0, 0); // midnight in Istanbul-shifted clock
+    // Add day offset (in local time)
+    const midnightLocalMs = d.getTime() + depDayOffset * 24 * 60 * 60 * 1000;
+    // Add half-hour slot
+    const slotMs = Math.floor(depSlot / 2) * 3600_000 + (depSlot % 2) * 1800_000;
+    // Convert back to UTC
+    const utcMs = midnightLocalMs + slotMs - ISTANBUL_OFFSET_MS;
+    return new Date(utcMs).toISOString();
+  }, [depDayOffset, depSlot]);
 
   const prevLimitRef = useRef(false);
   useEffect(() => {
@@ -66,9 +94,9 @@ export default function RouteRecommendationScreen() {
       originLng: origin.lng,
       destLat: destination.lat,
       destLng: destination.lng,
-      mood: selectedMood ?? undefined,
+      departureTime: departureTimeISO,
     });
-  }, [origin, destination, selectedMood, fetchRouteRecommendation]);
+  }, [origin, destination, departureTimeISO, fetchRouteRecommendation]);
 
   const canFetch = !!origin && !!destination;
   const hasResults = routeRecommendations.length > 0;
@@ -101,24 +129,50 @@ export default function RouteRecommendationScreen() {
         />
       </View>
 
-      {/* Mood seçici */}
-      <View style={styles.moodSection}>
-        <Text style={styles.sectionLabel}>RUH HALİ (OPSİYONEL)</Text>
-        <View style={styles.moodGrid}>
-          {MOOD_OPTIONS.map((m) => {
-            const active = selectedMood === m.key;
-            return (
-              <TouchableOpacity
-                key={m.key}
-                style={[styles.moodChip, active && styles.moodChipActive]}
-                onPress={() => setSelectedMood(active ? null : m.key)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.moodEmoji}>{m.emoji}</Text>
-                <Text style={[styles.moodLabel, active && styles.moodLabelActive]}>{m.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+      {/* Yola çıkış zamanı */}
+      <View style={styles.depSection}>
+        <Text style={styles.sectionLabel}>YOL ÇIKIŞ ZAMANI</Text>
+
+        <View style={styles.depRow}>
+          <Text style={styles.depRowLabel}>Gün</Text>
+          <View style={styles.depStepper}>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              onPress={() => setDepDayOffset((d) => Math.max(0, d - 1))}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.stepBtnText}>◀</Text>
+            </TouchableOpacity>
+            <Text style={styles.depValue}>{DAY_LABELS[depDayOffset]}</Text>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              onPress={() => setDepDayOffset((d) => Math.min(2, d + 1))}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.stepBtnText}>▶</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.depRow}>
+          <Text style={styles.depRowLabel}>Saat</Text>
+          <View style={styles.depStepper}>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              onPress={() => setDepSlot((s) => (s === 0 ? MAX_SLOT : s - 1))}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.stepBtnText}>◀</Text>
+            </TouchableOpacity>
+            <Text style={styles.depValue}>{slotToHHMM(depSlot)}</Text>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              onPress={() => setDepSlot((s) => (s === MAX_SLOT ? 0 : s + 1))}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.stepBtnText}>▶</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -203,8 +257,21 @@ export default function RouteRecommendationScreen() {
         <View style={styles.resultsSection}>
           {routeRecommendations.map((rec) => (
             <FadeInCard key={rec.placeId}>
-              <View style={styles.stopLabel}>
+              <View style={styles.stopHeader}>
                 <Text style={styles.stopLabelText}>{rec.restaurant.sequenceOrder}. Durak</Text>
+                <View style={styles.stopMeta}>
+                  {rec.restaurant.detourKm != null && (
+                    <Text style={styles.detourText}>+{rec.restaurant.detourKm} km sapma</Text>
+                  )}
+                  {rec.restaurant.openAtArrival != null && (
+                    <Text style={[
+                      styles.openAtText,
+                      rec.restaurant.openAtArrival ? styles.openAtOpen : styles.openAtClosed,
+                    ]}>
+                      {rec.restaurant.openAtArrival ? '✓ Varışta açık' : '⚠ Varışta kapalı olabilir'}
+                    </Text>
+                  )}
+                </View>
               </View>
               <RecommendationCard
                 recommendation={rec as unknown as AiRecommendation}
@@ -248,26 +315,27 @@ function makeStyles(C: Colors) {
     subtitle: { fontSize: 14, color: C.textTertiary, marginBottom: 20 },
 
     routeInputs: { marginBottom: 4 },
-
     routeArrow: { alignItems: 'center', marginVertical: 2 },
     routeArrowText: { fontSize: 20, color: C.textMuted },
 
+    depSection: { marginTop: 16, marginBottom: 18 },
     sectionLabel: {
       fontSize: 11, fontWeight: '700', color: C.textTertiary,
       letterSpacing: 0.5, marginBottom: 10,
     },
-
-    moodSection: { marginBottom: 18, marginTop: 6 },
-    moodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    moodChip: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
-      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border,
+    depRow: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', marginBottom: 10,
     },
-    moodChipActive: { backgroundColor: C.primarySurface, borderColor: C.primary },
-    moodEmoji: { fontSize: 14 },
-    moodLabel: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
-    moodLabelActive: { color: C.primary, fontWeight: '700' },
+    depRowLabel: { fontSize: 14, fontWeight: '600', color: C.textSecondary, width: 48 },
+    depStepper: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    stepBtn: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    stepBtnText: { fontSize: 13, color: C.primary, fontWeight: '700' },
+    depValue: { fontSize: 15, fontWeight: '700', color: C.textPrimary, minWidth: 72, textAlign: 'center' },
 
     cta: {
       flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
@@ -309,11 +377,19 @@ function makeStyles(C: Colors) {
     noteText: { fontSize: 13, color: C.textSecondary, fontStyle: 'italic', lineHeight: 19 },
 
     resultsSection: { marginTop: 4 },
-    stopLabel: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 4 },
+    stopHeader: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      marginTop: 12, marginBottom: 4,
+    },
     stopLabelText: {
       fontSize: 12, fontWeight: '700', color: C.primary,
       textTransform: 'uppercase', letterSpacing: 0.5,
     },
+    stopMeta: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    detourText: { fontSize: 11, color: C.textMuted, fontWeight: '600' },
+    openAtText: { fontSize: 11, fontWeight: '700' },
+    openAtOpen: { color: '#16a34a' },
+    openAtClosed: { color: '#dc2626' },
 
     emptyState: { paddingVertical: 40, alignItems: 'center' },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },

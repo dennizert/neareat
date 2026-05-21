@@ -64,9 +64,9 @@ interface AiRecommendationState {
   routeLimitReached: boolean;
   routeNoCandidates: boolean;
 
-  fetchDinnerRecommendation: (lat: number, lng: number, mood?: string) => Promise<void>;
+  fetchDinnerRecommendation: (lat: number, lng: number) => Promise<void>;
   /** SSE streaming versiyon — kartlar birer birer store'a push edilir */
-  streamDinnerRecommendation: (lat: number, lng: number, mood?: string) => Promise<void>;
+  streamDinnerRecommendation: (lat: number, lng: number) => Promise<void>;
   /** Aktif SSE stream'i iptal et (Durdur butonu) */
   cancelStream: () => void;
   /** Optimistic feedback gönder; hata olursa rollback yapıp throw eder */
@@ -101,7 +101,7 @@ const INITIAL_STATE = {
 export const useAiRecommendationStore = create<AiRecommendationState>((set) => ({
   ...INITIAL_STATE,
 
-  async fetchDinnerRecommendation(lat, lng, mood) {
+  async fetchDinnerRecommendation(lat, lng) {
     set({
       loading: true,
       error: null,
@@ -110,7 +110,7 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
     });
 
     try {
-      const result = await getDinnerRecommendation(lat, lng, mood);
+      const result = await getDinnerRecommendation(lat, lng);
       set({
         loading: false,
         recommendations: result.recommendations,
@@ -151,7 +151,7 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
     }
   },
 
-  async streamDinnerRecommendation(lat, lng, mood) {
+  async streamDinnerRecommendation(lat, lng) {
     const controller = new AbortController();
     set({
       loading: true,
@@ -165,7 +165,7 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
     });
 
     try {
-      await streamDinnerRecommendation(lat, lng, mood, {
+      await streamDinnerRecommendation(lat, lng, {
         onCard: (rec) => {
           set((s) => ({
             loading: false, // skeleton ilk kartta kalkar
