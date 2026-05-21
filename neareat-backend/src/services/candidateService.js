@@ -20,7 +20,8 @@ const { getNearbyRestaurantsFast, getPlaceDetails, getPhotoUrl } = require('./go
 const { haversineKm } = require('../utils/haversine');
 const prisma = require('../utils/prisma');
 
-const PHOTO_ENRICH_COUNT = 5; // Sadece top N aday için Place Details çekimi
+const PHOTO_ENRICH_COUNT = 5;        // Sadece top N aday için Place Details çekimi
+const PHOTO_ENRICH_CONCURRENCY = 2; // Aynı anda max N paralel getPlaceDetails isteği
 
 const MAX_CANDIDATES = 20;
 const MIN_RATING = 3.5;
@@ -207,20 +208,24 @@ async function getCandidates(userId, { lat, lng }) {
   enriched.sort((a, b) => b.score - a.score);
   const top = enriched.slice(0, MAX_CANDIDATES);
 
-  // Top 5 için paralel Place Details çekimi → photoUrl (Sprint-2 Task #3).
-  // Hata durumunda o aday photoUrl=null alır, akış bozulmaz.
+  // Top 5 için Place Details çekimi → photoUrl (Sprint-2 Task #3).
+  // Circuit breaker: PHOTO_ENRICH_CONCURRENCY'li batch'ler halinde çalıştır;
+  // Google Places rate limit koruması. Hata durumunda o aday photoUrl=null alır.
   const photoMap = new Map();
-  await Promise.all(
-    top.slice(0, PHOTO_ENRICH_COUNT).map(async ({ place }) => {
-      try {
-        const details = await getPlaceDetails(place.place_id);
-        const ref = details?.photos?.[0]?.photo_reference;
-        if (ref) photoMap.set(place.place_id, getPhotoUrl(ref, 400));
-      } catch {
-        // non-critical — photo yoksa null
-      }
-    })
-  );
+  const photoTargets = top.slice(0, PHOTO_ENRICH_COUNT);
+  for (let i = 0; i < photoTargets.length; i += PHOTO_ENRICH_CONCURRENCY) {
+    await Promise.allSettled(
+      photoTargets.slice(i, i + PHOTO_ENRICH_CONCURRENCY).map(async ({ place }) => {
+        try {
+          const details = await getPlaceDetails(place.place_id);
+          const ref = details?.photos?.[0]?.photo_reference;
+          if (ref) photoMap.set(place.place_id, getPhotoUrl(ref, 400));
+        } catch {
+          // non-critical — photo yoksa null
+        }
+      })
+    );
+  }
 
   const candidates = top.map((e) =>
     toCandidate(e.place, e.distanceKm, e.score, photoMap.get(e.place.place_id) ?? null)
