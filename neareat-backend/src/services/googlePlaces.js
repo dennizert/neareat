@@ -230,4 +230,34 @@ function isOpenAtTime(periods, dayOfWeek, timeHHMM) {
   return false;
 }
 
-module.exports = { getNearbyRestaurants, getNearbyRestaurantsFast, getRouteWaypoints, getPlaceDetails, getPhotoUrl, isOpenAtTime };
+/**
+ * Google kalite filtresi — tüm liste ve önerilerde ortak eşik.
+ * Reject if:
+ *   - user_ratings_total yoksa veya < MIN_USER_RATINGS (2)
+ *   - rating yoksa veya < MIN_RATING (2.4)
+ *
+ * Bu filtre Keşfet listesi, "Şimdi ne yesem?" ve "Yolda ne yesem?" akışlarında
+ * uygulanır. Henüz puanlanmamış (yeni) yerler de elenir — kullanıcı açık talebi.
+ */
+const QUALITY_MIN_RATING = 2.4;
+const QUALITY_MIN_USER_RATINGS = 2;
+
+function passesQualityFilter(place) {
+  const total = place?.user_ratings_total;
+  const rating = place?.rating;
+  if (typeof total !== 'number' || total < QUALITY_MIN_USER_RATINGS) return false;
+  if (typeof rating !== 'number' || rating < QUALITY_MIN_RATING) return false;
+  return true;
+}
+
+module.exports = {
+  getNearbyRestaurants,
+  getNearbyRestaurantsFast,
+  getRouteWaypoints,
+  getPlaceDetails,
+  getPhotoUrl,
+  isOpenAtTime,
+  passesQualityFilter,
+  QUALITY_MIN_RATING,
+  QUALITY_MIN_USER_RATINGS,
+};

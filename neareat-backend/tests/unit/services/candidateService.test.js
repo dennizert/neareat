@@ -257,15 +257,18 @@ describe('getCandidates (integration: prisma + googlePlaces mocks)', () => {
     expect(candidates).toHaveLength(2);
   });
 
-  it('keeps places with no rating (potentially new)', async () => {
+  it('filters out places with no rating (kullanıcı isteği: en az 2 puanlama zorunlu)', async () => {
     setupNoUserHistory();
     mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       makePlace(1, { rating: 4.5 }),
-      { ...makePlace(2), rating: undefined },  // rating yok
+      { ...makePlace(2), rating: undefined },  // rating yok → REJECT
+      { ...makePlace(3), user_ratings_total: 1 }, // <2 puanlama → REJECT
+      { ...makePlace(4), rating: 2.0 }, // rating < 2.4 → REJECT
     ]);
 
     const { candidates } = await getCandidates('u1', { lat: 41.04, lng: 28.98 });
-    expect(candidates).toHaveLength(2);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].placeId).toBe('p1');
   });
 
   it('filters out places that are explicitly closed (open_now: false)', async () => {

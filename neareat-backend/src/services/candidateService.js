@@ -16,7 +16,7 @@
  * LLM (Task #5) bu listeden seçer ve açıklamasını üretir.
  */
 
-const { getNearbyRestaurantsFast, getPlaceDetails, getPhotoUrl } = require('./googlePlaces');
+const { getNearbyRestaurantsFast, getPlaceDetails, getPhotoUrl, passesQualityFilter } = require('./googlePlaces');
 const { haversineKm } = require('../utils/haversine');
 const prisma = require('../utils/prisma');
 
@@ -24,6 +24,8 @@ const PHOTO_ENRICH_COUNT = 5;        // Sadece top N aday için Place Details ç
 const PHOTO_ENRICH_CONCURRENCY = 2; // Aynı anda max N paralel getPlaceDetails isteği
 
 const MAX_CANDIDATES = 20;
+// AI öneri kalite eşiği — passesQualityFilter (rating ≥ 2.4, en az 2 puanlama)
+// üzerine ekstra "iyi öneri" eşiği uygulanır.
 const MIN_RATING = 3.5;
 const FETCH_TYPE = 'restaurant';
 
@@ -252,8 +254,12 @@ async function getCandidates(userId, { lat, lng }) {
     // Açıkça kapalı olanları ele (null = bilinmiyor → bırak)
     if (place.opening_hours?.open_now === false) continue;
 
-    // Düşük puanlıları ele (rating yoksa bırak — yeni restoran olabilir)
-    if (typeof place.rating === 'number' && place.rating < MIN_RATING) continue;
+    // Google kalite filtresi: en az 2 puanlama VE rating ≥ 2.4
+    // (Puanlanmamış yerler de elenir — kullanıcı açık talebi.)
+    if (!passesQualityFilter(place)) continue;
+
+    // AI önerisi için ekstra kalite eşiği — uygun adayları LLM'e gönder
+    if (place.rating < MIN_RATING) continue;
 
     const distanceKm = haversineKm(
       lat,

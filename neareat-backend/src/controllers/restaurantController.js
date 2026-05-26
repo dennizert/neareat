@@ -1,5 +1,5 @@
 const prisma = require('../utils/prisma');
-const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl } = require('../services/googlePlaces');
+const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl, passesQualityFilter } = require('../services/googlePlaces');
 const { haversineKm } = require('../utils/haversine');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
@@ -60,10 +60,11 @@ async function getNearby(req, res, next) {
       rawPlaces = await getNearbyRestaurants(userLat, userLng, radiusMeters, placeType);
     }
 
-    // Haversine'i bir kez hesapla, filtre + sıralama + response'ta tekrar kullan
+    // Kalite filtresi (rating ≥ 2.4, en az 2 puanlama) + haversine
     const filtered = rawPlaces
       .map((place) => {
         if (!place.geometry?.location) return null;
+        if (!passesQualityFilter(place)) return null;
         const _dist = haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng);
         return _dist <= radiusKm ? { ...place, _dist } : null;
       })
