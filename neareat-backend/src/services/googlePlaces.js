@@ -100,25 +100,40 @@ async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
 
 const ROUTE_WAYPOINTS_TTL = 3600; // 1 saat — rota sık değişmez
 
+// Uzun rotada zone-dağıtım eşiği. ≥300 km'lik rotalarda orta 4x segment
+// 3 eşit zone'a bölünür ve waypoint'ler zone midpoint'lerine konur.
+const LONG_ROUTE_THRESHOLD_KM = 300;
+
 /**
  * Google Directions API → rota boyunca arama noktaları döner.
  *
- * Arama bölgesi: rotanın orta yarısı (%25 → %75).
- * D = toplam mesafe, x = D/4 olduğunda çıkıştan x km sonrası ile
- * varıştan x km öncesi arasındaki segment aranır.
+ * Mesafe katmanları (D = toplam km):
+ *   ≤ 20 km                                : 1 waypoint @ %50, zone yok
+ *   20 < D < LONG_ROUTE_THRESHOLD_KM       : 3 waypoint @ %25/%50/%75, zone yok
+ *   ≥ LONG_ROUTE_THRESHOLD_KM (300)        : 3 waypoint @ %33/%50/%67 (3 zone
+ *                                            midpoint), her birinde zoneIndex
+ *                                            etiketi → orta 4x stretch'in
+ *                                            3 eşit zone'una karşılık
  *
- *   ≤ 20 km: 1 waypoint (%50 — orta nokta)
- *   > 20 km: 3 waypoint (%25, %50, %75)
+ * Tüm modlarda "ortadaki yarı" (D/4 → 3D/4 = 2x → 6x) içinde arama yapılır,
+ * çıkış/varışa yakın yerler kapsam dışında kalır.
  *
- * Örnek (800 km): 200 km, 400 km, 600 km noktaları → çıkış/varışa yakın
- * lokasyonlar hiç dahil edilmez.
- *
- * @returns {{ waypoints: Array<{lat,lng}>, totalDistanceKm: number, totalDurationMin: number } | null}
- *   null → rota bulunamadı (geçersiz koordinat, ulaşılamaz)
+ * @returns {{
+ *   waypoints: Array<{
+ *     lat: number, lng: number,
+ *     zoneIndex: number | null,        // 1,2,3 (long route) ya da null
+ *     distanceFromStartKm: number
+ *   }>,
+ *   totalDistanceKm: number,
+ *   totalDurationMin: number,
+ *   isLongRoute: boolean,              // ≥300 km flag
+ *   zoneCount: number,                 // long → 3, others → 0
+ *   xKm: number,                       // x = D/8 (long route min-gap için)
+ * } | null}
  */
 async function getRouteWaypoints(originLat, originLng, destLat, destLng) {
-  // v2: orta-bölge mantığı — cache key güncellendi
-  const cacheKey = `routeWaypoints2:${originLat.toFixed(3)}:${originLng.toFixed(3)}:${destLat.toFixed(3)}:${destLng.toFixed(3)}`;
+  // v3: zone metadata eklendi — cache key bump
+  const cacheKey = `routeWaypoints3:${originLat.toFixed(3)}:${originLng.toFixed(3)}:${destLat.toFixed(3)}:${destLng.toFixed(3)}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -141,10 +156,26 @@ async function getRouteWaypoints(originLat, originLng, destLat, destLng) {
   const totalDistanceKm = Math.round((totalDistanceM / 1000) * 10) / 10;
   const totalDurationMin = Math.round(totalDurationS / 60);
 
-  // Sadece ortadaki %50'yi tara: çıkıştan D/4 sonrası — varıştan D/4 öncesi
-  const targets = totalDistanceKm > 20
-    ? [totalDistanceM * 0.25, totalDistanceM * 0.5, totalDistanceM * 0.75]
-    : [totalDistanceM * 0.5];
+  const isLongRoute = totalDistanceKm >= LONG_ROUTE_THRESHOLD_KM;
+  const xKm = totalDistanceKm / 8;
+
+  // Target distances + zone tags (sırayla aynı index'te)
+  let targets;
+  let zoneTags;
+  if (isLongRoute) {
+    // 3 zone midpoint: orta 4x (2x..6x) içinde 3 eşit zone
+    // Zone midpoint'leri: 2.67x, 4x, 5.33x → D'nin %33.3, %50, %66.7'si
+    targets = [totalDistanceM * (1 / 3), totalDistanceM * 0.5, totalDistanceM * (2 / 3)];
+    zoneTags = [1, 2, 3];
+  } else if (totalDistanceKm > 20) {
+    // Mevcut: 3 waypoint orta yarıda, zone yok
+    targets = [totalDistanceM * 0.25, totalDistanceM * 0.5, totalDistanceM * 0.75];
+    zoneTags = [null, null, null];
+  } else {
+    // Çok kısa: tek waypoint
+    targets = [totalDistanceM * 0.5];
+    zoneTags = [null];
+  }
 
   const waypoints = [];
   let cumDist = 0;
@@ -153,12 +184,24 @@ async function getRouteWaypoints(originLat, originLng, destLat, destLng) {
     if (targetIdx >= targets.length) break;
     cumDist += step.distance.value;
     if (cumDist >= targets[targetIdx]) {
-      waypoints.push({ lat: step.end_location.lat, lng: step.end_location.lng });
+      waypoints.push({
+        lat: step.end_location.lat,
+        lng: step.end_location.lng,
+        zoneIndex: zoneTags[targetIdx],
+        distanceFromStartKm: Math.round((cumDist / 1000) * 10) / 10,
+      });
       targetIdx++;
     }
   }
 
-  const result = { waypoints, totalDistanceKm, totalDurationMin };
+  const result = {
+    waypoints,
+    totalDistanceKm,
+    totalDurationMin,
+    isLongRoute,
+    zoneCount: isLongRoute ? 3 : 0,
+    xKm,
+  };
   await cacheSet(cacheKey, result, ROUTE_WAYPOINTS_TTL);
   return result;
 }
@@ -260,4 +303,5 @@ module.exports = {
   passesQualityFilter,
   QUALITY_MIN_RATING,
   QUALITY_MIN_USER_RATINGS,
+  LONG_ROUTE_THRESHOLD_KM,
 };

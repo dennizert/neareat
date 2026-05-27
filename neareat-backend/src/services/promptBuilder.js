@@ -726,6 +726,8 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
       `   kategoriler: ${(c.types || []).slice(0, 6).join(', ')}\n` +
       `   adres: ${c.vicinity ?? '—'}\n` +
       `   durum: ${c.openNow === false ? 'KAPALI' : c.openNow === true ? 'AÇIK' : 'belirsiz'}` +
+      // Uzun rota zone etiketi — yalnızca route flow'da set edilir
+      (c.zoneIndex ? `\n   zone: ${c.zoneIndex} (rota ${c.projectedKm} km)` : '') +
       (c.neverVisited ? '\n   [İLK ZİYARET — kullanıcı bu mekânı daha önce hiç favorilemememiş veya yorum yazmamış]' : '')
     );
   });

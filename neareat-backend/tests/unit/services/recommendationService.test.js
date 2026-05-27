@@ -21,6 +21,14 @@ jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
 const mockGooglePlaces = {
   getNearbyRestaurantsFast: jest.fn(),
+  // candidateService passesQualityFilter çağırır — mock'ta passthrough
+  passesQualityFilter: (place) => {
+    const total = place?.user_ratings_total;
+    const rating = place?.rating;
+    if (typeof total !== 'number' || total < 2) return false;
+    if (typeof rating !== 'number' || rating < 2.4) return false;
+    return true;
+  },
 };
 jest.mock('../../../src/services/googlePlaces', () => mockGooglePlaces);
 
@@ -38,7 +46,7 @@ const {
   modelForTier,
   summarizeUsage,
   recommend,
-  __test: { parseLlmJson },
+  __test: { parseLlmJson, enforceZoneDiversity },
 } = require('../../../src/services/recommendationService');
 
 beforeEach(() => {
@@ -225,7 +233,7 @@ describe('recommend (end-to-end with mocks)', () => {
     expect(callArg.data.model).toBe(MODELS.free);
     expect(callArg.data.candidatePlaceIds).toEqual(['p1', 'p2']);
     expect(callArg.data.suggestedPlaceIds).toEqual(['p1', 'p2']);
-    expect(callArg.data.mood).toBe('şık');
+    expect(callArg.data.mood).toBeNull(); // mood feature kaldırıldı
     expect(callArg.data.lat).toBe(41.04);
     expect(callArg.data.lng).toBe(28.98);
   });
@@ -234,7 +242,7 @@ describe('recommend (end-to-end with mocks)', () => {
     setupBasicMocks();
     mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
-        place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
+        place_id: 'p1', name: 'X', rating: 4.5, user_ratings_total: 100, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
       },
     ]);
@@ -263,6 +271,7 @@ describe('recommend (end-to-end with mocks)', () => {
         place_id: 'real-id-1',
         name: 'Real',
         rating: 4.5,
+        user_ratings_total: 100,
         types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
       },
@@ -291,7 +300,7 @@ describe('recommend (end-to-end with mocks)', () => {
     setupBasicMocks();
     mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
-        place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
+        place_id: 'p1', name: 'X', rating: 4.5, user_ratings_total: 100, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
       },
     ]);
@@ -315,7 +324,7 @@ describe('recommend (end-to-end with mocks)', () => {
     mockPrisma.aiRecommendationLog.create.mockRejectedValueOnce(new Error('DB down'));
     mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
-        place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
+        place_id: 'p1', name: 'X', rating: 4.5, user_ratings_total: 100, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
       },
     ]);
@@ -336,7 +345,7 @@ describe('recommend (end-to-end with mocks)', () => {
     setupBasicMocks();
     mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
-        place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
+        place_id: 'p1', name: 'X', rating: 4.5, user_ratings_total: 100, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
       },
     ]);
@@ -357,7 +366,7 @@ describe('recommend (end-to-end with mocks)', () => {
     setupBasicMocks();
     mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
-        place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
+        place_id: 'p1', name: 'X', rating: 4.5, user_ratings_total: 100, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
       },
     ]);
@@ -378,7 +387,7 @@ describe('recommend (end-to-end with mocks)', () => {
     setupBasicMocks();
     mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue([
       {
-        place_id: 'p1', name: 'X', rating: 4.5, types: ['restaurant'],
+        place_id: 'p1', name: 'X', rating: 4.5, user_ratings_total: 100, types: ['restaurant'],
         geometry: { location: { lat: 41, lng: 28.9 } },
       },
     ]);
@@ -395,5 +404,119 @@ describe('recommend (end-to-end with mocks)', () => {
     const callArgs = mockAnthropicCreate.mock.calls[0][0];
     expect(callArgs.system[0].cache_control).toEqual({ type: 'ephemeral' });
     expect(callArgs.messages[0].content[0].cache_control).toEqual({ type: 'ephemeral' });
+  });
+});
+
+// ─── enforceZoneDiversity (uzun rota zone enforcement) ───────────────────────
+describe('enforceZoneDiversity', () => {
+  // xKm = 50 (yani 400 km'lik rota). 0.45x haversine eşiği = 22.5 km.
+  const X = 50;
+
+  function makeCand({ id, zone, score = 1, lat = 41.0, lng = 28.0, waypointIndex = 0 }) {
+    return {
+      placeId: id,
+      name: `R-${id}`,
+      score,
+      zoneIndex: zone,
+      waypointIndex,
+      projectedKm: zone === 1 ? 130 : zone === 2 ? 200 : 270,
+      location: { lat, lng },
+    };
+  }
+  function makeRec(cand) {
+    return {
+      placeId: cand.placeId,
+      reason: `LLM-reason-${cand.placeId}`,
+      candidate: cand,
+      waypointIndex: cand.waypointIndex,
+    };
+  }
+
+  it('happy path: LLM picks 1 per zone → keeps all 3 unchanged', () => {
+    const c1 = makeCand({ id: 'a', zone: 1, score: 5, lat: 40.5, lng: 28.0 });
+    const c2 = makeCand({ id: 'b', zone: 2, score: 5, lat: 41.0, lng: 29.0 });
+    const c3 = makeCand({ id: 'c', zone: 3, score: 5, lat: 41.5, lng: 30.0 });
+    const result = enforceZoneDiversity(
+      [makeRec(c1), makeRec(c2), makeRec(c3)],
+      [c1, c2, c3],
+      X,
+    );
+    expect(result.map((r) => r.placeId)).toEqual(['a', 'b', 'c']);
+    expect(result[0].reason).toBe('LLM-reason-a'); // LLM gerekçesi korunur
+  });
+
+  it('LLM picks all 3 from same zone → swaps in best from missing zones', () => {
+    // LLM 3 öneriyi de zone 2'den seçmiş; biz zone 1 ve 3'ten manuel pick eklemeliyiz.
+    const z1 = makeCand({ id: 'a1', zone: 1, score: 4 });
+    const z2top = makeCand({ id: 'b1', zone: 2, score: 9 });
+    const z2second = makeCand({ id: 'b2', zone: 2, score: 8 });
+    const z2third = makeCand({ id: 'b3', zone: 2, score: 7 });
+    const z3 = makeCand({ id: 'c1', zone: 3, score: 5 });
+
+    const llmPicks = [makeRec(z2top), makeRec(z2second), makeRec(z2third)];
+    const allCandidates = [z1, z2top, z2second, z2third, z3];
+
+    const result = enforceZoneDiversity(llmPicks, allCandidates, X);
+    const ids = result.map((r) => r.placeId);
+
+    // En iyi LLM picki zone 2'den korunur + zone 1 ve 3'ten manuel pick
+    expect(ids).toContain('b1'); // zone 2 (LLM)
+    expect(ids).toContain('a1'); // zone 1 (manual fallback)
+    expect(ids).toContain('c1'); // zone 3 (manual fallback)
+    expect(ids).toHaveLength(3);
+    // Manuel pick'lerin reason'ı boş, LLM'in dolu
+    const b1 = result.find((r) => r.placeId === 'b1');
+    expect(b1.reason).toBe('LLM-reason-b1');
+    const a1 = result.find((r) => r.placeId === 'a1');
+    expect(a1.reason).toBe('');
+  });
+
+  it('empty zone 2: backfills from other zones with haversine ≥ 0.45x', () => {
+    // Zone 2 boş; zone 1 ve 3'ten dağıtım yapılır
+    const z1a = makeCand({ id: 'z1a', zone: 1, score: 5, lat: 40.5, lng: 28.0 });
+    const z1b = makeCand({ id: 'z1b', zone: 1, score: 4, lat: 40.8, lng: 28.3 }); // ~37 km z1a'dan
+    const z3 = makeCand({ id: 'z3', zone: 3, score: 5, lat: 42.0, lng: 30.0 });
+
+    const llmPicks = [makeRec(z1a), makeRec(z3)];
+    const allCandidates = [z1a, z1b, z3];
+
+    const result = enforceZoneDiversity(llmPicks, allCandidates, X);
+    const ids = result.map((r) => r.placeId);
+    expect(ids).toContain('z1a');
+    expect(ids).toContain('z3');
+    expect(ids).toContain('z1b'); // backfill (haversine z1a→z1b ≈ 37 km ≥ 22.5 km ✓)
+    expect(ids).toHaveLength(3);
+  });
+
+  it('skips backfill candidates that are too close (haversine < 0.45x)', () => {
+    const z1a = makeCand({ id: 'z1a', zone: 1, score: 5, lat: 40.5, lng: 28.0 });
+    const z1b = makeCand({ id: 'z1b', zone: 1, score: 4, lat: 40.51, lng: 28.01 }); // ~1.5 km
+    const z3 = makeCand({ id: 'z3', zone: 3, score: 5, lat: 42.0, lng: 30.0 });
+
+    const llmPicks = [makeRec(z1a), makeRec(z3)];
+    const allCandidates = [z1a, z1b, z3];
+
+    const result = enforceZoneDiversity(llmPicks, allCandidates, X);
+    const ids = result.map((r) => r.placeId);
+    expect(ids).toContain('z1a');
+    expect(ids).toContain('z3');
+    expect(ids).not.toContain('z1b'); // too close → atlanır
+    expect(result).toHaveLength(2);   // 3'e ulaşamaz, başka aday yok
+  });
+
+  it('zone fully empty + LLM partial → manual fallback fills missing zone', () => {
+    // LLM yalnızca zone 1'den seçmiş; zone 2 ve 3 doluda biz manuel ekleriz
+    const z1 = makeCand({ id: 'z1', zone: 1, score: 5 });
+    const z2 = makeCand({ id: 'z2', zone: 2, score: 4 });
+    const z3 = makeCand({ id: 'z3', zone: 3, score: 3 });
+
+    const llmPicks = [makeRec(z1)];
+    const result = enforceZoneDiversity(llmPicks, [z1, z2, z3], X);
+    expect(result.map((r) => r.placeId).sort()).toEqual(['z1', 'z2', 'z3']);
+  });
+
+  it('all zones empty → returns empty array', () => {
+    const result = enforceZoneDiversity([], [], X);
+    expect(result).toEqual([]);
   });
 });

@@ -16,6 +16,7 @@ const prisma = require('../utils/prisma');
 const { getCandidates, MAX_CANDIDATES } = require('./candidateService');
 const { getRouteWaypoints, getPlaceDetails, isOpenAtTime } = require('./googlePlaces');
 const { buildUserProfileSummary, buildClaudeRequest } = require('./promptBuilder');
+const { haversineKm } = require('../utils/haversine');
 
 const MODELS = Object.freeze({
   free: 'claude-haiku-4-5-20251001',
@@ -426,6 +427,122 @@ async function recommendStream({ userId, location, isPremium = false, abortRef, 
 }
 
 /**
+ * Uzun rota (≥300 km) için zone-dağıtım enforcement.
+ *
+ * Mantık:
+ *   1. LLM önerilerini zone'a göre grupla (1, 2, 3)
+ *   2. Her zone için: o zone'dan LLM seçimi varsa onu kullan;
+ *      yoksa o zone'un en iyi adayını manuel ekle (LLM gerekçesi olmaz)
+ *   3. Eksik kalırsa (zone boş) → en çok adaylı zone'dan haversine
+ *      ≥ 0.45x kuralına uyan en iyi adayla 3'e tamamla
+ *
+ * Min-gap:
+ *   - Zone'lar arası zaten yapı gereği ≥1.33x route-distance ⇒ 0.75x'i sağlar
+ *   - Aynı zone'dan iki pick gerekirse haversine ≥ 0.45x (kıvrımlı rota
+ *     yaklaşımı; gerçek route-projection olmadan en pragmatik eşik)
+ *
+ * @param {Array} validRecs - LLM'den dönen ve filtrelenmiş öneriler
+ * @param {Array} candidates - Tüm adaylar (zone tag'li)
+ * @param {number} xKm - x = D/8, totalDistanceKm / 8
+ * @returns {Array} - Düzenlenmiş öneri listesi
+ */
+function enforceZoneDiversity(validRecs, candidates, xKm) {
+  const TARGET_COUNT = 3;
+  const ZONE_COUNT = 3;
+  const FALLBACK_MIN_HAVERSINE_KM = 0.45 * xKm;
+
+  // Adayları zone'a göre grupla + her zone'u skor desc sırala
+  const candidatesByZone = new Map();
+  for (let z = 1; z <= ZONE_COUNT; z++) candidatesByZone.set(z, []);
+  for (const c of candidates) {
+    const z = c.zoneIndex;
+    if (z >= 1 && z <= ZONE_COUNT) candidatesByZone.get(z).push(c);
+  }
+  for (const z of candidatesByZone.keys()) {
+    candidatesByZone.get(z).sort((a, b) => b.score - a.score);
+  }
+
+  // LLM seçimlerini zone'a göre grupla (sıralı; her zone'da LLM seçimi içinden ilki)
+  const llmPicksByZone = new Map();
+  for (let z = 1; z <= ZONE_COUNT; z++) llmPicksByZone.set(z, []);
+  for (const rec of validRecs) {
+    const z = rec.candidate?.zoneIndex;
+    if (z >= 1 && z <= ZONE_COUNT) llmPicksByZone.get(z).push(rec);
+  }
+
+  const finalPicks = [];
+  const pickedIds = new Set();
+
+  // Adım 1 — Her zone'dan tek pick (LLM tercih, yoksa o zone'un en iyisi)
+  for (let z = 1; z <= ZONE_COUNT; z++) {
+    const llmInZone = llmPicksByZone.get(z);
+    if (llmInZone.length > 0) {
+      const pick = llmInZone[0];
+      finalPicks.push(pick);
+      pickedIds.add(pick.placeId);
+    } else if (candidatesByZone.get(z).length > 0) {
+      // LLM bu zone'dan seçmedi ama aday var → en iyi adayı manuel ekle
+      const top = candidatesByZone.get(z)[0];
+      finalPicks.push({
+        placeId: top.placeId,
+        reason: '', // LLM gerekçesi yok — boş bırakılır, frontend handle eder
+        candidate: top,
+        waypointIndex: top.waypointIndex ?? 0,
+      });
+      pickedIds.add(top.placeId);
+    }
+    // else: zone fully boş → bu adımda atlanır, fallback'te ele alınır
+  }
+
+  // Adım 2 — Eksik kalırsa (zone boştu) → diğer zone'lardan haversine kuralıyla doldur
+  if (finalPicks.length < TARGET_COUNT) {
+    // En çok adaylı (kullanılmamış) zone'dan başla, sıraya devam et
+    const remaining = [...candidatesByZone.entries()]
+      .map(([z, cands]) => ({
+        z,
+        cands: cands.filter((c) => !pickedIds.has(c.placeId)),
+      }))
+      .filter(({ cands }) => cands.length > 0)
+      .sort((a, b) => b.cands.length - a.cands.length);
+
+    outer: while (finalPicks.length < TARGET_COUNT) {
+      let progressed = false;
+      for (const entry of remaining) {
+        if (finalPicks.length >= TARGET_COUNT) break outer;
+        while (entry.cands.length > 0) {
+          const next = entry.cands.shift();
+          // Halihazırda picked olanlardan haversine ≥ eşik?
+          const okGap = finalPicks.every((p) => {
+            if (!p.candidate?.location || !next.location) return true;
+            const d = haversineKm(
+              next.location.lat,
+              next.location.lng,
+              p.candidate.location.lat,
+              p.candidate.location.lng,
+            );
+            return d >= FALLBACK_MIN_HAVERSINE_KM;
+          });
+          if (okGap) {
+            finalPicks.push({
+              placeId: next.placeId,
+              reason: '',
+              candidate: next,
+              waypointIndex: next.waypointIndex ?? 0,
+            });
+            pickedIds.add(next.placeId);
+            progressed = true;
+            break;
+          }
+        }
+      }
+      if (!progressed) break; // tüm uygun adaylar tüketildi
+    }
+  }
+
+  return finalPicks;
+}
+
+/**
  * Rota üzerinde yemek önerisi — "yolda ne yesem?" (Sprint-3 Task #6).
  *
  * @param {object} p
@@ -445,27 +562,36 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
     return { noRoute: true };
   }
 
-  const { waypoints, totalDistanceKm, totalDurationMin } = routeData;
+  const { waypoints, totalDistanceKm, totalDurationMin, isLongRoute, xKm } = routeData;
   const tier = isPremium ? 'premium' : 'free';
   const model = modelForTier(tier);
 
-  // Waypoint arrival times — fraction = (i+1)/(n+1) → [0.25, 0.50, 0.75] for 3 waypoints
+  // Waypoint arrival times — long route'da waypoint'ler %33/%50/%67'de;
+  // kısa route'da %25/%50/%75. distanceFromStartKm zaten waypoint'te var,
+  // bunu duration ile orantılayarak arrival time çıkarıyoruz.
   const waypointArrivalTimes = new Map();
   const departureMs = departureTime ? new Date(departureTime).getTime() : null;
   if (departureMs && !isNaN(departureMs)) {
     for (let i = 0; i < waypoints.length; i++) {
-      const fraction = (i + 1) / (waypoints.length + 1);
+      const wp = waypoints[i];
+      const fraction = totalDistanceKm > 0 ? wp.distanceFromStartKm / totalDistanceKm : 0.5;
       waypointArrivalTimes.set(i, departureMs + fraction * totalDurationMin * 60 * 1000);
     }
   }
 
-  // Her ara nokta için aday çek — ardışık (Redis cache sayesinde tekrar noktalar hızlı)
+  // Her ara nokta için aday çek — adaylar waypoint'in zoneIndex'i ve
+  // projectedKm'siyle (waypoint'in distanceFromStartKm) etiketlenir.
   const wpCandidatesAll = [];
   for (let i = 0; i < waypoints.length; i++) {
     const wp = waypoints[i];
     const result = await getCandidates(userId, { lat: wp.lat, lng: wp.lng });
     for (const c of result.candidates) {
-      wpCandidatesAll.push({ ...c, waypointIndex: i });
+      wpCandidatesAll.push({
+        ...c,
+        waypointIndex: i,
+        zoneIndex: wp.zoneIndex,            // 1|2|3 (uzun route) ya da null
+        projectedKm: wp.distanceFromStartKm, // rota üzerindeki konum
+      });
     }
   }
 
@@ -512,6 +638,15 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
   }
   routeContext += `Önerirken yolda kolayca durulabilecek, rotaya yakın yerleri tercih et.`;
 
+  // Uzun rota (≥300 km): zone-dağıtım talimatı
+  if (isLongRoute) {
+    routeContext +=
+      `\n\nUZUN ROTA DAĞITIM KURALI (zorunlu):\n` +
+      `Bu rota 3 eşit zone'a bölündü (orta segment). Adaylar zone 1, 2 ve 3 etiketli.\n` +
+      `Tam 3 öneri seç ve her zone'dan EN AZ 1 tane olacak şekilde dağıt.\n` +
+      `Aynı zone'dan birden fazla seçme — kullanıcı rota boyunca farklı noktalarda durmak istiyor.`;
+  }
+
   const req = buildClaudeRequest({ profileSummary, candidates, location: origin, routeContext, now: nowOverride });
 
   const client = getClient();
@@ -551,8 +686,14 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
     });
   }
 
+  // Uzun rota: zone-dağıtım enforcement (LLM önerilerini düzeltir).
+  // Kısa rotalarda dokunulmaz.
+  const finalRecs = isLongRoute
+    ? enforceZoneDiversity(validRecs, candidates, xKm)
+    : validRecs;
+
   // Rota akışına göre sırala (origin → ara nokta → ...)
-  validRecs.sort((a, b) => a.waypointIndex - b.waypointIndex);
+  finalRecs.sort((a, b) => a.waypointIndex - b.waypointIndex);
 
   // Fire-and-forget audit log
   const usage = summarizeUsage(model, response.usage);
@@ -562,7 +703,7 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
         userId,
         model,
         candidatePlaceIds: candidates.map((c) => c.placeId),
-        suggestedPlaceIds: validRecs.map((r) => r.placeId),
+        suggestedPlaceIds: finalRecs.map((r) => r.placeId),
         promptTokens:
           (response.usage?.input_tokens || 0) +
           (response.usage?.cache_creation_input_tokens || 0) +
@@ -583,7 +724,7 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
   logUsage({ userId, model, usage: response.usage, latencyMs });
 
   return {
-    recommendations: validRecs.map((r) => ({
+    recommendations: finalRecs.map((r) => ({
       ...r,
       detourKm: r.candidate.detourKm ?? null,
       openAtArrival: r.candidate.openAtArrival ?? null,
@@ -612,5 +753,6 @@ module.exports = {
   // testable
   __test: {
     parseLlmJson,
+    enforceZoneDiversity,
   },
 };
