@@ -7,6 +7,27 @@ const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
 const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
 const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
 
+// Keşfet listesi sıralama parametreleri
+const HIGH_RATING_THRESHOLD = 4.5;   // ilk 15 sırada bu eşiğin altı yer almaz
+const TOP_BUCKET_SIZE = 15;          // ilk N sıra "high-rated only"
+const LIST_LIMIT = 60;               // toplam liste boyutu
+
+/**
+ * Sıralama için birleşik skor:
+ *   - Rating (0..5): %45 ağırlık — yemek kalitesi öncelik
+ *   - Mesafe (0..radius): %35 ağırlık — yakınlık keşif için önemli
+ *   - Açıklık (true/false/unknown): %20 ağırlık — açık tercihli ama
+ *     unknown nötr (0.5), kapalı sıfır
+ * Çıktı: 0..1 arası (yüksek = daha iyi)
+ */
+function combinedRankingScore(place, maxDistanceKm) {
+  const distScore = Math.max(0, 1 - (place._dist / maxDistanceKm));
+  const ratingScore = (place.rating ?? 0) / 5;
+  const openNow = place.opening_hours?.open_now;
+  const openScore = openNow === true ? 1.0 : openNow === false ? 0.0 : 0.5;
+  return ratingScore * 0.45 + distScore * 0.35 + openScore * 0.20;
+}
+
 function computeIsOpenFromOverride(override) {
   if (!override || typeof override !== 'object') return null;
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -60,17 +81,33 @@ async function getNearby(req, res, next) {
       rawPlaces = await getNearbyRestaurants(userLat, userLng, radiusMeters, placeType);
     }
 
-    // Kalite filtresi (rating ≥ 2.4, en az 2 puanlama) + haversine
-    const filtered = rawPlaces
+    // Kalite filtresi (rating ≥ 2.4, en az 2 puanlama) + haversine + combined score
+    const scored = rawPlaces
       .map((place) => {
         if (!place.geometry?.location) return null;
         if (!passesQualityFilter(place)) return null;
         const _dist = haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng);
-        return _dist <= radiusKm ? { ...place, _dist } : null;
+        if (_dist > radiusKm) return null;
+        const enriched = { ...place, _dist };
+        enriched._combinedScore = combinedRankingScore(enriched, radiusKm);
+        return enriched;
       })
-      .filter(Boolean)
-      .sort((a, b) => a._dist - b._dist)
-      .slice(0, 60);
+      .filter(Boolean);
+
+    // İlk 15 sıra: yalnızca rating ≥ 4.5 (combined score'a göre).
+    // Sonrası: kalan high-rated + tüm low-rated, combined score'a göre.
+    const high = scored
+      .filter((p) => (p.rating ?? 0) >= HIGH_RATING_THRESHOLD)
+      .sort((a, b) => b._combinedScore - a._combinedScore);
+    const low = scored
+      .filter((p) => (p.rating ?? 0) < HIGH_RATING_THRESHOLD)
+      .sort((a, b) => b._combinedScore - a._combinedScore);
+
+    const topBucket = high.slice(0, TOP_BUCKET_SIZE);
+    const restPool = [...high.slice(TOP_BUCKET_SIZE), ...low]
+      .sort((a, b) => b._combinedScore - a._combinedScore);
+
+    const filtered = [...topBucket, ...restPool].slice(0, LIST_LIMIT);
 
     // Attach discount + override hours from our DB for matching placeIds
     const placeIds = filtered.map((p) => p.place_id);
