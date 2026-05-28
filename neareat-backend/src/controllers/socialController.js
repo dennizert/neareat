@@ -6,6 +6,11 @@ const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logServ
 
 const FREE_DAILY_REC_LIMIT = 2;
 
+// Sosyal aktivite akışı (S4-5)
+const FEED_DEFAULT_LIMIT = 20;
+const FEED_MAX_LIMIT = 50;
+const FEED_WINDOW_DAYS = 7;
+
 // ─── Kullanıcı Arama ─────────────────────────────────────────────────────────
 
 // GET /api/social/users/search?q=
@@ -703,8 +708,78 @@ async function reportUser(req, res, next) {
   }
 }
 
+// ─── Sosyal Aktivite Akışı (S4-5) ────────────────────────────────────────────
+
+// GET /api/social/feed?cursor=<eventId>&limit=<n>
+// Arkadaşların son 7 günlük aktiviteleri (yorum/favori/rezervasyon/öneri),
+// kronolojik (yeni→eski), cursor tabanlı sayfalama.
+async function getActivityFeed(req, res, next) {
+  try {
+    const limit = Math.min(
+      FEED_MAX_LIMIT,
+      Math.max(1, parseInt(req.query.limit, 10) || FEED_DEFAULT_LIMIT),
+    );
+    const cursor = typeof req.query.cursor === 'string' && req.query.cursor ? req.query.cursor : null;
+
+    // 1. Arkadaş id'leri (kabul edilmiş, her iki yön)
+    const friendships = await prisma.friendRequest.findMany({
+      where: {
+        OR: [{ fromUserId: req.user.id }, { toUserId: req.user.id }],
+        status: 'ACCEPTED',
+      },
+      select: { fromUserId: true, toUserId: true },
+    });
+
+    const friendIds = friendships.map((f) =>
+      f.fromUserId === req.user.id ? f.toUserId : f.fromUserId,
+    );
+
+    if (friendIds.length === 0) {
+      return res.json({ events: [], nextCursor: null });
+    }
+
+    // 2. Son 7 günün event'leri — tek query (N+1 yok), limit+1 ile "daha var mı"
+    const since = new Date(Date.now() - FEED_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const rows = await prisma.activityEvent.findMany({
+      where: {
+        userId: { in: friendIds },
+        createdAt: { gte: since },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore ? pageRows[pageRows.length - 1].id : null;
+
+    // 3. Event sahiplerinin profilleri — tek query, Map ile eşle
+    const userIds = [...new Set(pageRows.map((e) => e.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, displayName: true, photoUrl: true },
+    });
+    const userById = new Map(users.map((u) => [u.id, u]));
+
+    const events = pageRows.map((e) => ({
+      id: e.id,
+      type: e.type,
+      placeId: e.placeId,
+      metadata: e.metadata ?? null,
+      createdAt: e.createdAt,
+      user: userById.get(e.userId) ?? { id: e.userId, displayName: null, photoUrl: null },
+    }));
+
+    res.json({ events, nextCursor });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   searchUsers,
+  getActivityFeed,
   getFriends, getPendingRequests, sendFriendRequest,
   acceptFriendRequest, rejectFriendRequest, removeFriend,
   sendRecommendation, getMyRecommendations, getReceivedRecommendations, getUserRecommendations,
