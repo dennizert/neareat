@@ -16,11 +16,29 @@ const mockPrisma = {
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
+const mockRedis = {
+  cacheGet: jest.fn().mockResolvedValue(null), // varsayılan: cache miss
+  cacheSet: jest.fn().mockResolvedValue(undefined),
+  cacheDel: jest.fn().mockResolvedValue(undefined),
+};
+jest.mock('../../../src/services/redis', () => mockRedis);
+
 const {
   buildUserProfileSummary,
   buildClaudeRequest,
   SYSTEM_PROMPT,
-  __test: { stableStringify, approxTokens, buildSystemBlock, buildProfileBlock, buildVariableBlock, buildFriendSignals, buildFeedbackHistory },
+  __test: {
+    stableStringify,
+    approxTokens,
+    buildSystemBlock,
+    buildProfileBlock,
+    buildVariableBlock,
+    buildFriendSignals,
+    computeFriendSignals,
+    buildFeedbackHistory,
+    friendSignalsCacheKey,
+    FRIEND_SIGNALS_CACHE_TTL,
+  },
 } = require('../../../src/services/promptBuilder');
 
 beforeEach(() => {
@@ -510,6 +528,55 @@ describe('buildFriendSignals', () => {
 
     expect(serialized).not.toContain('real-uuid-friend-123');
     expect(result[0].label).toBe('arkadaş 1');
+  });
+});
+
+// ─── buildFriendSignals — Redis cache (S4-1) ─────────────────────────────────
+
+describe('buildFriendSignals — Redis cache', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRedis.cacheGet.mockResolvedValue(null);
+  });
+
+  it('cache miss: hesaplar, sonucu doğru key + TTL ile cache\'ler', async () => {
+    mockRedis.cacheGet.mockResolvedValue(null);
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+
+    const result = await buildFriendSignals('u1');
+
+    expect(result).toEqual([]);
+    expect(mockRedis.cacheGet).toHaveBeenCalledWith(friendSignalsCacheKey('u1'));
+    expect(mockRedis.cacheSet).toHaveBeenCalledWith(
+      friendSignalsCacheKey('u1'),
+      [],
+      FRIEND_SIGNALS_CACHE_TTL
+    );
+  });
+
+  it('cache hit: DB\'ye hiç gitmeden cache\'ten döner', async () => {
+    const cached = [{ label: 'arkadaş 1', topCuisineTypes: ['cafe'], avgRating: 4.2, reviewCount: 3 }];
+    mockRedis.cacheGet.mockResolvedValue(cached);
+
+    const result = await buildFriendSignals('u1');
+
+    expect(result).toEqual(cached);
+    expect(mockPrisma.friendRequest.findMany).not.toHaveBeenCalled();
+    expect(mockRedis.cacheSet).not.toHaveBeenCalled();
+  });
+
+  it('cache key kullanıcı bazlı izole', () => {
+    expect(friendSignalsCacheKey('u1')).toBe('social-signals:u1');
+    expect(friendSignalsCacheKey('u2')).toBe('social-signals:u2');
+  });
+
+  it('computeFriendSignals cache\'e dokunmaz (saf çekirdek)', async () => {
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+
+    await computeFriendSignals('u1');
+
+    expect(mockRedis.cacheGet).not.toHaveBeenCalled();
+    expect(mockRedis.cacheSet).not.toHaveBeenCalled();
   });
 });
 

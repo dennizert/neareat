@@ -35,12 +35,18 @@
  */
 
 const prisma = require('../utils/prisma');
+const { cacheGet, cacheSet } = require('./redis');
 
 const MAX_RECENT_REVIEWS = 20;
 const MAX_FAVORITES = 25;
 const MAX_STAR_EVENTS = 30;
 const MAX_FRIEND_CUISINE_TYPES = 5;
 const MAX_FEEDBACK_HISTORY = 20;
+
+// Arkadaş sinyalleri Redis cache TTL'i (saniye). 15 dk — sosyal veri sık değişmez,
+// her öneri çağrısında 4 DB sorgusu atmak yerine cache'ten okunur.
+const FRIEND_SIGNALS_CACHE_TTL = 15 * 60;
+const friendSignalsCacheKey = (userId) => `social-signals:${userId}`;
 
 /**
  * Stabil JSON serializer — anahtarlar alfabetik sıralı.
@@ -433,6 +439,29 @@ function buildSystemBlock() {
  * @returns {Promise<Array>}
  */
 async function buildFriendSignals(userId) {
+  // Redis cache: aynı kullanıcı için 15 dk içinde tekrar hesaplama yapma.
+  // KVKK/determinizm: sinyaller anonim ve ID-sıralı üretildiği için cache'lenmesi güvenli.
+  const cacheKey = friendSignalsCacheKey(userId);
+  const cached = await cacheGet(cacheKey);
+  if (cached !== null) return cached;
+
+  const signals = await computeFriendSignals(userId);
+
+  // Boş sonuçları da cache'le — arkadaşı/opt-in'i olmayan kullanıcı için
+  // her çağrıda gereksiz sorgu atmayı önler.
+  await cacheSet(cacheKey, signals, FRIEND_SIGNALS_CACHE_TTL);
+  return signals;
+}
+
+/**
+ * buildFriendSignals'ın saf hesaplama çekirdeği — cache'siz.
+ * Sabit sayıda sorgu kullanır (arkadaş sayısından bağımsız): friendRequest +
+ * opt-in user + (recommendation, review) Promise.all → toplam 4 sorgu.
+ *
+ * @param {string} userId
+ * @returns {Promise<Array>}
+ */
+async function computeFriendSignals(userId) {
   // Adım 1: Kabul edilmiş arkadaş isteği kayıtları
   const friendRequests = await prisma.friendRequest.findMany({
     where: {
@@ -805,6 +834,9 @@ module.exports = {
     buildProfileBlock,
     buildVariableBlock,
     buildFriendSignals,
+    computeFriendSignals,
     buildFeedbackHistory,
+    friendSignalsCacheKey,
+    FRIEND_SIGNALS_CACHE_TTL,
   },
 };
