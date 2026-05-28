@@ -1,7 +1,7 @@
 const prisma = require('../utils/prisma');
 const { awardStars } = require('../utils/stars');
 const { containsOffensiveContent } = require('../utils/contentFilter');
-const { logRequest } = require('../services/logService');
+const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
 
 async function verifyReviewOwnership(reviewId, userId) {
   const review = await prisma.review.findUnique({ where: { id: reviewId } });
@@ -67,6 +67,15 @@ async function createReview(req, res, next) {
 
     const action = existing ? 'Yorumunu güncelledi' : 'Yorum yazdı';
     logRequest({ req, page: 'Restoran Detay', action, details: placeName || placeId }).catch(() => {});
+    // Sosyal aktivite akışı — yalnızca YENİ yorum (güncellemede spam olmasın)
+    if (!existing) {
+      logActivity({
+        userId: req.user.id,
+        type: ACTIVITY_TYPES.REVIEW,
+        placeId,
+        metadata: { placeName: placeName || null, rating },
+      });
+    }
     res.status(201).json({ review, starEvent, newStarCount, newRewards });
   } catch (err) {
     next(err);

@@ -1,7 +1,7 @@
 const prisma = require('../utils/prisma');
 const { awardStars, deductStars, RESERVATION_NO_SHOW_PENALTY } = require('../utils/stars');
 const { createNotification } = require('../services/notificationService');
-const { logRequest } = require('../services/logService');
+const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
 
 const RESERVATION_SELECT = {
   id: true, userId: true, restaurantId: true, placeId: true, placeName: true,
@@ -72,6 +72,13 @@ async function createReservation(req, res, next) {
     });
 
     logRequest({ req, page: 'Rezervasyonlar', action: 'Rezervasyon oluşturdu', details: `${reservation.placeName} — ${date} ${time}, ${guestCount} kişi` }).catch(() => {});
+    // Sosyal aktivite akışı
+    logActivity({
+      userId: req.user.id,
+      type: ACTIVITY_TYPES.RESERVATION,
+      placeId,
+      metadata: { placeName: reservation.placeName || null, date, time },
+    });
     // Kullanıcıya rezervasyon oluşturma puanı ver
     awardStars(req.user.id, 'RESERVATION', `${restaurant.placeName || restaurant.businessName} için rezervasyon talebi`, reservation.id).catch(() => {});
 
