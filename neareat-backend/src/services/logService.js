@@ -1,5 +1,13 @@
 const prisma = require('../utils/prisma');
 
+/** Sosyal aktivite akışı olay türleri (Sprint-4 Task #4). */
+const ACTIVITY_TYPES = Object.freeze({
+  REVIEW: 'REVIEW',
+  FAVORITE: 'FAVORITE',
+  RESERVATION: 'RESERVATION',
+  RECOMMENDATION: 'RECOMMENDATION',
+});
+
 async function logRequest({ req, page, action, details }) {
   try {
     const user = req?.user;
@@ -22,4 +30,25 @@ async function logRequest({ req, page, action, details }) {
   }
 }
 
-module.exports = { logRequest };
+/**
+ * Sosyal aktivite akışı (S4-5/S4-6) için olay kaydı — fire-and-forget.
+ * Çağıran AWAIT ETMEMELİ; hata yutulur, ana akış bloklanmaz.
+ *
+ * @param {object} p
+ * @param {string} p.userId - olayı üreten kullanıcı
+ * @param {string} p.type - ACTIVITY_TYPES'tan biri
+ * @param {string} [p.placeId] - Google Places ID
+ * @param {object} [p.metadata] - olaya özgü ek bilgi (örn. { placeName })
+ */
+async function logActivity({ userId, type, placeId = null, metadata = null }) {
+  try {
+    if (!userId || !type) return;
+    await prisma.activityEvent.create({
+      data: { userId, type, placeId, metadata: metadata ?? undefined },
+    });
+  } catch (err) {
+    console.error('[logService] logActivity error:', err.message);
+  }
+}
+
+module.exports = { logRequest, logActivity, ACTIVITY_TYPES };

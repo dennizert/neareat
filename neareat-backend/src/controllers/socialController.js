@@ -2,7 +2,7 @@ const prisma = require('../utils/prisma');
 const { awardStars, getLevel } = require('../utils/stars');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
-const { logRequest } = require('../services/logService');
+const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
 
 const FREE_DAILY_REC_LIMIT = 2;
 
@@ -317,6 +317,14 @@ async function sendRecommendation(req, res, next) {
         ),
       );
     }
+
+    // Sosyal aktivite akışı — bir gönderim = bir olay (alıcı sayısından bağımsız)
+    logActivity({
+      userId: req.user.id,
+      type: ACTIVITY_TYPES.RECOMMENDATION,
+      placeId,
+      metadata: { placeName: placeName || null },
+    });
 
     const starMultiplier = premium ? 2 : 1;
     const { event, newStarCount, newRewards } = await awardStars(

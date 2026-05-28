@@ -71,6 +71,7 @@ model User {
   pollVotes               PollVote[]            @relation("PollVotes")
   aiRecommendationLogs    AiRecommendationLog[]
   recommendationFeedbacks RecommendationFeedback[]
+  activityEvents          ActivityEvent[]
 
   @@map("users")
 }
@@ -556,6 +557,25 @@ model UserLog {
   @@index([email])
   @@index([createdAt])
   @@map("user_logs")
+}
+
+/// Sosyal aktivite akışı olayı (Sprint-4 Task #4).
+/// type: REVIEW | FAVORITE | RESERVATION | RECOMMENDATION
+/// placeId Google Places ID (string); metadata olaya özgü ek bilgi (örn. placeName).
+/// Feed sorgusu: arkadaş id'leri IN + createdAt >= 7 gün → (userId, createdAt) indexi.
+model ActivityEvent {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  type      String
+  placeId   String?  @map("place_id")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("activity_events")
 }
 
 // ─── Meal Groups ─────────────────────────────────────────────────────────────
