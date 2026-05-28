@@ -7,6 +7,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -18,8 +19,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useAiRecommendationStore } from '../store/aiRecommendationStore';
 import { getCurrentLocation } from '../services/location';
 import RecommendationCard from '../components/RecommendationCard';
+import AiThinkingAnimation from '../components/AiThinkingAnimation';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
+
+const REFINE_CHIPS = ['Daha ucuz', 'Daha yakın', 'Daha sessiz'] as const;
 
 export default function RecommendationScreen() {
   const navigation = useNavigation<any>();
@@ -37,11 +41,16 @@ export default function RecommendationScreen() {
     limitReached,
     noCandidates,
     feedbackByPlaceId,
-    fetchDinnerRecommendation,
+    streamingStatus,
+    refining,
+    streamDinnerRecommendation,
     submitFeedback,
   } = useAiRecommendationStore();
 
   const [locating, setLocating] = useState(false);
+  const [refineText, setRefineText] = useState('');
+  // Refinement aynı konumu yeniden kullanır — tekrar GPS sorgulamaya gerek yok
+  const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   // Auto-navigate to PremiumUpsell on 429 — sadece false→true geçişinde
   const prevLimitReachedRef = useRef(false);
@@ -56,31 +65,44 @@ export default function RecommendationScreen() {
     setLocating(true);
     try {
       const coords = await getCurrentLocation();
+      lastCoordsRef.current = coords;
       setLocating(false);
-      await fetchDinnerRecommendation(coords.lat, coords.lng);
+      await streamDinnerRecommendation(coords.lat, coords.lng);
     } catch {
       setLocating(false);
     }
-  }, [fetchDinnerRecommendation]);
+  }, [streamDinnerRecommendation]);
+
+  const handleRefine = useCallback(async (instruction: string) => {
+    const text = instruction.trim();
+    if (!text) return;
+    const coords = lastCoordsRef.current;
+    if (!coords) return;
+    setRefineText('');
+    await streamDinnerRecommendation(coords.lat, coords.lng, text);
+  }, [streamDinnerRecommendation]);
 
   const handleDetails = useCallback((placeId: string) => {
     navigation.navigate('RestaurantDetail', { placeId });
   }, [navigation]);
 
-  const isBusy = locating || loading;
+  const isBusy = locating || loading || refining;
   const hasResults = recommendations.length > 0;
   const showSkeleton = loading && !hasResults;
+  // Refinement çubuğu: sonuç var, akış bitmiş, hata/limit yok
+  const canRefine =
+    hasResults && streamingStatus === 'done' && !limitReached && !noCandidates && !error;
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={locating} onRefresh={handleFetch} tintColor={C.primary} />
+        <RefreshControl refreshing={locating} onRefresh={handleFetch} tintColor={C.ai} />
       }
     >
       {/* Başlık */}
-      <Text style={styles.title}>Bu akşam ne yesem?</Text>
+      <Text style={styles.title}>Şimdi ne yesem?</Text>
       <Text style={styles.subtitle}>
         Geçmişine ve tercihlerine göre kişisel öneri al
       </Text>
@@ -122,12 +144,10 @@ export default function RecommendationScreen() {
         )}
       </TouchableOpacity>
 
-      {/* Skeleton — yükleme sırasında */}
+      {/* AI düşünme animasyonu — yükleme sırasında */}
       {showSkeleton && (
         <View style={styles.resultsSection}>
-          <SkeletonCard C={C} />
-          <SkeletonCard C={C} />
-          <SkeletonCard C={C} />
+          <AiThinkingAnimation />
         </View>
       )}
 
@@ -202,12 +222,61 @@ export default function RecommendationScreen() {
         </View>
       )}
 
+      {/* Refinement göstergesi — yeni öneri akışta, eski kartlar korunuyor */}
+      {refining && (
+        <View style={styles.refiningRow}>
+          <ActivityIndicator color={C.ai} size="small" />
+          <Text style={styles.refiningText}>İsteğine göre güncelleniyor…</Text>
+        </View>
+      )}
+
+      {/* Konuşmaya dayalı refinement — sonuç geldikten sonra */}
+      {canRefine && (
+        <View style={styles.refineSection}>
+          <Text style={styles.refineTitle}>Beğenmedin mi? İsteğini söyle:</Text>
+          <View style={styles.chipRow}>
+            {REFINE_CHIPS.map((chip) => (
+              <TouchableOpacity
+                key={chip}
+                style={styles.chip}
+                onPress={() => handleRefine(chip)}
+                disabled={isBusy}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.chipText}>{chip}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.refineInputRow}>
+            <TextInput
+              style={styles.refineInput}
+              value={refineText}
+              onChangeText={setRefineText}
+              placeholder="örn. daha sessiz bir yer"
+              placeholderTextColor={C.textMuted}
+              maxLength={300}
+              editable={!isBusy}
+              onSubmitEditing={() => handleRefine(refineText)}
+              returnKeyType="send"
+            />
+            <TouchableOpacity
+              style={[styles.refineSendBtn, (!refineText.trim() || isBusy) && styles.refineSendBtnDisabled]}
+              onPress={() => handleRefine(refineText)}
+              disabled={!refineText.trim() || isBusy}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.refineSendText}>Gönder</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Empty state */}
       {!hasResults && !loading && !error && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🤔</Text>
           <Text style={styles.emptyText}>
-            Mood'unu seç (veya boş bırak) ve önerileri getir
+            Konuma göre AI sana kişisel öneri hazırlasın — başlamak için butona dokun.
           </Text>
         </View>
       )}
@@ -278,29 +347,30 @@ function makeStyles(C: Colors) {
       borderRadius: 10,
       backgroundColor: C.surfaceAlt,
     },
-    tierBadgePremium: { backgroundColor: '#FEF3C7' },
+    tierBadgePremium: { backgroundColor: C.amberSurface },
     tierBadgeText: { fontSize: 12, fontWeight: '700', color: C.textSecondary },
-    tierBadgeTextPremium: { color: '#92400E' },
+    tierBadgeTextPremium: { color: C.amber },
     remaining: { fontSize: 13, color: C.textTertiary },
-    remainingNumber: { fontWeight: '700', color: C.primary },
+    remainingNumber: { fontWeight: '700', color: C.ai },
 
+    // AI ekranı: CTA AI moruyla — kullanıcı bu rengi "akıllı sistem" ile eşleştirir
     cta: {
       flexDirection: 'row',
       justifyContent: 'center',
       alignItems: 'center',
       gap: 10,
-      backgroundColor: C.primary,
+      backgroundColor: C.ai,
       paddingVertical: 14,
       borderRadius: 14,
       marginBottom: 12,
-      shadowColor: C.primary,
+      shadowColor: C.ai,
       shadowOpacity: 0.3,
       shadowRadius: 8,
       shadowOffset: { width: 0, height: 4 },
       elevation: 4,
     },
     ctaDisabled: { opacity: 0.7 },
-    ctaText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+    ctaText: { fontSize: 16, fontWeight: '700', color: C.aiOn },
 
     errorBox: {
       backgroundColor: C.surface,
@@ -321,15 +391,15 @@ function makeStyles(C: Colors) {
       paddingVertical: 10,
       borderRadius: 20,
     },
-    upgradeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    upgradeBtnText: { color: C.primaryOn, fontWeight: '700', fontSize: 14 },
     retryBtn: {
       paddingHorizontal: 20,
       paddingVertical: 10,
       borderRadius: 20,
       borderWidth: 1.5,
-      borderColor: C.primary,
+      borderColor: C.ai,
     },
-    retryBtnText: { color: C.primary, fontWeight: '700', fontSize: 14 },
+    retryBtnText: { color: C.ai, fontWeight: '700', fontSize: 14 },
 
     noteBox: {
       backgroundColor: C.surfaceAlt,
@@ -340,6 +410,53 @@ function makeStyles(C: Colors) {
     noteText: { fontSize: 13, color: C.textSecondary, fontStyle: 'italic', lineHeight: 19 },
 
     resultsSection: { marginTop: 4 },
+
+    refiningRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 12,
+    },
+    refiningText: { fontSize: 13, color: C.ai, fontWeight: '600' },
+
+    refineSection: {
+      marginTop: 8,
+      padding: 14,
+      backgroundColor: C.surfaceAlt,
+      borderRadius: 14,
+    },
+    refineTitle: { fontSize: 13, fontWeight: '700', color: C.textSecondary, marginBottom: 10 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 18,
+      backgroundColor: C.surface,
+      borderWidth: 1.5,
+      borderColor: C.ai,
+    },
+    chipText: { fontSize: 13, fontWeight: '600', color: C.ai },
+    refineInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    refineInput: {
+      flex: 1,
+      backgroundColor: C.surface,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: C.textPrimary,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    refineSendBtn: {
+      backgroundColor: C.ai,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    refineSendBtnDisabled: { opacity: 0.5 },
+    refineSendText: { color: C.aiOn, fontWeight: '700', fontSize: 14 },
 
     emptyState: { paddingVertical: 40, alignItems: 'center' },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },

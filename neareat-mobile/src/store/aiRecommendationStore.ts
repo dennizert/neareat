@@ -55,6 +55,10 @@ interface AiRecommendationState {
   streamingStatus: StreamingStatus;
   /** Aktif SSE stream'i iptal etmek için — cancelStream() kullanır */
   abortController: AbortController | null;
+  /** Konuşmaya dayalı refinement oturum kimliği (Sprint-4 Task #3) */
+  sessionId: string | null;
+  /** Refinement isteği akışta — eski kartlar korunurken yeni öneri gelir */
+  refining: boolean;
   /** Rota önerisi sonuçları — sequenceOrder ile sıralı */
   routeRecommendations: RouteRecommendation[];
   routeMeta: { totalDistanceKm: number; totalDurationMin: number } | null;
@@ -65,8 +69,12 @@ interface AiRecommendationState {
   routeNoCandidates: boolean;
 
   fetchDinnerRecommendation: (lat: number, lng: number) => Promise<void>;
-  /** SSE streaming versiyon — kartlar birer birer store'a push edilir */
-  streamDinnerRecommendation: (lat: number, lng: number) => Promise<void>;
+  /**
+   * SSE streaming versiyon — kartlar birer birer store'a push edilir.
+   * `refinement` verilirse: mevcut sessionId ile iyileştirme isteği gönderilir,
+   * eski kartlar ilk yeni kart gelene dek korunur (silinmeden güncellenir).
+   */
+  streamDinnerRecommendation: (lat: number, lng: number, refinement?: string) => Promise<void>;
   /** Aktif SSE stream'i iptal et (Durdur butonu) */
   cancelStream: () => void;
   /** Optimistic feedback gönder; hata olursa rollback yapıp throw eder */
@@ -89,6 +97,8 @@ const INITIAL_STATE = {
   feedbackByPlaceId: {} as Record<string, FeedbackSentiment>,
   streamingStatus: 'idle' as StreamingStatus,
   abortController: null as AbortController | null,
+  sessionId: null as string | null,
+  refining: false,
   routeRecommendations: [] as RouteRecommendation[],
   routeMeta: null as { totalDistanceKm: number; totalDurationMin: number } | null,
   routeNoteToUser: '',
@@ -98,7 +108,7 @@ const INITIAL_STATE = {
   routeNoCandidates: false,
 };
 
-export const useAiRecommendationStore = create<AiRecommendationState>((set) => ({
+export const useAiRecommendationStore = create<AiRecommendationState>((set, get) => ({
   ...INITIAL_STATE,
 
   async fetchDinnerRecommendation(lat, lng) {
@@ -151,37 +161,53 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
     }
   },
 
-  async streamDinnerRecommendation(lat, lng) {
+  async streamDinnerRecommendation(lat, lng, refinement) {
+    const isRefinement = !!refinement;
     const controller = new AbortController();
     set({
-      loading: true,
+      // refinement'te eski kartlar dursun → skeleton gösterme
+      loading: !isRefinement,
+      refining: isRefinement,
       streamingStatus: 'streaming',
       error: null,
       limitReached: false,
       noCandidates: false,
-      recommendations: [],
-      noteToUser: '',
+      ...(isRefinement ? {} : { recommendations: [], noteToUser: '' }),
       abortController: controller,
     });
 
+    // refinement'te ilk yeni kart geldiğinde eski listeyi değiştir (silmeden güncelle)
+    let replacedForRefinement = false;
+
     try {
-      await streamDinnerRecommendation(lat, lng, {
+      await streamDinnerRecommendation(
+        lat,
+        lng,
+        {
         onCard: (rec) => {
-          set((s) => ({
-            loading: false, // skeleton ilk kartta kalkar
-            recommendations: [...s.recommendations, rec],
-          }));
+          set((s) => {
+            if (isRefinement && !replacedForRefinement) {
+              replacedForRefinement = true;
+              return { loading: false, refining: false, recommendations: [rec] };
+            }
+            return {
+              loading: false, // skeleton ilk kartta kalkar
+              recommendations: [...s.recommendations, rec],
+            };
+          });
         },
         onNote: (note) => {
           set({ noteToUser: note });
         },
-        onDone: ({ tier, remainingToday, resetAt }) => {
+        onDone: ({ tier, remainingToday, resetAt, sessionId }) => {
           set({
             streamingStatus: 'done',
             loading: false,
+            refining: false,
             tier: tier as 'free' | 'premium',
             remainingToday,
             resetAt,
+            sessionId: sessionId ?? get().sessionId,
             abortController: null,
           });
         },
@@ -212,16 +238,23 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
           set({
             streamingStatus: 'error',
             loading: false,
+            refining: false,
             error: event.message ?? 'Öneri alınamadı.',
             abortController: null,
           });
         },
-      }, controller.signal);
+        },
+        controller.signal,
+        {
+          sessionId: isRefinement ? get().sessionId ?? undefined : undefined,
+          refinement,
+        }
+      );
 
       // onDone çağrılmadan stream bittiyse (proxy drop) → stuck 'streaming' guard
       set((s) => {
         if (s.streamingStatus === 'streaming') {
-          return { streamingStatus: 'idle', loading: false, abortController: null };
+          return { streamingStatus: 'idle', loading: false, refining: false, abortController: null };
         }
         return {};
       });
@@ -259,13 +292,16 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set) => (
         error: 'Öneri alınamadı. İnternet bağlantını kontrol edip tekrar dene.',
         abortController: null,
       });
+    } finally {
+      // refinement göstergesi hangi yolla biterse bitsin (hata/iptal dahil) kapanır
+      if (get().refining) set({ refining: false });
     }
   },
 
   cancelStream() {
     set((s) => {
       s.abortController?.abort();
-      return { streamingStatus: 'cancelled', loading: false, abortController: null };
+      return { streamingStatus: 'cancelled', loading: false, refining: false, abortController: null };
     });
   },
 
