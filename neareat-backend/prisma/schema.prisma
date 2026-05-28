@@ -72,6 +72,7 @@ model User {
   aiRecommendationLogs    AiRecommendationLog[]
   recommendationFeedbacks RecommendationFeedback[]
   activityEvents          ActivityEvent[]
+  feedbackPreference      FeedbackPreference?
 
   @@map("users")
 }
@@ -701,6 +702,8 @@ model RecommendationFeedback {
   sentiment             String   // 'positive' | 'negative'
   comment               String?  @db.VarChar(500)
   visited               Boolean  @default(false)
+  // Geri bildirilen mekanın Google place types'ı — mutfak tipi aggregate'i için (S4-7)
+  placeTypes            String[] @default([]) @map("place_types")
   createdAt             DateTime @default(now()) @map("created_at")
 
   user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -710,6 +713,19 @@ model RecommendationFeedback {
   @@index([aiRecommendationLogId])
   @@index([placeId, sentiment])
   @@map("recommendation_feedback")
+}
+
+/// Haftalık cron'un ürettiği kullanıcı bazlı mutfak/restoran tipi tercih özeti (S4-7).
+/// AI sistem prompt'una "X mutfağını beğeniyor, Y'yi beğenmiyor" sinyali olarak enjekte edilir.
+model FeedbackPreference {
+  userId        String   @id @map("user_id")
+  likedTypes    String[] @default([]) @map("liked_types")
+  dislikedTypes String[] @default([]) @map("disliked_types")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("feedback_preferences")
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────

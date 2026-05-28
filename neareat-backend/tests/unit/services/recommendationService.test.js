@@ -15,6 +15,7 @@ const mockPrisma = {
   recommendation: { findMany: jest.fn() },
   friendRequest: { findMany: jest.fn() },
   recommendationFeedback: { findMany: jest.fn().mockResolvedValue([]) },
+  feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
   aiRecommendationLog: { create: jest.fn(), count: jest.fn() },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);

@@ -549,6 +549,8 @@ export interface FeedbackRequest {
   aiRecommendationLogId?: string | null;
   comment?: string | null;
   visited?: boolean;
+  /** Mekanın Google place types'ı — backend mutfak tipi aggregate'i için (S4-7) */
+  placeTypes?: string[];
 }
 
 /** AI öneri motoruna istek payload'ı */

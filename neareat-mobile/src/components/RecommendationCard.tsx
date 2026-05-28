@@ -26,7 +26,7 @@ interface Props {
   /** Mevcut feedback durumu (optimistic, store'dan gelir) */
   feedbackSentiment?: FeedbackSentiment | null;
   /** Feedback gönder callback — store.submitFeedback'e bağlanır */
-  onFeedback?: (placeId: string, sentiment: FeedbackSentiment) => Promise<void>;
+  onFeedback?: (placeId: string, sentiment: FeedbackSentiment, placeTypes?: string[]) => Promise<void>;
   /** Kullanıcı bu mekânı daha önce favorilememişse veya yorum yazmamışsa true */
   neverVisited?: boolean;
 }
@@ -62,14 +62,14 @@ const RecommendationCard = React.memo(function RecommendationCard({
       if (feedbackSentiment === sentiment) return;
       setSubmittingFeedback(true);
       try {
-        await onFeedback(rec.placeId, sentiment);
+        await onFeedback(rec.placeId, sentiment, r.types);
       } catch {
         Alert.alert('Hata', 'Feedback gönderilemedi. Tekrar dene.');
       } finally {
         setSubmittingFeedback(false);
       }
     },
-    [onFeedback, rec.placeId, feedbackSentiment, submittingFeedback]
+    [onFeedback, rec.placeId, r.types, feedbackSentiment, submittingFeedback]
   );
 
   return (
@@ -316,9 +316,9 @@ function makeStyles(C: Colors) {
 
     newPlaceBadge: {
       alignSelf: 'flex-start',
-      backgroundColor: '#F0FDF4',
+      backgroundColor: C.successSurface,
       borderWidth: 1,
-      borderColor: '#86EFAC',
+      borderColor: C.success,
       borderRadius: 20,
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -327,19 +327,22 @@ function makeStyles(C: Colors) {
     newPlaceBadgeText: {
       fontSize: 12,
       fontWeight: '600',
-      color: '#16A34A',
+      color: C.success,
     },
 
+    // AI gerekçesi — mor kart: kullanıcı bu metnin yapay zekadan geldiğini anlasın
     reasonBox: {
-      backgroundColor: C.primarySurface,
+      backgroundColor: C.aiSurface,
       borderRadius: 12,
       padding: 12,
       marginBottom: 12,
+      borderLeftWidth: 3,
+      borderLeftColor: C.ai,
     },
     reasonLabel: {
       fontSize: 12,
       fontWeight: '700',
-      color: C.primary,
+      color: C.ai,
       marginBottom: 4,
       letterSpacing: 0.2,
     },
@@ -369,7 +372,7 @@ function makeStyles(C: Colors) {
     detailsBtnText: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#fff',
+      color: C.primaryOn,
     },
 
     feedbackRow: {
@@ -400,12 +403,12 @@ function makeStyles(C: Colors) {
       backgroundColor: C.surface,
     },
     feedbackBtnPositiveActive: {
-      borderColor: '#16A34A',
-      backgroundColor: '#F0FDF4',
+      borderColor: C.success,
+      backgroundColor: C.successSurface,
     },
     feedbackBtnNegativeActive: {
-      borderColor: '#DC2626',
-      backgroundColor: '#FEF2F2',
+      borderColor: C.error,
+      backgroundColor: C.errorSurface,
     },
     feedbackBtnText: {
       fontSize: 16,

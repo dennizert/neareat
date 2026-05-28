@@ -375,6 +375,17 @@ describe('aiRecommendationStore — submitFeedback', () => {
     expect(mockedPostFeedback).toHaveBeenCalledWith({
       placeId: 'p2',
       sentiment: 'negative',
+      placeTypes: undefined,
+    });
+  });
+
+  it('placeTypes verilince postFeedback\'e iletilir (S4-7)', async () => {
+    await useAiRecommendationStore.getState().submitFeedback('p3', 'positive', ['italian_restaurant']);
+
+    expect(mockedPostFeedback).toHaveBeenCalledWith({
+      placeId: 'p3',
+      sentiment: 'positive',
+      placeTypes: ['italian_restaurant'],
     });
   });
 
