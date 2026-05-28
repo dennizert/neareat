@@ -279,17 +279,30 @@ export default function FriendsScreen() {
           keyExtractor={i => i.id}
           renderItem={renderFriendItem}
           ListHeaderComponent={(
-            <TouchableOpacity
-              style={styles.suggestionBanner}
-              onPress={() => navigation.navigate('FriendSuggestions')}
-            >
-              <Text style={styles.suggestionBannerIcon}>🤝</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.suggestionBannerTitle}>Arkadaş Önerileri</Text>
-                <Text style={styles.suggestionBannerSub}>Ortak ilgi alanlarına göre öneriler</Text>
-              </View>
-              <Text style={styles.suggestionBannerArrow}>›</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.suggestionBanner}
+                onPress={() => navigation.navigate('ActivityFeed')}
+              >
+                <Text style={styles.suggestionBannerIcon}>📰</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.suggestionBannerTitle}>Arkadaş Aktiviteleri</Text>
+                  <Text style={styles.suggestionBannerSub}>Arkadaşların son 7 günde ne yaptı?</Text>
+                </View>
+                <Text style={styles.suggestionBannerArrow}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.suggestionBanner}
+                onPress={() => navigation.navigate('FriendSuggestions')}
+              >
+                <Text style={styles.suggestionBannerIcon}>🤝</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.suggestionBannerTitle}>Arkadaş Önerileri</Text>
+                  <Text style={styles.suggestionBannerSub}>Ortak ilgi alanlarına göre öneriler</Text>
+                </View>
+                <Text style={styles.suggestionBannerArrow}>›</Text>
+              </TouchableOpacity>
+            </>
           )}
           ListEmptyComponent={<EmptyState text="Henüz arkadaşın yok. Kullanıcı ara ve eklemeye başla!" C={C} />}
           contentContainerStyle={friends.length === 0 ? { flex: 1 } : undefined}
@@ -388,8 +401,8 @@ function makeStyles(C: Colors) {
     addBtnSent: { backgroundColor: C.inputBg },
     addBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
     addBtnSentText: { color: C.textMuted },
-    friendLabel: { backgroundColor: C.successSurface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: '#BBF7D0' },
-    friendLabelText: { color: '#16A34A', fontWeight: '700', fontSize: 12 },
+    friendLabel: { backgroundColor: C.successSurface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: C.successSurface },
+    friendLabelText: { color: C.success, fontWeight: '700', fontSize: 12 },
     pendingLabel: { backgroundColor: C.inputBg, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: C.border },
     pendingLabelText: { color: C.textMuted, fontWeight: '700', fontSize: 12 },
     suggestionBanner: {

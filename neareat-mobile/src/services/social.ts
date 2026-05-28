@@ -7,7 +7,7 @@ import {
   MOCK_STAR_EVENTS,
   MOCK_REWARDS,
 } from '../mocks/data';
-import type { UserProfile, Friend, FriendRequest, Recommendation, StarEvent, Reward, Restaurant, Leaderboard, FriendSuggestion } from '../types';
+import type { UserProfile, Friend, FriendRequest, Recommendation, StarEvent, Reward, Restaurant, Leaderboard, FriendSuggestion, ActivityFeedResponse } from '../types';
 import api from './api';
 
 let sessionProfile = { ...MOCK_USER_PROFILES[0] };
@@ -25,7 +25,7 @@ export const STAR_AMOUNTS: Record<StarEvent['type'], number> = {
 
 export function getLevel(stars: number): { level: number; badge: string; badgeIcon: string } {
   if (stars >= 100) return { level: 5, badge: 'Gastronomi Efsanesi', badgeIcon: '👑' };
-  if (stars >= 50) return { level: 4, badge: 'NearEat Elçisi', badgeIcon: '⭐' };
+  if (stars >= 50) return { level: 4, badge: 'Eatlas Elçisi', badgeIcon: '⭐' };
   if (stars >= 25) return { level: 3, badge: 'Restoran Uzmanı', badgeIcon: '🏆' };
   if (stars >= 10) return { level: 2, badge: 'Gastronomi Meraklısı', badgeIcon: '🍽️' };
   return { level: 1, badge: 'Yeni Kaşif', badgeIcon: '🌱' };
@@ -77,6 +77,21 @@ export async function searchUsers(query: string): Promise<UserProfile[]> {
     );
   }
   const res = await api.get(`/social/users/search?q=${encodeURIComponent(query)}`);
+  return res.data;
+}
+
+export async function getActivityFeed(
+  cursor?: string | null,
+  limit = 20,
+): Promise<ActivityFeedResponse> {
+  if (MOCK_MODE) {
+    await new Promise(r => setTimeout(r, 200));
+    return { events: [], nextCursor: null };
+  }
+  const params = new URLSearchParams();
+  params.set('limit', String(limit));
+  if (cursor) params.set('cursor', cursor);
+  const res = await api.get(`/social/feed?${params.toString()}`);
   return res.data;
 }
 

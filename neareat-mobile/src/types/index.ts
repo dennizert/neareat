@@ -307,6 +307,25 @@ export interface Recommendation {
   createdAt: string;
 }
 
+// ─── Sosyal Aktivite Akışı (S4-6) ─────────────────────────────────────────────
+
+export type ActivityEventType = 'REVIEW' | 'FAVORITE' | 'RESERVATION' | 'RECOMMENDATION';
+
+export interface ActivityEvent {
+  id: string;
+  type: ActivityEventType;
+  placeId: string | null;
+  /** Olaya özgü ek bilgi (örn. { placeName, rating, date, time }) */
+  metadata: { placeName?: string | null; rating?: number; date?: string; time?: string } | null;
+  createdAt: string;
+  user: { id: string; displayName: string | null; photoUrl: string | null };
+}
+
+export interface ActivityFeedResponse {
+  events: ActivityEvent[];
+  nextCursor: string | null;
+}
+
 export type StarEventType = 'review' | 'recommendation' | 'friend_added' | 'rating';
 
 export interface StarEvent {
@@ -638,6 +657,7 @@ export type RootStackParamList = {
   Paywall: { trigger: 'favorites' | 'reviews' | 'popular_times' | 'onboarding' | 'collections' };
   EditProfile: undefined;
   Friends: undefined;
+  ActivityFeed: undefined;
   FriendSuggestions: undefined;
   FriendProfile: { userId: string };
   SendRecommendation: {

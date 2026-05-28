@@ -20,6 +20,7 @@ import RestaurantDetailScreen from '../screens/restaurant/RestaurantDetailScreen
 import PaywallScreen from '../screens/PaywallScreen';
 import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import FriendsScreen from '../screens/social/FriendsScreen';
+import ActivityFeedScreen from '../screens/social/ActivityFeedScreen';
 import FriendSuggestionsScreen from '../screens/social/FriendSuggestionsScreen';
 import FriendProfileScreen from '../screens/social/FriendProfileScreen';
 import SendRecommendationScreen from '../screens/social/SendRecommendationScreen';
@@ -63,10 +64,11 @@ import RestaurantReservationsScreen from '../screens/restaurant-account/Restaura
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+// Admin paneli kasıtlı koyu: "sistem konsolu" hissi her iki modda da korunur
 const ADMIN_HEADER_OPTS = {
   headerTintColor: '#fff',
   headerBackTitle: '',
-  headerStyle: { backgroundColor: '#111827' },
+  headerStyle: { backgroundColor: '#1F1A24' },
   headerShadowVisible: false,
   headerTitleStyle: { color: '#fff', fontWeight: '700' as const },
 };
@@ -343,6 +345,11 @@ export default function Navigation() {
                 name="Friends"
                 component={FriendsScreen}
                 options={{ ...H, title: 'Arkadaşlar' }}
+              />
+              <Stack.Screen
+                name="ActivityFeed"
+                component={ActivityFeedScreen}
+                options={{ ...H, title: 'Arkadaş Aktiviteleri' }}
               />
               <Stack.Screen
                 name="FriendSuggestions"
