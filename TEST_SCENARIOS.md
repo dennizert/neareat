@@ -828,3 +828,39 @@ npm run test:stores
 3. 404 NO_CANDIDATES → `routeNoCandidates: true`, `routeError` set edilir
 4. Generic hata → `routeError: 'Rota önerisi alınamadı...'`
 5. `resetRoute()` → tüm route state INITIAL değerlerine döner
+
+---
+
+## Sprint-4 — AI Derinleşmesi + Sosyal Akış
+
+### Sosyal sinyal cache (S4-1)
+1. Premium kullanıcı ardışık 2 AI önerisi alır → 2. çağrıda arkadaş sinyali DB sorgusu atılmaz (Redis `social-signals:{userId}`, 15 dk)
+2. Redis kapalıyken → cache miss, hesaplamaya düşer, akış bozulmaz
+3. Arkadaşı/opt-in'i olmayan kullanıcıda boş sonuç da cache'lenir
+
+### Konuşmaya dayalı refinement (S4-2 backend / S4-3 mobile)
+1. İlk öneri akışı tamamlanınca `done` event'inde `sessionId` döner
+2. Aynı `sessionId` + `refinement: "daha ucuz"` → önceki önerilen mekanlar tekrar gelmez
+3. Refinement metni LLM prompt'una (cache'siz variable blok) yansır; geçmiş istekler sırayla eklenir
+4. Yabancı/eski `sessionId` → yok sayılır, yeni oturum başlar
+5. 30 dk sonra oturum Redis'ten düşer → yeni oturum
+6. Mobile: sonuç sonrası "Daha ucuz / Daha yakın / Daha sessiz" chip'leri + serbest metin görünür
+7. Mobile: refinement sırasında eski kartlar ilk yeni kart gelene dek korunur (ekran boşalmaz)
+8. Mobile: hata/iptal durumunda `refining` göstergesi kapanır
+
+### Aktivite akışı (S4-4 model / S4-5 endpoint / S4-6 ekran)
+1. Yeni yorum/favori/rezervasyon/öneri → `activity_events` tablosuna kayıt düşer (fire-and-forget)
+2. Yorumu güncelleme / mevcut favoriyi tekrar ekleme → İKİNCİ event üretmez
+3. `GET /api/social/feed` → arkadaşların son 7 günü, yeni→eski sıralı
+4. Arkadaşı olmayan kullanıcı → `{ events: [], nextCursor: null }`, event sorgusu atılmaz
+5. `?limit=2` → 2 event + `nextCursor`; `?cursor=<id>` ile sonraki sayfa gelir
+6. Mobile: FriendsScreen → "📰 Arkadaş Aktiviteleri" banner → feed açılır
+7. Mobile: pull-to-refresh + aşağı kaydırınca sonsuz scroll (loadMore)
+8. Mobile: karta dokununca (placeId varsa) RestaurantDetail açılır
+
+### Feedback döngüsü (S4-7)
+1. 👍/👎 feedback `placeTypes` ile gönderilir (mobil kart tipleri iletir)
+2. Haftalık cron (`runFeedbackAggregation`) → `feedback_preferences` satırı oluşur/güncellenir
+3. Jenerik tipler (restaurant/food/point_of_interest/cafe…) aggregate'te elenir
+4. Net pozitif tip → likedTypes, net negatif → dislikedTypes, net sıfır → hiçbiri
+5. Sonraki AI önerisinde prompt'ta `cuisinePreferences` görünür; öneriler liked tiplere yönelir
