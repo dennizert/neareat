@@ -48,6 +48,8 @@ const INITIAL_STATE = {
   feedbackByPlaceId: {},
   streamingStatus: 'idle' as const,
   abortController: null,
+  sessionId: null,
+  refining: false,
   routeRecommendations: [],
   routeMeta: null,
   routeNoteToUser: '',
@@ -88,6 +90,25 @@ function makeResponse(overrides: Partial<AiRecommendationResponse> = {}): AiReco
     resetAt: '2026-05-21T21:00:00.000Z',
     latencyMs: 1234,
     ...overrides,
+  };
+}
+
+function makeRec(placeId: string) {
+  return {
+    placeId,
+    reason: 'r',
+    restaurant: {
+      name: placeId,
+      types: ['restaurant'],
+      rating: 4.5,
+      userRatingsTotal: 100,
+      priceLevel: 2,
+      vicinity: 'Test',
+      location: { lat: 41.04, lng: 28.98 },
+      distanceKm: 0.5,
+      openNow: true,
+      photoUrl: null,
+    },
   };
 }
 
@@ -148,12 +169,12 @@ describe('aiRecommendationStore — fetchDinnerRecommendation — success', () =
     expect(s.error).toBeNull();
   });
 
-  it('passes mood through to service', async () => {
+  it('passes coordinates to service (mood özelliği kaldırıldı)', async () => {
     mockedGetDinner.mockResolvedValueOnce(makeResponse());
 
-    await useAiRecommendationStore.getState().fetchDinnerRecommendation(41.04, 28.98, 'şık');
+    await useAiRecommendationStore.getState().fetchDinnerRecommendation(41.04, 28.98);
 
-    expect(mockedGetDinner).toHaveBeenCalledWith(41.04, 28.98, 'şık');
+    expect(mockedGetDinner).toHaveBeenCalledWith(41.04, 28.98);
   });
 
   it('clears previous error on new successful call', async () => {
@@ -572,7 +593,7 @@ describe('aiRecommendationStore — streamDinnerRecommendation — success', () 
     let statusDuringCall: string | undefined;
     let loadingDuringCall: boolean | undefined;
 
-    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, callbacks) => {
       statusDuringCall = useAiRecommendationStore.getState().streamingStatus;
       loadingDuringCall = useAiRecommendationStore.getState().loading;
       callbacks.onDone({ tier: 'free', remainingToday: 2, resetAt: '2026-05-22T00:00:00.000Z', model: 'claude-haiku-4-5-20251001', latencyMs: 300 });
@@ -585,7 +606,7 @@ describe('aiRecommendationStore — streamDinnerRecommendation — success', () 
   });
 
   it('pushes card to recommendations on onCard; loading goes false', async () => {
-    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, callbacks) => {
       callbacks.onCard(STREAM_CARD as any);
       callbacks.onDone({ tier: 'free', remainingToday: 2, resetAt: '2026-05-22T00:00:00.000Z', model: 'claude-haiku-4-5-20251001', latencyMs: 300 });
     });
@@ -599,7 +620,7 @@ describe('aiRecommendationStore — streamDinnerRecommendation — success', () 
   });
 
   it('sets noteToUser on onNote callback', async () => {
-    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, callbacks) => {
       callbacks.onNote('Yakında güzel bir seçenek var.');
       callbacks.onDone({ tier: 'free', remainingToday: 1, resetAt: null, model: 'claude-haiku-4-5-20251001', latencyMs: 200 });
     });
@@ -610,7 +631,7 @@ describe('aiRecommendationStore — streamDinnerRecommendation — success', () 
   });
 
   it('sets streamingStatus=done and updates tier/remaining on onDone', async () => {
-    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, callbacks) => {
       callbacks.onDone({ tier: 'premium', remainingToday: null, resetAt: null, model: 'claude-sonnet-4-6', latencyMs: 500 });
     });
 
@@ -627,7 +648,7 @@ describe('aiRecommendationStore — streamDinnerRecommendation — success', () 
   it('clears previous recommendations at the start of a new stream', async () => {
     useAiRecommendationStore.setState({ recommendations: [STREAM_CARD as any] });
 
-    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, callbacks) => {
       callbacks.onDone({ tier: 'free', remainingToday: 2, resetAt: null, model: 'claude-haiku-4-5-20251001', latencyMs: 300 });
     });
 
@@ -639,7 +660,7 @@ describe('aiRecommendationStore — streamDinnerRecommendation — success', () 
 
 describe('aiRecommendationStore — streamDinnerRecommendation — errors', () => {
   it('sets limitReached=true and streamingStatus=error on onError LIMIT_EXCEEDED', async () => {
-    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, callbacks) => {
       callbacks.onError({ code: 'LIMIT_EXCEEDED', message: 'Günlük hakkın doldu.', resetAt: '2026-05-22T00:00:00.000Z' });
     });
 
@@ -656,7 +677,7 @@ describe('aiRecommendationStore — streamDinnerRecommendation — errors', () =
   });
 
   it('sets noCandidates=true and streamingStatus=error on onError NO_CANDIDATES', async () => {
-    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, callbacks) => {
       callbacks.onError({ code: 'NO_CANDIDATES', message: 'Yakında uygun restoran yok.' });
     });
 
@@ -670,7 +691,7 @@ describe('aiRecommendationStore — streamDinnerRecommendation — errors', () =
   });
 
   it('sets streamingStatus=error on generic onError', async () => {
-    mockedStreamDinner.mockImplementation(async (_lat, _lng, _mood, callbacks) => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, callbacks) => {
       callbacks.onError({ code: 'UNKNOWN', message: 'Bağlantı kesildi.' });
     });
 
@@ -735,5 +756,81 @@ describe('aiRecommendationStore — cancelStream', () => {
 
     expect(() => useAiRecommendationStore.getState().cancelStream()).not.toThrow();
     expect(useAiRecommendationStore.getState().streamingStatus).toBe('cancelled');
+  });
+});
+
+// ─── streamDinnerRecommendation — refinement & session (Sprint-4 Task #3) ──────
+
+describe('aiRecommendationStore — streamDinnerRecommendation refinement', () => {
+  it('ilk stream: sessionId done eventinden yakalanir, fresh cagri opts bos', async () => {
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, cb) => {
+      cb.onCard(makeRec('p1') as any);
+      cb.onDone({ tier: 'free', model: 'm', remainingToday: 2, resetAt: null, latencyMs: 1, sessionId: 'new-sid' });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41, 28);
+
+    const s = useAiRecommendationStore.getState();
+    expect(s.sessionId).toBe('new-sid');
+    expect(s.recommendations.map((r) => r.placeId)).toEqual(['p1']);
+    expect(s.streamingStatus).toBe('done');
+    // fresh cagrida sessionId + refinement undefined gonderilir
+    expect(mockedStreamDinner.mock.calls[0][4]).toEqual({ sessionId: undefined, refinement: undefined });
+  });
+
+  it('refinement: onceki sessionId + refinement ile cagrilir, eski kartlar ilk yeni kartta degisir', async () => {
+    useAiRecommendationStore.setState({
+      recommendations: [makeRec('p1') as any],
+      sessionId: 'sess-1',
+      streamingStatus: 'done',
+    });
+
+    let stateAtStart: any;
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, cb, _signal, _opts) => {
+      stateAtStart = useAiRecommendationStore.getState();
+      cb.onCard(makeRec('p2') as any);
+      cb.onDone({ tier: 'free', model: 'm', remainingToday: 1, resetAt: null, latencyMs: 1, sessionId: 'sess-1' });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41, 28, 'daha ucuz');
+
+    // servis onceki sessionId + refinement ile cagrildi
+    expect(mockedStreamDinner.mock.calls[0][4]).toEqual({ sessionId: 'sess-1', refinement: 'daha ucuz' });
+    // refinement basinda eski kart korunmustu + refining=true
+    expect(stateAtStart.recommendations.map((r: any) => r.placeId)).toEqual(['p1']);
+    expect(stateAtStart.refining).toBe(true);
+    // ilk yeni kart eskiyi degistirdi
+    const s = useAiRecommendationStore.getState();
+    expect(s.recommendations.map((r) => r.placeId)).toEqual(['p2']);
+    expect(s.sessionId).toBe('sess-1');
+    expect(s.refining).toBe(false);
+    expect(s.streamingStatus).toBe('done');
+  });
+
+  it('refinement sirasinda skeleton (loading) gosterilmez', async () => {
+    useAiRecommendationStore.setState({
+      recommendations: [makeRec('p1') as any],
+      sessionId: 'sess-1',
+      streamingStatus: 'done',
+    });
+
+    let loadingAtStart: boolean | undefined;
+    mockedStreamDinner.mockImplementation(async (_lat, _lng, cb) => {
+      loadingAtStart = useAiRecommendationStore.getState().loading;
+      cb.onCard(makeRec('p2') as any);
+      cb.onDone({ tier: 'free', model: 'm', remainingToday: 1, resetAt: null, latencyMs: 1, sessionId: 'sess-1' });
+    });
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41, 28, 'daha yakin');
+
+    expect(loadingAtStart).toBe(false);
+  });
+
+  it('clear() sessionId ve refining sifirlar', () => {
+    useAiRecommendationStore.setState({ sessionId: 'sess-9', refining: true });
+    useAiRecommendationStore.getState().clear();
+    const s = useAiRecommendationStore.getState();
+    expect(s.sessionId).toBeNull();
+    expect(s.refining).toBe(false);
   });
 });

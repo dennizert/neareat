@@ -152,8 +152,18 @@ interface SseStreamCallbacks {
     remainingToday: number | null;
     resetAt: string | null;
     latencyMs: number;
+    /** Konuşmaya dayalı refinement için oturum kimliği (Sprint-4 Task #2/#3) */
+    sessionId?: string | null;
   }) => void;
   onError: (event: { code?: string; message?: string; upgrade?: boolean; resetAt?: string }) => void;
+}
+
+/** Streaming çağrısına eklenebilen opsiyonel refinement bağlamı */
+interface StreamOptions {
+  /** Önceki akıştan dönen oturum kimliği — refinement isteğinde gönderilir */
+  sessionId?: string;
+  /** Kullanıcının iyileştirme isteği (örn. "daha ucuz") */
+  refinement?: string;
 }
 
 /**
@@ -166,13 +176,16 @@ export async function streamDinnerRecommendation(
   lat: number,
   lng: number,
   callbacks: SseStreamCallbacks,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  opts?: StreamOptions
 ): Promise<void> {
   if (MOCK_MODE) {
     await new Promise((r) => setTimeout(r, 400));
     callbacks.onCard({
-      placeId: 'mock_stream_p1',
-      reason: 'Mock stream mode aktif — kart 1.',
+      placeId: opts?.refinement ? 'mock_stream_refined' : 'mock_stream_p1',
+      reason: opts?.refinement
+        ? `Mock refinement: "${opts.refinement}" isteğine göre yeni öneri.`
+        : 'Mock stream mode aktif — kart 1.',
       restaurant: {
         name: 'Mock Stream Restaurant',
         types: ['restaurant'],
@@ -192,6 +205,7 @@ export async function streamDinnerRecommendation(
       remainingToday: 2,
       resetAt: null,
       latencyMs: 400,
+      sessionId: opts?.sessionId ?? 'mock-session',
     });
     return;
   }
@@ -206,7 +220,12 @@ export async function streamDinnerRecommendation(
       'ngrok-skip-browser-warning': 'true',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ lat, lng }),
+    body: JSON.stringify({
+      lat,
+      lng,
+      ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}),
+      ...(opts?.refinement ? { refinement: opts.refinement } : {}),
+    }),
     signal,
   });
 
@@ -265,6 +284,7 @@ export async function streamDinnerRecommendation(
                 remainingToday: event.remainingToday ?? null,
                 resetAt: event.resetAt ?? null,
                 latencyMs: event.latencyMs ?? 0,
+                sessionId: event.sessionId ?? null,
               });
               break;
             case 'error':
