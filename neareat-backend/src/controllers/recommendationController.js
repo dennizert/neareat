@@ -20,6 +20,7 @@ const { recommend, recommendStream, recommendForRoute } = require('../services/r
 const FREE_DAILY_LIMIT = 3;
 const FEEDBACK_DAILY_LIMIT = 50;
 const MAX_COMMENT_LENGTH = 500;
+const MAX_REFINEMENT_LENGTH = 300;
 
 // Mood input validasyonu — controlled vocabulary değil, kullanıcı serbest giriş
 // yapabilir ama uzunluk sınırı koyuyoruz. LLM zaten 7-8 örnek mood'u tanıyor.
@@ -156,13 +157,24 @@ function sseWrite(res, payload) {
 async function getDinnerTonightStream(req, res, next) {
   let keepAlive = null;
   try {
-    const { lat, lng } = req.body || {};
+    const { lat, lng, sessionId, refinement } = req.body || {};
 
     if (typeof lat !== 'number' || typeof lng !== 'number') {
       return res.status(400).json({ error: 'lat ve lng zorunlu (number)' });
     }
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return res.status(400).json({ error: 'Geçersiz koordinat' });
+    }
+    // Konuşmaya dayalı refinement (Sprint-4 Task #2) — opsiyonel
+    if (sessionId != null && typeof sessionId !== 'string') {
+      return res.status(400).json({ error: 'sessionId string olmalı' });
+    }
+    let trimmedRefinement = null;
+    if (refinement != null) {
+      if (typeof refinement !== 'string') {
+        return res.status(400).json({ error: 'refinement string olmalı' });
+      }
+      trimmedRefinement = refinement.trim().slice(0, MAX_REFINEMENT_LENGTH) || null;
     }
 
     // SSE headers — sonraki her yazma istemciye uçar
@@ -211,17 +223,20 @@ async function getDinnerTonightStream(req, res, next) {
       location: { lat, lng },
       isPremium,
       abortRef,
+      sessionId: sessionId ?? null,
+      refinement: trimmedRefinement,
       onCard: (recommendation) => {
         sseWrite(res, { type: 'card', recommendation });
       },
       onNote: (noteToUser) => {
         sseWrite(res, { type: 'note', noteToUser });
       },
-      onDone: ({ tier, model, latencyMs }) => {
+      onDone: ({ tier, model, latencyMs, sessionId: sid }) => {
         clearInterval(keepAlive);
         if (!isPremium) remaining = Math.max(0, remaining - 1);
         sseWrite(res, {
           type: 'done',
+          sessionId: sid,
           tier,
           model,
           remainingToday: isPremium ? null : remaining,
@@ -442,6 +457,7 @@ module.exports = {
     FEEDBACK_DAILY_LIMIT,
     MAX_MOOD_LENGTH,
     MAX_COMMENT_LENGTH,
+    MAX_REFINEMENT_LENGTH,
     countTodayCalls,
     countTodayFeedback,
     getIstanbulMidnightUtc,

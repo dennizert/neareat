@@ -32,13 +32,33 @@ const mockGooglePlaces = {
 };
 jest.mock('../../../src/services/googlePlaces', () => mockGooglePlaces);
 
+// Redis mock — buildFriendSignals (promptBuilder) gerçek ioredis client'ı
+// açmasın; aksi halde test bitince "Cannot log after tests are done" uyarısı.
+const mockRedis = {
+  cacheGet: jest.fn().mockResolvedValue(null),
+  cacheSet: jest.fn().mockResolvedValue(undefined),
+  cacheDel: jest.fn().mockResolvedValue(undefined),
+};
+jest.mock('../../../src/services/redis', () => mockRedis);
+
 // Anthropic SDK mock
 const mockAnthropicCreate = jest.fn();
+const mockAnthropicStream = jest.fn();
 jest.mock('@anthropic-ai/sdk', () => {
   return jest.fn().mockImplementation(() => ({
-    messages: { create: mockAnthropicCreate },
+    messages: { create: mockAnthropicCreate, stream: mockAnthropicStream },
   }));
 });
+
+// recommendationSession mock — oturum bağlamını test içinden kontrol et
+const mockSession = {
+  newSessionId: jest.fn(() => 'new-sid'),
+  getSession: jest.fn().mockResolvedValue(null),
+  saveSession: jest.fn().mockResolvedValue(undefined),
+  clearSession: jest.fn().mockResolvedValue(undefined),
+  MAX_REFINEMENTS: 10,
+};
+jest.mock('../../../src/services/recommendationSession', () => mockSession);
 
 const { mockAnthropicResponse } = require('../../helpers');
 const {
@@ -46,8 +66,17 @@ const {
   modelForTier,
   summarizeUsage,
   recommend,
+  recommendStream,
   __test: { parseLlmJson, enforceZoneDiversity },
 } = require('../../../src/services/recommendationService');
+
+/** messages.stream() dönüşünü simüle eder: finalMessage + abort. */
+function mockStreamResolving(response) {
+  mockAnthropicStream.mockReturnValue({
+    abort: jest.fn(),
+    finalMessage: jest.fn().mockResolvedValue(response),
+  });
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -518,5 +547,147 @@ describe('enforceZoneDiversity', () => {
   it('all zones empty → returns empty array', () => {
     const result = enforceZoneDiversity([], [], X);
     expect(result).toEqual([]);
+  });
+});
+
+// ─── recommendStream — konuşmaya dayalı refinement (Sprint-4 Task #2) ─────────
+
+describe('recommendStream — refinement & session', () => {
+  const twoPlaces = [
+    {
+      place_id: 'p1', name: 'Place 1', rating: 4.5, user_ratings_total: 100,
+      types: ['restaurant'], geometry: { location: { lat: 41.04, lng: 28.98 } },
+      vicinity: 'Taksim', opening_hours: { open_now: true },
+    },
+    {
+      place_id: 'p2', name: 'Place 2', rating: 4.3, user_ratings_total: 80,
+      types: ['restaurant'], geometry: { location: { lat: 41.041, lng: 28.981 } },
+      vicinity: 'Taksim', opening_hours: { open_now: true },
+    },
+  ];
+
+  function setupProfileMocks() {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      displayName: 'U', favoriteCuisines: [], starCount: 0, city: null, bio: null,
+    });
+    mockPrisma.favorite.findMany.mockResolvedValue([]);
+    mockPrisma.review.findMany.mockResolvedValue([]);
+    mockPrisma.starEvent.findMany.mockResolvedValue([]);
+    mockPrisma.recommendation.findMany.mockResolvedValue([]);
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+    mockPrisma.aiRecommendationLog.create.mockResolvedValue({ id: 'log-1' });
+  }
+
+  function callStream(opts = {}) {
+    const cards = [];
+    return recommendStream({
+      userId: 'u1',
+      location: { lat: 41.04, lng: 28.98 },
+      isPremium: false,
+      onCard: (rec) => cards.push(rec),
+      onNote: () => {},
+      onDone: (meta) => { cards.done = meta; },
+      ...opts,
+    }).then(() => cards);
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.ANTHROPIC_API_KEY = 'test-key';
+    mockSession.getSession.mockResolvedValue(null);
+    mockSession.newSessionId.mockReturnValue('new-sid');
+    setupProfileMocks();
+    mockGooglePlaces.getNearbyRestaurantsFast.mockResolvedValue(twoPlaces);
+  });
+
+  it('ilk çağrı: yeni sessionId üretir, onDone ile döndürür, oturumu kaydeder', async () => {
+    mockStreamResolving(mockAnthropicResponse({
+      recommendations: [{ placeId: 'p1', reason: 'r1' }],
+    }));
+
+    const cards = await callStream();
+
+    expect(cards.done.sessionId).toBe('new-sid');
+    expect(mockSession.saveSession).toHaveBeenCalledWith('new-sid', expect.objectContaining({
+      userId: 'u1',
+      suggestedPlaceIds: ['p1'],
+      refinements: [],
+    }));
+  });
+
+  it('refinement: önceki önerilen mekan aday listesinden çıkarılır (tekrar önerilmez)', async () => {
+    // Oturum: p1 daha önce önerilmiş
+    mockSession.getSession.mockResolvedValue({
+      userId: 'u1', location: { lat: 41.04, lng: 28.98 },
+      suggestedPlaceIds: ['p1'], refinements: ['daha ucuz'],
+    });
+    // LLM p1'i tekrar dönerse bile filtrelenmeli — ama aday listesinde p1 yok,
+    // halüsinasyon filtresi onu eler. p2 geçerli.
+    mockStreamResolving(mockAnthropicResponse({
+      recommendations: [{ placeId: 'p1', reason: 'tekrar' }, { placeId: 'p2', reason: 'yeni' }],
+    }));
+
+    const cards = await callStream({ sessionId: 's1', refinement: 'daha sessiz' });
+
+    const ids = cards.map((c) => c.placeId);
+    expect(ids).toContain('p2');
+    expect(ids).not.toContain('p1');
+    // Audit log candidatePlaceIds p1 içermez
+    const logArg = mockPrisma.aiRecommendationLog.create.mock.calls[0][0];
+    expect(logArg.data.candidatePlaceIds).not.toContain('p1');
+  });
+
+  it('refinement: oturum bağlamı birikerek güncellenir', async () => {
+    mockSession.getSession.mockResolvedValue({
+      userId: 'u1', location: { lat: 41.04, lng: 28.98 },
+      suggestedPlaceIds: ['p1'], refinements: ['daha ucuz'],
+    });
+    mockStreamResolving(mockAnthropicResponse({
+      recommendations: [{ placeId: 'p2', reason: 'r' }],
+    }));
+
+    await callStream({ sessionId: 's1', refinement: 'daha sessiz' });
+
+    expect(mockSession.saveSession).toHaveBeenCalledWith('s1', expect.objectContaining({
+      suggestedPlaceIds: ['p1', 'p2'],
+      refinements: ['daha ucuz', 'daha sessiz'],
+    }));
+  });
+
+  it('başka kullanıcıya ait sessionId yok sayılır, yeni oturum başlar', async () => {
+    mockSession.getSession.mockResolvedValue({
+      userId: 'someone-else', suggestedPlaceIds: ['p1'], refinements: [],
+    });
+    mockStreamResolving(mockAnthropicResponse({
+      recommendations: [{ placeId: 'p1', reason: 'r' }],
+    }));
+
+    const cards = await callStream({ sessionId: 's1' });
+
+    // p1 hariç tutulmadı (foreign session ignore) → p1 önerilebildi
+    expect(cards.map((c) => c.placeId)).toContain('p1');
+    // Yeni sessionId üretildi
+    expect(cards.done.sessionId).toBe('new-sid');
+  });
+
+  it('tüm adaylar önceki önerilerde ise noCandidates döner', async () => {
+    mockSession.getSession.mockResolvedValue({
+      userId: 'u1', suggestedPlaceIds: ['p1', 'p2'], refinements: [],
+    });
+    mockStreamResolving(mockAnthropicResponse({ recommendations: [] }));
+
+    const result = await recommendStream({
+      userId: 'u1',
+      location: { lat: 41.04, lng: 28.98 },
+      isPremium: false,
+      sessionId: 's1',
+      refinement: 'daha ucuz',
+      onCard: () => {},
+      onNote: () => {},
+      onDone: () => {},
+    });
+
+    expect(result.noCandidates).toBe(true);
+    expect(mockAnthropicStream).not.toHaveBeenCalled();
   });
 });

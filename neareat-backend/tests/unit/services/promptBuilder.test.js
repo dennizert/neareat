@@ -193,6 +193,52 @@ describe('buildVariableBlock', () => {
     });
     expect(block.text).toMatch(/belirtilmedi/);
   });
+
+  // ── Refinement (Sprint-4 Task #2) ──
+  it('refinement yoksa İyileştirme İsteği bölümü eklenmez', () => {
+    const block = buildVariableBlock({
+      candidates: baseCands,
+      location: { lat: 41, lng: 28.9 },
+      now: '2026-05-20T18:00:00Z',
+    });
+    expect(block.text).not.toContain('İyileştirme İsteği');
+  });
+
+  it('refinement instruction prompt\'a eklenir ve cache\'siz kalır', () => {
+    const block = buildVariableBlock({
+      candidates: baseCands,
+      location: { lat: 41, lng: 28.9 },
+      now: '2026-05-20T18:00:00Z',
+      refinement: { instruction: 'daha ucuz bir yer', history: [] },
+    });
+    expect(block.text).toContain('İyileştirme İsteği');
+    expect(block.text).toContain('daha ucuz bir yer');
+    expect(block.cache_control).toBeUndefined();
+  });
+
+  it('refinement history sırayla prompt\'a yansır', () => {
+    const block = buildVariableBlock({
+      candidates: baseCands,
+      location: { lat: 41, lng: 28.9 },
+      now: '2026-05-20T18:00:00Z',
+      refinement: { instruction: 'daha sessiz', history: ['daha ucuz', 'daha yakın'] },
+    });
+    expect(block.text).toContain('daha ucuz');
+    expect(block.text).toContain('daha yakın');
+    expect(block.text).toContain('daha sessiz');
+  });
+
+  it('uzun refinement metnini 300 karaktere kırpar', () => {
+    const long = 'x'.repeat(500);
+    const block = buildVariableBlock({
+      candidates: baseCands,
+      location: { lat: 41, lng: 28.9 },
+      now: '2026-05-20T18:00:00Z',
+      refinement: { instruction: long, history: [] },
+    });
+    expect(block.text).toContain('x'.repeat(300));
+    expect(block.text).not.toContain('x'.repeat(301));
+  });
 });
 
 describe('buildUserProfileSummary', () => {
