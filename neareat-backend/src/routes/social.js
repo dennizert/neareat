@@ -2,6 +2,7 @@ const router = require('express').Router();
 const auth = require('../middleware/auth');
 const {
   searchUsers,
+  getActivityFeed,
   getFriends, getPendingRequests, sendFriendRequest,
   acceptFriendRequest, rejectFriendRequest, removeFriend,
   sendRecommendation, getMyRecommendations, getReceivedRecommendations, getUserRecommendations,
@@ -15,6 +16,9 @@ const {
 
 // Kullanıcı arama
 router.get('/users/search', auth, searchUsers);
+
+// Sosyal aktivite akışı (S4-5)
+router.get('/feed', auth, getActivityFeed);
 
 // Arkadaş sistemi
 router.get('/friends', auth, getFriends);

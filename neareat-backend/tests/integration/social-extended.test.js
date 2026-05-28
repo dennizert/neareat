@@ -23,6 +23,7 @@ const mockPrisma = {
   review: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), upsert: jest.fn() },
   friendRequest: { findMany: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
   recommendation: { findMany: jest.fn(), create: jest.fn(), count: jest.fn() },
+  activityEvent: { findMany: jest.fn() },
   starEvent: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
   reward: { findMany: jest.fn() },
   userReward: { findMany: jest.fn(), create: jest.fn() },
@@ -464,5 +465,94 @@ describe('GET /api/social/recommendations/received', () => {
   it('returns 401 without token', async () => {
     const res = await request(app).get('/api/social/recommendations/received');
     expect(res.status).toBe(401);
+  });
+});
+
+// ─── GET /api/social/feed (S4-5) ──────────────────────────────────────────────
+
+describe('GET /api/social/feed', () => {
+  function friendship() {
+    // user1 ↔ user2 arkadaş
+    mockPrisma.friendRequest.findMany.mockResolvedValue([
+      { fromUserId: user1.id, toUserId: user2.id },
+    ]);
+  }
+
+  it('returns 401 without token', async () => {
+    const res = await request(app).get('/api/social/feed');
+    expect(res.status).toBe(401);
+  });
+
+  it('arkadasi olmayan kullaniciya bos feed doner, event sorgusu atilmaz', async () => {
+    mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+
+    const res = await request(app)
+      .get('/api/social/feed')
+      .set('Authorization', `Bearer ${token1}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ events: [], nextCursor: null });
+    expect(mockPrisma.activityEvent.findMany).not.toHaveBeenCalled();
+  });
+
+  it('arkadaslarin son 7 gun event\'lerini kullanici profiliyle birlikte doner', async () => {
+    friendship();
+    mockPrisma.activityEvent.findMany.mockResolvedValue([
+      { id: 'e1', userId: user2.id, type: 'REVIEW', placeId: 'p1', metadata: { placeName: 'X', rating: 5 }, createdAt: new Date('2026-05-28T10:00:00Z') },
+      { id: 'e2', userId: user2.id, type: 'FAVORITE', placeId: 'p2', metadata: { placeName: 'Y' }, createdAt: new Date('2026-05-27T10:00:00Z') },
+    ]);
+    mockPrisma.user.findMany.mockResolvedValue([
+      { id: user2.id, displayName: 'Bob', photoUrl: null },
+    ]);
+
+    const res = await request(app)
+      .get('/api/social/feed')
+      .set('Authorization', `Bearer ${token1}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.events).toHaveLength(2);
+    expect(res.body.events[0]).toMatchObject({ id: 'e1', type: 'REVIEW', placeId: 'p1', user: { id: user2.id, displayName: 'Bob' } });
+    expect(res.body.nextCursor).toBeNull();
+
+    // Event sorgusu: arkadas id'leri IN + 7 gun penceresi + tek findMany
+    expect(mockPrisma.activityEvent.findMany).toHaveBeenCalledTimes(1);
+    const arg = mockPrisma.activityEvent.findMany.mock.calls[0][0];
+    expect(arg.where.userId.in).toEqual([user2.id]);
+    expect(arg.where.createdAt.gte).toBeInstanceOf(Date);
+  });
+
+  it('limit+1 sonuc gelince nextCursor doner ve sayfa limitle kirpilir', async () => {
+    friendship();
+    // limit=2 istenince controller take=3 yapar; 3 donersek hasMore=true
+    const rows = [
+      { id: 'e1', userId: user2.id, type: 'REVIEW', placeId: 'p1', metadata: null, createdAt: new Date('2026-05-28T10:00:00Z') },
+      { id: 'e2', userId: user2.id, type: 'FAVORITE', placeId: 'p2', metadata: null, createdAt: new Date('2026-05-27T10:00:00Z') },
+      { id: 'e3', userId: user2.id, type: 'RESERVATION', placeId: 'p3', metadata: null, createdAt: new Date('2026-05-26T10:00:00Z') },
+    ];
+    mockPrisma.activityEvent.findMany.mockResolvedValue(rows);
+    mockPrisma.user.findMany.mockResolvedValue([{ id: user2.id, displayName: 'Bob', photoUrl: null }]);
+
+    const res = await request(app)
+      .get('/api/social/feed?limit=2')
+      .set('Authorization', `Bearer ${token1}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.events).toHaveLength(2);
+    expect(res.body.nextCursor).toBe('e2'); // sayfadaki son event
+    expect(mockPrisma.activityEvent.findMany.mock.calls[0][0].take).toBe(3);
+  });
+
+  it('cursor verilince cursor + skip:1 uygulanir', async () => {
+    friendship();
+    mockPrisma.activityEvent.findMany.mockResolvedValue([]);
+    mockPrisma.user.findMany.mockResolvedValue([]);
+
+    await request(app)
+      .get('/api/social/feed?cursor=e2')
+      .set('Authorization', `Bearer ${token1}`);
+
+    const arg = mockPrisma.activityEvent.findMany.mock.calls[0][0];
+    expect(arg.cursor).toEqual({ id: 'e2' });
+    expect(arg.skip).toBe(1);
   });
 });
