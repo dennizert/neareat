@@ -17,6 +17,12 @@ const { getCandidates, MAX_CANDIDATES } = require('./candidateService');
 const { getRouteWaypoints, getPlaceDetails, isOpenAtTime } = require('./googlePlaces');
 const { buildUserProfileSummary, buildClaudeRequest } = require('./promptBuilder');
 const { haversineKm } = require('../utils/haversine');
+const {
+  newSessionId,
+  getSession,
+  saveSession,
+  MAX_REFINEMENTS,
+} = require('./recommendationSession');
 
 const MODELS = Object.freeze({
   free: 'claude-haiku-4-5-20251001',
@@ -314,17 +320,56 @@ async function recommend({ userId, location, isPremium = false }) {
  * @param {(meta: object) => void} p.onDone
  * @returns {Promise<{ noCandidates?: true }>}
  */
-async function recommendStream({ userId, location, isPremium = false, abortRef, onCard, onNote, onDone }) {
+async function recommendStream({
+  userId,
+  location,
+  isPremium = false,
+  abortRef,
+  onCard,
+  onNote,
+  onDone,
+  sessionId = null,
+  refinement = null,
+}) {
   const tier = isPremium ? 'premium' : 'free';
   const model = modelForTier(tier);
 
+  // Konuşmaya dayalı oturum bağlamı (Sprint-4 Task #2):
+  // geçerli + aynı kullanıcıya ait session varsa önceki önerileri ve iyileştirme
+  // geçmişini yükle. Eski/geçersiz session → yok say, yeni oturum başlat.
+  let activeSessionId = sessionId;
+  let priorSuggested = [];
+  let refinementHistory = [];
+  if (activeSessionId) {
+    const session = await getSession(activeSessionId);
+    if (session && session.userId === userId) {
+      priorSuggested = Array.isArray(session.suggestedPlaceIds) ? session.suggestedPlaceIds : [];
+      refinementHistory = Array.isArray(session.refinements) ? session.refinements : [];
+    } else {
+      activeSessionId = null;
+    }
+  }
+
   const { candidates, meta: candMeta } = await getCandidates(userId, location);
-  if (!candidates.length) {
+  // Daha önce önerilen mekanları aday listesinden çıkar → tekrar önerilmez.
+  const priorSet = new Set(priorSuggested);
+  const candidates_ = priorSet.size
+    ? candidates.filter((c) => !priorSet.has(c.placeId))
+    : candidates;
+  if (!candidates_.length) {
     return { noCandidates: true, meta: { candidates: candMeta } };
   }
 
   const profileSummary = await buildUserProfileSummary(userId, { tier });
-  const req = buildClaudeRequest({ profileSummary, candidates, location });
+  const refinementContext = refinement
+    ? { instruction: refinement, history: refinementHistory }
+    : null;
+  const req = buildClaudeRequest({
+    profileSummary,
+    candidates: candidates_,
+    location,
+    refinement: refinementContext,
+  });
 
   const client = getClient();
   const t0 = Date.now();
@@ -351,7 +396,7 @@ async function recommendStream({ userId, location, isPremium = false, abortRef, 
   const textBlock = finalMsg.content?.find((b) => b.type === 'text');
   const parsed = parseLlmJson(textBlock?.text);
   const rawRecs = Array.isArray(parsed?.recommendations) ? parsed.recommendations : [];
-  const candidatesByPlaceId = new Map(candidates.map((c) => [c.placeId, c]));
+  const candidatesByPlaceId = new Map(candidates_.map((c) => [c.placeId, c]));
 
   const validRecs = [];
   const seen = new Set();
@@ -400,7 +445,7 @@ async function recommendStream({ userId, location, isPremium = false, abortRef, 
       data: {
         userId,
         model,
-        candidatePlaceIds: candidates.map((c) => c.placeId),
+        candidatePlaceIds: candidates_.map((c) => c.placeId),
         suggestedPlaceIds: validRecs.map((r) => r.placeId),
         promptTokens:
           (finalMsg.usage?.input_tokens || 0) +
@@ -421,9 +466,23 @@ async function recommendStream({ userId, location, isPremium = false, abortRef, 
 
   logUsage({ userId, model, usage: finalMsg.usage, latencyMs });
 
-  onDone({ tier, model, latencyMs, usage });
+  // Oturumu güncelle/oluştur — bir sonraki refinement isteği bu bağlamı kullanır.
+  // Fire-and-forget: oturum kaydı başarısız olsa da yanıt akışı bozulmaz.
+  const nextSessionId = activeSessionId || newSessionId();
+  const updatedSuggested = [...priorSuggested, ...validRecs.map((r) => r.placeId)];
+  const updatedRefinements = refinement
+    ? [...refinementHistory, String(refinement)].slice(-MAX_REFINEMENTS)
+    : refinementHistory;
+  saveSession(nextSessionId, {
+    userId,
+    location,
+    suggestedPlaceIds: updatedSuggested,
+    refinements: updatedRefinements,
+  }).catch((e) => console.error('[recommendStream] session save failed:', e.message));
 
-  return {};
+  onDone({ tier, model, latencyMs, usage, sessionId: nextSessionId });
+
+  return { sessionId: nextSessionId };
 }
 
 /**

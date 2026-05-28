@@ -736,7 +736,7 @@ function formatPriceTR(level) {
  * USER MESSAGE'IN DEĞİŞKEN KISMI — Cache yok.
  * Bu blok her istekte değişir: konum, aday liste, mood, tarih.
  */
-function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
+function buildVariableBlock({ candidates, location, mood, now, routeContext, refinement }) {
   const nowIso = now || new Date().toISOString();
   const localTime = new Date(nowIso).toLocaleString('tr-TR', {
     timeZone: 'Europe/Istanbul',
@@ -777,6 +777,26 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
     text += '\n\n# Rota Bağlamı\n\n' + routeContext;
   }
 
+  // Konuşmaya dayalı iyileştirme (Sprint-4 Task #2) — yalnızca variable blokta
+  // (cache'siz), çünkü her refinement isteğinde değişir.
+  if (refinement && refinement.instruction) {
+    text +=
+      '\n\n# İyileştirme İsteği\n\n' +
+      'Kullanıcı önceki önerilerden memnun kalmadı. Yeni isteği:\n' +
+      `"${String(refinement.instruction).slice(0, 300)}"\n`;
+    if (Array.isArray(refinement.history) && refinement.history.length) {
+      text +=
+        '\nÖnceki iyileştirme istekleri (sırayla): ' +
+        refinement.history
+          .map((h) => `"${String(h).slice(0, 100)}"`)
+          .join(', ') +
+        '\n';
+    }
+    text +=
+      '\nDaha önce önerilen mekanlar aday listesinden çıkarıldı; sadece yukarıdaki\n' +
+      'adaylardan seç ve bu yeni isteği önceliklendir.';
+  }
+
   return {
     type: 'text',
     text,
@@ -794,10 +814,10 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext }) {
  * @param {string} [params.now] - test/determinism için override edilebilir ISO string
  * @returns {{ system, messages, tokenEstimate: object }}
  */
-function buildClaudeRequest({ profileSummary, candidates, location, mood, now, routeContext }) {
+function buildClaudeRequest({ profileSummary, candidates, location, mood, now, routeContext, refinement }) {
   const system = buildSystemBlock();
   const profileBlock = buildProfileBlock(profileSummary.text);
-  const variableBlock = buildVariableBlock({ candidates, location, mood, now, routeContext });
+  const variableBlock = buildVariableBlock({ candidates, location, mood, now, routeContext, refinement });
 
   const messages = [
     {
