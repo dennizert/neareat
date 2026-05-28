@@ -283,7 +283,7 @@ async function countTodayFeedback(userId) {
  */
 async function postFeedback(req, res, next) {
   try {
-    const { placeId, sentiment, aiRecommendationLogId, comment, visited } = req.body || {};
+    const { placeId, sentiment, aiRecommendationLogId, comment, visited, placeTypes } = req.body || {};
 
     // Validation
     if (!placeId || typeof placeId !== 'string') {
@@ -304,6 +304,17 @@ async function postFeedback(req, res, next) {
     if (visited != null && typeof visited !== 'boolean') {
       return res.status(400).json({ error: 'visited boolean olmalı' });
     }
+    // placeTypes opsiyonel — mutfak tipi aggregate'i için (S4-7). String dizisi, max 10.
+    let cleanedTypes = [];
+    if (placeTypes != null) {
+      if (!Array.isArray(placeTypes)) {
+        return res.status(400).json({ error: 'placeTypes string dizisi olmalı' });
+      }
+      cleanedTypes = placeTypes
+        .filter((t) => typeof t === 'string' && t.trim())
+        .map((t) => t.trim().toLowerCase())
+        .slice(0, 10);
+    }
 
     // Anti-spam rate limit
     const todayCount = await countTodayFeedback(req.user.id);
@@ -323,6 +334,7 @@ async function postFeedback(req, res, next) {
         aiRecommendationLogId: aiRecommendationLogId ?? null,
         comment: trimmedComment,
         visited: typeof visited === 'boolean' ? visited : false,
+        placeTypes: cleanedTypes,
       },
     });
 

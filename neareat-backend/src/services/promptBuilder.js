@@ -170,6 +170,14 @@ kişisel gerekçe yaz. ÇIKTI FORMATINA harfiyen uy (aşağıda).
    - Gerekçede doğrudan "daha önce beğendin" veya "beğenmemiştin" gibi
      sinyale atıf yapabilirsin — bu kullanıcıya şeffaf ve yararlı.
 
+9. **Mutfak Tipi Tercihleri (cuisinePreferences, varsa)**: Kullanıcının
+   haftalık feedback aggregate'inden çıkan mutfak/restoran tipi eğilimi:
+   - likedTypes: Bu tiplere (Google place type'ları) öncelik ver, benzer
+     adayları öne çıkar.
+   - dislikedTypes: Bu tiplerden uzak dur; mümkünse hiç önerme, zorunluysa
+     en sona koy ve neden uygun olduğunu açıkla.
+   - cuisinePreferences YOKSA: bu bölümü hiç işleme.
+
 # Gerekçe Yazma Standardı
 
 Her gerekçe 2-3 cümle olmalı. Şu yapıyı izle:
@@ -583,7 +591,7 @@ async function buildFeedbackHistory(userId) {
 async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
   const isPremium = tier === 'premium';
 
-  const [user, reviews, favorites, starEvents, sentRecs, friendSignalsData, feedbackData] = await Promise.all([
+  const [user, reviews, favorites, starEvents, sentRecs, friendSignalsData, feedbackData, feedbackPref] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -621,6 +629,11 @@ async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
     // Premium only — free tier'da friend signals yok (cache key stabil kalır)
     isPremium ? buildFriendSignals(userId) : Promise.resolve([]),
     buildFeedbackHistory(userId),
+    // Haftalık aggregate'in ürettiği mutfak tipi tercihleri (S4-7)
+    prisma.feedbackPreference.findUnique({
+      where: { userId },
+      select: { likedTypes: true, dislikedTypes: true },
+    }),
   ]);
 
   if (!user) {
@@ -692,6 +705,16 @@ async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
     profile.feedbackHistory = {
       likedPlaceIds: feedbackData.liked,
       dislikedPlaceIds: feedbackData.disliked,
+    };
+  }
+
+  // Haftalık aggregate'ten gelen mutfak tipi tercihleri (S4-7) — sadece veri varsa
+  const likedTypes = feedbackPref?.likedTypes ?? [];
+  const dislikedTypes = feedbackPref?.dislikedTypes ?? [];
+  if (likedTypes.length > 0 || dislikedTypes.length > 0) {
+    profile.cuisinePreferences = {
+      likedTypes,
+      dislikedTypes,
     };
   }
 

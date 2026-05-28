@@ -13,6 +13,7 @@ const mockPrisma = {
   recommendation: { findMany: jest.fn() },
   friendRequest: { findMany: jest.fn() },
   recommendationFeedback: { findMany: jest.fn().mockResolvedValue([]) },
+  feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
@@ -281,6 +282,32 @@ describe('buildUserProfileSummary', () => {
     const r1 = await buildUserProfileSummary('u1');
     const r2 = await buildUserProfileSummary('u1');
     expect(r1.text).toBe(r2.text); // bytes-level identical → cache key stabil
+  });
+
+  it('feedbackPreference varsa cuisinePreferences profile\'a + prompt\'a yansır (S4-7)', async () => {
+    setupEmptyUser();
+    mockPrisma.feedbackPreference.findUnique.mockResolvedValue({
+      likedTypes: ['italian_restaurant'],
+      dislikedTypes: ['fast_food_restaurant'],
+    });
+
+    const result = await buildUserProfileSummary('u1');
+
+    expect(result.profile.cuisinePreferences).toEqual({
+      likedTypes: ['italian_restaurant'],
+      dislikedTypes: ['fast_food_restaurant'],
+    });
+    expect(result.text).toContain('cuisinePreferences');
+    expect(result.text).toContain('italian_restaurant');
+  });
+
+  it('feedbackPreference boşsa cuisinePreferences eklenmez', async () => {
+    setupEmptyUser();
+    mockPrisma.feedbackPreference.findUnique.mockResolvedValue({ likedTypes: [], dislikedTypes: [] });
+
+    const result = await buildUserProfileSummary('u1');
+
+    expect(result.profile.cuisinePreferences).toBeUndefined();
   });
 
   it('computes reviewer avgRating from review records', async () => {

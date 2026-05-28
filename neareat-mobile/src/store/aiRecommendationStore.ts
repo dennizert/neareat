@@ -78,7 +78,7 @@ interface AiRecommendationState {
   /** Aktif SSE stream'i iptal et (Durdur butonu) */
   cancelStream: () => void;
   /** Optimistic feedback gönder; hata olursa rollback yapıp throw eder */
-  submitFeedback: (placeId: string, sentiment: FeedbackSentiment) => Promise<void>;
+  submitFeedback: (placeId: string, sentiment: FeedbackSentiment, placeTypes?: string[]) => Promise<void>;
   fetchRouteRecommendation: (params: RouteRecommendationRequest) => Promise<void>;
   resetRoute: () => void;
   clear: () => void;
@@ -305,13 +305,13 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set, get)
     });
   },
 
-  async submitFeedback(placeId, sentiment) {
+  async submitFeedback(placeId, sentiment, placeTypes) {
     // Optimistic update
     set((s) => ({
       feedbackByPlaceId: { ...s.feedbackByPlaceId, [placeId]: sentiment },
     }));
     try {
-      await postFeedback({ placeId, sentiment });
+      await postFeedback({ placeId, sentiment, placeTypes });
     } catch {
       // Rollback
       set((s) => {

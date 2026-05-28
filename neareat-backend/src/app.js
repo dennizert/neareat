@@ -36,6 +36,7 @@ const requestId = require('./middleware/requestId');
 const sanitize = require('./middleware/sanitize');
 const { scheduleReservationReminders } = require('./jobs/reservationReminders');
 const { scheduleSmartNotifications } = require('./jobs/smartNotifications');
+const { scheduleFeedbackAggregation } = require('./jobs/feedbackAggregator');
 
 const app = express();
 
@@ -158,6 +159,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`NearEat API → http://0.0.0.0:${PORT}  (ağdan: http://192.168.1.117:${PORT})`);
   scheduleReservationReminders();
   scheduleSmartNotifications();
+  scheduleFeedbackAggregation();
 });
 
 // Graceful shutdown — açık bağlantıları düzgün kapat
