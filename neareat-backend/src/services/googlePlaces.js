@@ -285,7 +285,104 @@ function isOpenAtTime(periods, dayOfWeek, timeHHMM) {
 const QUALITY_MIN_RATING = 2.4;
 const QUALITY_MIN_USER_RATINGS = 2;
 
+/**
+ * İsim bazlı dışlama — restoran olmayan/istenmeyen mekanlar.
+ * Google "restaurant"/"food" tipi bazen fırın, market, büfe, oyun salonu gibi
+ * yerleri döndürüyor; isimde bu anahtar kelimeler geçiyorsa eleriz.
+ *
+ * Eşleştirme Türkçe karakter + büyük/küçük harf duyarsız (normalizeName ile ASCII'ye
+ * indirgenir). Anahtar kelime, sözcük başında (kelime sınırı) aranır ve yalnızca
+ * Türkçe ek (ünlü ya da 's' ile başlayan) gelebilir; başka bir ünsüz gelirse eşleşmez.
+ * Böylece "Kıraathanesi/Fırını/Marketi/Büfesi" yakalanır ama "Bayındır" (bayi+n),
+ * "Oyuncak" (oyun+c) gibi farklı kökler yanlışlıkla elenmez. "supermarket" ayrı listelenir.
+ */
+const EXCLUDED_NAME_KEYWORDS = [
+  // bayi
+  'bayi', 'dealer',
+  // kıraathane
+  'kiraathane',
+  // çay bahçesi
+  'cay bahcesi', 'cay evi', 'tea garden', 'tea house', 'teahouse',
+  // ekmek
+  'ekmek', 'ekmekci', 'bread',
+  // fırın
+  'firin', 'bakery',
+  // pilates
+  'pilates',
+  // studio / stüdyo
+  'studio', 'studyo',
+  // büfe
+  'bufe',
+  // market
+  'market', 'supermarket',
+  // playstation
+  'playstation',
+  // oyun / game
+  'oyun', 'game', 'gaming',
+
+  // ─── Grup A: yiyecek-dışı hizmet/dükkan ───
+  'berber', 'kuafor', 'salon', 'barber', 'hairdresser',
+  'eczane', 'pharmacy',
+  'gym', 'fitness', 'crossfit', 'spor salonu',
+  'banka', 'bank',
+  'akaryakit', 'benzin', 'benzinlik', 'petrol', 'gas station', 'fuel',
+  'hastane', 'klinik', 'klinig', 'hospital', 'clinic', 'dental',
+  'okul', 'kurs', 'dershane', 'akademi', 'kolej', 'lise', 'universite',
+  'school', 'course', 'academy', 'college', 'university',
+  'emlak', 'emlakci', 'gayrimenkul', 'real estate',
+  'veteriner', 'veterinary',
+  'optik', 'optician', 'gozluk', 'gozlukcu',
+  'kutuphane', 'library',
+  'kuyumcu', 'kuyumculuk', 'jeweler', 'jewellery', 'jewelry',
+  'mobilya', 'furniture', 'nalbur', 'hirdavat', 'hardware', 'kirtasiye', 'stationery',
+  'giyim', 'butik', 'magaza', 'boutique', 'store', 'clothing',
+  'cicek', 'cicekci', 'florist',
+  'kres', 'anaokulu', 'kindergarten', 'nursery',
+
+  // ─── Grup B: mekan/eğlence (restoran değil) ───
+  'otel', 'hotel', 'motel', 'pansiyon', 'hostel',
+  'dugun', 'dugun salonu', 'banquet', 'wedding',
+  'avm', 'mall', 'pasaj', 'alisveris merkezi',
+  'bilardo', 'bowling', 'langirt', 'snooker',
+  'internet kafe', 'internet cafe', 'netcafe',
+  'nargile', 'shisha', 'hookah',
+  'ofis', 'office', 'plaza', 'is merkezi', 'business center',
+
+  // ─── Grup C: dükkan/gıda satışı (yeme-içme değil) ───
+  'kasap', 'butcher',
+  'manav', 'greengrocer',
+  'sarkuteri', 'delicatessen',
+  'kuruyemis', 'kuru yemis',
+  'tekel', 'icki', 'liquor',
+];
+
+function normalizeName(s) {
+  return String(s || '')
+    .replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i')
+    .replace(/Ş/g, 's').replace(/ş/g, 's')
+    .replace(/Ğ/g, 'g').replace(/ğ/g, 'g')
+    .replace(/Ç/g, 'c').replace(/ç/g, 'c')
+    .replace(/Ö/g, 'o').replace(/ö/g, 'o')
+    .replace(/Ü/g, 'u').replace(/ü/g, 'u')
+    .replace(/[ÂâÄä]/g, 'a').replace(/[Îîïİ]/g, 'i').replace(/[Ûûü]/g, 'u')
+    .toLowerCase();
+}
+
+// Anahtar kelimeleri normalize edip regex'e derle (tek seferlik).
+// \b<kw> = sözcük başı; (?![bcdf...]) = ardından 's'/ünlü dışında ünsüz gelmesin (ek toleransı).
+const EXCLUDED_NAME_PATTERNS = EXCLUDED_NAME_KEYWORDS.map((kw) => {
+  const norm = normalizeName(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${norm}(?![bcdfghjklmnpqrtvwxyz])`);
+});
+
+function isExcludedByName(name) {
+  const norm = normalizeName(name);
+  if (!norm) return false;
+  return EXCLUDED_NAME_PATTERNS.some((re) => re.test(norm));
+}
+
 function passesQualityFilter(place) {
+  if (isExcludedByName(place?.name)) return false;
   const total = place?.user_ratings_total;
   const rating = place?.rating;
   if (typeof total !== 'number' || total < QUALITY_MIN_USER_RATINGS) return false;
@@ -301,6 +398,9 @@ module.exports = {
   getPhotoUrl,
   isOpenAtTime,
   passesQualityFilter,
+  isExcludedByName,
+  normalizeName,
+  EXCLUDED_NAME_KEYWORDS,
   QUALITY_MIN_RATING,
   QUALITY_MIN_USER_RATINGS,
   LONG_ROUTE_THRESHOLD_KM,
