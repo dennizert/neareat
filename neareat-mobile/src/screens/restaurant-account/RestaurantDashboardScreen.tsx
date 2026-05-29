@@ -16,6 +16,7 @@ const MENU_ITEMS = [
   { icon: '💬', label: 'Yorumlar & Cevaplar', screen: 'RestaurantReviews' },
   { icon: '🎁', label: 'İndirim Yönetimi', screen: 'RestaurantDiscount' },
   { icon: '⚡', label: 'Anlık Kampanya', screen: 'RestaurantCampaign' },
+  { icon: '📊', label: 'Analitik Panel', screen: 'RestaurantAnalytics' },
   { icon: '📅', label: 'Rezervasyonlar', screen: 'RestaurantReservations' },
   { icon: '📞', label: 'İletişim & Ayarlar', screen: 'RestaurantInfo' },
 ];
