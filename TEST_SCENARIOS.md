@@ -864,3 +864,35 @@ npm run test:stores
 3. Jenerik tipler (restaurant/food/point_of_interest/cafe…) aggregate'te elenir
 4. Net pozitif tip → likedTypes, net negatif → dislikedTypes, net sıfır → hiçbiri
 5. Sonraki AI önerisinde prompt'ta `cuisinePreferences` görünür; öneriler liked tiplere yönelir
+
+---
+
+## Sprint-5 — Restoran Tarafı (B2B) + Robustluk
+
+### Rezervasyon otomatik escalation (S5-1)
+1. 24 saatten eski PENDING rezervasyon → saatlik cron restoran sahibine + kullanıcıya `RESERVATION_PENDING_REMINDER` gönderir
+2. `pendingReminderSentAt` damgalanır → cron tekrar çalışınca aynı rezervasyona 2. bildirim ÜRETİLMEZ
+3. CONFIRMED/REJECTED/CANCELLED rezervasyonlar escalate edilmez
+
+### Level-up bildirimi (S5-2)
+1. Seviye sınırı geçilince (örn. 9→14 yıldız, level 1→2) tam 1 `LEVEL_UP` bildirimi
+2. Aynı seviyede kalınca tetiklenmez
+3. Tek seferde 2 seviye atlanırsa yine tek bildirim (son seviye)
+
+### Anlık kampanya (S5-3 backend / S5-4 mobile)
+1. Onaylı restoran owner → favori/rezervasyon/hepsi kitlesine `INSTANT_DISCOUNT` push
+2. Aynı gün 2. kampanya → 429 `CAMPAIGN_LIMIT_EXCEEDED`
+3. Onaysız restoran → 403; placeId yok → 400; mesaj < 5 char → 400
+4. Owner hedef kitleden çıkarılır, dedupe
+5. Mobile: Dashboard → "Anlık Kampanya" → mesaj + kitle + onay → başarı/limit geri bildirimi
+
+### Restoran analitik (S5-5 endpoint / S5-7 ekran)
+1. `GET /analytics` → 7 gün trend, en yoğun saatler (top-5), durum dağılımı, katılım oranı, puan dağılımı
+2. CANCELLED/REJECTED trend+yoğun saat dışı ama statusBreakdown'da sayılır
+3. Yalnızca restoranın kendi sahibi erişebilir
+4. Mobile: Dashboard → "Analitik Panel" → metrikler + bar görselleri + AI rapor kartı; pull-to-refresh
+
+### Claude haftalık rapor (S5-6)
+1. `GET /report` → analitik + son yorumlardan kısa Türkçe işletme özeti (`fallback: false`)
+2. ANTHROPIC erişilemez/boş yanıt → deterministik şablon özet (`fallback: true`), 500 değil
+3. Mobile: rapor başarısız olsa bile (`Promise.allSettled`) metrikler yine gösterilir
