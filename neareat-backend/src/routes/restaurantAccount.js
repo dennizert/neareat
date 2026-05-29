@@ -8,7 +8,7 @@ const {
   replyToReview, deleteReply,
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
-  sendCampaign, getAnalytics,
+  sendCampaign, getAnalytics, getWeeklyReport,
 } = require('../controllers/restaurantAccountController');
 
 // Public — no auth
@@ -21,6 +21,7 @@ router.put('/info', authenticate, requireRestaurant, updateInfo);
 router.put('/announcement', authenticate, requireRestaurant, updateAnnouncement);
 router.get('/stats', authenticate, requireRestaurant, getStats);
 router.get('/analytics', authenticate, requireRestaurant, getAnalytics);
+router.get('/report', authenticate, requireRestaurant, getWeeklyReport);
 router.get('/reviews', authenticate, requireRestaurant, getMyReviews);
 
 // Menu
