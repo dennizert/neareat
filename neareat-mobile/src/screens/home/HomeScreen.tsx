@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View, FlatList, StyleSheet, ActivityIndicator, Text,
-  TouchableOpacity, ScrollView, RefreshControl,
+  TouchableOpacity, ScrollView, RefreshControl, TextInput,
 } from 'react-native';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import { fetchNearby } from '../../services/restaurants';
@@ -29,6 +29,8 @@ export default function HomeScreen() {
     loading, error, viewMode,
     setViewMode, setRestaurants, setLoading, setError,
     getSortedFiltered, selectedCategory, setSelectedCategory,
+    searchQuery, searchResults, searchLoading, searchError,
+    setSearchQuery, performSearch, clearSearch,
   } = useRestaurantStore();
 
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | undefined>();
@@ -78,12 +80,30 @@ export default function HomeScreen() {
     setRefreshing(false);
   }
 
+  // Arama: 400ms debounce. Sorgu temizlenince anında nearby listesine döner.
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function onSearchChange(text: string) {
+    setSearchQuery(text);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (text.trim().length < 2) {
+      // 0 veya 1 karakter — bekleme yapmadan temizle
+      performSearch('', undefined, undefined);
+      return;
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      performSearch(text, coordsRef.current?.lat, coordsRef.current?.lng);
+    }, 400);
+  }
+  useEffect(() => () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); }, []);
+
   // Category change is instant — just update store, getSortedFiltered handles filtering
   function handleCategoryPress(key: string) {
     setSelectedCategory(key);
   }
 
   const restaurants = getSortedFiltered();
+  const isSearching = searchQuery.trim().length >= 2;
+  const displayList = isSearching ? searchResults : restaurants;
 
   const handlePress = useCallback((restaurant: Restaurant) => {
     navigation.navigate('RestaurantDetail', { placeId: restaurant.placeId });
@@ -114,6 +134,28 @@ export default function HomeScreen() {
         </View>
         <NotificationBell />
       </View>
+
+      {/* Arama çubuğu (S6-2) */}
+      {viewMode === 'list' && (
+        <View style={styles.searchRow}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Restoran ara (örn. tarihi yarımadada pizza)"
+            placeholderTextColor={C.textMuted}
+            value={searchQuery}
+            onChangeText={onSearchChange}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { clearSearch(); }} style={styles.searchClear}>
+              <Text style={styles.searchClearText}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {/* AI Recommendation CTAs — kompakt, yan yana */}
       {viewMode === 'list' && (
@@ -173,6 +215,28 @@ export default function HomeScreen() {
           userLat={userCoords?.lat}
           userLng={userCoords?.lng}
         />
+      ) : isSearching ? (
+        <>
+          {searchLoading && <ActivityIndicator style={styles.loader} color={C.primary} />}
+          {searchError && <Text style={styles.errorText}>{searchError}</Text>}
+          {!searchLoading && !searchError && displayList.length === 0 && (
+            <Text style={styles.emptyText}>Sonuç bulunamadı</Text>
+          )}
+          {!searchLoading && !searchError && displayList.length > 0 && (
+            <FlatList
+              data={displayList}
+              keyExtractor={(r) => r.placeId}
+              renderItem={renderCard}
+              contentContainerStyle={styles.list}
+              showsVerticalScrollIndicator={false}
+              windowSize={5}
+              maxToRenderPerBatch={6}
+              initialNumToRender={8}
+              removeClippedSubviews
+              keyboardShouldPersistTaps="handled"
+            />
+          )}
+        </>
       ) : (
         <>
           <SortFilterBar />
@@ -270,6 +334,22 @@ function makeStyles(C: Colors) {
 
     loader: { marginTop: 40 },
     errorText: { textAlign: 'center', color: C.error, marginTop: 40, paddingHorizontal: 16 },
+    emptyText: { textAlign: 'center', color: C.textMuted, marginTop: 40, paddingHorizontal: 16 },
     list: { padding: 16 },
+
+    searchRow: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: C.surfaceAlt, borderRadius: 12,
+      marginHorizontal: 16, marginTop: 8,
+      paddingHorizontal: 12, paddingVertical: 8,
+    },
+    searchIcon: { fontSize: 14, marginRight: 8, color: C.textMuted },
+    searchInput: { flex: 1, fontSize: 14, color: C.textPrimary, padding: 0 },
+    searchClear: {
+      width: 22, height: 22, borderRadius: 11,
+      backgroundColor: C.disabled, justifyContent: 'center', alignItems: 'center',
+      marginLeft: 6,
+    },
+    searchClearText: { fontSize: 12, color: '#fff', fontWeight: '700' },
   });
 }
