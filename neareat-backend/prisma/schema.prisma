@@ -410,6 +410,9 @@ model RestaurantProfile {
   discountNote        String?   @map("discount_note") @db.VarChar(200)
   discountActiveUntil DateTime? @map("discount_active_until")
 
+  // Anlık kampanya gönderimi rate limit (günde 1) — S5-3
+  lastCampaignAt DateTime? @map("last_campaign_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

@@ -8,6 +8,7 @@ const {
   replyToReview, deleteReply,
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
+  sendCampaign,
 } = require('../controllers/restaurantAccountController');
 
 // Public — no auth
@@ -33,6 +34,9 @@ router.delete('/reviews/:reviewId/reply', authenticate, requireRestaurant, delet
 router.put('/discount', authenticate, requireRestaurant, updateDiscount);
 router.post('/discount/activate', authenticate, requireRestaurant, activateInstantDiscount);
 router.delete('/discount/deactivate', authenticate, requireRestaurant, deactivateInstantDiscount);
+
+// Anlık kampanya gönderimi (S5-3) — günde 1
+router.post('/campaign', authenticate, requireRestaurant, sendCampaign);
 
 // Menu data (accessible to authenticated users for viewing)
 router.get('/menu/:itemId/data', authenticate, getMenuItemData);
