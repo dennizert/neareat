@@ -63,6 +63,8 @@ requestId → helmet/CORS → morgan → rate-limit → body-parse → sanitize
 - **AI recommendations:** `services/recommendationService.js` calls Anthropic Claude via SSE streaming. `recommendationController.js` forwards the stream to the client with 15s keepalive pings to avoid Railway proxy timeouts.
 - **Conversational refinement:** The streaming endpoint accepts `sessionId` + `refinement` ("daha ucuz/yakın/sessiz"). Session context (previously-suggested placeIds + refinement history) is kept in Redis (`rec-session:{id}`, 30 min) so previously-suggested places are excluded on follow-ups. See `services/recommendationSession.js`.
 - **Feedback loop:** A weekly cron (`jobs/feedbackAggregator.js`) aggregates `RecommendationFeedback.placeTypes` into per-user liked/disliked cuisine types (`FeedbackPreference`), injected into the AI system prompt as `cuisinePreferences`.
+- **Reservation escalation:** Hourly cron in `jobs/reservationReminders.js` finds `PENDING` reservations older than 24h (`pendingReminderSentAt IS NULL`), notifies the restaurant owner + user (`RESERVATION_PENDING_REMINDER`), and stamps `pendingReminderSentAt` for idempotency.
+- **Restaurant B2B (`restaurant-account` routes):** `POST /campaign` sends an `INSTANT_DISCOUNT` push to favoriters/past-reservers (max 1/day via `RestaurantProfile.lastCampaignAt`). `GET /analytics` returns reservation trend / busiest hours / status breakdown / rating distribution (pure core in `utils/restaurantAnalytics.js`). `GET /report` turns that analytics into a short Turkish business summary via `services/businessReport.js` (claude-haiku-4-5, graceful fallback to a templated summary).
 
 ### Backend directory layout
 
