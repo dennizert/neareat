@@ -35,6 +35,7 @@ const mockPrisma = {
   recommendation: { findMany: jest.fn(), count: jest.fn() },
   aiRecommendationLog: { create: jest.fn(), count: jest.fn() },
   recommendationFeedback: { create: jest.fn(), count: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+  feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
   friendRequest: { findMany: jest.fn() },
   userLog: { create: jest.fn() },
   notification: { create: jest.fn() },
@@ -67,6 +68,14 @@ const mockGooglePlaces = {
   getPlaceDetails: jest.fn(),
   getPhotoUrl: jest.fn(),
   getRouteWaypoints: jest.fn(),
+  // candidateService passesQualityFilter çağırır — passthrough (#110)
+  passesQualityFilter: (place) => {
+    const total = place?.user_ratings_total;
+    const rating = place?.rating;
+    if (typeof total !== 'number' || total < 2) return false;
+    if (typeof rating !== 'number' || rating < 2.4) return false;
+    return true;
+  },
 };
 jest.mock('../../src/services/googlePlaces', () => mockGooglePlaces);
 
@@ -237,13 +246,7 @@ describe('POST /api/recommendations/dinner-tonight — auth + validation', () =>
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when mood is not a string', async () => {
-    const res = await request(app)
-      .post('/api/recommendations/dinner-tonight')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ lat: 41.04, lng: 28.98, mood: 12345 });
-    expect(res.status).toBe(400);
-  });
+  // Not (#110): mood özelliği kaldırıldı — mood artık validate edilmiyor, gönderilse de yok sayılır.
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -466,12 +469,12 @@ describe('POST /api/recommendations/dinner-tonight — response shape & audit', 
     await request(app)
       .post('/api/recommendations/dinner-tonight')
       .set('Authorization', `Bearer ${userToken}`)
-      .send({ lat: 41.04, lng: 28.98, mood: 'şık' });
+      .send({ lat: 41.04, lng: 28.98 });
 
     expect(mockPrisma.aiRecommendationLog.create).toHaveBeenCalledTimes(1);
     const data = mockPrisma.aiRecommendationLog.create.mock.calls[0][0].data;
     expect(data.userId).toBe(testUser.id);
-    expect(data.mood).toBe('şık');
+    expect(data.mood).toBeNull(); // mood özelliği kaldırıldı (#110)
     expect(data.lat).toBe(41.04);
     expect(data.lng).toBe(28.98);
     expect(Array.isArray(data.candidatePlaceIds)).toBe(true);
@@ -507,17 +510,7 @@ describe('POST /api/recommendations/dinner-tonight — mood handling', () => {
     expect(res.status).toBe(200);
   });
 
-  it('trims and truncates mood to 50 chars', async () => {
-    const longMood = '   ' + 'a'.repeat(100) + '   ';
-    const res = await request(app)
-      .post('/api/recommendations/dinner-tonight')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ lat: 41.04, lng: 28.98, mood: longMood });
-    expect(res.status).toBe(200);
-    // Verify mood was truncated in log
-    const loggedMood = mockPrisma.aiRecommendationLog.create.mock.calls[0][0].data.mood;
-    expect(loggedMood.length).toBeLessThanOrEqual(50);
-  });
+  // "trims and truncates mood" testi kaldırıldı (#110) — mood özelliği yok, log'a hep null yazılır.
 
   it('treats empty mood as null', async () => {
     const res = await request(app)
@@ -751,13 +744,7 @@ describe('POST /api/recommendations/route-tonight — auth + validation', () => 
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when mood is not a string', async () => {
-    const res = await request(app)
-      .post('/api/recommendations/route-tonight')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02, mood: 99 });
-    expect(res.status).toBe(400);
-  });
+  // "mood not a string → 400" testi kaldırıldı (#110) — route-tonight de mood almıyor.
 });
 
 describe('POST /api/recommendations/route-tonight — happy path', () => {

@@ -23,7 +23,7 @@ const { createTestToken, randomId, createTestUser } = require('./helpers');
 const mockPrisma = {
   user: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
   subscription: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), upsert: jest.fn() },
-  favorite: { findMany: jest.fn(), count: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
+  favorite: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
   review: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), upsert: jest.fn() },
   friendRequest: { findMany: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
   recommendation: { findMany: jest.fn(), create: jest.fn(), count: jest.fn() },
@@ -34,6 +34,11 @@ const mockPrisma = {
   message: { findMany: jest.fn(), create: jest.fn(), count: jest.fn(), updateMany: jest.fn(), groupBy: jest.fn() },
   collectionItem: { findMany: jest.fn() },
   restaurantProfile: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
+  // AI öneri akışı modelleri (#110) — buildUserProfileSummary + controller bunları sorgular
+  aiRecommendationLog: { create: jest.fn().mockResolvedValue({ id: 'log-1' }), count: jest.fn().mockResolvedValue(0) },
+  recommendationFeedback: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+  feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
+  activityEvent: { create: jest.fn().mockResolvedValue({}) },
   $transaction: jest.fn(),
   $queryRaw: jest.fn(),
 };
@@ -62,8 +67,17 @@ jest.mock('../src/services/redis', () => ({
 // Google Places mock
 jest.mock('../src/services/googlePlaces', () => ({
   getNearbyRestaurants: jest.fn().mockResolvedValue([]),
+  getNearbyRestaurantsFast: jest.fn().mockResolvedValue([]),
   getPlaceDetails: jest.fn().mockResolvedValue({ name: 'Test Restaurant', geometry: { location: { lat: 41.0, lng: 29.0 } } }),
   getPhotoUrl: jest.fn().mockReturnValue('https://example.com/photo.jpg'),
+  // candidateService passesQualityFilter çağırır — passthrough (#110)
+  passesQualityFilter: (place) => {
+    const total = place?.user_ratings_total;
+    const rating = place?.rating;
+    if (typeof total !== 'number' || total < 2) return false;
+    if (typeof rating !== 'number' || rating < 2.4) return false;
+    return true;
+  },
 }));
 
 // Reservation reminders mock

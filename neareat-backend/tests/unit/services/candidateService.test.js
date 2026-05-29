@@ -6,10 +6,13 @@
  */
 
 const mockPrisma = {
-  user: { findUnique: jest.fn() },
+  // candidateService sosyal sinyal sorguları (#110): friendRequest + user.findMany + collectionItem
+  user: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
   favorite: { findMany: jest.fn() },
   review: { findMany: jest.fn() },
   recommendation: { findMany: jest.fn() },
+  friendRequest: { findMany: jest.fn().mockResolvedValue([]) },
+  collectionItem: { findMany: jest.fn().mockResolvedValue([]) },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
@@ -17,6 +20,14 @@ const mockGooglePlaces = {
   getNearbyRestaurantsFast: jest.fn(),
   getPlaceDetails: jest.fn().mockResolvedValue({}), // no photos by default
   getPhotoUrl: jest.fn().mockReturnValue('https://maps.googleapis.com/photo?ref=TEST'),
+  // candidateService passesQualityFilter çağırır — gerçek mantığı yansıtan passthrough (#110)
+  passesQualityFilter: (place) => {
+    const total = place?.user_ratings_total;
+    const rating = place?.rating;
+    if (typeof total !== 'number' || total < 2) return false;
+    if (typeof rating !== 'number' || rating < 2.4) return false;
+    return true;
+  },
 };
 jest.mock('../../../src/services/googlePlaces', () => mockGooglePlaces);
 
@@ -113,23 +124,27 @@ describe('scoreCandidate', () => {
     expect(withMatch).toBeGreaterThan(noMatch);
   });
 
-  it('applies -2 novelty penalty for recently visited place (not liked)', () => {
+  // Not (#110): "novel" yer +0.5 discoveryBoost alır (hiç ziyaret edilmemiş).
+  // recentPlaceIds'teki yer bu boost'u KAYBEDER, dolayısıyla net fark:
+  //   ziyaret edilmiş (beğenilmemiş): -2 (novelty) - 0.5 (kayıp boost) = novel - 2.5
+  //   ziyaret edilmiş (beğenilmiş):   +1 (novelty) - 0.5 (kayıp boost) = novel + 0.5
+  it('applies novelty penalty for recently visited place (not liked)', () => {
     const novel = scoreCandidate(basePlace, 1.0, emptyPrefs);
     const visited = scoreCandidate(basePlace, 1.0, {
       ...emptyPrefs,
       recentPlaceIds: new Set(['p1']),
     });
-    expect(visited).toBeCloseTo(novel - 2, 5);
+    expect(visited).toBeCloseTo(novel - 2.5, 5);
   });
 
-  it('liked place gets +1 instead of -2', () => {
+  it('liked recently-visited place scores higher than non-liked visited', () => {
     const novel = scoreCandidate(basePlace, 1.0, emptyPrefs);
     const visitedAndLiked = scoreCandidate(basePlace, 1.0, {
       ...emptyPrefs,
       recentPlaceIds: new Set(['p1']),
       likedPlaceIds: new Set(['p1']),
     });
-    expect(visitedAndLiked).toBeCloseTo(novel + 1, 5);
+    expect(visitedAndLiked).toBeCloseTo(novel + 0.5, 5);
   });
 
   it('higher rating → higher score', () => {
