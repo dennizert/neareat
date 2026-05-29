@@ -299,8 +299,8 @@ const QUALITY_MIN_USER_RATINGS = 2;
 const EXCLUDED_NAME_KEYWORDS = [
   // bayi
   'bayi', 'dealer',
-  // kıraathane
-  'kiraathane',
+  // kıraathane / kahvehane (geleneksel kahvehane tipi mekanlar)
+  'kiraathane', 'kirathane', 'kahvehane', 'cayhane',
   // çay bahçesi
   'cay bahcesi', 'cay evi', 'tea garden', 'tea house', 'teahouse',
   // ekmek
