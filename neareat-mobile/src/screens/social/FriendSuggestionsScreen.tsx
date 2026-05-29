@@ -146,9 +146,9 @@ function makeStyles(C: Colors) {
     reasonChip: {
       backgroundColor: C.successSurface, borderRadius: 10,
       paddingHorizontal: 10, paddingVertical: 4,
-      borderWidth: 1, borderColor: '#BBF7D0',
+      borderWidth: 1, borderColor: C.successSurface,
     },
-    reasonText: { fontSize: 11, color: '#065F46', fontWeight: '600' },
+    reasonText: { fontSize: 11, color: C.success, fontWeight: '600' },
 
     addBtn: {
       backgroundColor: C.primary, borderRadius: 12,
@@ -156,6 +156,6 @@ function makeStyles(C: Colors) {
     },
     addBtnSent: { backgroundColor: C.successSurface },
     addBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-    addBtnTextSent: { color: '#065F46' },
+    addBtnTextSent: { color: C.success },
   });
 }

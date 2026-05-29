@@ -77,7 +77,7 @@ export default function RegisterScreen() {
         </TouchableOpacity>
 
         <Text style={styles.title}>Hesap Oluştur</Text>
-        <Text style={styles.subtitle}>NearEat'e katıl, restoranları keşfet.</Text>
+        <Text style={styles.subtitle}>Eatlas'a katıl, restoranları keşfet.</Text>
 
         <View style={styles.form}>
           <Text style={styles.label}>Ad Soyad</Text>

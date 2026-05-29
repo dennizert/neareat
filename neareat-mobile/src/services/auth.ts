@@ -77,7 +77,7 @@ export function configureGoogleSignIn(webClientId: string) {
  * Backend'e idToken gönderme → Kullanıcı ve abonelik bilgisi döndürme.
  *
  * Neden bu fonksiyon yazıldı:
- * Google Auth, NearEat'in birincil giriş yöntemidir. Firebase ID token'ı
+ * Google Auth, Eatlas'ın birincil giriş yöntemidir. Firebase ID token'ı
  * backend'e gönderilir, backend kullanıcıyı oluşturur/bulur ve döner.
  *
  * @returns Kullanıcı bilgisi ve varsa abonelik durumu

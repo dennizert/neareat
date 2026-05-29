@@ -198,9 +198,9 @@ function makeStyles(C: Colors) {
     },
     heroIcon: { fontSize: 48, marginBottom: 8 },
     heroLevel: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 2 },
-    heroBadge: { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 12 },
+    heroBadge: { fontSize: 20, fontWeight: '700', color: C.primaryOn, marginBottom: 12 },
     starCountRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 16 },
-    starCountNum: { fontSize: 48, fontWeight: '800', color: '#fff' },
+    starCountNum: { fontSize: 48, fontWeight: '800', color: C.primaryOn },
     starCountLabel: { fontSize: 18, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
     progressBar: {
       width: '80%', height: 8, backgroundColor: 'rgba(255,255,255,0.3)',
@@ -217,7 +217,7 @@ function makeStyles(C: Colors) {
     earnIcon: { fontSize: 20, width: 32 },
     earnLabel: { flex: 1, fontSize: 14, color: C.textSecondary },
     earnBadge: { backgroundColor: C.warningSurface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-    earnAmount: { fontSize: 13, fontWeight: '700', color: '#92400E' },
+    earnAmount: { fontSize: 13, fontWeight: '700', color: C.warning },
     rewardsSection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, padding: 16 },
     rewardCard: {
       flexDirection: 'row', alignItems: 'center',
@@ -233,13 +233,13 @@ function makeStyles(C: Colors) {
     rewardDesc: { fontSize: 12, color: C.textTertiary, marginTop: 3, lineHeight: 18 },
     rewardDescLocked: { color: C.disabled },
     rewardRequired: { fontSize: 11, color: C.textMuted, marginTop: 4 },
-    giftBadge: { backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-    giftBadgeText: { fontSize: 10, fontWeight: '700', color: '#92400E' },
+    giftBadge: { backgroundColor: C.amberSurface, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+    giftBadgeText: { fontSize: 10, fontWeight: '700', color: C.amber },
     unlockedBadge: {
       width: 28, height: 28, borderRadius: 14,
-      backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: C.successSurface, alignItems: 'center', justifyContent: 'center',
     },
-    unlockedText: { color: '#065F46', fontWeight: '700', fontSize: 14 },
+    unlockedText: { color: C.success, fontWeight: '700', fontSize: 14 },
     leaderboardSection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, padding: 16 },
     leaderRow: {
       flexDirection: 'row', alignItems: 'center',

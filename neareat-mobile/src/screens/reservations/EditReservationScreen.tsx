@@ -227,7 +227,7 @@ function makeStyles(C: Colors) {
       borderWidth: 1, borderColor: C.primary, gap: 8,
     },
     restaurantName: { fontSize: 15, fontWeight: '600', color: C.primary },
-    updateNote: { fontSize: 12, color: '#92400E', lineHeight: 18 },
+    updateNote: { fontSize: 12, color: C.warning, lineHeight: 18 },
     sectionLabel: { fontSize: 13, fontWeight: '600', color: C.textTertiary, marginHorizontal: 16, marginTop: 20, marginBottom: 8 },
     chipScroll: { paddingHorizontal: 16 },
     chip: {

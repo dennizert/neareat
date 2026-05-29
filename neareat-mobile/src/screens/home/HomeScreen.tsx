@@ -7,6 +7,7 @@ import { useRestaurantStore } from '../../store/restaurantStore';
 import { fetchNearby } from '../../services/restaurants';
 import { getCurrentLocation } from '../../services/location';
 import RestaurantCard from '../../components/RestaurantCard';
+import RestaurantListSkeleton from '../../components/RestaurantListSkeleton';
 import SortFilterBar from '../../components/SortFilterBar';
 import MapViewScreen from './MapViewScreen';
 import type { Restaurant } from '../../types';
@@ -96,7 +97,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>NearEat</Text>
+        <Text style={styles.logo}>Eatlas</Text>
         <View style={styles.viewToggle}>
           <TouchableOpacity
             style={[styles.toggleBtn, viewMode === 'list' && styles.toggleActive]}
@@ -114,38 +115,26 @@ export default function HomeScreen() {
         <NotificationBell />
       </View>
 
-      {/* AI Recommendation CTAs */}
+      {/* AI Recommendation CTAs — kompakt, yan yana */}
       {viewMode === 'list' && (
-        <>
+        <View style={styles.aiRow}>
           <TouchableOpacity
             style={styles.aiCta}
             onPress={() => navigation.navigate('Recommendation')}
             activeOpacity={0.85}
           >
-            <View style={styles.aiCtaIcon}>
-              <Text style={styles.aiCtaEmoji}>🤖</Text>
-            </View>
-            <View style={styles.aiCtaContent}>
-              <Text style={styles.aiCtaTitle}>Bu akşam ne yesem?</Text>
-              <Text style={styles.aiCtaSubtitle}>AI sana kişisel öneri hazırlasın</Text>
-            </View>
-            <Text style={styles.aiCtaArrow}>›</Text>
+            <Text style={styles.aiCtaEmoji}>🤖</Text>
+            <Text style={styles.aiCtaTitle} numberOfLines={1}>Şimdi ne yesem?</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.routeCta}
             onPress={() => navigation.navigate('RouteRecommendation')}
             activeOpacity={0.85}
           >
-            <View style={styles.routeCtaIcon}>
-              <Text style={styles.aiCtaEmoji}>🗺️</Text>
-            </View>
-            <View style={styles.aiCtaContent}>
-              <Text style={styles.routeCtaTitle}>Yolda ne yesem?</Text>
-              <Text style={styles.routeCtaSubtitle}>Rota boyunca en iyi duraklar</Text>
-            </View>
-            <Text style={styles.routeCtaArrow}>›</Text>
+            <Text style={styles.aiCtaEmoji}>🗺️</Text>
+            <Text style={styles.routeCtaTitle} numberOfLines={1}>Yolda ne yesem?</Text>
           </TouchableOpacity>
-        </>
+        </View>
       )}
 
       {/* Category Tabs */}
@@ -187,9 +176,9 @@ export default function HomeScreen() {
       ) : (
         <>
           <SortFilterBar />
-          {loading && <ActivityIndicator style={styles.loader} size="large" color={C.primary} />}
+          {loading && restaurants.length === 0 && <RestaurantListSkeleton />}
           {error && <Text style={styles.errorText}>{error}</Text>}
-          {!loading && !error && (
+          {!error && (loading ? restaurants.length > 0 : true) && (
             <FlatList
               data={restaurants}
               keyExtractor={(r) => r.placeId}
@@ -226,55 +215,47 @@ function makeStyles(C: Colors) {
     toggleText: { fontSize: 13, color: C.textTertiary, fontWeight: '500' },
     toggleTextActive: { color: '#fff' },
 
+    // Yan yana 2 kompakt AI CTA satırı
+    aiRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 16,
+      marginTop: 6,
+      marginBottom: 8,
+    },
+    // AI butonu (mor değil çünkü buradan AI ekranına girilir; ekran içinde AI rengi devreye girer)
     aiCta: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 8,
       backgroundColor: C.primary,
-      marginHorizontal: 16,
-      marginTop: 4,
-      marginBottom: 8,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
       shadowColor: C.primary,
-      shadowOpacity: 0.25,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 3,
+      shadowOpacity: 0.20,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 2,
     },
-    aiCtaIcon: {
-      width: 40, height: 40, borderRadius: 20,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center', alignItems: 'center',
-    },
-    aiCtaEmoji: { fontSize: 22 },
-    aiCtaContent: { flex: 1 },
-    aiCtaTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
-    aiCtaSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
-    aiCtaArrow: { color: '#fff', fontSize: 24, fontWeight: '300' },
+    aiCtaEmoji: { fontSize: 18 },
+    aiCtaTitle: { color: C.primaryOn, fontSize: 13, fontWeight: '700', flex: 1 },
 
+    // Rota butonu (travel teal aksanı dış kenarda)
     routeCta: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 8,
       backgroundColor: C.surface,
-      marginHorizontal: 16,
-      marginBottom: 8,
-      paddingHorizontal: 14,
-      paddingVertical: 11,
-      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 12,
       borderWidth: 1.5,
-      borderColor: C.border,
+      borderColor: C.travel,
     },
-    routeCtaIcon: {
-      width: 40, height: 40, borderRadius: 20,
-      backgroundColor: C.surfaceAlt,
-      justifyContent: 'center', alignItems: 'center',
-    },
-    routeCtaTitle: { color: C.textPrimary, fontSize: 15, fontWeight: '700' },
-    routeCtaSubtitle: { color: C.textTertiary, fontSize: 12, marginTop: 2 },
-    routeCtaArrow: { color: C.textMuted, fontSize: 24, fontWeight: '300' },
+    routeCtaTitle: { color: C.travel, fontSize: 13, fontWeight: '700', flex: 1 },
 
     categoryBar: { backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.separator },
     categoryRow: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },

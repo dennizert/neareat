@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "NearEat",
+    "name": "Eatlas",
     "slug": "neareat",
-    "version": "1.0.0",
+    "version": "2.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#FF6B35"
+      "backgroundColor": "#14101C"
     },
     "scheme": "neareat",
     "ios": {
@@ -26,10 +26,10 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF6B35"
+        "backgroundColor": "#14101C"
       },
       "package": "com.neareat.app",
-      "versionCode": 1,
+      "versionCode": 29,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

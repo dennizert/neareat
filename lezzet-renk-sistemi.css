@@ -1,0 +1,166 @@
+/* =====================================================================
+   "Enerjik Premium" — Gastro turizm uygulaması renk sistemi
+   Koyu, rafine zemin + canlı sıcak iştah renkleri + kontrollü AI aksanı
+   Kullanım: <html data-theme="dark"> ya da <html data-theme="light">
+   Sistem tercihine bırakmak istersen en alttaki @media bloğunu aç.
+   ===================================================================== */
+
+:root {
+  /* --- Marka çekirdeği (her iki modda da sabit) --- */
+  --brand-coral:        #FF5A3C;  /* birincil: CTA, fiyat, yemek vurgusu */
+  --brand-coral-hover:  #FF6E55;
+  --brand-coral-active: #E84427;
+  --brand-amber:        #FFB627;  /* puan, rozet, ikincil vurgu */
+  --brand-teal:         #2DD4BF;  /* seyahat: harita, mesafe, "yakınımda" */
+  --brand-teal-deep:    #14B8A6;  /* teal'in metin/sınır için koyu tonu */
+
+  /* --- Yapay zeka aksanı (sadece AI özelliklerinde) --- */
+  --ai-violet:          #8B5CF6;
+  --ai-cyan:            #22D3EE;
+  --ai-gradient:        linear-gradient(135deg, var(--ai-violet), var(--ai-cyan));
+
+  /* --- Anlamsal (semantic) durumlar --- */
+  --color-success:      #34D399;
+  --color-warning:      #FBBF24;
+  --color-danger:       #F87171;
+
+  /* --- Yarıçap & geçiş --- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --transition: 160ms ease;
+}
+
+/* =========================== KOYU MOD =============================== */
+/* Ana mod: premium fine-dining hissi, sıcak renkler burada "patlar" */
+:root,
+[data-theme="dark"] {
+  --bg-base:      #16121C;  /* en arka zemin (mürdüm/near-black) */
+  --bg-surface:   #211B2A;  /* kartlar */
+  --bg-elevated:  #2D2536;  /* modal, açılır menü, basılı kart */
+  --border:       rgba(255, 255, 255, 0.10);
+  --border-strong:rgba(255, 255, 255, 0.18);
+
+  --text-primary:   #F7F1EA;  /* kemik beyazı */
+  --text-secondary: #B9AEC4;
+  --text-tertiary:  #7E7589;
+
+  /* Birincil buton: koyu zeminde mercan + koyu metin = maksimum kontrast */
+  --btn-primary-bg:    var(--brand-coral);
+  --btn-primary-text:  #16121C;
+  --btn-primary-hover: var(--brand-coral-hover);
+  --btn-primary-active:var(--brand-coral-active);
+  --btn-disabled-bg:   #3A3344;
+  --btn-disabled-text: #6E6578;
+}
+
+/* =========================== AÇIK MOD =============================== */
+/* Sıcak krem zemin: premium ama davetkâr. Mercan'ı CTA metni için
+   koyultuyoruz ki beyaz yazı kontrastı AA'yı geçsin. */
+[data-theme="light"] {
+  --bg-base:      #FBF7F2;  /* sıcak krem */
+  --bg-surface:   #FFFFFF;
+  --bg-elevated:  #FFFFFF;
+  --border:       rgba(22, 18, 28, 0.10);
+  --border-strong:rgba(22, 18, 28, 0.18);
+
+  --text-primary:   #1F1A24;
+  --text-secondary: #5C5366;
+  --text-tertiary:  #8C8198;
+
+  --btn-primary-bg:    var(--brand-coral-active); /* #E84427 — beyaz yazı için */
+  --btn-primary-text:  #FFFFFF;
+  --btn-primary-hover: var(--brand-coral);
+  --btn-primary-active:#C7381E;
+  --btn-disabled-bg:   #E6DFD6;
+  --btn-disabled-text: #A89F94;
+}
+
+/* =====================================================================
+   Örnek bileşenler — token'ların nasıl bağlandığını gösterir
+   ===================================================================== */
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.card {
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.btn-primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.btn-primary:hover  { background: var(--btn-primary-hover); }
+.btn-primary:active { background: var(--btn-primary-active); }
+.btn-primary:disabled {
+  background: var(--btn-disabled-bg);
+  color: var(--btn-disabled-text);
+  cursor: not-allowed;
+}
+
+/* İkincil / hayalet buton */
+.btn-ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  font-weight: 500;
+}
+
+/* Puan rozeti (amber) */
+.badge-rating {
+  background: color-mix(in srgb, var(--brand-amber) 18%, transparent);
+  color: var(--brand-amber);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Seyahat / harita çipi (teal) */
+.chip-travel {
+  background: color-mix(in srgb, var(--brand-teal) 14%, transparent);
+  color: var(--brand-teal);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Yapay zeka rozeti / kartı — gradyan SADECE burada */
+.ai-badge {
+  background: var(--ai-gradient);
+  color: #0E0B14;
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.ai-card {
+  background: var(--bg-surface);
+  border: 0.5px solid color-mix(in srgb, var(--ai-violet) 45%, transparent);
+  border-radius: var(--radius-md);
+}
+
+/* =====================================================================
+   Sistem tercihini otomatik takip etmek istersen [data-theme] yerine
+   bunu kullan (yukarıdaki :root koyu varsayılanını açık ile ezer):
+
+@media (prefers-color-scheme: light) {
+  :root { ... açık mod değişkenleri ... }
+}
+   ===================================================================== */

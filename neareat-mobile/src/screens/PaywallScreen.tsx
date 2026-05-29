@@ -44,7 +44,7 @@ export default function PaywallScreen() {
         <Text style={styles.closeBtnText}>✕</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>NearEat Premium</Text>
+      <Text style={styles.title}>Eatlas Premium</Text>
       <Text style={styles.subtitle}>Tüm özelliklere erişin</Text>
 
       <View style={styles.featureList}>

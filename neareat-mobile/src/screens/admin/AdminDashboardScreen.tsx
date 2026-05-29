@@ -73,7 +73,7 @@ export default function AdminDashboardScreen() {
   }
 
   const statusColor: Record<string, string> = {
-    PENDING: C.warning, APPROVED: '#22C55E', REJECTED: C.error,
+    PENDING: C.warning, APPROVED: C.success, REJECTED: C.error,
   };
 
   const statusLabel: Record<string, string> = {
@@ -287,9 +287,10 @@ function StatRowComponent({ label, value, styles }: { label: string; value: numb
 function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
+    // Admin paneli kasıtlı koyu — her iki modda da "sistem konsolu" hissi
     header: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: '#111827',
+      paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: '#1F1A24',
     },
     headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
     logoutText: { fontSize: 13, color: C.textMuted, fontWeight: '600' },

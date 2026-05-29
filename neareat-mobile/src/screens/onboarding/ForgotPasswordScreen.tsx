@@ -54,7 +54,7 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.successIcon}>📬</Text>
             <Text style={styles.successTitle}>E-posta Gönderildi</Text>
             <Text style={styles.successText}>
-              Eğer bu e-posta NearEat'te kayıtlıysa, şifre sıfırlama bağlantısı gönderildi.{'\n\n'}
+              Eğer bu e-posta Eatlas'ta kayıtlıysa, şifre sıfırlama bağlantısı gönderildi.{'\n\n'}
               Gelen kutunu ve spam klasörünü kontrol et.
             </Text>
             <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.goBack()}>

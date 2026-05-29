@@ -108,7 +108,7 @@ export default function RestaurantDiscountScreen() {
           <Switch
             value={starEnabled}
             onValueChange={setStarEnabled}
-            trackColor={{ false: C.border, true: '#4F46E5' }}
+            trackColor={{ false: C.border, true: C.amber }}
             thumbColor="#fff"
           />
         </View>
@@ -224,28 +224,28 @@ function makeStyles(C: Colors) {
     },
     rateTableHeader: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#EEF2FF',
+      paddingHorizontal: 14, paddingVertical: 8, backgroundColor: C.amberSurface,
     },
-    rateHeaderText: { fontSize: 12, fontWeight: '700', color: '#4F46E5' },
+    rateHeaderText: { fontSize: 12, fontWeight: '700', color: C.amber },
     rateRow: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       paddingHorizontal: 14, paddingVertical: 10,
       borderTopWidth: 1, borderTopColor: C.border,
     },
     rateLevelText: { fontSize: 13, color: C.textSecondary },
-    ratePctBadge: { backgroundColor: '#EEF2FF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
-    ratePctText: { fontSize: 13, fontWeight: '800', color: '#4F46E5' },
-    saveBtn: { backgroundColor: '#4F46E5', borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-    saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    ratePctBadge: { backgroundColor: C.amberSurface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+    ratePctText: { fontSize: 13, fontWeight: '800', color: C.amber },
+    saveBtn: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+    saveBtnText: { color: C.primaryOn, fontWeight: '700', fontSize: 15 },
     fieldLabel: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6, marginTop: 4 },
     input: {
       borderWidth: 1, borderColor: C.border, borderRadius: 10,
       paddingHorizontal: 14, paddingVertical: 10, fontSize: 15,
       color: C.textPrimary, backgroundColor: C.inputBg, marginBottom: 12,
     },
-    activeBanner: { backgroundColor: '#DCFCE7', borderRadius: 10, padding: 12, marginBottom: 10 },
-    activeBannerText: { color: '#166534', fontWeight: '600', fontSize: 13 },
-    activeBannerNote: { color: '#166534', fontSize: 12, marginTop: 4 },
+    activeBanner: { backgroundColor: C.successSurface, borderRadius: 10, padding: 12, marginBottom: 10 },
+    activeBannerText: { color: C.success, fontWeight: '600', fontSize: 13 },
+    activeBannerNote: { color: C.success, fontSize: 12, marginTop: 4 },
     deactivateBtn: { backgroundColor: C.error, borderRadius: 10, padding: 12, alignItems: 'center' },
     deactivateBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
     durationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

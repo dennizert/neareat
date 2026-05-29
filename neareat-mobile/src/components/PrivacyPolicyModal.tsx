@@ -93,7 +93,7 @@ function PrivacyPolicyContent({ styles }: { styles: ReturnType<typeof makeStyles
       <Text style={styles.docDate}>Son güncelleme: Mayıs 2026</Text>
 
       <Body styles={styles} text={
-        'NearEat ("Uygulama", "biz" veya "platform"), kullanıcılarının gizliliğine saygı duymayı ve kişisel verilerini korumayı temel prensip olarak benimsemektedir. Bu Gizlilik Politikası, NearEat mobil uygulamasını kullandığınızda hangi bilgilerin toplandığını, nasıl kullanıldığını ve korunduğunu açıklamaktadır.'
+        'Eatlas ("Uygulama", "biz" veya "platform"), kullanıcılarının gizliliğine saygı duymayı ve kişisel verilerini korumayı temel prensip olarak benimsemektedir. Bu Gizlilik Politikası, Eatlas mobil uygulamasını kullandığınızda hangi bilgilerin toplandığını, nasıl kullanıldığını ve korunduğunu açıklamaktadır.'
       } />
 
       <SectionTitle styles={styles} text="1. Toplanan Bilgiler" />
@@ -105,7 +105,7 @@ function PrivacyPolicyContent({ styles }: { styles: ReturnType<typeof makeStyles
       <BulletItem styles={styles} text="Cihaz bilgileri ve push bildirim token'ı (FCM)" />
       <BulletItem styles={styles} text="Uygulama içi aktiviteler: yorum, puan, öneri, favori, rezervasyon" />
       <BulletItem styles={styles} text="Mesajlaşma içerikleri (yalnızca kullanıcılar arasında)" />
-      <BulletItem styles={styles} text="Abonelik ve ödeme durumu (ödeme bilgileri İyzico tarafından işlenir, NearEat'te saklanmaz)" />
+      <BulletItem styles={styles} text="Abonelik ve ödeme durumu (ödeme bilgileri İyzico tarafından işlenir, Eatlas'ta saklanmaz)" />
 
       <SectionTitle styles={styles} text="2. Bilgilerin Kullanım Amaçları" />
       <BulletItem styles={styles} text="Konum bazlı restoran keşfi ve kişiselleştirilmiş öneriler sunmak" />
@@ -120,7 +120,7 @@ function PrivacyPolicyContent({ styles }: { styles: ReturnType<typeof makeStyles
       <Body styles={styles} text="Kişisel verileriniz; açık rızanız olmaksızın üçüncü taraflarla ticari amaçla paylaşılmaz. Aşağıdaki hizmet sağlayıcılarla yalnızca hizmetin sunulması amacıyla çalışılmaktadır:" />
       <BulletItem styles={styles} text="Google Firebase — kimlik doğrulama ve push bildirimleri" />
       <BulletItem styles={styles} text="Google Places API — restoran verileri" />
-      <BulletItem styles={styles} text="İyzico — ödeme altyapısı (kart bilgileri NearEat'e iletilmez)" />
+      <BulletItem styles={styles} text="İyzico — ödeme altyapısı (kart bilgileri Eatlas'a iletilmez)" />
       <BulletItem styles={styles} text="Railway / PostgreSQL — güvenli veri depolama altyapısı" />
       <Body styles={styles} text="\nYasal zorunluluk halinde ilgili kamu kurumlarıyla paylaşım yapılabilir." />
 
@@ -144,7 +144,7 @@ function PrivacyPolicyContent({ styles }: { styles: ReturnType<typeof makeStyles
       <Body styles={styles} text="Bu politika zaman zaman güncellenebilir. Önemli değişiklikler uygulama bildirimi veya e-posta yoluyla duyurulacaktır. Güncelleme sonrası uygulamayı kullanmaya devam etmeniz politikayı kabul ettiğiniz anlamına gelir." />
 
       <SectionTitle styles={styles} text="9. İletişim" />
-      <Body styles={styles} text="Gizlilik politikamıza ilişkin soru ve talepleriniz için:\n\nNearEat\nE-posta: info@neareat.com\nKişisel Veri Sorumlusu: NearEat Yazılım ve Teknoloji Hizmetleri" />
+      <Body styles={styles} text="Gizlilik politikamıza ilişkin soru ve talepleriniz için:\n\nNearEat\nE-posta: info@eatlas.app\nKişisel Veri Sorumlusu: Eatlas Yazılım ve Teknoloji Hizmetleri" />
     </View>
   );
 }
@@ -157,10 +157,10 @@ function KVKKContent({ styles }: { styles: ReturnType<typeof makeStyles> }) {
       <Text style={styles.docDate}>Son güncelleme: Mayıs 2026</Text>
 
       <SectionTitle styles={styles} text="1. Veri Sorumlusu" />
-      <Body styles={styles} text="6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca kişisel verilerinizin veri sorumlusu NearEat'tir. Veri sorumlusunun iletişim bilgileri: info@neareat.com" />
+      <Body styles={styles} text="6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) uyarınca kişisel verilerinizin veri sorumlusu Eatlas'tır. Veri sorumlusunun iletişim bilgileri: info@eatlas.app" />
 
       <SectionTitle styles={styles} text="2. İşlenen Kişisel Veriler" />
-      <Body styles={styles} text="NearEat tarafından aşağıdaki kategorilerde kişisel verileriniz işlenmektedir:" />
+      <Body styles={styles} text="Eatlas tarafından aşağıdaki kategorilerde kişisel verileriniz işlenmektedir:" />
 
       <Text style={styles.subHeading}>Kimlik Verileri</Text>
       <BulletItem styles={styles} text="Ad, soyad, kullanıcı adı (görünen ad)" />
@@ -194,7 +194,7 @@ function KVKKContent({ styles }: { styles: ReturnType<typeof makeStyles> }) {
       <BulletItem styles={styles} text="Şikâyet ve taleplerin yönetimi" />
 
       <SectionTitle styles={styles} text="4. Kişisel Verilerin Toplanma Yöntemi ve Hukuki Sebebi" />
-      <Body styles={styles} text="Kişisel verileriniz; NearEat mobil uygulaması aracılığıyla elektronik ortamda, aşağıdaki hukuki sebepler kapsamında toplanmakta ve işlenmektedir:" />
+      <Body styles={styles} text="Kişisel verileriniz; Eatlas mobil uygulaması aracılığıyla elektronik ortamda, aşağıdaki hukuki sebepler kapsamında toplanmakta ve işlenmektedir:" />
       <BulletItem styles={styles} text="Sözleşmenin kurulması veya ifası (KVKK m. 5/2-c): Hesap oluşturma, giriş ve temel uygulama işlevleri" />
       <BulletItem styles={styles} text="Açık rıza (KVKK m. 5/1): Konum verisi, profil fotoğrafı, pazarlama iletişimleri" />
       <BulletItem styles={styles} text="Meşru menfaat (KVKK m. 5/2-f): Platform güvenliği, sahteciliğin önlenmesi" />
@@ -230,7 +230,7 @@ function KVKKContent({ styles }: { styles: ReturnType<typeof makeStyles> }) {
 
       <SectionTitle styles={styles} text="8. Başvuru Yolu" />
       <Body styles={styles} text="Yukarıda belirtilen haklarınıza ilişkin başvurularınızı; kimliğinizi doğrulayan bilgilerle birlikte aşağıdaki kanala iletebilirsiniz:" />
-      <Body styles={styles} text="\nE-posta: info@neareat.com\nKonu: KVKK Başvurusu\n\nBaşvurularınız, talebin niteliğine göre en geç 30 (otuz) gün içinde ücretsiz olarak sonuçlandırılacaktır. Talebin ayrıca bir maliyet gerektirmesi durumunda Kişisel Verileri Koruma Kurulu tarafından belirlenen tarifedeki ücret alınabilir." />
+      <Body styles={styles} text="\nE-posta: info@eatlas.app\nKonu: KVKK Başvurusu\n\nBaşvurularınız, talebin niteliğine göre en geç 30 (otuz) gün içinde ücretsiz olarak sonuçlandırılacaktır. Talebin ayrıca bir maliyet gerektirmesi durumunda Kişisel Verileri Koruma Kurulu tarafından belirlenen tarifedeki ücret alınabilir." />
 
       <Body styles={styles} text="\nAynı zamanda Kişisel Verileri Koruma Kurumu'na (www.kvkk.gov.tr) şikâyette bulunma hakkınız saklıdır." />
     </View>

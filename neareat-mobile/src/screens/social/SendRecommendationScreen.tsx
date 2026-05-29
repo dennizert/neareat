@@ -252,7 +252,7 @@ function makeStyles(C: Colors) {
       backgroundColor: C.warningSurface, margin: 12, borderRadius: 12,
       padding: 14, alignItems: 'center',
     },
-    starHintText: { color: '#92400E', fontWeight: '600', fontSize: 14 },
+    starHintText: { color: C.warning, fontWeight: '600', fontSize: 14 },
     sendBtn: {
       backgroundColor: C.primary, margin: 16, borderRadius: 14,
       paddingVertical: 16, alignItems: 'center',

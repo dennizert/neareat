@@ -199,8 +199,8 @@ function makeStyles(C: Colors) {
 
     inviteBadge: { backgroundColor: C.primaryLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
     inviteBadgeText: { fontSize: 11, fontWeight: '700', color: C.primary },
-    pollBadge: { backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-    pollBadgeText: { fontSize: 11, fontWeight: '600', color: '#92400E' },
+    pollBadge: { backgroundColor: C.warningSurface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+    pollBadgeText: { fontSize: 11, fontWeight: '600', color: C.warning },
 
     cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
     avatarRow: { flexDirection: 'row', alignItems: 'center' },

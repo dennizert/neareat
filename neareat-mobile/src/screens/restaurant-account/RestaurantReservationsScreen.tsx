@@ -28,13 +28,15 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'COMPLETED', label: 'Tamamlandı' },
 ];
 
-const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:   { label: 'Bekliyor',   color: '#92400E', bg: '#FEF3C7' },
-  CONFIRMED: { label: 'Onaylandı',  color: '#065F46', bg: '#D1FAE5' },
-  REJECTED:  { label: 'Reddedildi', color: '#991B1B', bg: '#FEE2E2' },
-  CANCELLED: { label: 'İptal',      color: '#374151', bg: '#F3F4F6' },
-  COMPLETED: { label: 'Tamamlandı', color: '#1E3A8A', bg: '#EFF6FF' },
-};
+function getStatusLabels(C: Colors): Record<string, { label: string; color: string; bg: string }> {
+  return {
+    PENDING:   { label: 'Bekliyor',   color: C.warning,       bg: C.warningSurface },
+    CONFIRMED: { label: 'Onaylandı',  color: C.success,       bg: C.successSurface },
+    REJECTED:  { label: 'Reddedildi', color: C.error,         bg: C.errorSurface },
+    CANCELLED: { label: 'İptal',      color: C.textSecondary, bg: C.surfaceAlt },
+    COMPLETED: { label: 'Tamamlandı', color: C.travel,        bg: C.travelSurface },
+  };
+}
 
 export default function RestaurantReservationsScreen() {
   const navigation = useNavigation<any>();
@@ -160,6 +162,8 @@ export default function RestaurantReservationsScreen() {
       </TouchableOpacity>
     );
   }
+
+  const STATUS_LABELS = React.useMemo(() => getStatusLabels(C), [C]);
 
   function renderItem({ item }: { item: Reservation }) {
     const st = STATUS_LABELS[item.status] ?? STATUS_LABELS.PENDING;
@@ -299,23 +303,23 @@ function makeStyles(C: Colors) {
     dateTime: { fontSize: 13, color: C.textSecondary, marginBottom: 3 },
     occasion: { fontSize: 13, color: C.textTertiary, marginBottom: 2 },
     special: { fontSize: 12, color: C.textTertiary, fontStyle: 'italic', marginBottom: 2 },
-    rejectionText: { fontSize: 12, color: '#DC2626', marginBottom: 2 },
-    attendedText: { fontSize: 12, color: '#065F46', fontWeight: '600', marginTop: 4 },
-    noShowText: { fontSize: 12, color: '#DC2626', fontWeight: '600', marginTop: 4 },
+    rejectionText: { fontSize: 12, color: C.error, marginBottom: 2 },
+    attendedText: { fontSize: 12, color: C.success, fontWeight: '600', marginTop: 4 },
+    noShowText: { fontSize: 12, color: C.error, fontWeight: '600', marginTop: 4 },
     actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
     msgBtn: {
       paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
       backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border,
     },
     msgBtnText: { fontSize: 13, color: C.textSecondary, fontWeight: '500' },
-    confirmBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#D1FAE5' },
-    confirmBtnText: { fontSize: 13, color: '#065F46', fontWeight: '700' },
-    rejectBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#FEE2E2' },
-    rejectBtnText: { fontSize: 13, color: '#DC2626', fontWeight: '700' },
-    attendedBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#D1FAE5' },
-    attendedBtnText: { fontSize: 13, color: '#065F46', fontWeight: '700' },
-    noShowBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#FEE2E2' },
-    noShowBtnText: { fontSize: 13, color: '#DC2626', fontWeight: '700' },
+    confirmBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: C.successSurface },
+    confirmBtnText: { fontSize: 13, color: C.success, fontWeight: '700' },
+    rejectBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: C.errorSurface },
+    rejectBtnText: { fontSize: 13, color: C.error, fontWeight: '700' },
+    attendedBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: C.successSurface },
+    attendedBtnText: { fontSize: 13, color: C.success, fontWeight: '700' },
+    noShowBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: C.errorSurface },
+    noShowBtnText: { fontSize: 13, color: C.error, fontWeight: '700' },
     empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     emptyContent: { alignItems: 'center', padding: 40 },
     emptyIcon: { fontSize: 48, marginBottom: 12 },
@@ -337,20 +341,20 @@ function makeStyles(C: Colors) {
       width: 56, height: 56, borderRadius: 10, backgroundColor: C.primary,
       justifyContent: 'center', alignItems: 'center',
     },
-    todayTime: { fontSize: 15, fontWeight: '700', color: '#fff' },
+    todayTime: { fontSize: 15, fontWeight: '700', color: C.primaryOn },
     todayInfo: { flex: 1 },
     todayGuestName: { fontSize: 15, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
     todayGuests: { fontSize: 13, color: C.textSecondary, marginBottom: 1 },
     todaySpecial: { fontSize: 12, color: C.textTertiary, fontStyle: 'italic' },
     todayActions: { gap: 4 },
     attendedBtnSm: {
-      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: '#D1FAE5',
+      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: C.successSurface,
     },
-    attendedBtnSmText: { fontSize: 11, color: '#065F46', fontWeight: '700' },
+    attendedBtnSmText: { fontSize: 11, color: C.success, fontWeight: '700' },
     noShowBtnSm: {
-      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: '#FEE2E2',
+      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: C.errorSurface,
     },
-    noShowBtnSmText: { fontSize: 11, color: '#DC2626', fontWeight: '700' },
+    noShowBtnSmText: { fontSize: 11, color: C.error, fontWeight: '700' },
     attendedMark: { fontSize: 22 },
     noShowMark: { fontSize: 22 },
   });

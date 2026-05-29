@@ -261,17 +261,17 @@ function makeStyles(C: Colors) {
     collectionDesc: { fontSize: 13, color: C.textTertiary, marginTop: 2, marginBottom: 2 },
     collectionMeta: { fontSize: 12, color: C.textMuted },
     shareBtn: {
-      backgroundColor: '#4F46E5', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
+      backgroundColor: C.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
     },
-    shareBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+    shareBtnText: { color: C.primaryOn, fontWeight: '700', fontSize: 13 },
     sharedWithRow: {
       flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center',
-      backgroundColor: '#EEF2FF', paddingHorizontal: 16, paddingVertical: 8,
-      borderBottomWidth: 1, borderBottomColor: '#E0E7FF',
+      backgroundColor: C.surfaceAlt, paddingHorizontal: 16, paddingVertical: 8,
+      borderBottomWidth: 1, borderBottomColor: C.border,
     },
-    sharedWithLabel: { fontSize: 12, color: '#4F46E5', fontWeight: '600' },
+    sharedWithLabel: { fontSize: 12, color: C.textSecondary, fontWeight: '600' },
     sharedWithName: {
-      fontSize: 12, color: '#4F46E5', backgroundColor: '#E0E7FF',
+      fontSize: 12, color: C.textPrimary, backgroundColor: C.surface,
       borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginRight: 6, marginBottom: 2,
     },
     list: { padding: 16, flexGrow: 1 },
@@ -307,7 +307,7 @@ function makeStyles(C: Colors) {
       flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
       borderBottomWidth: 1, borderBottomColor: C.separator,
     },
-    friendRowShared: { backgroundColor: '#F0F4FF', borderRadius: 10, paddingHorizontal: 8 },
+    friendRowShared: { backgroundColor: C.surfaceAlt, borderRadius: 10, paddingHorizontal: 8 },
     friendAvatar: {
       width: 40, height: 40, borderRadius: 20, backgroundColor: C.primaryLight,
       alignItems: 'center', justifyContent: 'center', marginRight: 12, overflow: 'hidden',
@@ -316,9 +316,9 @@ function makeStyles(C: Colors) {
     friendName: { flex: 1, fontSize: 15, fontWeight: '600', color: C.textPrimary },
     friendToggle: {
       borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6,
-      backgroundColor: '#4F46E5',
+      backgroundColor: C.primary,
     },
-    friendToggleOn: { backgroundColor: '#D1FAE5' },
-    friendToggleText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+    friendToggleOn: { backgroundColor: C.successSurface },
+    friendToggleText: { fontSize: 13, fontWeight: '600', color: C.primaryOn },
   });
 }

@@ -53,7 +53,7 @@ export default function EmailVerificationScreen({ route }: { route: any }) {
         <Text style={styles.hintTitle}>📌 İpuçları</Text>
         <Text style={styles.hintItem}>• E-posta gelmedi mi? Spam klasörünü kontrol et.</Text>
         <Text style={styles.hintItem}>• Bağlantı 24 saat geçerlidir.</Text>
-        <Text style={styles.hintItem}>• Telefonda açıyorsan NearEat otomatik açılır.</Text>
+        <Text style={styles.hintItem}>• Telefonda açıyorsan Eatlas otomatik açılır.</Text>
       </View>
 
       <TouchableOpacity

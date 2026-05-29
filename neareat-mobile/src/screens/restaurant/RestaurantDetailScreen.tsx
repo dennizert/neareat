@@ -178,7 +178,7 @@ export default function RestaurantDetailScreen() {
       const rating = detail.rating != null ? `★ ${detail.rating}` : '';
       await Share.share({
         title: detail.name,
-        message: `${detail.name}${rating ? ' — ' + rating : ''}${address ? '\n' + address : ''}\nNearEat'ten keşfet!`,
+        message: `${detail.name}${rating ? ' — ' + rating : ''}${address ? '\n' + address : ''}\nEatlas'tan keşfet!`,
       });
     } catch {
       Alert.alert('Hata', 'Paylaşım açılamadı.');
@@ -711,22 +711,22 @@ function makeStyles(C: Colors) {
     ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     ratingText: { fontSize: 14, color: C.textSecondary },
     openBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
-    openBadgeOpen: { backgroundColor: '#D1FAE5' },
-    openBadgeClosed: { backgroundColor: '#FEE2E2' },
-    openBadgeClosingSoon: { backgroundColor: '#FEF3C7' },
-    openBadgeClosingVery: { backgroundColor: '#FEE2E2' },
+    openBadgeOpen: { backgroundColor: C.successSurface },
+    openBadgeClosed: { backgroundColor: C.errorSurface },
+    openBadgeClosingSoon: { backgroundColor: C.warningSurface },
+    openBadgeClosingVery: { backgroundColor: C.errorSurface },
     openBadgeText: { fontSize: 12, fontWeight: '600', color: C.textPrimary },
     closingBanner: {
       backgroundColor: C.warningSurface, borderRadius: 10, padding: 12,
       marginBottom: 12, borderLeftWidth: 3, borderLeftColor: C.warning,
     },
     closingBannerUrgent: { backgroundColor: C.errorSurface, borderLeftColor: C.error },
-    closingBannerText: { fontSize: 13, fontWeight: '600', color: '#92400E' },
+    closingBannerText: { fontSize: 13, fontWeight: '600', color: C.warning },
     quickRatingSection: {
       backgroundColor: C.warningSurface, borderRadius: 12,
       padding: 12, marginBottom: 16, alignItems: 'center',
     },
-    quickRatingLabel: { fontSize: 13, color: '#92400E', fontWeight: '600', marginBottom: 8 },
+    quickRatingLabel: { fontSize: 13, color: C.warning, fontWeight: '600', marginBottom: 8 },
     quickStars: { flexDirection: 'row', gap: 8 },
     quickStar: { fontSize: 26 },
     actionRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
@@ -734,8 +734,8 @@ function makeStyles(C: Colors) {
     actionBtnText: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
     recommendBtn: { backgroundColor: C.primaryLighter },
     recommendBtnText: { color: C.primary },
-    collectionBtn: { backgroundColor: '#F0F4FF' },
-    collectionBtnText: { color: '#4F46E5' },
+    collectionBtn: { backgroundColor: C.surfaceAlt },
+    collectionBtnText: { color: C.textSecondary },
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
     hourLine: { fontSize: 13, color: C.textTertiary, marginBottom: 2 },
@@ -800,7 +800,7 @@ function makeStyles(C: Colors) {
       backgroundColor: C.warningSurface, borderRadius: 12, padding: 14,
       alignItems: 'center', marginTop: 16,
     },
-    starEarnHintText: { color: '#92400E', fontWeight: '600', fontSize: 14 },
+    starEarnHintText: { color: C.warning, fontWeight: '600', fontSize: 14 },
     // Koleksiyon modal stilleri
     emptyCollections: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     emptyCollectionsTitle: { fontSize: 18, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
@@ -808,34 +808,37 @@ function makeStyles(C: Colors) {
     goCollectionsBtn: {
       backgroundColor: C.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24,
     },
-    goCollectionsBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    goCollectionsBtnText: { color: C.primaryOn, fontWeight: '700', fontSize: 15 },
     collectionRow: {
       flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
       borderRadius: 12, padding: 14, marginBottom: 10,
       shadowColor: C.shadow, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
     },
     collectionRowIcon: {
-      width: 44, height: 44, borderRadius: 12, backgroundColor: '#F0F4FF',
+      width: 44, height: 44, borderRadius: 12, backgroundColor: C.surfaceAlt,
       alignItems: 'center', justifyContent: 'center', marginRight: 14,
     },
     collectionRowName: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
     collectionRowMeta: { fontSize: 12, color: C.textMuted, marginTop: 2 },
-    collectionRowAdd: { fontSize: 22, color: '#4F46E5', fontWeight: '700', paddingLeft: 8 },
-    // Announcement & discount banners
-    announcementBanner: { backgroundColor: '#EEF2FF', borderRadius: 10, padding: 10, marginBottom: 10 },
-    announcementBannerText: { fontSize: 13, color: '#4F46E5', fontWeight: '600' },
+    collectionRowAdd: { fontSize: 22, color: C.primary, fontWeight: '700', paddingLeft: 8 },
+    // Announcement & discount banners — duyuru: nötr+amber, yıldız ind.: amber
+    announcementBanner: { backgroundColor: C.amberSurface, borderRadius: 10, padding: 10, marginBottom: 10 },
+    announcementBannerText: { fontSize: 13, color: C.amber, fontWeight: '600' },
     discountBanner: { borderRadius: 10, padding: 12, marginBottom: 12 },
     discountBannerInstant: { backgroundColor: C.warningSurface, borderLeftWidth: 3, borderLeftColor: C.warning },
-    discountBannerStar: { backgroundColor: '#EEF2FF', borderLeftWidth: 3, borderLeftColor: '#4F46E5' },
+    discountBannerStar: { backgroundColor: C.amberSurface, borderLeftWidth: 3, borderLeftColor: C.amber },
     discountBannerText: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
     discountBannerNote: { fontSize: 12, color: C.textTertiary, marginTop: 4 },
     // Reservation button
     reservationBtn: { backgroundColor: C.successSurface },
-    reservationBtnText: { color: '#16A34A' },
-    // Review reply
-    replyBox: { backgroundColor: '#F0F9FF', borderRadius: 8, padding: 10, marginTop: 8, borderLeftWidth: 2, borderLeftColor: '#0EA5E9' },
-    replyLabel: { fontSize: 11, fontWeight: '700', color: '#0369A1', marginBottom: 3 },
-    replyContent: { fontSize: 13, color: '#0C4A6E' },
+    reservationBtnText: { color: C.success },
+    // Review reply — restoran sahibi yanıtı (nötr, brand rengi kullanma)
+    replyBox: {
+      backgroundColor: C.surfaceAlt, borderRadius: 8, padding: 10, marginTop: 8,
+      borderLeftWidth: 2, borderLeftColor: C.border,
+    },
+    replyLabel: { fontSize: 11, fontWeight: '700', color: C.textSecondary, marginBottom: 3 },
+    replyContent: { fontSize: 13, color: C.textPrimary },
     // Menu thumbnails
     menuThumb: { width: 80, height: 80, backgroundColor: C.inputBg, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 8, overflow: 'hidden' },
     menuThumbImage: { width: 80, height: 80, borderRadius: 10 },
@@ -856,6 +859,6 @@ function makeStyles(C: Colors) {
       paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, color: C.textPrimary,
     },
     inlineCreateBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-    inlineCreateBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    inlineCreateBtnText: { color: C.primaryOn, fontWeight: '700', fontSize: 14 },
   });
 }

@@ -1,0 +1,130 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Eatlas — "Bitten Atlas"
+    Konsept: Coral küre (atlas/dünya) + üzerindeki meridyen ızgarası +
+             sağ üst yanaktan alınan temiz ısırık + merkezde amber pin.
+    Hikâye: "Dünyayı ısır, lezzeti bul." — atlas + eat + bite tek markta.
+  -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#231A2F"/>
+      <stop offset="100%" stop-color="#14101C"/>
+    </linearGradient>
+
+    <radialGradient id="coralGrad" cx="0.35" cy="0.30" r="0.85">
+      <stop offset="0%"  stop-color="#FF9779"/>
+      <stop offset="55%" stop-color="#FF5A3C"/>
+      <stop offset="100%" stop-color="#C8341A"/>
+    </radialGradient>
+
+    <radialGradient id="amberGrad" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%"  stop-color="#FFE38A"/>
+      <stop offset="55%" stop-color="#FFB627"/>
+      <stop offset="100%" stop-color="#E18900"/>
+    </radialGradient>
+
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.6">
+      <stop offset="0%"  stop-color="#FFB627" stop-opacity="0.18"/>
+      <stop offset="55%" stop-color="#FF5A3C" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FF5A3C" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="gloss" cx="0.32" cy="0.25" r="0.55">
+      <stop offset="0%"  stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="60%" stop-color="#FFFFFF" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="sparkShine" cx="0.35" cy="0.3" r="0.55">
+      <stop offset="0%"  stop-color="#FFFFFF" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Bite mask: 2 sığ ön diş izi (üst + alt incisor).
+         Ana ısırık çemberi dışta kalır → yalnızca yumuşak overall bite şekli;
+         2 küçük dent kenar boyunca sığ, net iki tooth-mark oluşturur. -->
+    <mask id="biteMask">
+      <rect width="1024" height="1024" fill="white"/>
+      <!-- Ana ısırık gövdesi — dışa çekildi, derinlik az -->
+      <circle cx="880" cy="298" r="130" fill="black"/>
+      <!-- 2 sığ ön diş izi: chord üzerinde, hafif iç offset -->
+      <circle cx="710" cy="358" r="32" fill="black"/>
+      <circle cx="758" cy="436" r="32" fill="black"/>
+    </mask>
+
+    <!-- Globe clip for inner rim shadow -->
+    <clipPath id="globeClip">
+      <circle cx="502" cy="540" r="290"/>
+    </clipPath>
+  </defs>
+
+  <!-- Yuvarlatılmış kare zemin -->
+  <rect width="1024" height="1024" rx="224" ry="224" fill="url(#bgGrad)"/>
+
+  <!-- Sıcak halo (iştah) -->
+  <ellipse cx="502" cy="540" rx="400" ry="360" fill="url(#halo)"/>
+
+  <!-- Globe + meridyenler — bite mask uygulanmış -->
+  <g mask="url(#biteMask)">
+    <!-- Coral küre -->
+    <circle cx="502" cy="540" r="290" fill="url(#coralGrad)"/>
+
+    <!-- Atlas meridyen ızgarası (amber, ince) -->
+    <!-- Ekvator -->
+    <ellipse cx="502" cy="540" rx="290" ry="14" fill="none"
+             stroke="#FFD27A" stroke-opacity="0.55" stroke-width="2.5"/>
+
+    <!-- Enlem +25° -->
+    <ellipse cx="502" cy="430" rx="270" ry="18" fill="none"
+             stroke="#FFD27A" stroke-opacity="0.45" stroke-width="2"/>
+    <!-- Enlem -25° -->
+    <ellipse cx="502" cy="650" rx="270" ry="18" fill="none"
+             stroke="#FFD27A" stroke-opacity="0.45" stroke-width="2"/>
+
+    <!-- Enlem +55° -->
+    <ellipse cx="502" cy="320" rx="195" ry="16" fill="none"
+             stroke="#FFD27A" stroke-opacity="0.32" stroke-width="2"/>
+    <!-- Enlem -55° -->
+    <ellipse cx="502" cy="760" rx="195" ry="16" fill="none"
+             stroke="#FFD27A" stroke-opacity="0.32" stroke-width="2"/>
+
+    <!-- Central meridian (dikey) -->
+    <line x1="502" y1="252" x2="502" y2="828"
+          stroke="#FFD27A" stroke-opacity="0.50" stroke-width="2.5"/>
+
+    <!-- Off-center meridyen (sağ ve sol yanlardan) -->
+    <ellipse cx="502" cy="540" rx="150" ry="290" fill="none"
+             stroke="#FFD27A" stroke-opacity="0.35" stroke-width="2"/>
+
+    <!-- Gloss highlight -->
+    <circle cx="502" cy="540" r="290" fill="url(#gloss)"/>
+  </g>
+
+  <!-- Bite kenarındaki iç koyu rim — globe sınırına clipped.
+       2 tooth dent'in her birinin etrafına ince gölge halkası. -->
+  <g clip-path="url(#globeClip)">
+    <circle cx="880" cy="298" r="130" fill="none"
+            stroke="#7A1A0A" stroke-opacity="0.50" stroke-width="4"/>
+    <circle cx="710" cy="358" r="32" fill="none"
+            stroke="#7A1A0A" stroke-opacity="0.55" stroke-width="3"/>
+    <circle cx="710" cy="358" r="29" fill="none"
+            stroke="#000000" stroke-opacity="0.28" stroke-width="2"/>
+    <circle cx="758" cy="436" r="32" fill="none"
+            stroke="#7A1A0A" stroke-opacity="0.55" stroke-width="3"/>
+    <circle cx="758" cy="436" r="29" fill="none"
+            stroke="#000000" stroke-opacity="0.28" stroke-width="2"/>
+  </g>
+
+  <!-- Globe dış kontur — premium hat -->
+  <circle cx="502" cy="540" r="290" fill="none"
+          stroke="#000000" stroke-opacity="0.12" stroke-width="2"/>
+
+  <!-- Merkezde amber pin/spark — "discovered location" -->
+  <circle cx="478" cy="582" r="62" fill="url(#amberGrad)"/>
+  <ellipse cx="462" cy="566" rx="22" ry="14" fill="url(#sparkShine)"/>
+  <ellipse cx="478" cy="650" rx="46" ry="6" fill="#000000" fill-opacity="0.28"/>
+
+  <!-- Pin'in alt ucu (pin teardrop ucu — küçük amber damla)
+       Atlas üzerinde "burada yedim" işareti vurgusu -->
+  <path d="M 478 644 L 462 620 L 494 620 Z" fill="#E18900" opacity="0.85"/>
+</svg>

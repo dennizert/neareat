@@ -310,10 +310,10 @@ function makeStyles(C: Colors) {
     },
     createBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
     premiumBanner: {
-      backgroundColor: '#FFF7ED', padding: 12,
-      borderBottomWidth: 1, borderBottomColor: '#FED7AA',
+      backgroundColor: C.warningSurface, padding: 12,
+      borderBottomWidth: 1, borderBottomColor: C.warning,
     },
-    premiumBannerText: { color: '#92400E', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    premiumBannerText: { color: C.warning, fontSize: 13, fontWeight: '600', textAlign: 'center' },
     tabRow: {
       flexDirection: 'row', backgroundColor: C.surface,
       borderBottomWidth: 1, borderBottomColor: C.border,
@@ -329,7 +329,7 @@ function makeStyles(C: Colors) {
       shadowColor: C.shadow, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
     },
     cardIcon: {
-      width: 48, height: 48, borderRadius: 12, backgroundColor: '#F0F4FF',
+      width: 48, height: 48, borderRadius: 12, backgroundColor: C.surfaceAlt,
       alignItems: 'center', justifyContent: 'center', marginRight: 14,
     },
     cardBody: { flex: 1 },

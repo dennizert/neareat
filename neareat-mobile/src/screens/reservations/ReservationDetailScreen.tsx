@@ -19,13 +19,15 @@ function getTodayString(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:   { label: 'Bekliyor',   color: '#92400E', bg: '#FEF3C7' },
-  CONFIRMED: { label: 'Onaylandı',  color: '#065F46', bg: '#D1FAE5' },
-  REJECTED:  { label: 'Reddedildi', color: '#991B1B', bg: '#FEE2E2' },
-  CANCELLED: { label: 'İptal',      color: '#374151', bg: '#F3F4F6' },
-  COMPLETED: { label: 'Tamamlandı', color: '#1E3A8A', bg: '#EFF6FF' },
-};
+function getStatusLabels(C: Colors): Record<string, { label: string; color: string; bg: string }> {
+  return {
+    PENDING:   { label: 'Bekliyor',   color: C.warning,       bg: C.warningSurface },
+    CONFIRMED: { label: 'Onaylandı',  color: C.success,       bg: C.successSurface },
+    REJECTED:  { label: 'Reddedildi', color: C.error,         bg: C.errorSurface },
+    CANCELLED: { label: 'İptal',      color: C.textSecondary, bg: C.surfaceAlt },
+    COMPLETED: { label: 'Tamamlandı', color: C.travel,        bg: C.travelSurface },
+  };
+}
 
 export default function ReservationDetailScreen() {
   const route = useRoute<any>();
@@ -113,6 +115,7 @@ export default function ReservationDetailScreen() {
     </View>
   );
 
+  const STATUS_LABELS = getStatusLabels(C);
   const st = STATUS_LABELS[reservation.status] ?? STATUS_LABELS.PENDING;
   const isUserRole = user?.id === reservation.userId;
 
@@ -236,9 +239,9 @@ function makeStyles(C: Colors) {
     statusBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
     statusText: { fontSize: 12, fontWeight: '600' },
     infoLine: { fontSize: 14, color: C.textSecondary, marginBottom: 4 },
-    rejectionText: { fontSize: 13, color: '#DC2626', fontStyle: 'italic', marginTop: 6 },
-    attendedText: { fontSize: 13, color: '#065F46', fontWeight: '600', marginTop: 6 },
-    noShowText: { fontSize: 13, color: '#DC2626', fontWeight: '600', marginTop: 6 },
+    rejectionText: { fontSize: 13, color: C.error, fontStyle: 'italic', marginTop: 6 },
+    attendedText: { fontSize: 13, color: C.success, fontWeight: '600', marginTop: 6 },
+    noShowText: { fontSize: 13, color: C.error, fontWeight: '600', marginTop: 6 },
     chatLabel: { paddingHorizontal: 16, paddingVertical: 10, fontSize: 13, fontWeight: '600', color: C.textTertiary },
     msgList: { flex: 1, backgroundColor: C.background },
     msgBubble: { maxWidth: '78%', marginBottom: 10, borderRadius: 14, padding: 10 },
@@ -246,7 +249,7 @@ function makeStyles(C: Colors) {
     msgOther: { alignSelf: 'flex-start', backgroundColor: C.surface, borderWidth: 1, borderColor: C.border },
     msgRole: { fontSize: 10, color: C.textTertiary, marginBottom: 2 },
     msgText: { fontSize: 14 },
-    msgTextMine: { color: '#fff' },
+    msgTextMine: { color: C.primaryOn },
     msgTextOther: { color: C.textPrimary },
     msgTime: { fontSize: 10, marginTop: 4, textAlign: 'right' },
     msgTimeMine: { color: 'rgba(255,255,255,0.7)' },
@@ -265,6 +268,6 @@ function makeStyles(C: Colors) {
       width: 40, height: 40, borderRadius: 20, backgroundColor: C.primary,
       justifyContent: 'center', alignItems: 'center',
     },
-    sendBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    sendBtnText: { color: C.primaryOn, fontSize: 16, fontWeight: '700' },
   });
 }

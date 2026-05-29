@@ -62,6 +62,7 @@ ngrok-new.zip
 
 # Claude internal config
 .claude/
+.claude-tmp/
 
 # Temp / test scripts
 fulltest.js

@@ -63,7 +63,7 @@ export async function fetchRestaurantDetail(
 
 /**
  * Belirli bir restoranın uygulama içi yorumlarını getirir.
- * Google yorumlarından ayrıdır — NearEat kullanıcılarının yazdığı yorumlardır.
+ * Google yorumlarından ayrıdır — Eatlas kullanıcılarının yazdığı yorumlardır.
  *
  * @param placeId - Google Places ID
  * @returns Yorum listesi

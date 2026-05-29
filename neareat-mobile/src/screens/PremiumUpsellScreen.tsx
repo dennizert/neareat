@@ -26,7 +26,7 @@ const FEATURES = [
   {
     icon: '♾️',
     title: 'Limitsiz Öneri',
-    desc: 'Günlük 3 limit yok — istediğin kadar "Bu akşam ne yesem?" sor',
+    desc: 'Günlük 3 limit yok — istediğin kadar "Şimdi ne yesem?" sor',
   },
   {
     icon: '🧠',

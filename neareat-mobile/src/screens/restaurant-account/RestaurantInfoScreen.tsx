@@ -117,7 +117,7 @@ export default function RestaurantInfoScreen() {
         <View style={styles.card}>
           <View style={styles.toggleField}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.toggleLabel}>NearEat Rezervasyonuna Aç</Text>
+              <Text style={styles.toggleLabel}>Eatlas Rezervasyonuna Aç</Text>
               <Text style={styles.toggleHint}>
                 Açık olduğunda kullanıcılar uygulama üzerinden rezervasyon talebi gönderebilir.
               </Text>
@@ -142,7 +142,7 @@ export default function RestaurantInfoScreen() {
           </Field>
         </View>
         <Text style={styles.hint}>
-          NearEat rezervasyonu aktifken kullanıcılar tarih/saat/misafir bilgisiyle talep gönderir, siz onaylar/reddedersiniz.
+          Eatlas rezervasyonu aktifken kullanıcılar tarih/saat/misafir bilgisiyle talep gönderir, siz onaylar/reddedersiniz.
         </Text>
 
         <TouchableOpacity

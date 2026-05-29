@@ -235,7 +235,7 @@ export default function RestaurantRegisterScreen() {
                     <Text style={styles.placeName}>{place.name}</Text>
                     <Text style={styles.placeAddr} numberOfLines={1}>{(place as any).formattedAddress ?? `${place.distanceKm.toFixed(1)} km`}</Text>
                   </View>
-                  {selectedPlace?.placeId === place.placeId && <Text style={{ color: '#22C55E', fontWeight: '700', fontSize: 18 }}>✓</Text>}
+                  {selectedPlace?.placeId === place.placeId && <Text style={{ color: C.success, fontWeight: '700', fontSize: 18 }}>✓</Text>}
                 </TouchableOpacity>
               ))
             )}
@@ -367,7 +367,7 @@ function makeStyles(C: Colors) {
       borderRadius: 12, marginBottom: 8, padding: 10,
       borderWidth: 1, borderColor: C.border,
     },
-    placeRowSelected: { borderColor: '#22C55E', backgroundColor: C.successSurface },
+    placeRowSelected: { borderColor: C.success, backgroundColor: C.successSurface },
     placePhoto: { width: 52, height: 52, borderRadius: 8 },
     placeName: { fontSize: 14, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
     placeAddr: { fontSize: 12, color: C.textMuted },

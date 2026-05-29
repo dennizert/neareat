@@ -224,7 +224,7 @@ export default function AdminLogsScreen() {
         data={logs}
         keyExtractor={item => item.id}
         renderItem={renderLog}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
@@ -242,7 +242,7 @@ export default function AdminLogsScreen() {
         }
         ListFooterComponent={
           loadingMore ? (
-            <ActivityIndicator size="small" color="#6366F1" style={{ margin: 16 }} />
+            <ActivityIndicator size="small" color={C.primary} style={{ margin: 16 }} />
           ) : null
         }
         contentContainerStyle={logs.length === 0 ? styles.emptyFill : styles.listContent}
@@ -254,8 +254,9 @@ export default function AdminLogsScreen() {
 function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
+    // Admin paneli kasıtlı koyu — her iki modda da "sistem konsolu" hissi
     header: {
-      backgroundColor: '#111827',
+      backgroundColor: '#1F1A24',
       paddingTop: Platform.OS === 'ios' ? 54 : 40,
       paddingBottom: 14,
       paddingHorizontal: 16,
@@ -289,7 +290,7 @@ function makeStyles(C: Colors) {
     flex1: { flex: 1 },
 
     btn: {
-      backgroundColor: '#6366F1',
+      backgroundColor: C.primary,
       paddingVertical: 10,
       borderRadius: 8,
       alignItems: 'center',
@@ -308,11 +309,11 @@ function makeStyles(C: Colors) {
     countBar: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      backgroundColor: '#EEF2FF',
+      backgroundColor: C.primaryLight,
       borderBottomWidth: 1,
-      borderBottomColor: '#E0E7FF',
+      borderBottomColor: C.primaryLighter,
     },
-    countText: { fontSize: 12, color: '#4338CA', fontWeight: '500' },
+    countText: { fontSize: 12, color: C.primary, fontWeight: '500' },
 
     listContent: { padding: 12, gap: 8 },
     emptyFill: { flex: 1 },

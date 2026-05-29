@@ -237,6 +237,6 @@ function makeStyles(C: Colors) {
     mockBadge: { marginTop: 24, fontSize: 11, color: C.textMuted, backgroundColor: C.inputBg, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
     restaurantLinkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24, flexWrap: 'wrap', justifyContent: 'center' },
     restaurantLinkLabel: { fontSize: 13, color: C.textMuted },
-    restaurantLink: { fontSize: 13, color: '#4F46E5', fontWeight: '700' },
+    restaurantLink: { fontSize: 13, color: C.primary, fontWeight: '700' },
   });
 }

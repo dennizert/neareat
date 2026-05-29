@@ -331,7 +331,7 @@ export const MOCK_USER_PROFILES: UserProfile[] = [
     favoriteCuisines: ['Kahvaltı', 'Café', 'Vegan'],
     starCount: 56,
     level: 4,
-    badge: 'NearEat Elçisi',
+    badge: 'Eatlas Elçisi',
     badgeIcon: '⭐',
     isPublic: false,
   },
@@ -458,7 +458,7 @@ export const MOCK_REWARDS: Reward[] = [
   },
   {
     id: 'reward-004',
-    name: 'NearEat Elçisi',
+    name: 'Eatlas Elçisi',
     description: '50 yıldız — 1 aylık ücretsiz Premium hediyesi kazandın!',
     requiredStars: 50,
     type: 'gift',

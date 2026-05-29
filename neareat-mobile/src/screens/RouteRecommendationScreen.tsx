@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAiRecommendationStore } from '../store/aiRecommendationStore';
 import PlaceSearchInput from '../components/PlaceSearchInput';
 import RecommendationCard from '../components/RecommendationCard';
+import RouteThinkingAnimation from '../components/RouteThinkingAnimation';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 import type { TurkishPlace } from '../data/turkishPlaces';
@@ -224,6 +225,11 @@ export default function RouteRecommendationScreen() {
           </Text>
         )}
       </TouchableOpacity>
+
+      {/* Yükleme animasyonu — beyaz ekran yerine rota teması */}
+      {routeLoading && !hasResults && !routeError && (
+        <RouteThinkingAnimation />
+      )}
 
       {/* Rota özeti + harita toggle */}
       {routeMeta && hasResults && (
@@ -460,15 +466,16 @@ function makeStyles(C: Colors) {
     stepBtnText: { fontSize: 13, color: C.primary, fontWeight: '700' },
     depValue: { fontSize: 15, fontWeight: '700', color: C.textPrimary, minWidth: 72, textAlign: 'center' },
 
+    // AI ekranı — CTA AI moruyla
     cta: {
       flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10,
-      backgroundColor: C.primary, paddingVertical: 14, borderRadius: 14,
+      backgroundColor: C.ai, paddingVertical: 14, borderRadius: 14,
       marginBottom: 12,
-      shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 8,
+      shadowColor: C.ai, shadowOpacity: 0.3, shadowRadius: 8,
       shadowOffset: { width: 0, height: 4 }, elevation: 4,
     },
     ctaDisabled: { opacity: 0.5 },
-    ctaText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+    ctaText: { fontSize: 16, fontWeight: '700', color: C.aiOn },
 
     routeSummaryRow: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -479,7 +486,7 @@ function makeStyles(C: Colors) {
       paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
       backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.border,
     },
-    mapToggleBtnText: { fontSize: 12, fontWeight: '700', color: C.primary },
+    mapToggleBtnText: { fontSize: 12, fontWeight: '700', color: C.travel },
 
     mapContainer: {
       borderRadius: 14, overflow: 'hidden', marginBottom: 12,
@@ -491,14 +498,14 @@ function makeStyles(C: Colors) {
     },
     mapLegendText: { fontSize: 11, color: C.textMuted },
 
-    // Map pins
+    // Map pins — başlangıç: success, varış: error, durak: coral (yemek)
     pinOrigin: {
-      backgroundColor: '#16a34a', paddingHorizontal: 10, paddingVertical: 5,
+      backgroundColor: C.success, paddingHorizontal: 10, paddingVertical: 5,
       borderRadius: 12, borderWidth: 2, borderColor: '#fff',
       shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
     },
     pinDest: {
-      backgroundColor: '#dc2626', paddingHorizontal: 10, paddingVertical: 5,
+      backgroundColor: C.error, paddingHorizontal: 10, paddingVertical: 5,
       borderRadius: 12, borderWidth: 2, borderColor: '#fff',
       shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
     },
@@ -522,12 +529,12 @@ function makeStyles(C: Colors) {
     upgradeBtn: {
       backgroundColor: C.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20,
     },
-    upgradeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    upgradeBtnText: { color: C.primaryOn, fontWeight: '700', fontSize: 14 },
     retryBtn: {
       paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20,
-      borderWidth: 1.5, borderColor: C.primary,
+      borderWidth: 1.5, borderColor: C.ai,
     },
-    retryBtnText: { color: C.primary, fontWeight: '700', fontSize: 14 },
+    retryBtnText: { color: C.ai, fontWeight: '700', fontSize: 14 },
 
     noteBox: {
       backgroundColor: C.surfaceAlt, borderRadius: 12, padding: 12, marginBottom: 16,
@@ -546,15 +553,16 @@ function makeStyles(C: Colors) {
     stopMeta: { flexDirection: 'row', gap: 8, alignItems: 'center' },
     detourText: { fontSize: 11, color: C.textMuted, fontWeight: '600' },
     openAtText: { fontSize: 11, fontWeight: '700' },
-    openAtOpen: { color: '#16a34a' },
-    openAtClosed: { color: '#dc2626' },
+    openAtOpen: { color: C.success },
+    openAtClosed: { color: C.error },
 
+    // Navigasyon: harita/rota → travel teal
     navBtn: {
       flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.primary,
+      backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.travel,
       borderRadius: 12, paddingVertical: 10, marginTop: 2, marginBottom: 4,
     },
-    navBtnText: { fontSize: 14, fontWeight: '700', color: C.primary },
+    navBtnText: { fontSize: 14, fontWeight: '700', color: C.travel },
 
     emptyState: { paddingVertical: 40, alignItems: 'center' },
     emptyEmoji: { fontSize: 48, marginBottom: 12 },

@@ -17,11 +17,12 @@ import api from '../../services/api';
 // ─── Oy bar bileşeni ──────────────────────────────────────────────────────────
 
 function VoteBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
+  const { C } = useTheme();
   const pct = total > 0 ? count / total : 0;
   return (
     <View style={{ marginBottom: 4 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <View style={{ flex: 1, height: 6, backgroundColor: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}>
+        <View style={{ flex: 1, height: 6, backgroundColor: C.surfaceAlt, borderRadius: 3, overflow: 'hidden' }}>
           <View style={{ width: `${Math.round(pct * 100)}%`, height: 6, backgroundColor: color, borderRadius: 3 }} />
         </View>
         <Text style={{ fontSize: 12, color, fontWeight: '700', minWidth: 28, textAlign: 'right' }}>
@@ -102,9 +103,9 @@ function PollOptionCard({
       </View>
 
       <View style={styles.voteBars}>
-        <VoteBar label="Evet" count={yesCount} total={total} color="#10B981" />
-        <VoteBar label="Belki" count={maybeCount} total={total} color="#F59E0B" />
-        <VoteBar label="Hayır" count={noCount} total={total} color="#EF4444" />
+        <VoteBar label="Evet" count={yesCount} total={total} color={C.success} />
+        <VoteBar label="Belki" count={maybeCount} total={total} color={C.amber} />
+        <VoteBar label="Hayır" count={noCount} total={total} color={C.error} />
       </View>
 
       {isOpen && (
@@ -591,18 +592,18 @@ function makeStyles(C: Colors) {
     memberAvatarLetter: { fontSize: 16, fontWeight: '700', color: '#fff' },
     memberName: { fontSize: 10, color: C.textSecondary, textAlign: 'center' },
     memberStatus: { fontSize: 11, color: C.textMuted, fontWeight: '600' },
-    memberStatusAccepted: { color: '#10B981' },
-    memberStatusDeclined: { color: '#EF4444' },
+    memberStatusAccepted: { color: C.success },
+    memberStatusDeclined: { color: C.error },
 
     // Poll
     pollHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-    openBadge: { backgroundColor: '#D1FAE5', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-    openBadgeText: { fontSize: 11, fontWeight: '700', color: '#065F46' },
+    openBadge: { backgroundColor: C.successSurface, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+    openBadgeText: { fontSize: 11, fontWeight: '700', color: C.success },
     pollQuestion: { fontSize: 14, color: C.textSecondary, marginBottom: 12, fontStyle: 'italic' },
 
     // Option card
     optionCard: { backgroundColor: C.background, borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: C.border },
-    optionCardYes: { borderColor: '#10B981', borderWidth: 1.5 },
+    optionCardYes: { borderColor: C.success, borderWidth: 1.5 },
     optionHeader: { flexDirection: 'row', gap: 10, marginBottom: 10 },
     optionPhoto: { width: 56, height: 56, borderRadius: 10, backgroundColor: C.border },
     optionPhotoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
@@ -615,18 +616,18 @@ function makeStyles(C: Colors) {
 
     voteButtons: { flexDirection: 'row', gap: 8 },
     voteBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center', borderWidth: 1 },
-    voteBtnYes: { borderColor: '#10B981', backgroundColor: 'transparent' },
-    voteBtnMaybe: { borderColor: '#F59E0B', backgroundColor: 'transparent' },
-    voteBtnNo: { borderColor: '#EF4444', backgroundColor: 'transparent' },
-    voteBtnActive: { backgroundColor: '#10B981', borderColor: '#10B981' },
+    voteBtnYes: { borderColor: C.success, backgroundColor: 'transparent' },
+    voteBtnMaybe: { borderColor: C.amber, backgroundColor: 'transparent' },
+    voteBtnNo: { borderColor: C.error, backgroundColor: 'transparent' },
+    voteBtnActive: { backgroundColor: C.success, borderColor: C.success },
     voteBtnText: { fontSize: 12, fontWeight: '700', color: C.textSecondary },
     voteBtnTextActive: { color: '#fff' },
-    voteBtnMaybeActive: { color: '#F59E0B' },
+    voteBtnMaybeActive: { color: C.amber },
     myVoteLabel: { alignSelf: 'flex-start', backgroundColor: C.primaryLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 6 },
     myVoteLabelText: { fontSize: 11, color: C.primary, fontWeight: '600' },
 
-    closePollBtn: { marginTop: 12, borderWidth: 1, borderColor: '#EF4444', borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
-    closePollBtnText: { color: '#EF4444', fontWeight: '700', fontSize: 14 },
+    closePollBtn: { marginTop: 12, borderWidth: 1, borderColor: C.error, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
+    closePollBtnText: { color: C.error, fontWeight: '700', fontSize: 14 },
 
     createPollBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.primaryLight, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16 },
     createPollBtnText: { color: C.primary, fontWeight: '700', fontSize: 15 },
@@ -637,7 +638,7 @@ function makeStyles(C: Colors) {
     winnerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
     winnerEmoji: { fontSize: 18 },
     winnerName: { fontSize: 14, fontWeight: '700', color: C.textPrimary, flex: 1 },
-    winnerVotes: { fontSize: 12, color: '#10B981', fontWeight: '600' },
+    winnerVotes: { fontSize: 12, color: C.success, fontWeight: '600' },
     noWinner: { fontSize: 13, color: C.textMuted, marginBottom: 4 },
     closedPollDate: { fontSize: 11, color: C.textMuted },
 

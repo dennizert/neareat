@@ -86,7 +86,7 @@ export default function AdminRestaurantDetailScreen() {
   if (loading) return <ActivityIndicator style={{ flex: 1 }} color={C.primary} size="large" />;
   if (!restaurant) return null;
 
-  const statusColor: Record<string, string> = { PENDING: C.warning, APPROVED: '#22C55E', REJECTED: C.error };
+  const statusColor: Record<string, string> = { PENDING: C.warning, APPROVED: C.success, REJECTED: C.error };
   const statusLabel: Record<string, string> = { PENDING: 'Bekliyor', APPROVED: 'Onaylandı', REJECTED: 'Reddedildi' };
 
   return (
@@ -234,22 +234,22 @@ function makeStyles(C: Colors) {
     statusBanner: { borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     statusBannerText: { fontSize: 15, fontWeight: '800' },
     statusDate: { fontSize: 12 },
-    rejectionBox: { backgroundColor: C.errorSurface, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#FECACA' },
-    rejectionLabel: { fontSize: 12, fontWeight: '700', color: '#DC2626', marginBottom: 4 },
-    rejectionText: { fontSize: 13, color: '#7F1D1D', lineHeight: 18 },
+    rejectionBox: { backgroundColor: C.errorSurface, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: C.errorSurface },
+    rejectionLabel: { fontSize: 12, fontWeight: '700', color: C.error, marginBottom: 4 },
+    rejectionText: { fontSize: 13, color: C.error, lineHeight: 18 },
     section: { backgroundColor: C.surface, borderRadius: 14, padding: 14, marginBottom: 12, shadowColor: C.shadow, shadowOpacity: 0.04, elevation: 1 },
     sectionTitle: { fontSize: 14, fontWeight: '700', color: C.textSecondary, marginBottom: 10, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: C.separator },
     infoRow: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.background, justifyContent: 'space-between' },
     infoLabel: { fontSize: 12, color: C.textMuted, fontWeight: '600', width: 110 },
     infoValue: { fontSize: 13, color: C.textPrimary, flex: 1, textAlign: 'right' },
-    certBtn: { backgroundColor: '#EEF2FF', borderRadius: 10, padding: 12, alignItems: 'center' },
-    certBtnText: { color: '#4F46E5', fontWeight: '700', fontSize: 14 },
+    certBtn: { backgroundColor: C.surfaceAlt, borderRadius: 10, padding: 12, alignItems: 'center' },
+    certBtnText: { color: C.primary, fontWeight: '700', fontSize: 14 },
     noCert: { fontSize: 13, color: C.textMuted, fontStyle: 'italic' },
     placePhoto: { width: '100%', height: 140, borderRadius: 10, marginBottom: 10 },
     actions: { flexDirection: 'row', padding: 16, gap: 12, backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.separator },
-    rejectBtn: { flex: 1, backgroundColor: '#FEE2E2', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+    rejectBtn: { flex: 1, backgroundColor: C.errorSurface, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
     rejectBtnText: { color: C.error, fontWeight: '700', fontSize: 15 },
-    approveBtn: { flex: 1, backgroundColor: '#22C55E', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+    approveBtn: { flex: 1, backgroundColor: C.success, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
     approveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
     modalContainer: { flex: 1, backgroundColor: C.surface, padding: 20 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.separator },

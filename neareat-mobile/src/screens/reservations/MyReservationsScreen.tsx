@@ -9,13 +9,15 @@ import type { Reservation } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
-const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:   { label: 'Bekliyor',   color: '#92400E', bg: '#FEF3C7' },
-  CONFIRMED: { label: 'Onaylandı',  color: '#065F46', bg: '#D1FAE5' },
-  REJECTED:  { label: 'Reddedildi', color: '#991B1B', bg: '#FEE2E2' },
-  CANCELLED: { label: 'İptal',      color: '#374151', bg: '#F3F4F6' },
-  COMPLETED: { label: 'Tamamlandı', color: '#1E3A8A', bg: '#EFF6FF' },
-};
+function getStatusLabels(C: Colors): Record<string, { label: string; color: string; bg: string }> {
+  return {
+    PENDING:   { label: 'Bekliyor',   color: C.warning,        bg: C.warningSurface },
+    CONFIRMED: { label: 'Onaylandı',  color: C.success,        bg: C.successSurface },
+    REJECTED:  { label: 'Reddedildi', color: C.error,          bg: C.errorSurface },
+    CANCELLED: { label: 'İptal',      color: C.textSecondary,  bg: C.surfaceAlt },
+    COMPLETED: { label: 'Tamamlandı', color: C.travel,         bg: C.travelSurface },
+  };
+}
 
 export default function MyReservationsScreen() {
   const navigation = useNavigation<any>();
@@ -55,6 +57,8 @@ export default function MyReservationsScreen() {
       },
     ]);
   }
+
+  const STATUS_LABELS = React.useMemo(() => getStatusLabels(C), [C]);
 
   function renderItem({ item }: { item: Reservation }) {
     const st = STATUS_LABELS[item.status] ?? STATUS_LABELS.PENDING;
@@ -139,25 +143,25 @@ function makeStyles(C: Colors) {
     statusText: { fontSize: 12, fontWeight: '600' },
     dateTime: { fontSize: 13, color: C.textSecondary, marginBottom: 3 },
     guests: { fontSize: 13, color: C.textTertiary, marginBottom: 4 },
-    rejection: { fontSize: 12, color: '#DC2626', fontStyle: 'italic', marginBottom: 4 },
-    attendedBadge: { fontSize: 12, color: '#065F46', fontWeight: '600', marginBottom: 4 },
-    noShowBadge: { fontSize: 12, color: '#DC2626', fontWeight: '600', marginBottom: 4 },
+    rejection: { fontSize: 12, color: C.error, fontStyle: 'italic', marginBottom: 4 },
+    attendedBadge: { fontSize: 12, color: C.success, fontWeight: '600', marginBottom: 4 },
+    noShowBadge: { fontSize: 12, color: C.error, fontWeight: '600', marginBottom: 4 },
     cardActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
     detailBtn: {
       flex: 1, backgroundColor: C.primaryLight, borderRadius: 8, paddingVertical: 8, alignItems: 'center',
       borderWidth: 1, borderColor: C.primary,
     },
-    detailBtnText: { fontSize: 13, color: C.primary, fontWeight: '600' },
+    detailBtnText: { fontSize: 13, color: C.primaryText, fontWeight: '600' },
     editBtn: {
-      flex: 1, backgroundColor: '#EFF6FF', borderRadius: 8, paddingVertical: 8, alignItems: 'center',
-      borderWidth: 1, borderColor: '#BFDBFE',
+      flex: 1, backgroundColor: C.surfaceAlt, borderRadius: 8, paddingVertical: 8, alignItems: 'center',
+      borderWidth: 1, borderColor: C.border,
     },
-    editBtnText: { fontSize: 13, color: '#1D4ED8', fontWeight: '600' },
+    editBtnText: { fontSize: 13, color: C.textSecondary, fontWeight: '600' },
     cancelBtn: {
       flex: 1, backgroundColor: C.errorSurface, borderRadius: 8, paddingVertical: 8, alignItems: 'center',
       borderWidth: 1, borderColor: C.error,
     },
-    cancelBtnText: { fontSize: 13, color: '#DC2626', fontWeight: '600' },
+    cancelBtnText: { fontSize: 13, color: C.error, fontWeight: '600' },
     empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     emptyContent: { alignItems: 'center', padding: 32 },
     emptyIcon: { fontSize: 48, marginBottom: 12 },

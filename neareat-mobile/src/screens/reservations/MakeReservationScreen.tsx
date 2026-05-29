@@ -252,7 +252,7 @@ function makeStyles(C: Colors) {
       marginHorizontal: 16, marginTop: 16, backgroundColor: C.successSurface,
       borderRadius: 10, padding: 12, gap: 4,
     },
-    infoText: { fontSize: 12, color: '#166534' },
+    infoText: { fontSize: 12, color: C.success },
     submitBtn: {
       margin: 16, marginTop: 24, backgroundColor: C.primary, borderRadius: 14,
       paddingVertical: 16, alignItems: 'center',

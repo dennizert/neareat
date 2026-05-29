@@ -58,15 +58,15 @@ function makeStyles(C: Colors) {
     subtitle: { fontSize: 15, color: C.textTertiary, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
     reasonCard: {
       backgroundColor: C.errorSurface, borderRadius: 14, padding: 16, width: '100%', marginBottom: 20,
-      borderWidth: 1, borderColor: '#FECACA',
+      borderWidth: 1, borderColor: C.errorSurface,
     },
-    reasonLabel: { fontSize: 13, fontWeight: '700', color: '#DC2626', marginBottom: 6 },
-    reasonText: { fontSize: 14, color: '#7F1D1D', lineHeight: 20 },
+    reasonLabel: { fontSize: 13, fontWeight: '700', color: C.error, marginBottom: 6 },
+    reasonText: { fontSize: 14, color: C.error, lineHeight: 20 },
     infoCard: {
-      backgroundColor: '#F0F9FF', borderRadius: 14, padding: 16, width: '100%', marginBottom: 24, gap: 8,
-      borderWidth: 1, borderColor: '#BAE6FD',
+      backgroundColor: C.travelSurface, borderRadius: 14, padding: 16, width: '100%', marginBottom: 24, gap: 8,
+      borderWidth: 1, borderColor: C.border,
     },
-    infoText: { fontSize: 13, color: '#0369A1', lineHeight: 20 },
+    infoText: { fontSize: 13, color: C.travel, lineHeight: 20 },
     logoutBtn: {
       backgroundColor: C.error, borderRadius: 12, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8,
     },
