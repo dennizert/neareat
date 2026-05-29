@@ -185,14 +185,16 @@ describe('buildVariableBlock', () => {
     expect(block.text).toMatch(/belirsiz/);
   });
 
-  it('says "belirtilmedi" when mood is empty', () => {
+  it('mood özelliği kaldırıldı — mood prompt\'a yansımaz, çökme olmaz (#110)', () => {
     const block = buildVariableBlock({
       candidates: baseCands,
       location: { lat: 41, lng: 28.9 },
-      mood: undefined,
+      mood: 'romantik',
       now: '2026-05-20T18:00:00Z',
     });
-    expect(block.text).toMatch(/belirtilmedi/);
+    // mood artık render edilmiyor (özellik kaldırıldı) — eski "belirtilmedi"/mood metni yok
+    expect(block.text).not.toMatch(/belirtilmedi/);
+    expect(block.text).not.toContain('romantik');
   });
 
   // ── Refinement (Sprint-4 Task #2) ──

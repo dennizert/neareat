@@ -42,6 +42,7 @@ const mockPrisma = {
   recommendation: { findMany: jest.fn(), count: jest.fn() },
   aiRecommendationLog: { create: jest.fn(), count: jest.fn() },
   recommendationFeedback: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn() },
+  feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
   friendRequest: { findMany: jest.fn() },
   userLog: { create: jest.fn() },
   notification: { create: jest.fn() },
@@ -73,6 +74,14 @@ const mockGooglePlaces = {
   getNearbyRestaurantsFast: jest.fn(),
   getPlaceDetails: jest.fn(),
   getPhotoUrl: jest.fn(),
+  // candidateService passesQualityFilter çağırır — passthrough (#110)
+  passesQualityFilter: (place) => {
+    const total = place?.user_ratings_total;
+    const rating = place?.rating;
+    if (typeof total !== 'number' || total < 2) return false;
+    if (typeof rating !== 'number' || rating < 2.4) return false;
+    return true;
+  },
 };
 jest.mock('../../src/services/googlePlaces', () => mockGooglePlaces);
 
