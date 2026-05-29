@@ -1,5 +1,5 @@
 const prisma = require('../utils/prisma');
-const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl, passesQualityFilter } = require('../services/googlePlaces');
+const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl, passesQualityFilter, searchPlacesByText } = require('../services/googlePlaces');
 const { haversineKm } = require('../utils/haversine');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
@@ -47,6 +47,43 @@ function computeIsOpenFromOverride(override) {
 
 // Supported Google Places types for category tabs
 const VALID_TYPES = new Set(['restaurant', 'cafe', 'meal_takeaway', 'meal_delivery', 'bakery', 'all']);
+
+/**
+ * Tek bir Google Places sonucunu API response satırına çevirir.
+ * Discount + override hours + announcement gibi DB enrichment'i `dp` üzerinden uygular.
+ * `distanceKm` getNearby'de hesaplanır; serbest metin aramada lat/lng yoksa null kalır.
+ */
+function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
+  const instantActive = !!(dp?.discountActiveUntil && new Date(dp.discountActiveUntil) > now);
+  const starDiscountPercent = dp?.discountEnabled && userLevel >= 2
+    ? (STAR_LEVEL_DISCOUNTS[userLevel] ?? 0)
+    : null;
+  const hasDiscount = dp && (dp.discountEnabled || instantActive);
+  const overrideIsOpen = dp?.openingHours ? computeIsOpenFromOverride(dp.openingHours) : null;
+  const isOpenNow = overrideIsOpen !== null ? overrideIsOpen : (place.opening_hours?.open_now ?? null);
+  return {
+    placeId: place.place_id,
+    name: place.name,
+    rating: place.rating,
+    userRatingsTotal: place.user_ratings_total,
+    priceLevel: place.price_level,
+    types: place.types,
+    isOpenNow,
+    location: place.geometry?.location,
+    distanceKm,
+    photoUrl: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null,
+    discount: hasDiscount ? {
+      starDiscountEnabled: !!dp.discountEnabled,
+      starDiscountPercent,
+      instantActive,
+      instantPercent: instantActive ? dp.discountPercent : null,
+      note: dp.discountNote,
+      activeUntil: dp.discountActiveUntil,
+    } : null,
+    announcement: dp?.announcementActive ? dp.announcement : null,
+    acceptsReservations: dp?.acceptsReservations ?? false,
+  };
+}
 
 async function getNearby(req, res, next) {
   try {
@@ -124,40 +161,74 @@ async function getNearby(req, res, next) {
     });
     const discountMap = Object.fromEntries(allProfiles.map((p) => [p.placeId, p]));
 
-    const results = filtered.map((place) => {
-      const dp = discountMap[place.place_id] || null;
-      const instantActive = !!(dp?.discountActiveUntil && new Date(dp.discountActiveUntil) > now);
-      const starDiscountPercent = dp?.discountEnabled && userLevel >= 2
-        ? (STAR_LEVEL_DISCOUNTS[userLevel] ?? 0)
-        : null;
-      const hasDiscount = dp && (dp.discountEnabled || instantActive);
-      const overrideIsOpen = dp?.openingHours ? computeIsOpenFromOverride(dp.openingHours) : null;
-      const isOpenNow = overrideIsOpen !== null ? overrideIsOpen : (place.opening_hours?.open_now ?? null);
-      return {
-        placeId: place.place_id,
-        name: place.name,
-        rating: place.rating,
-        userRatingsTotal: place.user_ratings_total,
-        priceLevel: place.price_level,
-        types: place.types,
-        isOpenNow,
-        location: place.geometry?.location,
-        distanceKm: place._dist,
-        photoUrl: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null,
-        discount: hasDiscount ? {
-          starDiscountEnabled: !!dp.discountEnabled,
-          starDiscountPercent,
-          instantActive,
-          instantPercent: instantActive ? dp.discountPercent : null,
-          note: dp.discountNote,
-          activeUntil: dp.discountActiveUntil,
-        } : null,
-        announcement: dp?.announcementActive ? dp.announcement : null,
-        acceptsReservations: dp?.acceptsReservations ?? false,
-      };
-    });
+    const results = filtered.map((place) =>
+      mapPlaceToResultRow(place, discountMap[place.place_id] || null, now, userLevel, place._dist),
+    );
 
     res.json({ results, radiusKm });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Sprint-6 #82 — serbest metin / isim bazlı arama (Google Places Text Search).
+// GET /api/places/search?q=...&lat=...&lng=...
+// Konum bias 25 km; sonuçlar bias dışına da çıkabilir (kullanıcı uzaktaki bir
+// mekanı arayabilir). Quality filter (rating + isim elemesi) uygulanır.
+const SEARCH_RESULT_LIMIT = 20;
+
+async function searchByText(req, res, next) {
+  try {
+    const { q, lat, lng } = req.query;
+    const query = String(q || '').trim();
+    if (!query) return res.status(400).json({ error: 'q parametresi gerekli' });
+    if (query.length < 2) return res.status(400).json({ error: 'En az 2 karakter girin' });
+
+    const userLat = lat ? parseFloat(lat) : undefined;
+    const userLng = lng ? parseFloat(lng) : undefined;
+    const hasLocation = Number.isFinite(userLat) && Number.isFinite(userLng);
+
+    const rawPlaces = await searchPlacesByText(
+      query,
+      hasLocation ? userLat : undefined,
+      hasLocation ? userLng : undefined,
+    );
+
+    // Kalite + isim filtresi (passesQualityFilter içinde her ikisi de var)
+    const filtered = rawPlaces
+      .map((place) => {
+        if (!place.geometry?.location) return null;
+        if (!passesQualityFilter(place)) return null;
+        const distanceKm = hasLocation
+          ? haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng)
+          : null;
+        return { ...place, _dist: distanceKm };
+      })
+      .filter(Boolean)
+      .slice(0, SEARCH_RESULT_LIMIT);
+
+    // DB enrichment — getNearby ile aynı shape
+    const placeIds = filtered.map((p) => p.place_id);
+    const now = new Date();
+    const userLevel = req.user ? getLevel(req.user.starCount).level : 1;
+    const profiles = placeIds.length
+      ? await prisma.restaurantProfile.findMany({
+          where: { placeId: { in: placeIds }, status: 'APPROVED' },
+          select: {
+            placeId: true, discountEnabled: true, discountPercent: true,
+            discountNote: true, discountActiveUntil: true,
+            announcement: true, announcementActive: true, reservationUrl: true,
+            openingHours: true, acceptsReservations: true,
+          },
+        })
+      : [];
+    const discountMap = Object.fromEntries(profiles.map((p) => [p.placeId, p]));
+
+    const results = filtered.map((place) =>
+      mapPlaceToResultRow(place, discountMap[place.place_id] || null, now, userLevel, place._dist),
+    );
+
+    res.json({ results, query });
   } catch (err) {
     next(err);
   }
@@ -239,4 +310,4 @@ async function getDetails(req, res, next) {
   }
 }
 
-module.exports = { getNearby, getDetails };
+module.exports = { getNearby, getDetails, searchByText };
