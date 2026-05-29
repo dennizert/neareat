@@ -15,6 +15,7 @@ const MENU_ITEMS = [
   { icon: '📋', label: 'Menü Yönetimi', screen: 'RestaurantMenu' },
   { icon: '💬', label: 'Yorumlar & Cevaplar', screen: 'RestaurantReviews' },
   { icon: '🎁', label: 'İndirim Yönetimi', screen: 'RestaurantDiscount' },
+  { icon: '⚡', label: 'Anlık Kampanya', screen: 'RestaurantCampaign' },
   { icon: '📅', label: 'Rezervasyonlar', screen: 'RestaurantReservations' },
   { icon: '📞', label: 'İletişim & Ayarlar', screen: 'RestaurantInfo' },
 ];
@@ -158,7 +159,7 @@ function makeStyles(C: Colors) {
     container: { flex: 1, backgroundColor: C.background },
     header: {
       flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
-      backgroundColor: '#FF6B35', paddingHorizontal: 16, paddingTop: 56, paddingBottom: 20,
+      backgroundColor: C.primary, paddingHorizontal: 16, paddingTop: 56, paddingBottom: 20,
     },
     headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 },
     avatar: { width: 56, height: 56, borderRadius: 12, marginRight: 12 },
@@ -167,10 +168,10 @@ function makeStyles(C: Colors) {
     category: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 1 },
     placeName: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
     logoutText: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600', marginTop: 4 },
-    activeBanner: { backgroundColor: '#22C55E', padding: 12, alignItems: 'center' },
-    activeBannerText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-    announcementBanner: { backgroundColor: '#4F46E5', padding: 12 },
-    announcementText: { color: '#fff', fontSize: 13, lineHeight: 18 },
+    activeBanner: { backgroundColor: C.successSurface, padding: 12, alignItems: 'center' },
+    activeBannerText: { color: C.success, fontWeight: '700', fontSize: 13 },
+    announcementBanner: { backgroundColor: C.amberSurface, padding: 12 },
+    announcementText: { color: C.amber, fontSize: 13, lineHeight: 18, fontWeight: '600' },
     statsRow: { flexDirection: 'row', padding: 16, gap: 10 },
     statCard: {
       flex: 1, backgroundColor: C.surface, borderRadius: 14, padding: 12,

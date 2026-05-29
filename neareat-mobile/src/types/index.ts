@@ -690,6 +690,7 @@ export type RootStackParamList = {
   RestaurantHours: undefined;
   RestaurantMenu: undefined;
   RestaurantDiscount: undefined;
+  RestaurantCampaign: undefined;
   RestaurantReviews: undefined;
   RestaurantInfo: undefined;
   // Admin
