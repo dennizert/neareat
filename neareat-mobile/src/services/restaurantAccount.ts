@@ -187,3 +187,35 @@ export async function deactivateInstantDiscount(): Promise<RestaurantProfile> {
   const { data } = await api.delete('/restaurant-account/discount/deactivate');
   return data;
 }
+
+export type CampaignAudience = 'favorites' | 'reservations' | 'all';
+
+/** Günlük kampanya limiti aşıldığında fırlatılan typed error (429). */
+export class CampaignLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CampaignLimitError';
+    Object.setPrototypeOf(this, CampaignLimitError.prototype);
+  }
+}
+
+/**
+ * Anlık kampanya gönderir (S5-3). Hedef kitleye INSTANT_DISCOUNT bildirimi.
+ * @throws {CampaignLimitError} Günde 1 kampanya limiti aşıldı (429)
+ */
+export async function sendCampaign(
+  message: string,
+  audience: CampaignAudience = 'all',
+): Promise<{ sent: number; audience: CampaignAudience }> {
+  try {
+    const { data } = await api.post('/restaurant-account/campaign', { message, audience });
+    return data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const body = err?.response?.data;
+    if (status === 429 && body?.error === 'CAMPAIGN_LIMIT_EXCEEDED') {
+      throw new CampaignLimitError(body.message || 'Bugün zaten bir kampanya gönderdiniz.');
+    }
+    throw err;
+  }
+}

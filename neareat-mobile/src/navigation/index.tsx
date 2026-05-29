@@ -35,6 +35,7 @@ import RestaurantDashboardScreen from '../screens/restaurant-account/RestaurantD
 import RestaurantHoursScreen from '../screens/restaurant-account/RestaurantHoursScreen';
 import RestaurantMenuScreen from '../screens/restaurant-account/RestaurantMenuScreen';
 import RestaurantDiscountScreen from '../screens/restaurant-account/RestaurantDiscountScreen';
+import RestaurantCampaignScreen from '../screens/restaurant-account/RestaurantCampaignScreen';
 import RestaurantReviewsScreen from '../screens/restaurant-account/RestaurantReviewsScreen';
 import RestaurantInfoScreen from '../screens/restaurant-account/RestaurantInfoScreen';
 
@@ -285,6 +286,11 @@ export default function Navigation() {
                   name="RestaurantDiscount"
                   component={RestaurantDiscountScreen}
                   options={{ ...H, title: 'İndirim Yönetimi' }}
+                />
+                <Stack.Screen
+                  name="RestaurantCampaign"
+                  component={RestaurantCampaignScreen}
+                  options={{ ...H, title: 'Anlık Kampanya' }}
                 />
                 <Stack.Screen
                   name="RestaurantReviews"
