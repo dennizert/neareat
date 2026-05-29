@@ -9,7 +9,8 @@ import type { FriendSuggestion } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
-const MAX_SCORE = 190;
+// Backend matchPercent döndürmezse (eski yanıt) geri düşüş için teorik tavan
+const MAX_SCORE = 373;
 
 export default function FriendSuggestionsScreen() {
   const { C } = useTheme();
@@ -58,7 +59,7 @@ export default function FriendSuggestionsScreen() {
       keyExtractor={item => item.userId}
       contentContainerStyle={styles.list}
       renderItem={({ item }) => {
-        const pct = Math.min(Math.round((item.matchScore / MAX_SCORE) * 100), 100);
+        const pct = item.matchPercent ?? Math.min(Math.round((item.matchScore / MAX_SCORE) * 100), 100);
         const sent = sentRequests.has(item.userId);
         return (
           <View style={styles.card}>

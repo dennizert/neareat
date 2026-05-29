@@ -8,7 +8,7 @@ const {
   approveRestaurant, rejectRestaurant, getPlatformStats,
   getUsers, suspendUser, unsuspendUser,
   deleteReview, getFlaggedReviews, seedAdmin,
-  getReports, handleReport,
+  getReports, handleReport, triggerFriendSuggestions,
 } = require('../controllers/adminController');
 
 // One-time seed — ADMIN_SEED_SECRET env var ile korunur
@@ -58,5 +58,8 @@ router.delete('/reviews/:id', authenticate, requireAdmin, deleteReview);
 // User reports
 router.get('/reports', authenticate, requireAdmin, getReports);
 router.put('/reports/:id', authenticate, requireAdmin, handleReport);
+
+// Manuel job tetikleme
+router.post('/jobs/friend-suggestions/run', authenticate, requireAdmin, triggerFriendSuggestions);
 
 module.exports = router;

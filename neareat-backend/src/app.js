@@ -37,6 +37,7 @@ const sanitize = require('./middleware/sanitize');
 const { scheduleReservationReminders } = require('./jobs/reservationReminders');
 const { scheduleSmartNotifications } = require('./jobs/smartNotifications');
 const { scheduleFeedbackAggregation } = require('./jobs/feedbackAggregator');
+const { scheduleFriendSuggestions } = require('./jobs/friendSuggestions');
 
 const app = express();
 
@@ -160,6 +161,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   scheduleReservationReminders();
   scheduleSmartNotifications();
   scheduleFeedbackAggregation();
+  scheduleFriendSuggestions();
 });
 
 // Graceful shutdown — açık bağlantıları düzgün kapat

@@ -187,3 +187,13 @@ export async function handleReport(
 ): Promise<void> {
   await api.put(`/admin/reports/${id}`, { action, actionNote });
 }
+
+/**
+ * Arkadaş önerisi gece job'ını manuel tetikler — tüm kullanıcılar için
+ * uyum bazlı öneriler yeniden hesaplanıp önbelleğe yazılır.
+ * @returns İşlenen ve önbelleğe yazılan kullanıcı sayısı
+ */
+export async function runFriendSuggestionsJob(): Promise<{ processed: number; stored: number }> {
+  const { data } = await api.post('/admin/jobs/friend-suggestions/run');
+  return data;
+}
