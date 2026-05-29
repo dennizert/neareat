@@ -5,6 +5,7 @@ const { createNotificationsForUsers, createNotification } = require('../services
 const { containsOffensiveContent } = require('../utils/contentFilter');
 const { logRequest } = require('../services/logService');
 const { computeReservationAnalytics, computeReviewAnalytics } = require('../utils/restaurantAnalytics');
+const { generateWeeklyReport } = require('../services/businessReport');
 
 const RESTAURANT_SELECT = {
   id: true, userId: true, businessName: true, ownerName: true,
@@ -420,6 +421,47 @@ async function getAnalytics(req, res, next) {
   }
 }
 
+/**
+ * GET /api/restaurant-account/report
+ * Haftalık analitiği + son yorumları Claude ile kısa Türkçe işletme raporuna çevirir.
+ * Anthropic erişilemezse şablon özete düşer (fallback: true).
+ */
+async function getWeeklyReport(req, res, next) {
+  try {
+    const profile = await prisma.restaurantProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true, placeId: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Restoran profili bulunamadı' });
+
+    const [reservations, reviews] = await Promise.all([
+      prisma.reservation.findMany({
+        where: { restaurantId: profile.id },
+        select: { date: true, time: true, status: true, attended: true },
+      }),
+      profile.placeId
+        ? prisma.review.findMany({
+            where: { placeId: profile.placeId },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            select: { rating: true, body: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const analytics = {
+      reservations: computeReservationAnalytics(reservations, new Date()),
+      reviews: computeReviewAnalytics(reviews.map((r) => r.rating)),
+    };
+
+    const { report, model, fallback } = await generateWeeklyReport(analytics, reviews);
+
+    res.json({ report, model, fallback, generatedAt: new Date().toISOString() });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ─── Anlık kampanya gönderimi (S5-3) ─────────────────────────────────────────
 
 const CAMPAIGN_MIN_LENGTH = 5;
@@ -522,5 +564,5 @@ module.exports = {
   replyToReview, deleteReply,
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
-  sendCampaign, getAnalytics,
+  sendCampaign, getAnalytics, getWeeklyReport,
 };
