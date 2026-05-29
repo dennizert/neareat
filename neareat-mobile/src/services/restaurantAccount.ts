@@ -188,6 +188,16 @@ export async function deactivateInstantDiscount(): Promise<RestaurantProfile> {
   return data;
 }
 
+export async function getRestaurantAnalytics(): Promise<import('../types').RestaurantAnalytics> {
+  const { data } = await api.get('/restaurant-account/analytics');
+  return data;
+}
+
+export async function getWeeklyReport(): Promise<import('../types').WeeklyReport> {
+  const { data } = await api.get('/restaurant-account/report');
+  return data;
+}
+
 export type CampaignAudience = 'favorites' | 'reservations' | 'all';
 
 /** Günlük kampanya limiti aşıldığında fırlatılan typed error (429). */

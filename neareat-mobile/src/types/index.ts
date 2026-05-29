@@ -158,6 +158,30 @@ export interface RestaurantStats {
   recommendations: number;
 }
 
+// ─── Restoran Analitik (S5-5/S5-6) ────────────────────────────────────────────
+
+export interface RestaurantAnalytics {
+  reservations: {
+    totalReservations: number;
+    trend: { date: string; count: number }[];
+    busiestHours: { hour: string; count: number }[];
+    statusBreakdown: { PENDING: number; CONFIRMED: number; REJECTED: number; CANCELLED: number; COMPLETED: number };
+    attendanceRate: number | null;
+  };
+  reviews: {
+    reviewCount: number;
+    avgRating: number | null;
+    distribution: { 1: number; 2: number; 3: number; 4: number; 5: number };
+  };
+}
+
+export interface WeeklyReport {
+  report: string;
+  model: string | null;
+  fallback: boolean;
+  generatedAt: string;
+}
+
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 export interface AdminRestaurantSummary {
@@ -691,6 +715,7 @@ export type RootStackParamList = {
   RestaurantMenu: undefined;
   RestaurantDiscount: undefined;
   RestaurantCampaign: undefined;
+  RestaurantAnalytics: undefined;
   RestaurantReviews: undefined;
   RestaurantInfo: undefined;
   // Admin
