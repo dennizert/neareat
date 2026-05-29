@@ -1,4 +1,5 @@
 const prisma = require('../utils/prisma');
+const { isAlwaysPremiumEmail, isActivePremium } = require('../utils/premiumCheck');
 const TRIAL_DAYS = parseInt(process.env.TRIAL_DAYS || '7');
 
 async function getSubscription(req, res, next) {
@@ -6,6 +7,20 @@ async function getSubscription(req, res, next) {
     const subscription = await prisma.subscription.findUnique({
       where: { userId: req.user.id },
     });
+
+    // Allowlist override — aktif aboneliği olmayan "her zaman premium" hesaplar için
+    // sentetik premium abonelik döndür (mobil UI premium gösterir).
+    if (!isActivePremium(subscription) && isAlwaysPremiumEmail(req.user.email)) {
+      return res.json({
+        id: 'always-premium',
+        userId: req.user.id,
+        planType: 'yearly',
+        status: 'active',
+        startedAt: new Date('2020-01-01').toISOString(),
+        expiresAt: new Date('2099-12-31').toISOString(),
+      });
+    }
+
     res.json(subscription);
   } catch (err) {
     next(err);
