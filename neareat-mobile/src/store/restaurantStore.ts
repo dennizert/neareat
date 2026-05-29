@@ -13,6 +13,7 @@
  */
 import { create } from 'zustand';
 import type { Restaurant, SortOption, FilterState } from '../types';
+import { searchPlaces } from '../services/restaurants';
 
 interface RestaurantState {
   restaurants: Restaurant[];
@@ -23,6 +24,12 @@ interface RestaurantState {
   viewMode: 'list' | 'map';
   selectedCategory: string;
 
+  // Sprint-6 #83 — serbest metin araması
+  searchQuery: string;
+  searchResults: Restaurant[];
+  searchLoading: boolean;
+  searchError: string | null;
+
   setRestaurants: (restaurants: Restaurant[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -31,6 +38,10 @@ interface RestaurantState {
   setViewMode: (mode: 'list' | 'map') => void;
   setSelectedCategory: (cat: string) => void;
   getSortedFiltered: () => Restaurant[];
+
+  setSearchQuery: (q: string) => void;
+  performSearch: (q: string, lat?: number, lng?: number) => Promise<void>;
+  clearSearch: () => void;
 }
 
 /** Varsayılan filtre değerleri — hiçbir filtre uygulanmamış durumu temsil eder */
@@ -48,6 +59,11 @@ export const useRestaurantStore = create<RestaurantState>((set, get) => ({
   filters: defaultFilters,
   viewMode: 'list',
   selectedCategory: 'all',
+
+  searchQuery: '',
+  searchResults: [],
+  searchLoading: false,
+  searchError: null,
 
   /** Backend'den gelen restoran listesini store'a yazar */
   setRestaurants:      (restaurants)    => set({ restaurants }),
@@ -103,4 +119,28 @@ export const useRestaurantStore = create<RestaurantState>((set, get) => ({
 
     return list;
   },
+
+  /** Arama metni state'i — debounce + UI değişimi için tek source */
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
+
+  /**
+   * Backend'den arama sonuçlarını çeker. Boş sorgu → hızlı temizleme.
+   * lat/lng verilirse konum bias uygulanır (backend tarafında).
+   */
+  performSearch: async (q, lat, lng) => {
+    const query = q.trim();
+    if (query.length < 2) {
+      set({ searchResults: [], searchLoading: false, searchError: null });
+      return;
+    }
+    set({ searchLoading: true, searchError: null });
+    try {
+      const { results } = await searchPlaces(query, lat, lng);
+      set({ searchResults: results, searchLoading: false });
+    } catch (err: any) {
+      set({ searchResults: [], searchLoading: false, searchError: err?.message || 'Arama başarısız' });
+    }
+  },
+
+  clearSearch: () => set({ searchQuery: '', searchResults: [], searchLoading: false, searchError: null }),
 }));

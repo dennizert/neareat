@@ -39,6 +39,35 @@ export async function fetchNearby(
 }
 
 /**
+ * Restoran adı / serbest metin araması (Sprint-6 #82).
+ * Backend Google Places Text Search'ü çağırır; lat/lng verilirse konum bias uygulanır.
+ *
+ * @param q - Arama metni (ör. "tarihi yarımadada pizza")
+ * @param lat - Kullanıcı enlemi (opsiyonel — konum bias için)
+ * @param lng - Kullanıcı boylamı (opsiyonel)
+ */
+export async function searchPlaces(
+  q: string,
+  lat?: number,
+  lng?: number,
+): Promise<{ results: Restaurant[]; query: string }> {
+  if (MOCK_MODE) {
+    const needle = q.trim().toLowerCase();
+    const results = needle
+      ? MOCK_RESTAURANTS.filter((r) => r.name.toLowerCase().includes(needle))
+      : [];
+    return { results, query: q };
+  }
+  const params: Record<string, string | number> = { q };
+  if (typeof lat === 'number' && typeof lng === 'number') {
+    params.lat = lat;
+    params.lng = lng;
+  }
+  const { data } = await api.get('/places/search', { params });
+  return data;
+}
+
+/**
  * Belirli bir restoranın detay bilgilerini getirir.
  * Fotoğraflar, çalışma saatleri, yorumlar, menü, indirim bilgileri vb. içerir.
  *
