@@ -4,6 +4,7 @@ const { signToken } = require('../utils/jwt');
 const { createNotificationsForUsers, createNotification } = require('../services/notificationService');
 const { containsOffensiveContent } = require('../utils/contentFilter');
 const { logRequest } = require('../services/logService');
+const { computeReservationAnalytics, computeReviewAnalytics } = require('../utils/restaurantAnalytics');
 
 const RESTAURANT_SELECT = {
   id: true, userId: true, businessName: true, ownerName: true,
@@ -385,6 +386,40 @@ async function getMyReviews(req, res, next) {
   }
 }
 
+// ─── Analitik paneli (S5-5) ──────────────────────────────────────────────────
+
+/**
+ * GET /api/restaurant-account/analytics
+ * Haftalık rezervasyon trendi, en yoğun saatler, durum dağılımı, katılım oranı,
+ * ortalama puan + yorum dağılımı. Yalnızca restoranın kendi sahibi erişebilir.
+ */
+async function getAnalytics(req, res, next) {
+  try {
+    const profile = await prisma.restaurantProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true, placeId: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Restoran profili bulunamadı' });
+
+    const [reservations, reviews] = await Promise.all([
+      prisma.reservation.findMany({
+        where: { restaurantId: profile.id },
+        select: { date: true, time: true, status: true, attended: true },
+      }),
+      profile.placeId
+        ? prisma.review.findMany({ where: { placeId: profile.placeId }, select: { rating: true } })
+        : Promise.resolve([]),
+    ]);
+
+    const reservationAnalytics = computeReservationAnalytics(reservations, new Date());
+    const reviewAnalytics = computeReviewAnalytics(reviews.map((r) => r.rating));
+
+    res.json({ reservations: reservationAnalytics, reviews: reviewAnalytics });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ─── Anlık kampanya gönderimi (S5-3) ─────────────────────────────────────────
 
 const CAMPAIGN_MIN_LENGTH = 5;
@@ -487,5 +522,5 @@ module.exports = {
   replyToReview, deleteReply,
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
-  sendCampaign,
+  sendCampaign, getAnalytics,
 };

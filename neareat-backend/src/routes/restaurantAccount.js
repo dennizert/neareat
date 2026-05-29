@@ -8,7 +8,7 @@ const {
   replyToReview, deleteReply,
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
-  sendCampaign,
+  sendCampaign, getAnalytics,
 } = require('../controllers/restaurantAccountController');
 
 // Public — no auth
@@ -20,6 +20,7 @@ router.put('/hours', authenticate, requireRestaurant, updateHours);
 router.put('/info', authenticate, requireRestaurant, updateInfo);
 router.put('/announcement', authenticate, requireRestaurant, updateAnnouncement);
 router.get('/stats', authenticate, requireRestaurant, getStats);
+router.get('/analytics', authenticate, requireRestaurant, getAnalytics);
 router.get('/reviews', authenticate, requireRestaurant, getMyReviews);
 
 // Menu
