@@ -726,8 +726,24 @@ describe('aiRecommendationStore — streamDinnerRecommendation — errors', () =
     expect(s.loading).toBe(false);
   });
 
-  it('sets streamingStatus=error on generic thrown error', async () => {
+  it('generic streaming hatasında non-streaming fallback başarılıysa done döner', async () => {
+    // expo/fetch streaming bazı cihazlarda başarısız → non-streaming getDinner'a düşülür
     mockedStreamDinner.mockRejectedValueOnce(new Error('Network error'));
+    mockedGetDinner.mockResolvedValueOnce(makeResponse());
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
+
+    const s = useAiRecommendationStore.getState();
+    expect(mockedGetDinner).toHaveBeenCalledWith(41.04, 28.98);
+    expect(s.streamingStatus).toBe('done');
+    expect(s.recommendations.map((r) => r.placeId)).toEqual(['p1']);
+    expect(s.error).toBeNull();
+    expect(s.loading).toBe(false);
+  });
+
+  it('hem streaming hem non-streaming fallback başarısızsa error döner', async () => {
+    mockedStreamDinner.mockRejectedValueOnce(new Error('Network error'));
+    mockedGetDinner.mockRejectedValueOnce(new Error('Network error'));
 
     await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98);
 
@@ -735,6 +751,16 @@ describe('aiRecommendationStore — streamDinnerRecommendation — errors', () =
     expect(s.streamingStatus).toBe('error');
     expect(s.error).toMatch(/Öneri alınamadı/);
     expect(s.loading).toBe(false);
+  });
+
+  it('refinement sırasında streaming hatasında fallback YAPILMAZ (error döner)', async () => {
+    useAiRecommendationStore.setState({ sessionId: 'sess-1', recommendations: [makeRec('p1') as any] });
+    mockedStreamDinner.mockRejectedValueOnce(new Error('Network error'));
+
+    await useAiRecommendationStore.getState().streamDinnerRecommendation(41.04, 28.98, 'daha ucuz');
+
+    expect(mockedGetDinner).not.toHaveBeenCalled(); // refinement non-streaming'e düşmez
+    expect(useAiRecommendationStore.getState().streamingStatus).toBe('error');
   });
 });
 
