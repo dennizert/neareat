@@ -27,6 +27,9 @@ describe('isExcludedByName', () => {
   it.each([
     'Şükrü Bayi',
     'Merkez Kıraathanesi',
+    'Özçevik Kırathanesi',  // yaygın yanlış yazım — kirathane varyantı
+    'Köşe Kahvehanesi',
+    'Sıcak Çayhane',
     'Yeşil Çay Bahçesi',
     'Halk Ekmek Büfesi',
     'Taş Fırın',
