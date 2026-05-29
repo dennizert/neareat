@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../utils/prisma');
 const { signToken } = require('../utils/jwt');
 const { logRequest } = require('../services/logService');
+const { runFriendSuggestionsJob } = require('../jobs/friendSuggestions');
 
 const PROFILE_SUMMARY = {
   id: true, businessName: true, ownerName: true, taxNumber: true,
@@ -365,10 +366,24 @@ async function seedAdmin(req, res, next) {
   }
 }
 
+// ─── Job tetikleme ────────────────────────────────────────────────────────────
+// POST /api/admin/jobs/friend-suggestions/run — gece job'ını manuel çalıştırır
+async function triggerFriendSuggestions(req, res, next) {
+  try {
+    const result = await runFriendSuggestionsJob();
+    logRequest({ req, page: 'Admin Paneli', action: 'Arkadaş önerisi job tetikledi', details: `stored=${result.stored}` }).catch(() => {});
+    if (result.error) return res.status(500).json({ error: 'Job çalışırken hata oluştu', detail: result.error });
+    res.json({ message: 'Arkadaş önerileri yeniden hesaplandı.', ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   adminLogin, getPendingRestaurants, getRestaurantDetail, getTaxCertificate,
   approveRestaurant, rejectRestaurant, getPlatformStats,
   getUsers, suspendUser, unsuspendUser,
   deleteReview, getFlaggedReviews, seedAdmin,
   getReports, handleReport,
+  triggerFriendSuggestions,
 };

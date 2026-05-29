@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
-import { getPlatformStats, getPendingRestaurants, getReports, handleReport, suspendUser } from '../../services/admin';
+import { getPlatformStats, getPendingRestaurants, getReports, handleReport, suspendUser, runFriendSuggestionsJob } from '../../services/admin';
 import type { AdminStats, AdminRestaurantSummary, UserReport } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
@@ -29,6 +29,9 @@ export default function AdminDashboardScreen() {
   const [reportModal, setReportModal] = useState<UserReport | null>(null);
   const [actionNote, setActionNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Bakım: arkadaş önerisi job tetikleme
+  const [jobLoading, setJobLoading] = useState(false);
 
   async function load(isRefresh = false) {
     if (!isRefresh) setLoading(true);
@@ -69,6 +72,18 @@ export default function AdminDashboardScreen() {
       Alert.alert('Hata', 'İşlem gerçekleştirilemedi.');
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function doRunFriendSuggestions() {
+    setJobLoading(true);
+    try {
+      const r = await runFriendSuggestionsJob();
+      Alert.alert('Tamamlandı', `${r.stored} kullanıcı için arkadaş önerileri yeniden hesaplandı.`);
+    } catch {
+      Alert.alert('Hata', 'Job çalıştırılamadı.');
+    } finally {
+      setJobLoading(false);
     }
   }
 
@@ -173,6 +188,29 @@ export default function AdminDashboardScreen() {
             <StatRowComponent label="Toplam Favori" value={stats.totalFavorites} styles={styles} />
             <StatRowComponent label="Toplam Öneri" value={stats.totalRecommendations} styles={styles} />
           </StatGroupComponent>
+
+          <View style={styles.statGroup}>
+            <Text style={styles.statGroupTitle}>Bakım</Text>
+            <View style={styles.statGroupCard}>
+              <View style={styles.maintenanceRow}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.maintenanceTitle}>Arkadaş Önerileri</Text>
+                  <Text style={styles.maintenanceDesc}>
+                    Her gece 03:00'te otomatik çalışır. Şimdi yeniden hesaplamak için tetikle.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.jobBtn, jobLoading && styles.jobBtnDisabled]}
+                  onPress={doRunFriendSuggestions}
+                  disabled={jobLoading}
+                >
+                  {jobLoading
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={styles.jobBtnText}>Çalıştır</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
         </ScrollView>
       ) : tab !== 'reports' ? (
         <FlatList
@@ -321,6 +359,12 @@ function makeStyles(C: Colors) {
     statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.separator },
     statLabel: { fontSize: 14, color: C.textSecondary },
     statValue: { fontSize: 16, fontWeight: '700', color: C.textPrimary },
+    maintenanceRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+    maintenanceTitle: { fontSize: 14, fontWeight: '600', color: C.textPrimary, marginBottom: 2 },
+    maintenanceDesc: { fontSize: 12, color: C.textMuted, lineHeight: 16 },
+    jobBtn: { backgroundColor: C.primary, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10, minWidth: 84, alignItems: 'center' },
+    jobBtnDisabled: { opacity: 0.6 },
+    jobBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
     // Modal
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
     modalBox: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 },

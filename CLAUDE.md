@@ -65,6 +65,7 @@ requestId → helmet/CORS → morgan → rate-limit → body-parse → sanitize
 - **Feedback loop:** A weekly cron (`jobs/feedbackAggregator.js`) aggregates `RecommendationFeedback.placeTypes` into per-user liked/disliked cuisine types (`FeedbackPreference`), injected into the AI system prompt as `cuisinePreferences`.
 - **Reservation escalation:** Hourly cron in `jobs/reservationReminders.js` finds `PENDING` reservations older than 24h (`pendingReminderSentAt IS NULL`), notifies the restaurant owner + user (`RESERVATION_PENDING_REMINDER`), and stamps `pendingReminderSentAt` for idempotency.
 - **Restaurant B2B (`restaurant-account` routes):** `POST /campaign` sends an `INSTANT_DISCOUNT` push to favoriters/past-reservers (max 1/day via `RestaurantProfile.lastCampaignAt`). `GET /analytics` returns reservation trend / busiest hours / status breakdown / rating distribution (pure core in `utils/restaurantAnalytics.js`). `GET /report` turns that analytics into a short Turkish business summary via `services/businessReport.js` (claude-haiku-4-5, graceful fallback to a templated summary).
+- **Friend suggestions:** Nightly cron at 03:00 Europe/Istanbul (`jobs/friendSuggestions.js`) precomputes compatibility-scored friend suggestions for all users and writes them to Redis (`friend-suggestions:{userId}`, 26h TTL). Pure scoring core in `services/friendSuggestionService.js` weighs same city/country (country derived from city via `utils/cityCountry.js`), shared favorites/collections/recommendations/reservations/poll places, common cuisines + AI-feedback liked types, and similar AI usage level. `GET /social/friend-suggestions` reads the cache (on-demand compute on miss). Admin can re-run the job via `POST /admin/jobs/friend-suggestions/run` (button in admin dashboard Stats tab).
 
 ### Backend directory layout
 
@@ -74,7 +75,7 @@ src/
   routes/        # Express routers (map HTTP → controllers)
   middleware/    # auth, roles, errorHandler, sanitize, securityLogger, userRateLimit, requestId
   services/      # External integrations: googlePlaces, firebase, redis, resend, anthropic, iyzico
-  jobs/          # Cron: reservationReminders, smartNotifications, feedbackAggregator
+  jobs/          # Cron: reservationReminders, smartNotifications, feedbackAggregator, friendSuggestions
   utils/         # prisma client, jwt helpers, haversine, contentFilter
 prisma/
   schema.prisma  # Single source of truth for DB models

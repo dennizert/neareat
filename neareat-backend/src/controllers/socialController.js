@@ -3,6 +3,7 @@ const { awardStars, getLevel } = require('../utils/stars');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
+const { getCachedSuggestions, computeSuggestionsForUser } = require('../services/friendSuggestionService');
 
 const FREE_DAILY_REC_LIMIT = 2;
 
@@ -542,118 +543,24 @@ async function getLeaderboard(req, res, next) {
 // ─── Arkadaş Önerileri ────────────────────────────────────────────────────────
 
 // GET /api/social/friend-suggestions
+// Öneriler gece 03:00 cron'unda (+ admin manuel tetikleme) hesaplanıp Redis'e yazılır.
+// Burada önce cache okunur; miss durumunda (yeni kullanıcı / cache temizliği) anlık hesaplanır.
 async function getFriendSuggestions(req, res, next) {
   try {
     const user = req.user;
 
-    const [myFavorites, myCollItems, existingRelations] = await Promise.all([
-      prisma.favorite.findMany({ where: { userId: user.id }, select: { placeId: true } }),
-      prisma.collectionItem.findMany({
-        where: { collection: { userId: user.id } },
-        select: { placeId: true },
-      }),
-      prisma.friendRequest.findMany({
-        where: {
-          OR: [{ fromUserId: user.id }, { toUserId: user.id }],
-          status: { in: ['PENDING', 'ACCEPTED'] },
-        },
-        select: { fromUserId: true, toUserId: true },
-      }),
-    ]);
-
-    const myFavIds = new Set(myFavorites.map(f => f.placeId));
-    const myCollIds = new Set(myCollItems.map(c => c.placeId));
-    const myCuisines = new Set(user.favoriteCuisines || []);
-    const excludedIds = new Set([
-      user.id,
-      ...existingRelations.flatMap(r => [r.fromUserId, r.toUserId]),
-    ]);
-
-    // Aday kullanıcılar
-    const candidates = await prisma.user.findMany({
-      where: { id: { notIn: [...excludedIds] }, role: 'USER', isSuspended: false, isPublic: true },
-      select: { id: true, displayName: true, photoUrl: true, city: true, favoriteCuisines: true, starCount: true },
-      take: 300,
-    });
-
-    if (candidates.length === 0) return res.json({ suggestions: [] });
-
-    const candidateIds = candidates.map(c => c.id);
-
-    // Adayların favori ve koleksiyon verilerini toplu çek
-    const [candFavs, candCollItems] = await Promise.all([
-      prisma.favorite.findMany({
-        where: { userId: { in: candidateIds } },
-        select: { userId: true, placeId: true },
-      }),
-      prisma.collectionItem.findMany({
-        where: { collection: { userId: { in: candidateIds } } },
-        select: { placeId: true, collection: { select: { userId: true } } },
-      }),
-    ]);
-
-    // userId → Set<placeId> map'leri
-    const favMap = new Map();
-    for (const f of candFavs) {
-      if (!favMap.has(f.userId)) favMap.set(f.userId, new Set());
-      favMap.get(f.userId).add(f.placeId);
+    let suggestions = await getCachedSuggestions(user.id);
+    if (!suggestions) {
+      suggestions = await computeSuggestionsForUser(user.id);
     }
-    const collMap = new Map();
-    for (const ci of candCollItems) {
-      const uid = ci.collection.userId;
-      if (!collMap.has(uid)) collMap.set(uid, new Set());
-      collMap.get(uid).add(ci.placeId);
-    }
-
-    const scored = candidates.map(c => {
-      let score = 0;
-      const reasons = [];
-
-      if (user.city && c.city && user.city.trim().toLowerCase() === c.city.trim().toLowerCase()) {
-        score += 30;
-        reasons.push('Aynı şehir');
-      }
-
-      const cFavs = favMap.get(c.id) || new Set();
-      const commonFavCount = [...myFavIds].filter(id => cFavs.has(id)).length;
-      score += Math.min(commonFavCount * 15, 60);
-      if (commonFavCount > 0) reasons.push(`${commonFavCount} ortak favori`);
-
-      const cColls = collMap.get(c.id) || new Set();
-      const commonCollCount = [...myCollIds].filter(id => cColls.has(id)).length;
-      score += Math.min(commonCollCount * 10, 40);
-      if (commonCollCount > 0) reasons.push(`${commonCollCount} ortak liste restoranı`);
-
-      const cCuisines = new Set(c.favoriteCuisines || []);
-      const commonCuisineCount = [...myCuisines].filter(cu => cCuisines.has(cu)).length;
-      score += Math.min(commonCuisineCount * 20, 60);
-      if (commonCuisineCount > 0) reasons.push(`${commonCuisineCount} ortak mutfak tercihi`);
-
-      return {
-        userId: c.id,
-        maskedName: maskName(c.displayName),
-        photoUrl: c.photoUrl,
-        city: c.city,
-        starCount: c.starCount,
-        ...getLevel(c.starCount),
-        matchScore: score,
-        matchReasons: reasons,
-        commonFavorites: commonFavCount,
-        commonCollections: commonCollCount,
-        commonCuisines: commonCuisineCount,
-      };
-    })
-      .filter(c => c.matchScore > 0)
-      .sort((a, b) => b.matchScore - a.matchScore)
-      .slice(0, 10);
 
     // Yüksek eşleşme için bildirim gönder (24 saatte bir, en fazla 1 bildirim)
-    if (scored.length > 0 && scored[0].matchScore >= 60) {
+    if (suggestions.length > 0 && suggestions[0].matchScore >= 60) {
       const recent = await prisma.notification.findFirst({
         where: { userId: user.id, type: 'FRIEND_SUGGESTION', createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
       });
       if (!recent) {
-        const top = scored[0];
+        const top = suggestions[0];
         createNotification(
           user.id,
           'FRIEND_SUGGESTION',
@@ -664,7 +571,7 @@ async function getFriendSuggestions(req, res, next) {
       }
     }
 
-    res.json({ suggestions: scored });
+    res.json({ suggestions });
   } catch (err) {
     next(err);
   }

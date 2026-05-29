@@ -534,10 +534,15 @@ export interface FriendSuggestion {
   badge: string;
   badgeIcon: string;
   matchScore: number;
+  matchPercent?: number;
   matchReasons: string[];
   commonFavorites: number;
   commonCollections: number;
   commonCuisines: number;
+  commonRecommendations?: number;
+  commonReservations?: number;
+  commonPolls?: number;
+  commonLikedTypes?: number;
 }
 
 export interface AppNotification {
