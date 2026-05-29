@@ -4,6 +4,8 @@ const { cacheGet, cacheSet } = require('./redis');
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const NEARBY_TTL = parseInt(process.env.REDIS_NEARBY_TTL || '3600');
 const DETAILS_TTL = parseInt(process.env.REDIS_PLACE_DETAILS_TTL || '86400');
+const TEXT_SEARCH_TTL = parseInt(process.env.REDIS_TEXT_SEARCH_TTL || '1800');
+const TEXT_SEARCH_BIAS_METERS = 25000;
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
@@ -95,6 +97,43 @@ async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
 
   const results = data.results || [];
   await cacheSet(cacheKey, results, NEARBY_TTL);
+  return results;
+}
+
+/**
+ * İsim/serbest metin araması — Google Places Text Search (Sprint-6 #82).
+ *
+ * "Tarihi yarımadada pizza" gibi sorgular için kullanılır. Lat/lng verilirse
+ * konum bias (25 km) uygulanır — sonuçlar bias dışına da çıkabilir, kullanıcı
+ * çok uzaktaki bilinen bir mekanı arayabilir. Kalite filtresi (rating + isim
+ * elemesi) controller katmanında uygulanır.
+ *
+ * Cache key: `placesText:{lower-q}:{lat3}:{lng3}` (lat/lng yoksa "x")
+ */
+async function searchPlacesByText(query, lat, lng) {
+  const q = String(query || '').trim().slice(0, 200);
+  if (!q) return [];
+
+  const latKey = typeof lat === 'number' ? lat.toFixed(3) : 'x';
+  const lngKey = typeof lng === 'number' ? lng.toFixed(3) : 'x';
+  const cacheKey = `placesText:${q.toLocaleLowerCase('tr-TR')}:${latKey}:${lngKey}`;
+  const cached = await cacheGet(cacheKey);
+  if (cached) return cached;
+
+  let url =
+    `https://maps.googleapis.com/maps/api/place/textsearch/json` +
+    `?query=${encodeURIComponent(q)}&language=tr&key=${API_KEY}`;
+  if (typeof lat === 'number' && typeof lng === 'number') {
+    url += `&location=${lat},${lng}&radius=${TEXT_SEARCH_BIAS_METERS}`;
+  }
+
+  const data = await fetchJson(url);
+  if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+    throw new Error(`Google Places Text Search error: ${data.status}`);
+  }
+
+  const results = data.results || [];
+  await cacheSet(cacheKey, results, TEXT_SEARCH_TTL);
   return results;
 }
 
@@ -393,6 +432,7 @@ function passesQualityFilter(place) {
 module.exports = {
   getNearbyRestaurants,
   getNearbyRestaurantsFast,
+  searchPlacesByText,
   getRouteWaypoints,
   getPlaceDetails,
   getPhotoUrl,
