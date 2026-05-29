@@ -286,6 +286,47 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set, get)
         });
         return;
       }
+      // Streaming genel bir hatayla başarısızsa (örn. bazı cihazlarda SSE sorunu),
+      // ilk çağrıda kanıtlanmış non-streaming endpoint'e düş — kullanıcı yine öneri görsün.
+      // (Refinement non-streaming'de yok; o yüzden yalnızca isRefinement=false.)
+      if (!isRefinement) {
+        try {
+          const result = await getDinnerRecommendation(lat, lng);
+          set({
+            streamingStatus: 'done',
+            loading: false,
+            refining: false,
+            recommendations: result.recommendations,
+            noteToUser: result.noteToUser,
+            tier: result.tier,
+            remainingToday: result.remainingToday,
+            resetAt: result.resetAt,
+            sessionId: null, // non-streaming sessionId döndürmez → refinement yeni oturum başlatır
+            error: null,
+            limitReached: false,
+            noCandidates: false,
+            abortController: null,
+          });
+          return;
+        } catch (fallbackErr) {
+          if (fallbackErr instanceof AiRecommendationLimitError) {
+            set({
+              streamingStatus: 'error', loading: false, limitReached: true,
+              remainingToday: 0, resetAt: fallbackErr.resetAt, tier: 'free',
+              error: fallbackErr.userMessage, abortController: null,
+            });
+            return;
+          }
+          if (fallbackErr instanceof AiRecommendationNoCandidatesError) {
+            set({
+              streamingStatus: 'error', loading: false, noCandidates: true,
+              error: fallbackErr.userMessage, abortController: null,
+            });
+            return;
+          }
+          // fallback da başarısız → generic hataya düş
+        }
+      }
       set({
         streamingStatus: 'error',
         loading: false,

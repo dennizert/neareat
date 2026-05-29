@@ -12,6 +12,7 @@
  * caller bunları `instanceof` ile yakalayabilir.
  */
 
+import { fetch as expoFetch } from 'expo/fetch';
 import { MOCK_MODE } from '../config';
 import api, { BASE_URL, getToken } from './api';
 import type {
@@ -213,7 +214,9 @@ export async function streamDinnerRecommendation(
   const token = await getToken();
   const url = `${BASE_URL}/recommendations/dinner-tonight/stream`;
 
-  const response = await fetch(url, {
+  // expo/fetch — React Native global fetch'i response.body streaming'i (getReader)
+  // DESTEKLEMEZ; SSE için Expo'nun WinterCG fetch'i kullanılmalı (Expo SDK 52).
+  const response = await expoFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
