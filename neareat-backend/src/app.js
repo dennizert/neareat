@@ -155,31 +155,36 @@ app.get('/reset-password', (req, res) => {
 
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`NearEat API → http://0.0.0.0:${PORT}  (ağdan: http://192.168.1.117:${PORT})`);
-  scheduleReservationReminders();
-  scheduleSmartNotifications();
-  scheduleFeedbackAggregation();
-  scheduleFriendSuggestions();
-});
-
-// Graceful shutdown — açık bağlantıları düzgün kapat
-function gracefulShutdown(signal) {
-  console.log(`${signal} received — shutting down gracefully`);
-  server.close(async () => {
-    try {
-      await prisma.$disconnect();
-      const redis = getRedis();
-      if (redis.status === 'ready') await redis.quit();
-    } catch { /* ignore */ }
-    console.log('Server closed');
-    process.exit(0);
+// Jest paralel worker'ları aynı app.js'i require ettiğinde port 3000 çakışmasın diye
+// (ve cron'lar test ortamında schedule olmasın diye) listen + shutdown'ı test modunda atla.
+// supertest, request(app) ile kendi geçici portunu açtığı için listen'a ihtiyaç duymaz.
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 3000;
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`NearEat API → http://0.0.0.0:${PORT}  (ağdan: http://192.168.1.117:${PORT})`);
+    scheduleReservationReminders();
+    scheduleSmartNotifications();
+    scheduleFeedbackAggregation();
+    scheduleFriendSuggestions();
   });
-  // 10 saniye içinde kapanmazsa zorla kapat
-  setTimeout(() => process.exit(1), 10000);
+
+  // Graceful shutdown — açık bağlantıları düzgün kapat
+  function gracefulShutdown(signal) {
+    console.log(`${signal} received — shutting down gracefully`);
+    server.close(async () => {
+      try {
+        await prisma.$disconnect();
+        const redis = getRedis();
+        if (redis.status === 'ready') await redis.quit();
+      } catch { /* ignore */ }
+      console.log('Server closed');
+      process.exit(0);
+    });
+    // 10 saniye içinde kapanmazsa zorla kapat
+    setTimeout(() => process.exit(1), 10000);
+  }
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 module.exports = app;
