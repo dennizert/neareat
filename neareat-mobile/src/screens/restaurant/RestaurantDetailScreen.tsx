@@ -260,12 +260,12 @@ export default function RestaurantDetailScreen() {
   async function handleSuggestPlace() {
     if (!detail) return;
     Alert.alert(
-      'Platforma Öner',
+      'Platforma Ekle',
       `"${detail.name}" mekanını NearEat'e eklenmesi için önermek ister misiniz?`,
       [
         { text: 'Vazgeç', style: 'cancel' },
         {
-          text: 'Öner',
+          text: 'Ekle',
           onPress: async () => {
             try {
               await submitPlaceRequest({
@@ -502,56 +502,76 @@ export default function RestaurantDetailScreen() {
             </View>
           </View>
 
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleDirections}>
-              <Text style={styles.actionBtnText}>🗺️ Yol Tarifi</Text>
+          {/* ─── Birincil eylemler: Yol Tarifi + Rezervasyon/Ara ─── */}
+          <View style={styles.primaryActions}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleDirections}>
+              <Text style={styles.primaryBtnIcon}>🗺️</Text>
+              <Text style={styles.primaryBtnText}>Yol Tarifi</Text>
             </TouchableOpacity>
-            {detail.formattedPhoneNumber && (
+            {detail.acceptsReservations && detail.restaurantId ? (
               <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)}
-              >
-                <Text style={styles.actionBtnText}>📞 Ara</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
-              <Text style={styles.actionBtnText}>📤 Paylaş</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.checkinBtn]} onPress={handleCheckin}>
-              <Text style={[styles.actionBtnText, styles.checkinBtnText]}>📍 Check-in</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.diaryBtn]} onPress={handleAddToDiary}>
-              <Text style={[styles.actionBtnText, styles.diaryBtnText]}>📖 Günlüğe</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.recommendBtn]} onPress={handleRecommend}>
-              <Text style={[styles.actionBtnText, styles.recommendBtnText]}>💌 Öner</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.collectionBtn]} onPress={handleOpenCollectionModal}>
-              <Text style={[styles.actionBtnText, styles.collectionBtnText]}>📋 Liste</Text>
-            </TouchableOpacity>
-            {!detail.restaurantId && (
-              <TouchableOpacity style={[styles.actionBtn, styles.suggestBtn]} onPress={handleSuggestPlace}>
-                <Text style={[styles.actionBtnText, styles.suggestBtnText]}>🏷️ Öner</Text>
-              </TouchableOpacity>
-            )}
-            {detail.acceptsReservations && detail.restaurantId && (
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.reservationBtn]}
+                style={[styles.primaryBtn, styles.primaryBtnAccent]}
                 onPress={() => navigation.navigate('MakeReservation', {
                   placeId: detail.placeId,
                   placeName: detail.name,
                   restaurantId: detail.restaurantId!,
                 })}
               >
-                <Text style={[styles.actionBtnText, styles.reservationBtnText]}>📅 Rezervasyon</Text>
+                <Text style={styles.primaryBtnIcon}>📅</Text>
+                <Text style={[styles.primaryBtnText, styles.primaryBtnAccentText]}>Rezervasyon</Text>
               </TouchableOpacity>
-            )}
-            {!detail.acceptsReservations && detail.reservationUrl && (
+            ) : !detail.acceptsReservations && detail.reservationUrl ? (
               <TouchableOpacity
-                style={[styles.actionBtn, styles.reservationBtn]}
+                style={[styles.primaryBtn, styles.primaryBtnAccent]}
                 onPress={() => Linking.openURL(detail.reservationUrl!)}
               >
-                <Text style={[styles.actionBtnText, styles.reservationBtnText]}>📅 Rezervasyon</Text>
+                <Text style={styles.primaryBtnIcon}>📅</Text>
+                <Text style={[styles.primaryBtnText, styles.primaryBtnAccentText]}>Rezervasyon</Text>
+              </TouchableOpacity>
+            ) : detail.formattedPhoneNumber ? (
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)}
+              >
+                <Text style={styles.primaryBtnIcon}>📞</Text>
+                <Text style={styles.primaryBtnText}>Ara</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {/* ─── İkincil eylemler: chip butonlar ─── */}
+          <View style={styles.chipRow}>
+            {/* Ara: Rezervasyon primary'deyse chip'te göster */}
+            {detail.formattedPhoneNumber && (detail.acceptsReservations || !!detail.reservationUrl) && (
+              <TouchableOpacity style={styles.chip} onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)}>
+                <Text style={styles.chipIcon}>📞</Text>
+                <Text style={styles.chipText}>Ara</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.chip} onPress={handleShare}>
+              <Text style={styles.chipIcon}>📤</Text>
+              <Text style={styles.chipText}>Paylaş</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.chip} onPress={handleCheckin}>
+              <Text style={styles.chipIcon}>📍</Text>
+              <Text style={styles.chipText}>Check-in</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.chip} onPress={handleAddToDiary}>
+              <Text style={styles.chipIcon}>📖</Text>
+              <Text style={styles.chipText}>Günlük</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.chip, styles.chipHighlight]} onPress={handleRecommend}>
+              <Text style={styles.chipIcon}>💌</Text>
+              <Text style={[styles.chipText, styles.chipHighlightText]}>Arkadaşa Öner</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.chip} onPress={handleOpenCollectionModal}>
+              <Text style={styles.chipIcon}>📋</Text>
+              <Text style={styles.chipText}>Listeye Ekle</Text>
+            </TouchableOpacity>
+            {!detail.restaurantId && (
+              <TouchableOpacity style={[styles.chip, styles.chipSuggest]} onPress={handleSuggestPlace}>
+                <Text style={styles.chipIcon}>🏷️</Text>
+                <Text style={[styles.chipText, styles.chipSuggestText]}>Platforma Ekle</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -872,17 +892,32 @@ function makeStyles(C: Colors) {
     quickRatingLabel: { fontSize: 13, color: C.warning, fontWeight: '600', marginBottom: 8 },
     quickStars: { flexDirection: 'row', gap: 8 },
     quickStar: { fontSize: 26 },
-    actionRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-    actionBtn: { flex: 1, backgroundColor: C.inputBg, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-    actionBtnText: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
-    recommendBtn: { backgroundColor: C.primaryLighter },
-    recommendBtnText: { color: C.primary },
-    collectionBtn: { backgroundColor: C.surfaceAlt },
-    collectionBtnText: { color: C.textSecondary },
-    checkinBtn: { backgroundColor: C.travel + '22' },
-    checkinBtnText: { color: C.travel },
-    diaryBtn: { backgroundColor: C.amberSurface },
-    diaryBtnText: { color: C.amber },
+    // ─── Birincil eylem butonları ───────────────────────────────
+    primaryActions: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+    primaryBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      backgroundColor: C.surface, borderRadius: 14, borderWidth: 1, borderColor: C.border,
+      paddingVertical: 14,
+      shadowColor: C.shadow, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    },
+    primaryBtnAccent: { backgroundColor: C.primary, borderColor: C.primary },
+    primaryBtnIcon: { fontSize: 18 },
+    primaryBtnText: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
+    primaryBtnAccentText: { color: '#fff' },
+    // ─── Chip butonlar ──────────────────────────────────────────
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+    chip: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: C.surface, borderRadius: 20,
+      borderWidth: 1, borderColor: C.border,
+      paddingHorizontal: 14, paddingVertical: 9,
+    },
+    chipIcon: { fontSize: 14 },
+    chipText: { fontSize: 13, fontWeight: '600', color: C.textSecondary },
+    chipHighlight: { backgroundColor: C.primaryLighter, borderColor: C.primary + '44' },
+    chipHighlightText: { color: C.primary },
+    chipSuggest: { backgroundColor: C.travelSurface, borderColor: C.travel + '44' },
+    chipSuggestText: { color: C.travel },
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
     hourLine: { fontSize: 13, color: C.textTertiary, marginBottom: 2 },
@@ -976,11 +1011,6 @@ function makeStyles(C: Colors) {
     discountBannerStar: { backgroundColor: C.amberSurface, borderLeftWidth: 3, borderLeftColor: C.amber },
     discountBannerText: { fontSize: 13, fontWeight: '700', color: C.textPrimary },
     discountBannerNote: { fontSize: 12, color: C.textTertiary, marginTop: 4 },
-    // Reservation button
-    reservationBtn: { backgroundColor: C.successSurface },
-    reservationBtnText: { color: C.success },
-    suggestBtn: { backgroundColor: C.travelSurface },
-    suggestBtnText: { color: C.travel },
     // Review reply — restoran sahibi yanıtı (nötr, brand rengi kullanma)
     replyBox: {
       backgroundColor: C.surfaceAlt, borderRadius: 8, padding: 10, marginTop: 8,

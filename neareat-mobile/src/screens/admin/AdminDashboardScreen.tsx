@@ -5,12 +5,13 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
-import { getPlatformStats, getPendingRestaurants, getReports, handleReport, suspendUser, runFriendSuggestionsJob } from '../../services/admin';
+import { getPlatformStats, getPendingRestaurants, getReports, handleReport, suspendUser, runFriendSuggestionsJob, getPlaceRequests, reviewPlaceRequest } from '../../services/admin';
+import type { AdminPlaceRequest } from '../../services/admin';
 import type { AdminStats, AdminRestaurantSummary, UserReport } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
-type Tab = 'pending' | 'approved' | 'rejected' | 'reports' | 'stats';
+type Tab = 'pending' | 'approved' | 'rejected' | 'reports' | 'place_requests' | 'stats';
 
 export default function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
@@ -22,6 +23,9 @@ export default function AdminDashboardScreen() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [restaurants, setRestaurants] = useState<AdminRestaurantSummary[]>([]);
   const [reports, setReports] = useState<UserReport[]>([]);
+  const [placeRequests, setPlaceRequests] = useState<AdminPlaceRequest[]>([]);
+  const [placeRequestsTotal, setPlaceRequestsTotal] = useState(0);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -40,6 +44,11 @@ export default function AdminDashboardScreen() {
         const [s, r] = await Promise.all([getPlatformStats(), getReports('PENDING')]);
         setStats(s);
         setReports(r.reports);
+      } else if (tab === 'place_requests') {
+        const [s, r] = await Promise.all([getPlatformStats(), getPlaceRequests()]);
+        setStats(s);
+        setPlaceRequests(r.requests);
+        setPlaceRequestsTotal(r.total);
       } else if (tab !== 'stats') {
         const [s, r] = await Promise.all([
           getPlatformStats(),
@@ -54,6 +63,18 @@ export default function AdminDashboardScreen() {
     } catch { } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  }
+
+  async function doReviewPlaceRequest(id: string) {
+    setReviewingId(id);
+    try {
+      const updated = await reviewPlaceRequest(id);
+      setPlaceRequests(prev => prev.map(r => r.id === id ? updated : r));
+    } catch {
+      Alert.alert('Hata', 'İşlem gerçekleştirilemedi.');
+    } finally {
+      setReviewingId(null);
     }
   }
 
@@ -114,7 +135,7 @@ export default function AdminDashboardScreen() {
 
       {/* Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabRow}>
-        {(['pending', 'approved', 'rejected', 'reports', 'stats'] as Tab[]).map(t => (
+        {(['pending', 'approved', 'rejected', 'reports', 'place_requests', 'stats'] as Tab[]).map(t => (
           <TouchableOpacity
             key={t}
             style={[styles.tab, tab === t && styles.tabActive]}
@@ -125,6 +146,7 @@ export default function AdminDashboardScreen() {
                t === 'approved' ? 'Onaylılar' :
                t === 'rejected' ? 'Reddedilenler' :
                t === 'reports' ? `Şikayetler${reports.length > 0 ? ` (${reports.length})` : ''}` :
+               t === 'place_requests' ? `Mekan Talepleri${placeRequestsTotal > 0 ? ` (${placeRequestsTotal})` : ''}` :
                'İstatistikler'}
             </Text>
           </TouchableOpacity>
@@ -164,6 +186,56 @@ export default function AdminDashboardScreen() {
               <Text style={styles.cardPhone} numberOfLines={2}>{item.reason}</Text>
               <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleDateString('tr-TR')}</Text>
             </TouchableOpacity>
+          )}
+        />
+      )}
+
+      {tab === 'place_requests' && (
+        <FlatList
+          data={placeRequests}
+          keyExtractor={r => r.id}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>Mekan talebi yok.</Text>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <View style={styles.cardTop}>
+                <Text style={styles.cardName} numberOfLines={1}>{item.placeName}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: item.status === 'REVIEWED' ? C.successSurface : C.warningSurface }]}>
+                  <Text style={[styles.statusBadgeText, { color: item.status === 'REVIEWED' ? C.success : C.warning }]}>
+                    {item.status === 'REVIEWED' ? 'İncelendi' : 'Bekliyor'}
+                  </Text>
+                </View>
+              </View>
+              {item.placeAddress ? (
+                <Text style={styles.cardOwner} numberOfLines={1}>{item.placeAddress}</Text>
+              ) : null}
+              <Text style={styles.cardOwner}>
+                Gönderen: <Text style={{ fontWeight: '700' }}>{item.user.displayName}</Text>
+                {'  ·  '}{item.user.email}
+              </Text>
+              {item.note ? (
+                <Text style={styles.cardPhone} numberOfLines={2}>Not: {item.note}</Text>
+              ) : null}
+              <View style={styles.prCardFooter}>
+                <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleDateString('tr-TR')}</Text>
+                {item.status === 'PENDING' && (
+                  <TouchableOpacity
+                    style={[styles.prReviewBtn, reviewingId === item.id && styles.jobBtnDisabled]}
+                    onPress={() => doReviewPlaceRequest(item.id)}
+                    disabled={reviewingId === item.id}
+                  >
+                    {reviewingId === item.id
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.prReviewBtnText}>İncelendi</Text>}
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
           )}
         />
       )}
@@ -365,6 +437,9 @@ function makeStyles(C: Colors) {
     jobBtn: { backgroundColor: C.primary, borderRadius: 10, paddingHorizontal: 18, paddingVertical: 10, minWidth: 84, alignItems: 'center' },
     jobBtnDisabled: { opacity: 0.6 },
     jobBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+    prCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+    prReviewBtn: { backgroundColor: C.success, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, minWidth: 80, alignItems: 'center' },
+    prReviewBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
     // Modal
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
     modalBox: { backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 },

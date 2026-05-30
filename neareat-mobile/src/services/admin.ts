@@ -197,3 +197,24 @@ export async function runFriendSuggestionsJob(): Promise<{ processed: number; st
   const { data } = await api.post('/admin/jobs/friend-suggestions/run');
   return data;
 }
+
+export interface AdminPlaceRequest {
+  id: string;
+  placeId: string;
+  placeName: string;
+  placeAddress: string | null;
+  note: string | null;
+  status: 'PENDING' | 'REVIEWED';
+  createdAt: string;
+  user: { id: string; displayName: string; email: string };
+}
+
+export async function getPlaceRequests(status?: string, page = 1): Promise<{ requests: AdminPlaceRequest[]; total: number; page: number; pages: number }> {
+  const { data } = await api.get('/admin/place-requests', { params: { status, page } });
+  return data;
+}
+
+export async function reviewPlaceRequest(id: string): Promise<AdminPlaceRequest> {
+  const { data } = await api.patch(`/admin/place-requests/${id}/review`);
+  return data;
+}
