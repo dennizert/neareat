@@ -16,6 +16,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Restaurant, SortOption, FilterState } from '../types';
 import { searchPlaces } from '../services/restaurants';
+import {
+  getSearchHistory as fetchSearchHistory,
+  clearSearchHistory as clearSearchHistoryApi,
+  deleteSearchHistoryItem as deleteSearchHistoryItemApi,
+  type SearchHistoryItem,
+} from '../services/searchHistory';
 
 interface RestaurantState {
   restaurants: Restaurant[];
@@ -32,6 +38,10 @@ interface RestaurantState {
   searchLoading: boolean;
   searchError: string | null;
 
+  // Sprint-6 #88 — son aramalar
+  searchHistory: SearchHistoryItem[];
+  searchHistoryLoading: boolean;
+
   setRestaurants: (restaurants: Restaurant[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -44,6 +54,10 @@ interface RestaurantState {
   setSearchQuery: (q: string) => void;
   performSearch: (q: string, lat?: number, lng?: number) => Promise<void>;
   clearSearch: () => void;
+
+  loadSearchHistory: () => Promise<void>;
+  clearSearchHistory: () => Promise<number>;
+  deleteSearchHistoryItem: (id: string) => Promise<void>;
 }
 
 /** Varsayılan filtre değerleri — hiçbir filtre uygulanmamış durumu temsil eder */
@@ -66,6 +80,9 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
   searchResults: [],
   searchLoading: false,
   searchError: null,
+
+  searchHistory: [],
+  searchHistoryLoading: false,
 
   /** Backend'den gelen restoran listesini store'a yazar */
   setRestaurants:      (restaurants)    => set({ restaurants }),
@@ -145,6 +162,35 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
   },
 
   clearSearch: () => set({ searchQuery: '', searchResults: [], searchLoading: false, searchError: null }),
+
+  loadSearchHistory: async () => {
+    if (get().searchHistoryLoading) return;
+    set({ searchHistoryLoading: true });
+    try {
+      const items = await fetchSearchHistory();
+      set({ searchHistory: items, searchHistoryLoading: false });
+    } catch {
+      set({ searchHistoryLoading: false });
+    }
+  },
+
+  clearSearchHistory: async () => {
+    const deleted = await clearSearchHistoryApi();
+    set({ searchHistory: [] });
+    return deleted;
+  },
+
+  deleteSearchHistoryItem: async (id) => {
+    // Optimistic: önce kaldır, hata olursa geri yükle
+    const prev = get().searchHistory;
+    set({ searchHistory: prev.filter((h) => h.id !== id) });
+    try {
+      await deleteSearchHistoryItemApi(id);
+    } catch (err) {
+      set({ searchHistory: prev });
+      throw err;
+    }
+  },
 }), {
   name: 'neareat-restaurant-filters',
   storage: createJSONStorage(() => AsyncStorage),
