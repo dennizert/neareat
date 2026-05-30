@@ -233,6 +233,20 @@ async function updateReservation(req, res, next) {
       return res.status(400).json({ error: 'Bu rezervasyon artık güncellenemez.' });
     }
 
+    // Yeni saat dilimi için kapasite kontrolü
+    const restaurantProfile = await prisma.restaurantProfile.findUnique({
+      where: { id: old.restaurantId },
+      select: { tableCount: true },
+    });
+    if (restaurantProfile?.tableCount) {
+      const slotCount = await prisma.reservation.count({
+        where: { placeId: old.placeId, date, time, status: { in: ['PENDING', 'CONFIRMED'] } },
+      });
+      if (slotCount >= restaurantProfile.tableCount) {
+        return res.status(409).json({ error: 'Bu saat dilimi dolu. Lütfen başka bir saat seçin.' });
+      }
+    }
+
     const [, newReservation] = await prisma.$transaction([
       prisma.reservation.update({ where: { id }, data: { status: 'CANCELLED' } }),
       prisma.reservation.create({

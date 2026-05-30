@@ -1,11 +1,12 @@
 'use strict';
 
 jest.mock('../../src/utils/prisma', () => ({
-  restaurantProfile: { findFirst: jest.fn(), update: jest.fn() },
-  reservation: { findFirst: jest.fn(), create: jest.fn(), count: jest.fn() },
+  restaurantProfile: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+  reservation: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn() },
   user: { findUnique: jest.fn() },
   starEvent: { create: jest.fn() },
   notification: { create: jest.fn() },
+  $transaction: jest.fn(),
 }));
 
 jest.mock('../../src/services/firebase', () => ({
@@ -141,5 +142,61 @@ describe('PUT /api/restaurant-account/info — tableCount güncelleme', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ tableCount: 501 });
     expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// fix/#161 — PUT /api/reservations/:id yeni slot kapasite kontrolü
+// ─────────────────────────────────────────────────────────────────────────────
+describe('PUT /api/reservations/:id — güncelleme sırasında kapasite kontrolü', () => {
+  const existingReservation = {
+    id: 'res-1', userId: 'u-1', restaurantId: 'r-1', placeId: 'place-1',
+    placeName: 'Test', date: '2026-12-01', time: '19:00', guestCount: 2,
+    status: 'PENDING',
+    restaurant: { userId: 'owner-1', businessName: 'Test' },
+  };
+  const newReservation = {
+    id: 'res-2', userId: 'u-1', restaurantId: 'r-1', placeId: 'place-1',
+    placeName: 'Test', date: '2026-12-02', time: '20:00', guestCount: 2,
+    status: 'PENDING',
+    restaurant: { userId: 'owner-1', businessName: 'Test' },
+    user: { id: 'u-1', displayName: 'User', photoUrl: null },
+  };
+
+  beforeEach(() => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'u-1', role: 'USER', isSuspended: false });
+    prisma.reservation.findUnique.mockResolvedValue(existingReservation);
+    prisma.restaurantProfile.findUnique.mockResolvedValue({ id: 'r-1', tableCount: 2 });
+    prisma.reservation.count.mockResolvedValue(0);
+    prisma.$transaction.mockResolvedValue([{ ...existingReservation, status: 'CANCELLED' }, newReservation]);
+  });
+
+  it('yeni slot doluysa 409 döner', async () => {
+    prisma.reservation.count.mockResolvedValue(2); // tableCount=2, dolu
+    const res = await request(app)
+      .put('/api/reservations/res-1')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ date: '2026-12-02', time: '20:00', guestCount: 2 });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/dolu/);
+  });
+
+  it('yeni slot dolmamışsa güncelleme başarılı 201', async () => {
+    prisma.reservation.count.mockResolvedValue(1); // 1/2 → yer var
+    const res = await request(app)
+      .put('/api/reservations/res-1')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ date: '2026-12-02', time: '20:00', guestCount: 2 });
+    expect(res.status).toBe(201);
+  });
+
+  it('tableCount=null ise kapasite kontrolü atlanır', async () => {
+    prisma.restaurantProfile.findUnique.mockResolvedValue({ id: 'r-1', tableCount: null });
+    const res = await request(app)
+      .put('/api/reservations/res-1')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ date: '2026-12-02', time: '20:00', guestCount: 2 });
+    expect(res.status).toBe(201);
+    expect(prisma.reservation.count).not.toHaveBeenCalled();
   });
 });
