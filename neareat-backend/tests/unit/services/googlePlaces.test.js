@@ -71,6 +71,21 @@ describe('isExcludedByName', () => {
     'Lezzet Şarküteri',
     'Çerez Kuruyemiş',
     'Yeni Tekel',
+    // Grup D — otomotiv / teknik
+    'Oto Tamiri',
+    'Bozkurt Otomotiv',
+    'Egzoz Merkezi',
+    'Makine Mekanik',
+    'Yiğit Elektrik',
+    'Klima İklimlendirme',
+    'Bilge Mühendislik',
+    // Grup E — güzellik / eğlence / ticaret
+    'Relax Spa',
+    'Venue Club',
+    'Aktif Pazarlama',
+    'Doğa Kamping',
+    'Lüks Halı',
+    'PetShop Store',
   ])('istenmeyen ismi eler: %s', (name) => {
     expect(isExcludedByName(name)).toBe(true);
   });
@@ -90,6 +105,9 @@ describe('isExcludedByName', () => {
     'Beer Bar',           // "bar" eklenmedi → elenmez
     'Antep Kebap Salonu', // bare "salon" kaldırıldı → yemek bağlamı korunur
     'Çay Salonu',         // aynı — Türkçe'de yemek mekanı için yaygın
+    'Otobüs Terminali Lokantası', // oto+b (ünsüz) → elenmez
+    'Haliç Panorama Restaurant',  // halic → hali+c (ünsüz) → elenmez
+    'Otopark Restoranı',          // oto+p (ünsüz) → elenmez
   ])('normal restoranı elemez: %s', (name) => {
     expect(isExcludedByName(name)).toBe(false);
   });

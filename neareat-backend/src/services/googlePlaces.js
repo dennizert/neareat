@@ -116,13 +116,13 @@ async function searchPlacesByText(query, lat, lng) {
 
   const latKey = typeof lat === 'number' ? lat.toFixed(3) : 'x';
   const lngKey = typeof lng === 'number' ? lng.toFixed(3) : 'x';
-  const cacheKey = `placesText:${q.toLocaleLowerCase('tr-TR')}:${latKey}:${lngKey}`;
+  const cacheKey = `placesTextV2:${q.toLocaleLowerCase('tr-TR')}:${latKey}:${lngKey}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
   let url =
     `https://maps.googleapis.com/maps/api/place/textsearch/json` +
-    `?query=${encodeURIComponent(q)}&language=tr&key=${API_KEY}`;
+    `?query=${encodeURIComponent(q)}&type=restaurant&language=tr&key=${API_KEY}`;
   if (typeof lat === 'number' && typeof lng === 'number') {
     url += `&location=${lat},${lng}&radius=${TEXT_SEARCH_BIAS_METERS}`;
   }
@@ -395,6 +395,13 @@ const EXCLUDED_NAME_KEYWORDS = [
   'sarkuteri', 'delicatessen',
   'kuruyemis', 'kuru yemis',
   'tekel', 'icki', 'liquor',
+
+  // ─── Grup D: otomotiv / teknik servis ───
+  // 'oto': oto+ünsüz ("otobus","otopark","otomatik") yakalamaz; "Oto Tamir/Servis" vs gibi kalıpları yakalar
+  'oto', 'otomotiv', 'egzoz', 'mekanik', 'elektrik', 'iklimlendirme', 'muhendislik',
+
+  // ─── Grup E: güzellik / eğlence / ticaret ───
+  'spa', 'club', 'pazarlama', 'kamping', 'hali', 'petshop',
 ];
 
 function normalizeName(s) {
