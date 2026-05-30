@@ -21,6 +21,7 @@ import NotificationBell from '../components/NotificationBell';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 import { useThemeStore } from '../store/themeStore';
+import { useRestaurantStore } from '../store/restaurantStore';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
@@ -111,6 +112,27 @@ export default function ProfileScreen() {
     clearFriends();
     clearRecs();
     setFavorites([]);
+  }
+
+  async function handleClearSearchHistory() {
+    Alert.alert(
+      'Arama Geçmişini Sil',
+      'Tüm arama geçmişiniz silinecek. AI önerileri de bu sinyali kullanmayacak. Devam edilsin mi?',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sil', style: 'destructive',
+          onPress: async () => {
+            try {
+              const deleted = await useRestaurantStore.getState().clearSearchHistory();
+              Alert.alert('Silindi', `${deleted} kayıt silindi.`);
+            } catch {
+              Alert.alert('Hata', 'Geçmiş silinemedi.');
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function handleDeleteAccount() {
@@ -347,6 +369,7 @@ export default function ProfileScreen() {
           />
         </View>
 
+        <ActionRow label="Arama Geçmişini Sil" onPress={handleClearSearchHistory} styles={styles} />
         <ActionRow label="Çıkış Yap" onPress={handleSignOut} styles={styles} />
         <ActionRow label="Hesabı Sil" onPress={handleDeleteAccount} danger styles={styles} />
       </View>

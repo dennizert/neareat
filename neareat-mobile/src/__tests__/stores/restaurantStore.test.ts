@@ -10,12 +10,22 @@ jest.mock('../../services/restaurants', () => {
   return { ...actual, searchPlaces: jest.fn() };
 });
 
+jest.mock('../../services/searchHistory', () => ({
+  getSearchHistory: jest.fn(),
+  clearSearchHistory: jest.fn(),
+  deleteSearchHistoryItem: jest.fn(),
+}));
+
 import { useRestaurantStore } from '../../store/restaurantStore';
 import { searchPlaces } from '../../services/restaurants';
+import * as historyService from '../../services/searchHistory';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Restaurant } from '../../types';
 
 const mockedSearch = searchPlaces as jest.MockedFunction<typeof searchPlaces>;
+const mockedGetHistory = historyService.getSearchHistory as jest.MockedFunction<typeof historyService.getSearchHistory>;
+const mockedClearHistory = historyService.clearSearchHistory as jest.MockedFunction<typeof historyService.clearSearchHistory>;
+const mockedDeleteHistoryItem = historyService.deleteSearchHistoryItem as jest.MockedFunction<typeof historyService.deleteSearchHistoryItem>;
 
 const INITIAL_STATE = {
   restaurants: [],
@@ -29,6 +39,8 @@ const INITIAL_STATE = {
   searchResults: [],
   searchLoading: false,
   searchError: null,
+  searchHistory: [] as historyService.SearchHistoryItem[],
+  searchHistoryLoading: false,
 };
 
 const sampleRestaurant: Restaurant = {
@@ -118,6 +130,50 @@ describe('restaurantStore — search', () => {
     expect(parsed.state.selectedCategory).toBe('cafe');
     expect(parsed.state.restaurants).toBeUndefined();
     expect(parsed.state.searchResults).toBeUndefined();
+  });
+
+  describe('search history (S6-7)', () => {
+    it('loadSearchHistory backend\'den listeyi alır', async () => {
+      const items: historyService.SearchHistoryItem[] = [
+        { id: 'h1', query: 'kebap', type: 'free_text', createdAt: '2026-05-30T10:00:00Z' },
+      ];
+      mockedGetHistory.mockResolvedValueOnce(items);
+      await useRestaurantStore.getState().loadSearchHistory();
+      expect(useRestaurantStore.getState().searchHistory).toEqual(items);
+      expect(useRestaurantStore.getState().searchHistoryLoading).toBe(false);
+    });
+
+    it('clearSearchHistory store\'u boşaltır ve silinen sayısını döner', async () => {
+      useRestaurantStore.setState({
+        searchHistory: [{ id: 'h1', query: 'pizza', type: 'free_text', createdAt: '2026-05-30T10:00:00Z' }],
+      });
+      mockedClearHistory.mockResolvedValueOnce(3);
+      const deleted = await useRestaurantStore.getState().clearSearchHistory();
+      expect(deleted).toBe(3);
+      expect(useRestaurantStore.getState().searchHistory).toEqual([]);
+    });
+
+    it('deleteSearchHistoryItem optimistic — başarılı', async () => {
+      const items: historyService.SearchHistoryItem[] = [
+        { id: 'h1', query: 'kebap', type: 'free_text', createdAt: '2026-05-30T10:00:00Z' },
+        { id: 'h2', query: 'pizza', type: 'free_text', createdAt: '2026-05-30T09:00:00Z' },
+      ];
+      useRestaurantStore.setState({ searchHistory: items });
+      mockedDeleteHistoryItem.mockResolvedValueOnce(undefined);
+      await useRestaurantStore.getState().deleteSearchHistoryItem('h1');
+      expect(useRestaurantStore.getState().searchHistory).toHaveLength(1);
+      expect(useRestaurantStore.getState().searchHistory[0].id).toBe('h2');
+    });
+
+    it('deleteSearchHistoryItem hata olursa eski listeye döner', async () => {
+      const items: historyService.SearchHistoryItem[] = [
+        { id: 'h1', query: 'kebap', type: 'free_text', createdAt: '2026-05-30T10:00:00Z' },
+      ];
+      useRestaurantStore.setState({ searchHistory: items });
+      mockedDeleteHistoryItem.mockRejectedValueOnce(new Error('500'));
+      await expect(useRestaurantStore.getState().deleteSearchHistoryItem('h1')).rejects.toThrow();
+      expect(useRestaurantStore.getState().searchHistory).toEqual(items);
+    });
   });
 
   it('clearSearch tüm arama state\'ini temizler', () => {

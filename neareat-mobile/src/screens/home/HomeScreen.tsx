@@ -31,7 +31,10 @@ export default function HomeScreen() {
     getSortedFiltered, selectedCategory, setSelectedCategory,
     searchQuery, searchResults, searchLoading, searchError,
     setSearchQuery, performSearch, clearSearch,
+    searchHistory, loadSearchHistory, deleteSearchHistoryItem,
   } = useRestaurantStore();
+
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | undefined>();
   const [refreshing, setRefreshing] = useState(false);
@@ -156,6 +159,8 @@ export default function HomeScreen() {
             placeholderTextColor={C.textMuted}
             value={searchQuery}
             onChangeText={onSearchChange}
+            onFocus={() => { setSearchFocused(true); loadSearchHistory(); }}
+            onBlur={() => setSearchFocused(false)}
             returnKeyType="search"
             autoCorrect={false}
             autoCapitalize="none"
@@ -165,6 +170,35 @@ export default function HomeScreen() {
               <Text style={styles.searchClearText}>✕</Text>
             </TouchableOpacity>
           )}
+        </View>
+      )}
+
+      {/* Son aramalar dropdown'u (S6-7) */}
+      {viewMode === 'list' && searchFocused && searchQuery.trim().length < 2 && searchHistory.length > 0 && (
+        <View style={styles.historyBox}>
+          <Text style={styles.historyTitle}>Son Aramalar</Text>
+          {searchHistory.slice(0, 8).map((item) => (
+            <View key={item.id} style={styles.historyRow}>
+              <TouchableOpacity
+                style={styles.historyTap}
+                onPress={() => {
+                  setSearchQuery(item.query);
+                  performSearch(item.query, coordsRef.current?.lat, coordsRef.current?.lng);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.historyIcon}>🕘</Text>
+                <Text style={styles.historyText} numberOfLines={1}>{item.query}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => deleteSearchHistoryItem(item.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.historyDelete}
+              >
+                <Text style={styles.historyDeleteText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
         </View>
       )}
 
@@ -362,5 +396,21 @@ function makeStyles(C: Colors) {
       marginLeft: 6,
     },
     searchClearText: { fontSize: 12, color: '#fff', fontWeight: '700' },
+
+    historyBox: {
+      backgroundColor: C.surface, marginHorizontal: 16, marginTop: 4,
+      borderRadius: 12, paddingVertical: 6, paddingHorizontal: 4,
+      borderWidth: 1, borderColor: C.separator,
+    },
+    historyTitle: {
+      fontSize: 11, color: C.textMuted, fontWeight: '700', textTransform: 'uppercase',
+      paddingHorizontal: 10, paddingTop: 4, paddingBottom: 6, letterSpacing: 0.5,
+    },
+    historyRow: { flexDirection: 'row', alignItems: 'center' },
+    historyTap: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8 },
+    historyIcon: { fontSize: 13, marginRight: 8, color: C.textMuted },
+    historyText: { fontSize: 14, color: C.textPrimary, flex: 1 },
+    historyDelete: { paddingHorizontal: 10, paddingVertical: 6 },
+    historyDeleteText: { fontSize: 12, color: C.textMuted, fontWeight: '700' },
   });
 }
