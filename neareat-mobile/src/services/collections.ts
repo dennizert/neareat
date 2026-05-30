@@ -31,8 +31,10 @@ export async function getSharedWithMe(): Promise<SharedCollection[]> {
  * @param id - Koleksiyon ID'si
  * @returns Koleksiyon detayı ve içindeki restoranlar
  */
-export async function getCollection(id: string): Promise<Collection> {
-  const { data } = await api.get(`/collections/${id}`);
+export type CollectionSortBy = 'addedAt_desc' | 'addedAt_asc' | 'rating';
+
+export async function getCollection(id: string, sortBy?: CollectionSortBy): Promise<Collection> {
+  const { data } = await api.get(`/collections/${id}`, sortBy ? { params: { sortBy } } : undefined);
   return data;
 }
 

@@ -66,13 +66,22 @@ async function listSharedWithMe(req, res, next) {
 // ─── Tekil Koleksiyon ────────────────────────────────────────────────────────
 
 // GET /api/collections/:id
+const VALID_SORT = {
+  addedAt_desc: { addedAt: 'desc' },
+  addedAt_asc:  { addedAt: 'asc' },
+  rating:       { placeRating: 'desc' },
+};
+
 async function getCollection(req, res, next) {
   try {
+    const sortKey = req.query.sortBy;
+    const orderBy = VALID_SORT[sortKey] ?? { addedAt: 'desc' };
+
     const col = await prisma.collection.findUnique({
       where: { id: req.params.id },
       include: {
         user: { select: { id: true, displayName: true, photoUrl: true } },
-        items: { orderBy: { addedAt: 'desc' } },
+        items: { orderBy },
         shares: {
           include: {
             sharedWith: { select: { id: true, displayName: true, photoUrl: true } },
@@ -191,6 +200,10 @@ async function addItem(req, res, next) {
       return res.status(400).json({ error: 'placeId ve placeName zorunludur.' });
     }
 
+    const existing = await prisma.collectionItem.findUnique({
+      where: { collectionId_placeId: { collectionId: req.params.id, placeId } },
+    });
+
     const item = await prisma.collectionItem.upsert({
       where: { collectionId_placeId: { collectionId: req.params.id, placeId } },
       update: { note: note?.trim().slice(0, 200) ?? null },
@@ -211,7 +224,7 @@ async function addItem(req, res, next) {
       data: { updatedAt: new Date() },
     });
 
-    res.status(201).json(item);
+    res.status(existing ? 200 : 201).json(item);
   } catch (err) {
     next(err);
   }
