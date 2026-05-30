@@ -4,7 +4,7 @@ import {
   ActivityIndicator, Alert, Image, Modal,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { getCollection, removeFromCollection, shareCollection, unshareCollection } from '../../services/collections';
+import { getCollection, removeFromCollection, shareCollection, unshareCollection, type CollectionSortBy } from '../../services/collections';
 import { useFriendStore } from '../../store/friendStore';
 import { getFriends } from '../../services/social';
 import type { Collection, CollectionItem } from '../../types';
@@ -20,14 +20,15 @@ export default function CollectionDetailScreen() {
 
   const [collection, setCollection] = useState<Collection | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<CollectionSortBy>('addedAt_desc');
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [loadingFriends, setLoadingFriends] = useState(false);
 
   const { friends, setFriends } = useFriendStore();
 
-  async function load() {
+  async function load(sort: CollectionSortBy = sortBy) {
     try {
-      const col = await getCollection(collectionId);
+      const col = await getCollection(collectionId, sort);
       setCollection(col);
       navigation.setOptions({ title: col.name });
     } catch (err: any) {
@@ -39,6 +40,11 @@ export default function CollectionDetailScreen() {
   }
 
   useEffect(() => { load(); }, [collectionId]);
+
+  function handleSortChange(s: CollectionSortBy) {
+    setSortBy(s);
+    load(s);
+  }
 
   async function handleRemoveItem(item: CollectionItem) {
     Alert.alert('Kaldır', `"${item.placeName}" listeden kaldırılsın mı?`, [
@@ -168,6 +174,27 @@ export default function CollectionDetailScreen() {
         )}
       </View>
 
+      {/* Sıralama chip'leri */}
+      {(collection.items?.length ?? 0) > 1 && (
+        <View style={styles.sortRow}>
+          {([
+            { key: 'addedAt_desc', label: 'En Yeni' },
+            { key: 'addedAt_asc',  label: 'En Eski' },
+            { key: 'rating',       label: 'En Yüksek Puan' },
+          ] as { key: CollectionSortBy; label: string }[]).map((opt) => (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.sortChip, sortBy === opt.key && styles.sortChipActive]}
+              onPress={() => handleSortChange(opt.key)}
+            >
+              <Text style={[styles.sortChipText, sortBy === opt.key && styles.sortChipTextActive]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       {/* Paylaşılan kişiler */}
       {collection.isOwner && (collection.sharedWith?.length ?? 0) > 0 && (
         <View style={styles.sharedWithRow}>
@@ -274,6 +301,17 @@ function makeStyles(C: Colors) {
       fontSize: 12, color: C.textPrimary, backgroundColor: C.surface,
       borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginRight: 6, marginBottom: 2,
     },
+    sortRow: {
+      flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingVertical: 8,
+      backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.separator,
+    },
+    sortChip: {
+      paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14,
+      borderWidth: 1, borderColor: C.border, backgroundColor: C.background,
+    },
+    sortChipActive: { backgroundColor: C.primaryLight, borderColor: C.primary },
+    sortChipText: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
+    sortChipTextActive: { color: C.primary },
     list: { padding: 16, flexGrow: 1 },
     itemCard: {
       flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface,
