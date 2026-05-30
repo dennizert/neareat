@@ -13,6 +13,7 @@ router.get('/:id', ctrl.getGroup);
 router.post('/:id/respond', ctrl.respondToInvite);
 router.post('/:id/members', ctrl.addMembers);
 router.post('/:id/polls', ctrl.createPoll);
+router.post('/:id/quick-poll', ctrl.quickPoll);
 router.post('/:groupId/polls/:pollId/vote', ctrl.vote);
 router.post('/:groupId/polls/:pollId/close', ctrl.closePoll);
 

@@ -6,10 +6,11 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import type { MealGroup, RestaurantPoll, PollOption, PollVoteValue, Favorite, Friend } from '../../types';
-import { getMealGroup, createPoll, votePoll, closePoll, addMealGroupMembers } from '../../services/mealGroups';
+import { getMealGroup, createPoll, votePoll, closePoll, addMealGroupMembers, createQuickPoll } from '../../services/mealGroups';
 import { getFriends } from '../../services/social';
 import { useAuthStore } from '../../store/authStore';
 import api from '../../services/api';
@@ -154,6 +155,8 @@ export default function MealGroupDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [quickPollLoading, setQuickPollLoading] = useState(false);
+
   // Modal: anket oluştur
   const [createPollVisible, setCreatePollVisible] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
@@ -274,6 +277,25 @@ export default function MealGroupDetailScreen() {
     }
   }
 
+  async function handleQuickPoll() {
+    setQuickPollLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Konum İzni', 'Yakın restoranları görmek için konum iznine ihtiyaç var.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await createQuickPoll(groupId, { lat: loc.coords.latitude, lng: loc.coords.longitude });
+      await load();
+    } catch (err: any) {
+      const msg = err.response?.data?.error || 'Hızlı anket oluşturulamadı.';
+      Alert.alert('Hata', msg);
+    } finally {
+      setQuickPollLoading(false);
+    }
+  }
+
   async function handleVote(poll: RestaurantPoll, optionId: string, voteVal: PollVoteValue) {
     try {
       await votePoll(groupId, poll.id, optionId, voteVal);
@@ -384,9 +406,23 @@ export default function MealGroupDetailScreen() {
         ) : (
           isMember && (
             <View style={styles.section}>
+              <TouchableOpacity
+                style={[styles.quickPollBtn, quickPollLoading && styles.quickPollBtnDisabled]}
+                onPress={handleQuickPoll}
+                disabled={quickPollLoading}
+              >
+                {quickPollLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="location-outline" size={20} color="#fff" />
+                    <Text style={styles.quickPollBtnText}>Şu an nereye? ⚡</Text>
+                  </>
+                )}
+              </TouchableOpacity>
               <TouchableOpacity style={styles.createPollBtn} onPress={openCreatePoll}>
-                <Ionicons name="bar-chart-outline" size={22} color={C.primary} />
-                <Text style={styles.createPollBtnText}>Restoran Anketi Başlat</Text>
+                <Ionicons name="bar-chart-outline" size={20} color={C.primary} />
+                <Text style={styles.createPollBtnText}>Favorilerden Anket Başlat</Text>
               </TouchableOpacity>
             </View>
           )
@@ -629,6 +665,13 @@ function makeStyles(C: Colors) {
     closePollBtn: { marginTop: 12, borderWidth: 1, borderColor: C.error, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
     closePollBtnText: { color: C.error, fontWeight: '700', fontSize: 14 },
 
+    quickPollBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      backgroundColor: C.primary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16,
+      marginBottom: 10,
+    },
+    quickPollBtnDisabled: { opacity: 0.6 },
+    quickPollBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
     createPollBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.primaryLight, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16 },
     createPollBtnText: { color: C.primary, fontWeight: '700', fontSize: 15 },
 
