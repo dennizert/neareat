@@ -25,6 +25,7 @@ const ACTION_TEXT: Record<ActivityEventType, string> = {
   FAVORITE: 'favoriledi',
   RESERVATION: 'rezervasyon yaptı',
   RECOMMENDATION: 'önerdi',
+  CHECKIN: 'şu an burada',
 };
 
 const ACTION_ICON: Record<ActivityEventType, keyof typeof Ionicons.glyphMap> = {
@@ -32,6 +33,7 @@ const ACTION_ICON: Record<ActivityEventType, keyof typeof Ionicons.glyphMap> = {
   FAVORITE: 'heart',
   RESERVATION: 'calendar',
   RECOMMENDATION: 'share-social',
+  CHECKIN: 'location',
 };
 
 export default function ActivityFeedScreen() {

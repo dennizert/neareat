@@ -338,7 +338,7 @@ export interface Recommendation {
 
 // ─── Sosyal Aktivite Akışı (S4-6) ─────────────────────────────────────────────
 
-export type ActivityEventType = 'REVIEW' | 'FAVORITE' | 'RESERVATION' | 'RECOMMENDATION';
+export type ActivityEventType = 'REVIEW' | 'FAVORITE' | 'RESERVATION' | 'RECOMMENDATION' | 'CHECKIN';
 
 export interface ActivityEvent {
   id: string;
