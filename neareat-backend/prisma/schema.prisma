@@ -757,7 +757,7 @@ model DiaryEntry {
 model NotificationPreference {
   id        String           @id @default(uuid())
   userId    String           @map("user_id")
-  type      NotificationType
+  type      String
   enabled   Boolean          @default(true)
   updatedAt DateTime         @updatedAt @map("updated_at")
 
