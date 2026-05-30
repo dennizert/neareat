@@ -733,6 +733,8 @@ export type RootStackParamList = {
   AdminDashboard: undefined;
   AdminRestaurantDetail: { restaurantId: string };
   AdminLogs: undefined;
+  // Referral
+  Referral: undefined;
   // Notifications
   Notifications: undefined;
   // AI Recommendation (Sprint-1 Task #8)

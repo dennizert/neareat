@@ -40,6 +40,10 @@ model User {
   // AI Recommender — arkadaşlarla tercih paylaşımı (opt-in)
   shareWithFriendsRecommender Boolean @default(false) @map("share_with_friends_recommender")
 
+  // Referral
+  referralCode    String?  @unique @map("referral_code")
+  referralApplied Boolean  @default(false) @map("referral_applied")
+
   lastLoginAt DateTime? @map("last_login_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -341,6 +345,7 @@ enum StarEventType {
   RATING
   RESERVATION
   RESERVATION_ATTENDED
+  REFERRAL
 }
 
 enum ReservationStatus {
