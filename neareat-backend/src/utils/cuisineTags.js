@@ -50,6 +50,8 @@ const TAG_DEFS = [
     keywords: [
       'baklava', 'kunefe', 'dondurma', 'pastane', 'patisserie',
       'tatlici', 'pastry', 'simit', 'unlu mamul', 'unlu mamuller',
+      // #139 — yaygın Türkçe tatlı mekanları
+      'muhallebi', 'sutlac', 'kazandibi', 'lokum',
     ],
   },
   {
