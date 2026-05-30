@@ -20,6 +20,10 @@ describe('deriveCuisineTags', () => {
     ['Balık Pazarı Restaurant',   ['Deniz Ürünleri']],
     ['Serpme Kahvaltı Bahçesi',   ['Kahvaltı']],
     ['Antep Baklavacısı',         ['Tatlı']],
+    ['Çarşı Muhallebicisi',       ['Tatlı']],  // #139
+    ['Murat Muhallebi',           ['Tatlı']],
+    ['Saray Sütlaç Evi',          ['Tatlı']],
+    ['Hacı Bekir Lokumcu',        ['Tatlı']],
     ['Sushi Tokyo',               ['Sushi / Asya']],
     ['Mama Mia Pasta',            ['İtalyan']],
     ['Vegan Garden',              ['Vejetaryen / Vegan']],
