@@ -3,6 +3,7 @@ const prisma = require('../utils/prisma');
 const { signToken } = require('../utils/jwt');
 const { logRequest } = require('../services/logService');
 const { runFriendSuggestionsJob } = require('../jobs/friendSuggestions');
+const { runNotificationCleanup } = require('../jobs/notificationCleanup');
 
 const PROFILE_SUMMARY = {
   id: true, businessName: true, ownerName: true, taxNumber: true,
@@ -379,11 +380,22 @@ async function triggerFriendSuggestions(req, res, next) {
   }
 }
 
+// POST /api/admin/jobs/notification-cleanup/run
+async function triggerNotificationCleanup(req, res, next) {
+  try {
+    const deleted = await runNotificationCleanup();
+    logRequest({ req, page: 'Admin Paneli', action: 'Bildirim temizlik job tetikledi', details: `deleted=${deleted}` }).catch(() => {});
+    res.json({ message: 'Bildirim temizliği tamamlandı.', deleted });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   adminLogin, getPendingRestaurants, getRestaurantDetail, getTaxCertificate,
   approveRestaurant, rejectRestaurant, getPlatformStats,
   getUsers, suspendUser, unsuspendUser,
   deleteReview, getFlaggedReviews, seedAdmin,
   getReports, handleReport,
-  triggerFriendSuggestions,
+  triggerFriendSuggestions, triggerNotificationCleanup,
 };
