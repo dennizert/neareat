@@ -14,6 +14,7 @@ import { useUserProfileStore } from '../../store/userProfileStore';
 import { useCollectionStore } from '../../store/collectionStore';
 import { recordRating } from '../../services/social';
 import { createCheckin } from '../../services/checkin';
+import { addDiaryEntry } from '../../services/diary';
 import { getMyCollections, addToCollection, createCollection } from '../../services/collections';
 import { getClosingInfo } from '../../utils/closingTime';
 import StarRating from '../../components/StarRating';
@@ -170,6 +171,24 @@ export default function RestaurantDetailScreen() {
     const { lat, lng } = detail.location;
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     Linking.openURL(url).catch(() => Alert.alert('Hata', 'Harita uygulaması açılamadı.'));
+  }
+
+  async function handleAddToDiary() {
+    if (!detail) return;
+    try {
+      await addDiaryEntry({
+        placeId: detail.placeId,
+        placeName: detail.name,
+        placePhotoUrl: detail.photos?.[0] ?? null,
+        placeTypes: detail.types ?? [],
+      });
+      Alert.alert(
+        '📖 Günlüğüne eklendi',
+        'Bu ziyaret yemek günlüğüne kaydedildi. Sadece sen görürsün — profil sayfasından bakabilirsin.',
+      );
+    } catch (err: any) {
+      Alert.alert('Hata', err?.message ?? 'Günlüğe eklenemedi.');
+    }
   }
 
   async function handleCheckin() {
@@ -440,6 +459,9 @@ export default function RestaurantDetailScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={[styles.actionBtn, styles.checkinBtn]} onPress={handleCheckin}>
               <Text style={[styles.actionBtnText, styles.checkinBtnText]}>📍 Check-in</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, styles.diaryBtn]} onPress={handleAddToDiary}>
+              <Text style={[styles.actionBtnText, styles.diaryBtnText]}>📖 Günlüğe</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.actionBtn, styles.recommendBtn]} onPress={handleRecommend}>
               <Text style={[styles.actionBtnText, styles.recommendBtnText]}>💌 Öner</Text>
@@ -755,6 +777,8 @@ function makeStyles(C: Colors) {
     collectionBtnText: { color: C.textSecondary },
     checkinBtn: { backgroundColor: C.travel + '22' },
     checkinBtnText: { color: C.travel },
+    diaryBtn: { backgroundColor: C.amberSurface },
+    diaryBtnText: { color: C.amber },
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
     hourLine: { fontSize: 13, color: C.textTertiary, marginBottom: 2 },
