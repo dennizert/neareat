@@ -74,6 +74,7 @@ model User {
   activityEvents          ActivityEvent[]
   feedbackPreference      FeedbackPreference?
   searchHistory           SearchHistory[]
+  checkIns                CheckIn[]
 
   @@map("users")
 }
@@ -720,6 +721,25 @@ model RecommendationFeedback {
   @@index([aiRecommendationLogId])
   @@index([placeId, sentiment])
   @@map("recommendation_feedback")
+}
+
+/// Kullanıcının aktif check-in'i (Sprint-7 #91).
+/// 3 saat TTL — `expiresAt` ile lazy filtreleme (cron yok). Kullanıcı tek seferde
+/// yalnızca bir aktif check-in tutar; yeni check-in eskisini siler.
+/// ActivityEvent (CHECKIN) ayrıca yazılır; check-in expire olsa da geçmiş kayıt kalır.
+model CheckIn {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  placeId   String   @map("place_id")
+  placeName String   @map("place_name")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@map("check_ins")
 }
 
 /// Kullanıcının serbest metin arama geçmişi (Sprint-6 #87).

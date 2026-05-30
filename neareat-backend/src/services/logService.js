@@ -6,6 +6,7 @@ const ACTIVITY_TYPES = Object.freeze({
   FAVORITE: 'FAVORITE',
   RESERVATION: 'RESERVATION',
   RECOMMENDATION: 'RECOMMENDATION',
+  CHECKIN: 'CHECKIN', // Sprint-7 #91
 });
 
 async function logRequest({ req, page, action, details }) {

@@ -19,12 +19,13 @@ beforeEach(() => {
 });
 
 describe('ACTIVITY_TYPES', () => {
-  it('dört olay türünü içerir', () => {
+  it('tüm olay türlerini içerir (S7-2 ile CHECKIN eklendi)', () => {
     expect(ACTIVITY_TYPES).toEqual({
       REVIEW: 'REVIEW',
       FAVORITE: 'FAVORITE',
       RESERVATION: 'RESERVATION',
       RECOMMENDATION: 'RECOMMENDATION',
+      CHECKIN: 'CHECKIN',
     });
   });
 });
