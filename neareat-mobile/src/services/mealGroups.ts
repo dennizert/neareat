@@ -60,3 +60,11 @@ export async function closePoll(groupId: string, pollId: string): Promise<Restau
   const { data } = await api.post(`/meal-groups/${groupId}/polls/${pollId}/close`);
   return data;
 }
+
+export async function createQuickPoll(
+  groupId: string,
+  params: { lat: number; lng: number; question?: string },
+): Promise<RestaurantPoll> {
+  const { data } = await api.post(`/meal-groups/${groupId}/quick-poll`, params);
+  return data;
+}

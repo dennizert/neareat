@@ -1,6 +1,7 @@
 const prisma = require('../utils/prisma');
 const { createNotification } = require('../services/notificationService');
 const { logRequest } = require('../services/logService');
+const { getNearbyRestaurantsFast, getPhotoUrl, passesQualityFilter } = require('../services/googlePlaces');
 
 const MEMBER_SELECT = { id: true, displayName: true, photoUrl: true };
 
@@ -451,4 +452,88 @@ async function addMembers(req, res, next) {
   }
 }
 
-module.exports = { getMyGroups, getGroup, createGroup, respondToInvite, addMembers, createPoll, vote, closePoll };
+// POST /api/meal-groups/:id/quick-poll
+async function quickPoll(req, res, next) {
+  try {
+    const userId = req.user.id;
+    const { id: groupId } = req.params;
+    const { lat, lng, question } = req.body;
+
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      return res.status(400).json({ error: 'lat ve lng zorunlu.' });
+    }
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return res.status(400).json({ error: 'Geçersiz koordinat.' });
+    }
+
+    const membership = await prisma.mealGroupMember.findUnique({
+      where: { groupId_userId: { groupId, userId } },
+    });
+    if (!membership || membership.status !== 'ACCEPTED') {
+      return res.status(403).json({ error: 'Bu grupta anket oluşturamazsınız.' });
+    }
+
+    const nearby = await getNearbyRestaurantsFast(lat, lng);
+    const options = nearby.filter(passesQualityFilter).slice(0, 5);
+
+    if (options.length < 2) {
+      return res.status(422).json({ error: 'Yakınında yeterli restoran bulunamadı. Konumunuzu değiştirip tekrar deneyin.' });
+    }
+
+    // Önceki açık anketi kapat
+    await prisma.restaurantPoll.updateMany({
+      where: { groupId, status: 'OPEN' },
+      data: { status: 'CLOSED', closedAt: new Date() },
+    });
+
+    const poll = await prisma.restaurantPoll.create({
+      data: {
+        groupId,
+        creatorId: userId,
+        question: question?.trim() || 'Şu an nereye gidelim?',
+        options: {
+          create: options.map((place) => ({
+            placeId: place.place_id,
+            placeName: place.name,
+            placeAddress: place.vicinity || null,
+            placePhotoUrl: place.photos?.[0]
+              ? getPhotoUrl(place.photos[0].photo_reference, 400)
+              : null,
+            placeRating: place.rating || null,
+          })),
+        },
+      },
+      include: {
+        creator: { select: { id: true, displayName: true } },
+        options: { include: { votes: { include: { user: { select: MEMBER_SELECT } } } } },
+      },
+    });
+
+    const [members, group, creator] = await Promise.all([
+      prisma.mealGroupMember.findMany({
+        where: { groupId, status: 'ACCEPTED', userId: { not: userId } },
+        select: { userId: true },
+      }),
+      prisma.mealGroup.findUnique({ where: { id: groupId }, select: { name: true } }),
+      prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } }),
+    ]);
+
+    for (const m of members) {
+      createNotification(
+        m.userId,
+        'MEAL_GROUP_POLL',
+        'Yeni Anket',
+        `${creator.displayName} "${group.name}" grubunda "Şu an nereye?" anketi başlattı`,
+        { groupId, pollId: poll.id },
+      ).catch(() => {});
+    }
+
+    logRequest({ req, page: 'Gruplar', action: 'Hızlı anket başlattı', details: groupId }).catch(() => {});
+
+    res.status(201).json(poll);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getMyGroups, getGroup, createGroup, respondToInvite, addMembers, createPoll, vote, closePoll, quickPoll };
