@@ -8,7 +8,7 @@ const {
   approveRestaurant, rejectRestaurant, getPlatformStats,
   getUsers, suspendUser, unsuspendUser,
   deleteReview, getFlaggedReviews, seedAdmin,
-  getReports, handleReport, triggerFriendSuggestions,
+  getReports, handleReport, triggerFriendSuggestions, triggerNotificationCleanup,
 } = require('../controllers/adminController');
 
 // One-time seed — ADMIN_SEED_SECRET env var ile korunur
@@ -61,5 +61,6 @@ router.put('/reports/:id', authenticate, requireAdmin, handleReport);
 
 // Manuel job tetikleme
 router.post('/jobs/friend-suggestions/run', authenticate, requireAdmin, triggerFriendSuggestions);
+router.post('/jobs/notification-cleanup/run', authenticate, requireAdmin, triggerNotificationCleanup);
 
 module.exports = router;

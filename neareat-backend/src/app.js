@@ -43,6 +43,7 @@ const { scheduleReservationReminders } = require('./jobs/reservationReminders');
 const { scheduleSmartNotifications } = require('./jobs/smartNotifications');
 const { scheduleFeedbackAggregation } = require('./jobs/feedbackAggregator');
 const { scheduleFriendSuggestions } = require('./jobs/friendSuggestions');
+const { scheduleNotificationCleanup } = require('./jobs/notificationCleanup');
 
 const app = express();
 
@@ -176,6 +177,7 @@ if (process.env.NODE_ENV !== 'test') {
     scheduleSmartNotifications();
     scheduleFeedbackAggregation();
     scheduleFriendSuggestions();
+    scheduleNotificationCleanup();
   });
 
   // Graceful shutdown — açık bağlantıları düzgün kapat
