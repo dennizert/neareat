@@ -422,6 +422,9 @@ model RestaurantProfile {
   // Anlık kampanya gönderimi rate limit (günde 1) — S5-3
   lastCampaignAt DateTime? @map("last_campaign_at")
 
+  // Aynı saat dilimine maksimum rezervasyon sayısı (null = sınırsız) — S8-5
+  tableCount Int? @map("table_count")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

@@ -145,6 +145,7 @@ export interface RestaurantProfile {
   announcement: string | null;
   announcementActive: boolean;
   acceptsReservations: boolean;
+  tableCount: number | null;
   openingHours: Record<string, { open: string; close: string; closed: boolean }> | null;
   discountEnabled: boolean;
   discountPercent: number | null;

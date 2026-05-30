@@ -21,6 +21,7 @@ export default function RestaurantInfoScreen() {
   const [address, setAddress] = useState('');
   const [reservationUrl, setReservationUrl] = useState('');
   const [acceptsReservations, setAcceptsReservations] = useState(false);
+  const [tableCount, setTableCount] = useState('');
 
   useEffect(() => {
     getMyRestaurantProfile()
@@ -30,6 +31,7 @@ export default function RestaurantInfoScreen() {
         setAddress(p.address ?? '');
         setReservationUrl(p.reservationUrl ?? '');
         setAcceptsReservations(p.acceptsReservations ?? false);
+        setTableCount(p.tableCount != null ? String(p.tableCount) : '');
       })
       .catch(() => Alert.alert('Hata', 'Bilgiler yüklenemedi.'))
       .finally(() => setLoading(false));
@@ -51,12 +53,18 @@ export default function RestaurantInfoScreen() {
 
     setSaving(true);
     try {
+      const tc = tableCount.trim();
+      if (tc && (isNaN(Number(tc)) || Number(tc) < 1 || Number(tc) > 500)) {
+        Alert.alert('Hata', 'Masa kapasitesi 1-500 arasında olmalıdır.');
+        return;
+      }
       await updateInfo({
         phone: phone.trim(),
         contactEmail: contactEmail.trim(),
         address: address.trim(),
         reservationUrl: reservationUrl.trim() || undefined,
         acceptsReservations,
+        tableCount: tc ? Number(tc) : null,
       });
       Alert.alert('Kaydedildi', 'İletişim bilgileriniz güncellendi.', [
         { text: 'Tamam', onPress: () => navigation.goBack() },
@@ -129,7 +137,7 @@ export default function RestaurantInfoScreen() {
               thumbColor="#fff"
             />
           </View>
-          <Field label="Dış Rezervasyon URL (isteğe bağlı)" last styles={styles}>
+          <Field label="Dış Rezervasyon URL (isteğe bağlı)" styles={styles}>
             <TextInput
               style={styles.input}
               value={reservationUrl}
@@ -138,6 +146,17 @@ export default function RestaurantInfoScreen() {
               autoCapitalize="none"
               placeholder="https://rezervasyon.siteniz.com"
               placeholderTextColor={C.textMuted}
+            />
+          </Field>
+          <Field label="Masa Kapasitesi (isteğe bağlı)" last styles={styles}>
+            <TextInput
+              style={styles.input}
+              value={tableCount}
+              onChangeText={setTableCount}
+              keyboardType="number-pad"
+              placeholder="Aynı saate max rezervasyon (boş = sınırsız)"
+              placeholderTextColor={C.textMuted}
+              maxLength={3}
             />
           </Field>
         </View>
