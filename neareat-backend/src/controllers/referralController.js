@@ -114,7 +114,7 @@ async function applyCode(req, res, next) {
     try {
       await Promise.all([
         awardStars(referrer.id, 'REFERRAL', `${me.displayName} davet kodunu kullandı`, userId),
-        awardStars(userId, 'REFERRAL', `${referrer.displayName}'in davet kodu ile katıldın`, referrer.id),
+        awardStars(userId, 'REFERRAL_BONUS', `${referrer.displayName}'in davet kodu ile katıldın`, referrer.id),
       ]);
     } catch (starErr) {
       // Star hatası kritik değil, flag zaten set edildi

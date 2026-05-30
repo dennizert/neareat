@@ -2,6 +2,7 @@
 
 /**
  * Sprint-7 #97 — /api/referral endpoint integration testleri.
+ * fix/#160 — REFERRAL_BONUS type doğrulama eklendi.
  */
 
 const request = require('supertest');
@@ -9,6 +10,14 @@ const { createTestToken } = require('../helpers');
 
 const U1 = { id: 'u-1', email: 'a@test.com', role: 'USER', displayName: 'Ahmet', starCount: 0, isSuspended: false, referralCode: null, referralApplied: false };
 const U2 = { id: 'u-2', email: 'b@test.com', role: 'USER', displayName: 'Bora', starCount: 0, isSuspended: false, referralCode: 'BORA1234', referralApplied: false };
+
+const mockAwardStars = jest.fn().mockResolvedValue(undefined);
+jest.mock('../../src/utils/stars', () => ({
+  awardStars: mockAwardStars,
+  deductStars: jest.fn().mockResolvedValue(undefined),
+  STAR_AMOUNTS: { REFERRAL: 15, REFERRAL_BONUS: 10 },
+  RESERVATION_NO_SHOW_PENALTY: 10,
+}));
 
 const mockPrisma = {
   user: { findUnique: jest.fn(), update: jest.fn(), count: jest.fn() },
@@ -122,5 +131,17 @@ describe('POST /api/referral/apply', () => {
   it('auth yoksa 401', async () => {
     const res = await request(app).post('/api/referral/apply').send({ code: 'BORA1234' });
     expect(res.status).toBe(401);
+  });
+
+  it('referred user REFERRAL_BONUS, referrer REFERRAL tipiyle awardStars çağrılır', async () => {
+    mockFindUnique(U1, U1, U2); // auth, me, referrer
+    mockPrisma.user.update.mockResolvedValue({ ...U1, referralApplied: true });
+    await request(app).post('/api/referral/apply').set('Authorization', `Bearer ${token1}`).send({ code: 'BORA1234' });
+
+    const calls = mockAwardStars.mock.calls;
+    const referrerCall = calls.find(c => c[0] === U2.id);
+    const referredCall = calls.find(c => c[0] === U1.id);
+    expect(referrerCall[1]).toBe('REFERRAL');
+    expect(referredCall[1]).toBe('REFERRAL_BONUS');
   });
 });
