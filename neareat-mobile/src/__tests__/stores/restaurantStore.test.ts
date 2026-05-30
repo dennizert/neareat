@@ -12,6 +12,7 @@ jest.mock('../../services/restaurants', () => {
 
 import { useRestaurantStore } from '../../store/restaurantStore';
 import { searchPlaces } from '../../services/restaurants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Restaurant } from '../../types';
 
 const mockedSearch = searchPlaces as jest.MockedFunction<typeof searchPlaces>;
@@ -96,6 +97,27 @@ describe('restaurantStore — search', () => {
     expect(s.searchError).toBe('Ağ hatası');
     expect(s.searchResults).toEqual([]);
     expect(s.searchLoading).toBe(false);
+  });
+
+  it('filtre / sort / kategori AsyncStorage\'a yazılır, runtime state hariç (#84)', async () => {
+    useRestaurantStore.setState({
+      restaurants: [sampleRestaurant],            // runtime — persist edilmemeli
+      searchResults: [sampleRestaurant],          // runtime — persist edilmemeli
+    });
+    useRestaurantStore.getState().setSortBy('rating');
+    useRestaurantStore.getState().setFilters({ openNow: true });
+    useRestaurantStore.getState().setSelectedCategory('cafe');
+
+    // persist debounce sonrası AsyncStorage'da slice'ı bekliyoruz
+    await new Promise((r) => setTimeout(r, 0));
+    const raw = await AsyncStorage.getItem('neareat-restaurant-filters');
+    expect(raw).not.toBeNull();
+    const parsed = JSON.parse(raw!);
+    expect(parsed.state.sortBy).toBe('rating');
+    expect(parsed.state.filters.openNow).toBe(true);
+    expect(parsed.state.selectedCategory).toBe('cafe');
+    expect(parsed.state.restaurants).toBeUndefined();
+    expect(parsed.state.searchResults).toBeUndefined();
   });
 
   it('clearSearch tüm arama state\'ini temizler', () => {

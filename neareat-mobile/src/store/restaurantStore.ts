@@ -12,6 +12,8 @@
  * her filtre değişikliğinde backend'e istek atılmaz, anlık güncellenir.
  */
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Restaurant, SortOption, FilterState } from '../types';
 import { searchPlaces } from '../services/restaurants';
 
@@ -51,7 +53,7 @@ const defaultFilters: FilterState = {
   priceLevels: [],
 };
 
-export const useRestaurantStore = create<RestaurantState>((set, get) => ({
+export const useRestaurantStore = create<RestaurantState>()(persist((set, get) => ({
   restaurants: [],
   loading: false,
   error: null,
@@ -143,4 +145,15 @@ export const useRestaurantStore = create<RestaurantState>((set, get) => ({
   },
 
   clearSearch: () => set({ searchQuery: '', searchResults: [], searchLoading: false, searchError: null }),
+}), {
+  name: 'neareat-restaurant-filters',
+  storage: createJSONStorage(() => AsyncStorage),
+  // Yalnızca kullanıcı tercihlerini kalıcı tut — runtime state (restaurants,
+  // searchResults, loading vb.) restart sonrası yeniden yüklenmeli.
+  partialize: (state) => ({
+    filters: state.filters,
+    sortBy: state.sortBy,
+    selectedCategory: state.selectedCategory,
+    viewMode: state.viewMode,
+  }),
 }));
