@@ -16,8 +16,11 @@
 const prisma = require('../utils/prisma');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { recommend, recommendStream, recommendForRoute } = require('../services/recommendationService');
+const { analyzeRestaurantPhoto } = require('../services/photoAnalysis');
+const { cacheGet, cacheSet } = require('../services/redis');
 
 const FREE_DAILY_LIMIT = 3;
+const FREE_DAILY_PHOTO_ANALYSIS_LIMIT = 3;
 const FEEDBACK_DAILY_LIMIT = 50;
 const MAX_COMMENT_LENGTH = 500;
 const MAX_REFINEMENT_LENGTH = 300;
@@ -458,11 +461,73 @@ async function getRouteTonightRecommendation(req, res, next) {
   }
 }
 
+// Sprint-7 #94 — POST /api/recommendations/analyze-photo
+// Body: { imageUrl?, imageBase64?, mediaType?, placeId?, placeName?, placeAddress? }
+// Premium: limitsiz. Free: 3/gün (Redis sayacı; rec quota'sından bağımsız).
+function photoAnalysisCacheKey(userId) {
+  // Türkiye günlük key
+  const turkey = new Date(Date.now() + 3 * 60 * 60 * 1000);
+  const date = turkey.toISOString().slice(0, 10);
+  return `photo-analyze:${userId}:${date}`;
+}
+
+async function analyzePhoto(req, res, next) {
+  try {
+    const { imageUrl, imageBase64, mediaType, placeId, placeName, placeAddress } = req.body || {};
+
+    if (!imageUrl && !imageBase64) {
+      return res.status(400).json({ error: 'imageUrl ya da imageBase64 gerekli' });
+    }
+    if (imageBase64 && typeof imageBase64 !== 'string') {
+      return res.status(400).json({ error: 'imageBase64 string olmalı' });
+    }
+
+    const isPremium = await isPremiumUser(req.user.id);
+    let remaining = null;
+    if (!isPremium) {
+      const key = photoAnalysisCacheKey(req.user.id);
+      const used = Number(await cacheGet(key)) || 0;
+      if (used >= FREE_DAILY_PHOTO_ANALYSIS_LIMIT) {
+        return res.status(429).json({
+          error: 'LIMIT_EXCEEDED',
+          upgrade: true,
+          remainingToday: 0,
+          resetAt: getNextIstanbulMidnightUtc().toISOString(),
+        });
+      }
+      // Önce sayacı artır (race condition önlemi); başarısızsa rollback'e gerek yok,
+      // kullanıcı bir slot kaybeder ama paralel paniklemez.
+      await cacheSet(key, used + 1, 26 * 60 * 60);
+      remaining = Math.max(0, FREE_DAILY_PHOTO_ANALYSIS_LIMIT - (used + 1));
+    }
+
+    const result = await analyzeRestaurantPhoto({
+      imageUrl,
+      imageBase64,
+      mediaType,
+      placeId,
+      placeName,
+      placeAddress,
+    });
+
+    res.json({
+      analysis: result.analysis,
+      model: result.model,
+      fallback: result.fallback,
+      remainingToday: isPremium ? null : remaining,
+      resetAt: isPremium ? null : getNextIstanbulMidnightUtc().toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getDinnerTonight,
   getDinnerTonightStream,
   getRouteTonightRecommendation,
   postFeedback,
+  analyzePhoto,
   // testable internals
   __test: {
     FREE_DAILY_LIMIT,
