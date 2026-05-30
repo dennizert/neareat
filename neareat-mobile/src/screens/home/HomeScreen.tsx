@@ -109,9 +109,20 @@ export default function HomeScreen() {
     navigation.navigate('RestaurantDetail', { placeId: restaurant.placeId });
   }, [navigation]);
 
-  const renderCard = useCallback(({ item }: { item: Restaurant }) => (
-    <RestaurantCard restaurant={item} onPress={() => handlePress(item)} />
-  ), [handlePress]);
+  const renderCard = useCallback(({ item }: { item: Restaurant }) => {
+    const mins = item.minutesUntilClose;
+    const closingVerySoon = typeof mins === 'number' && mins > 0 && mins <= 30;
+    const closingSoon = typeof mins === 'number' && mins > 30 && mins <= 60;
+    return (
+      <RestaurantCard
+        restaurant={item}
+        onPress={() => handlePress(item)}
+        minutesUntilClose={mins ?? null}
+        closingSoon={closingSoon}
+        closingVerySoon={closingVerySoon}
+      />
+    );
+  }, [handlePress]);
 
   return (
     <View style={styles.container}>

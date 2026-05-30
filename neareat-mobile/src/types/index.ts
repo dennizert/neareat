@@ -64,6 +64,11 @@ export interface Restaurant {
   discount?: DiscountInfo | null;
   announcement?: string | null;
   acceptsReservations?: boolean;
+  // S6-4
+  cuisineTags?: string[];
+  // S6-5
+  minutesUntilClose?: number | null;
+  isNewlyOpened?: boolean;
 }
 
 export interface OpeningHoursPeriodTime {

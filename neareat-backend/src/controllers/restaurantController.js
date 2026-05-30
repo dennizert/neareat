@@ -4,6 +4,7 @@ const { haversineKm } = require('../utils/haversine');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
 const { deriveCuisineTags, parseCuisineTagFilter } = require('../utils/cuisineTags');
+const { deriveFreshness } = require('../utils/freshnessTags');
 
 const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
 const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
@@ -62,6 +63,7 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
   const hasDiscount = dp && (dp.discountEnabled || instantActive);
   const overrideIsOpen = dp?.openingHours ? computeIsOpenFromOverride(dp.openingHours) : null;
   const isOpenNow = overrideIsOpen !== null ? overrideIsOpen : (place.opening_hours?.open_now ?? null);
+  const { minutesUntilClose, isNewlyOpened } = deriveFreshness(place, dp?.openingHours || null, now);
   return {
     placeId: place.place_id,
     name: place.name,
@@ -74,6 +76,8 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
     distanceKm,
     photoUrl: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null,
     cuisineTags: deriveCuisineTags(place),
+    minutesUntilClose: isOpenNow === true ? minutesUntilClose : null,
+    isNewlyOpened,
     discount: hasDiscount ? {
       starDiscountEnabled: !!dp.discountEnabled,
       starDiscountPercent,

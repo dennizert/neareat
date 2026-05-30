@@ -98,6 +98,9 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
             </View>
           )}
         </View>
+        {r.isNewlyOpened && (
+          <Text style={styles.newPlaceBadge}>✨ Yeni Mekan</Text>
+        )}
         {r.announcement && (
           <Text style={styles.announcement} numberOfLines={1}>📢 {r.announcement}</Text>
         )}
@@ -147,5 +150,6 @@ function makeStyles(C: Colors) {
     discountBadgeTextStar: { color: C.amber },
     announcement: { fontSize: 11, color: C.textSecondary, marginTop: 3, fontStyle: 'italic' },
     reservationBadge: { fontSize: 11, color: C.success, marginTop: 3, fontWeight: '600' },
+    newPlaceBadge: { fontSize: 11, color: C.travel, marginTop: 3, fontWeight: '700' },
   });
 }
