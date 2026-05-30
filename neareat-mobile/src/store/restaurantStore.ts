@@ -31,6 +31,7 @@ interface RestaurantState {
   filters: FilterState;
   viewMode: 'list' | 'map';
   selectedCategory: string;
+  selectedCuisineTag: string | null;
 
   // Sprint-6 #83 — serbest metin araması
   searchQuery: string;
@@ -49,6 +50,7 @@ interface RestaurantState {
   setFilters: (filters: Partial<FilterState>) => void;
   setViewMode: (mode: 'list' | 'map') => void;
   setSelectedCategory: (cat: string) => void;
+  setSelectedCuisineTag: (tag: string | null) => void;
   getSortedFiltered: () => Restaurant[];
 
   setSearchQuery: (q: string) => void;
@@ -75,6 +77,7 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
   filters: defaultFilters,
   viewMode: 'list',
   selectedCategory: 'all',
+  selectedCuisineTag: null,
 
   searchQuery: '',
   searchResults: [],
@@ -98,6 +101,8 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
   setViewMode:         (viewMode)       => set({ viewMode }),
   /** Kategori tab'ını değiştirir */
   setSelectedCategory: (selectedCategory) => set({ selectedCategory }),
+  /** Cuisine chip filtresini değiştirir (aynı tag tekrar seçilince temizler) */
+  setSelectedCuisineTag: (selectedCuisineTag) => set({ selectedCuisineTag }),
 
   /**
    * Mevcut restoran listesini filtreler ve sıralar.
@@ -115,12 +120,17 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
    * 3. Seçilen kritere göre sıralama (mesafe, puan, yorum sayısı)
    */
   getSortedFiltered: () => {
-    const { restaurants, sortBy, filters, selectedCategory } = get();
+    const { restaurants, sortBy, filters, selectedCategory, selectedCuisineTag } = get();
     let list = [...restaurants];
 
     // Kategori filtresi — client-side, anlık (API çağrısı yok)
     if (selectedCategory !== 'all') {
       list = list.filter((r) => r.types?.includes(selectedCategory));
+    }
+
+    // Cuisine tag chip filtresi (S7-10)
+    if (selectedCuisineTag) {
+      list = list.filter((r) => r.cuisineTags?.includes(selectedCuisineTag));
     }
 
     // Sadece açık restoranları göster
@@ -200,6 +210,7 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
     filters: state.filters,
     sortBy: state.sortBy,
     selectedCategory: state.selectedCategory,
+    selectedCuisineTag: state.selectedCuisineTag,
     viewMode: state.viewMode,
   }),
 }));
