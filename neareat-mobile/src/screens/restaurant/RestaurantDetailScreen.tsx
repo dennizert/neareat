@@ -13,6 +13,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { useCollectionStore } from '../../store/collectionStore';
 import { recordRating } from '../../services/social';
+import { createCheckin } from '../../services/checkin';
 import { getMyCollections, addToCollection, createCollection } from '../../services/collections';
 import { getClosingInfo } from '../../utils/closingTime';
 import StarRating from '../../components/StarRating';
@@ -169,6 +170,19 @@ export default function RestaurantDetailScreen() {
     const { lat, lng } = detail.location;
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     Linking.openURL(url).catch(() => Alert.alert('Hata', 'Harita uygulaması açılamadı.'));
+  }
+
+  async function handleCheckin() {
+    if (!detail) return;
+    try {
+      await createCheckin(detail.placeId, detail.name);
+      Alert.alert(
+        '📍 Check-in!',
+        `${detail.name} mekanına check-in yapıldı. Arkadaşların bildirim aldı; aktivite akışında 3 saat görünür kalacak.`,
+      );
+    } catch (err: any) {
+      Alert.alert('Hata', err?.message ?? 'Check-in yapılamadı.');
+    }
   }
 
   async function handleShare() {
@@ -423,6 +437,9 @@ export default function RestaurantDetailScreen() {
             )}
             <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
               <Text style={styles.actionBtnText}>📤 Paylaş</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, styles.checkinBtn]} onPress={handleCheckin}>
+              <Text style={[styles.actionBtnText, styles.checkinBtnText]}>📍 Check-in</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.actionBtn, styles.recommendBtn]} onPress={handleRecommend}>
               <Text style={[styles.actionBtnText, styles.recommendBtnText]}>💌 Öner</Text>
@@ -736,6 +753,8 @@ function makeStyles(C: Colors) {
     recommendBtnText: { color: C.primary },
     collectionBtn: { backgroundColor: C.surfaceAlt },
     collectionBtnText: { color: C.textSecondary },
+    checkinBtn: { backgroundColor: C.travel + '22' },
+    checkinBtnText: { color: C.travel },
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
     hourLine: { fontSize: 13, color: C.textTertiary, marginBottom: 2 },
