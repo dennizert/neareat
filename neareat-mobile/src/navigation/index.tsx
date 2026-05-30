@@ -26,6 +26,7 @@ import FriendProfileScreen from '../screens/social/FriendProfileScreen';
 import SendRecommendationScreen from '../screens/social/SendRecommendationScreen';
 import RewardsScreen from '../screens/rewards/RewardsScreen';
 import CollectionsScreen from '../screens/collections/CollectionsScreen';
+import DiaryScreen from '../screens/diary/DiaryScreen';
 import CollectionDetailScreen from '../screens/collections/CollectionDetailScreen';
 
 // Restaurant account screens
@@ -387,6 +388,11 @@ export default function Navigation() {
                 name="Collections"
                 component={CollectionsScreen}
                 options={{ ...H, title: 'Koleksiyonlarım' }}
+              />
+              <Stack.Screen
+                name="Diary"
+                component={DiaryScreen}
+                options={{ ...H, title: 'Yemek Günlüğüm' }}
               />
               <Stack.Screen
                 name="CollectionDetail"

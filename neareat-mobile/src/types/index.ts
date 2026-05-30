@@ -704,6 +704,7 @@ export type RootStackParamList = {
   };
   Rewards: undefined;
   Register: undefined;
+  Diary: undefined;
   Collections: undefined;
   CollectionDetail: { collectionId: string; title?: string };
   Conversation: { userId: string; displayName: string; photoUrl?: string | null };

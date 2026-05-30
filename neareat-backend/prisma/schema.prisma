@@ -75,6 +75,7 @@ model User {
   feedbackPreference      FeedbackPreference?
   searchHistory           SearchHistory[]
   checkIns                CheckIn[]
+  diaryEntries            DiaryEntry[]
 
   @@map("users")
 }
@@ -721,6 +722,28 @@ model RecommendationFeedback {
   @@index([aiRecommendationLogId])
   @@index([placeId, sentiment])
   @@map("recommendation_feedback")
+}
+
+/// Kişisel yemek günlüğü (Sprint-7 #93).
+/// Kullanıcının kendine özel ziyaret kaydı: tarih + not + isim/foto/types snapshot.
+/// Sadece sahibi görür (collection paylaşımı YOK). Aynı mekana birden çok kez
+/// gidebileceği için CollectionItem'in unique kısıtından bağımsız ayrı model.
+/// Stats endpoint'i types snapshot'ından mutfak etiketlerini agregeler.
+model DiaryEntry {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placePhotoUrl String?  @map("place_photo_url")
+  placeTypes    String[] @default([]) @map("place_types")
+  visitedAt     DateTime @default(now()) @map("visited_at")
+  note          String?  @db.VarChar(500)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, visitedAt])
+  @@map("diary_entries")
 }
 
 /// Kullanıcının aktif check-in'i (Sprint-7 #91).
