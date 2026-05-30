@@ -88,6 +88,8 @@ describe('isExcludedByName', () => {
     'Deli Dana Steakhouse', // "deli" eklenmedi → elenmez
     'Kasaba Restaurant',  // "kasap" var ama "kasaba" farklı → elenmez
     'Beer Bar',           // "bar" eklenmedi → elenmez
+    'Antep Kebap Salonu', // bare "salon" kaldırıldı → yemek bağlamı korunur
+    'Çay Salonu',         // aynı — Türkçe'de yemek mekanı için yaygın
   ])('normal restoranı elemez: %s', (name) => {
     expect(isExcludedByName(name)).toBe(false);
   });

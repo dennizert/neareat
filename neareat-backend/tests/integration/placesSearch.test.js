@@ -30,14 +30,17 @@ jest.mock('../../src/services/redis', () => ({
 }));
 
 const mockSearchPlacesByText = jest.fn();
-jest.mock('../../src/services/googlePlaces', () => ({
-  getNearbyRestaurants: jest.fn().mockResolvedValue([]),
-  getNearbyRestaurantsFast: jest.fn().mockResolvedValue([]),
-  searchPlacesByText: (...args) => mockSearchPlacesByText(...args),
-  getPlaceDetails: jest.fn(),
-  getPhotoUrl: jest.fn().mockReturnValue('https://example.com/photo.jpg'),
-  passesQualityFilter: jest.requireActual('../../src/services/googlePlaces').passesQualityFilter,
-}));
+jest.mock('../../src/services/googlePlaces', () => {
+  const actual = jest.requireActual('../../src/services/googlePlaces');
+  return {
+    ...actual,
+    getNearbyRestaurants: jest.fn().mockResolvedValue([]),
+    getNearbyRestaurantsFast: jest.fn().mockResolvedValue([]),
+    searchPlacesByText: (...args) => mockSearchPlacesByText(...args),
+    getPlaceDetails: jest.fn(),
+    getPhotoUrl: jest.fn().mockReturnValue('https://example.com/photo.jpg'),
+  };
+});
 
 jest.mock('../../src/jobs/reservationReminders', () => ({ scheduleReservationReminders: jest.fn() }));
 jest.mock('../../src/jobs/smartNotifications', () => ({ scheduleSmartNotifications: jest.fn() }));
@@ -131,6 +134,20 @@ describe('GET /api/places/search', () => {
     const res = await request(app).get('/api/places/search?q=pizza');
     expect(res.status).toBe(200);
     expect(res.body.results).toHaveLength(1);
+  });
+
+  it('cuisineTag filtresi sonuçları daraltır + response\'a cuisineTags ekler (#85)', async () => {
+    mockSearchPlacesByText.mockResolvedValue([
+      { ...goodPlace(), name: 'Domino Pizza' },
+      { ...goodPlace({ place_id: 'p2', name: 'Antep Kebap Salonu' }) },
+    ]);
+    const res = await request(app)
+      .get('/api/places/search?q=yemek&cuisineTag=Kebap')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.results).toHaveLength(1);
+    expect(res.body.results[0].placeId).toBe('p2');
+    expect(res.body.results[0].cuisineTags).toContain('Kebap');
   });
 
   it('boş sonuç → boş results dizisi', async () => {

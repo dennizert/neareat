@@ -360,7 +360,9 @@ const EXCLUDED_NAME_KEYWORDS = [
   'oyun', 'game', 'gaming',
 
   // ─── Grup A: yiyecek-dışı hizmet/dükkan ───
-  'berber', 'kuafor', 'salon', 'barber', 'hairdresser',
+  // Not: bare 'salon' tarafsız ("Kebap Salonu", "Çay Salonu" gibi yemek bağlamlarına
+  // çakışıyordu). Yerine spesifik kuaför + güzellik salonu ifadeleri kullanılıyor.
+  'berber', 'kuafor', 'guzellik salonu', 'barber', 'hairdresser',
   'eczane', 'pharmacy',
   'gym', 'fitness', 'crossfit', 'spor salonu',
   'banka', 'bank',
