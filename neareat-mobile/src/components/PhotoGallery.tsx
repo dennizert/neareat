@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Image, FlatList, TouchableOpacity, Modal, StyleSheet, Dimensions } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Image, FlatList, TouchableOpacity, Modal, StyleSheet, Dimensions, Text } from 'react-native';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
@@ -7,10 +7,13 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface Props {
   photos: string[];
+  /** Fotoğraf analizi callback — butona basılınca şu an görünen foto URL'i ile çağrılır (S7-6). */
+  onAnalyze?: (photoUrl: string) => void;
 }
 
-export default function PhotoGallery({ photos }: Props) {
+export default function PhotoGallery({ photos, onAnalyze }: Props) {
   const [fullscreen, setFullscreen] = useState<string | null>(null);
+  const [visibleIndex, setVisibleIndex] = useState(0);
 
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
@@ -19,20 +22,37 @@ export default function PhotoGallery({ photos }: Props) {
     return <View style={styles.placeholder} />;
   }
 
+  const currentPhoto = photos[visibleIndex] ?? photos[0];
+
   return (
     <>
-      <FlatList
-        data={photos}
-        horizontal
-        pagingEnabled
-        keyExtractor={(_, i) => String(i)}
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => setFullscreen(item)}>
-            <Image source={{ uri: item }} style={styles.image} />
+      <View>
+        <FlatList
+          data={photos}
+          horizontal
+          pagingEnabled
+          keyExtractor={(_, i) => String(i)}
+          showsHorizontalScrollIndicator={false}
+          onViewableItemsChanged={({ viewableItems }) => {
+            if (viewableItems[0]?.index != null) setVisibleIndex(viewableItems[0].index);
+          }}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => setFullscreen(item)}>
+              <Image source={{ uri: item }} style={styles.image} />
+            </TouchableOpacity>
+          )}
+        />
+        {onAnalyze && (
+          <TouchableOpacity
+            style={styles.analyzeBtn}
+            onPress={() => onAnalyze(currentPhoto)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.analyzeBtnText}>🤖 Bu nasıl?</Text>
           </TouchableOpacity>
         )}
-      />
+      </View>
 
       <Modal visible={!!fullscreen} transparent animationType="fade">
         <TouchableOpacity style={styles.modalBg} activeOpacity={1} onPress={() => setFullscreen(null)}>
@@ -51,5 +71,12 @@ function makeStyles(C: Colors) {
     placeholder: { height: 240, backgroundColor: C.surfaceAlt },
     modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
     fullImage: { width: SCREEN_WIDTH, height: SCREEN_WIDTH },
+    analyzeBtn: {
+      position: 'absolute', bottom: 10, right: 12,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      paddingHorizontal: 12, paddingVertical: 6,
+      borderRadius: 16,
+    },
+    analyzeBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   });
 }
