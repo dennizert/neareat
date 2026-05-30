@@ -251,3 +251,77 @@ Mevcut altyapı **sağlam** — auth, discovery, AI öneri, rezervasyon, sosyal,
 1. **AI'ı derinleştir:** Tek-adım öneri yetmez; refinement + feedback döngüsü rakiplere karşı en güçlü silahınız
 2. **Sosyal dinamiği aktifleştir:** Aktivite akışı + check-in, kullanıcıların her gün uygulamayı açmasının sebebi olabilir
 3. **Restoran tarafını güçlendir:** Analytics paneli + anlık kampanya, uygulamayı B2B ürüne taşır ve yeni gelir kapısı açar
+
+---
+
+## BÖLÜM 4 — SPRINT-8 EKLEMELERİ (2026-05-30 sonrası)
+
+Sprint-6 retrospektifinde ve E2E smoke testlerinde yüzeye çıkan, Sprint-7 backlog'una sığmayan ama Sprint-8'in robustluk/temizlik temasına uygun maddeler.
+
+### 4.1 Place Details ile Google `minutesUntilClose` fallback
+
+**Mevcut durum:** S6-5'te kapanışa kalan dakika `RestaurantProfile.openingHours` override'ından önce, yoksa Google `opening_hours.periods` fallback'inden hesaplanıyor. Sorun: Google Nearby Search ve Text Search yanıtları `periods` döndürmüyor — yalnızca `open_now`. Sonuç: Sultanahmet E2E smoke'unda 60 restorandan 0'ında `minutesUntilClose` doluydu.
+
+**Çözüm:** İsteğe bağlı bir Place Details çağrısı (Redis 24h cache) ile `periods` zenginleştirme. Maliyet kontrolü için yalnızca `isOpenNow=true` olan ilk 20 sonuç + sadece liste görünümünde (harita için skip).
+
+**Etki:** "30 dk kapanıyor" FOMO rozeti dormant durumdan kurtulur (şu an sadece sahip claim'i yapmış restoranlarda görünüyor).
+
+**Efor:** Orta (~1 task).
+
+---
+
+### 4.2 Merkezi Prisma mock factory (test altyapısı)
+
+**Mevcut durum:** `buildUserProfileSummary` yeni bir prisma çağrısı eklediğinde (S4-7 `feedbackPreference`, S6-6 `searchHistory`) onu kullanan ~5 test dosyasının mock'unu manuel güncellemek gerekiyor.
+
+**Sorun:** Sürdürülemez. Sprint-7'de vision + checkin + meal log gelirse prompt'a yeni model eklenmesi muhtemel; mock yayılımı bir kez daha yaşanır.
+
+**Çözüm:** `tests/helpers/prismaMock.js` — tüm modelleri default mock'larıyla döndüren factory. Her test gerekli metotları override eder. Yeni model eklendiğinde tek yer dokunulur.
+
+**Efor:** Düşük (~0.5 task) ama erken yapılması Sprint-8 boyunca işi kolaylaştırır.
+
+---
+
+### 4.3 Search analytics admin dashboard
+
+**Mevcut durum:** S6-6 ile `SearchHistory` modeli üretimde yazıyor ama admin paneline yansımıyor.
+
+**Çözüm:** `GET /api/admin/search-analytics` — son 7/30 günde en çok aranan top-20 keyword + en popüler cuisineTag dağılımı. AdminDashboardScreen "İstatistikler" sekmesine yeni "Aramalar" kartı.
+
+**Etki:** Ürün kararları için sinyal (hangi mutfak tipini ekleyelim, hangi keyword'ler eksik kalıyor).
+
+**Efor:** Düşük-orta (~1 task, agreggate query + UI kart).
+
+---
+
+### 4.4 Lint + format script setup
+
+**Mevcut durum:** Ne `neareat-backend/` ne `neareat-mobile/` tarafında `eslint` veya `prettier` yapılandırılmış. `npm run lint` yok.
+
+**Çözüm:** Her iki paket için `eslint` + `prettier` config. CI gateway için faydalı. Mobile için `@react-native/eslint-config`, backend için sade Node config.
+
+**Efor:** Düşük (~0.5 task) ama legacy kodda uyarı tsunamisi olabilir; aşamalı (`--max-warnings`) rollout.
+
+---
+
+### 4.5 `viewMode` persistence — tasarım kararı
+
+**Mevcut durum:** S6-3 persistance'ı `viewMode`'u da kaydediyor. Kullanıcı uygulamayı harita modunda kapatırsa, açtığında yine haritada açılır.
+
+**Soru:** İstenen davranış mı? Liste varsayılan daha mantıklı olabilir.
+
+**Çözüm:** Tek bir karar + `partialize`'dan `viewMode` çıkarmak (1 satır).
+
+**Efor:** Çok düşük (~0.2 task). Tasarım tartışmasından sonra.
+
+---
+
+**Yeni öncelik matrisi maddeleri:**
+
+| Madde | Etki | Efor | Öncelik |
+|---|---|---|---|
+| Place Details ile minutesUntilClose | Yüksek | Orta | **P2** |
+| Merkezi Prisma mock factory | Düşük (DX) | Düşük | **P3** |
+| Search analytics dashboard | Orta | Düşük-Orta | **P3** |
+| Lint + format setup | Düşük (DX) | Düşük | **P3** |
+| viewMode persistence kararı | Düşük | Çok Düşük | **P3** |
