@@ -19,6 +19,18 @@ function getTodayString(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+function getCancelPolicyInfo(date: string, time: string): { label: string; color: 'success' | 'warning' | 'error' } | null {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  const reservationUtcMs = Date.UTC(year, month - 1, day, hour - 3, minute);
+  const hoursUntil = (reservationUtcMs - Date.now()) / (60 * 60 * 1000);
+
+  if (hoursUntil < 0) return null;
+  if (hoursUntil < 2)  return { label: 'Etkinliğe 2 saatten az kaldı — iptal artık mümkün değil.', color: 'error' };
+  if (hoursUntil < 24) return { label: `Geç iptal: ${Math.ceil(hoursUntil)} saat içinde iptal ederseniz 5 yıldız kesilir.`, color: 'warning' };
+  return { label: 'Ücretsiz iptal: 24+ saat kaldı.', color: 'success' };
+}
+
 function getStatusLabels(C: Colors): Record<string, { label: string; color: string; bg: string }> {
   return {
     PENDING:   { label: 'Bekliyor',   color: C.warning,       bg: C.warningSurface },
@@ -174,6 +186,21 @@ export default function ReservationDetailScreen() {
             )}
           </View>
 
+          {/* İptal politikası uyarısı */}
+          {isUserRole && ['PENDING', 'CONFIRMED'].includes(reservation.status) && (() => {
+            const policy = getCancelPolicyInfo(reservation.date, reservation.time);
+            if (!policy) return null;
+            const bgMap = { success: C.successSurface, warning: C.warningSurface, error: C.errorSurface };
+            const colorMap = { success: C.success, warning: C.warning, error: C.error };
+            return (
+              <View style={[styles.policyBanner, { backgroundColor: bgMap[policy.color] }]}>
+                <Text style={[styles.policyText, { color: colorMap[policy.color] }]}>
+                  {policy.label}
+                </Text>
+              </View>
+            );
+          })()}
+
           {/* Sohbet Başlığı */}
           {messages.length > 0 && (
             <Text style={styles.chatLabel}>💬 Rezervasyon Sohbeti</Text>
@@ -242,6 +269,8 @@ function makeStyles(C: Colors) {
     rejectionText: { fontSize: 13, color: C.error, fontStyle: 'italic', marginTop: 6 },
     attendedText: { fontSize: 13, color: C.success, fontWeight: '600', marginTop: 6 },
     noShowText: { fontSize: 13, color: C.error, fontWeight: '600', marginTop: 6 },
+    policyBanner: { marginHorizontal: 16, marginTop: 10, marginBottom: 2, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+    policyText: { fontSize: 13, fontWeight: '600', lineHeight: 18 },
     chatLabel: { paddingHorizontal: 16, paddingVertical: 10, fontSize: 13, fontWeight: '600', color: C.textTertiary },
     msgList: { flex: 1, backgroundColor: C.background },
     msgBubble: { maxWidth: '78%', marginBottom: 10, borderRadius: 14, padding: 10 },
