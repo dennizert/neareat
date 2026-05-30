@@ -80,6 +80,7 @@ model User {
   searchHistory           SearchHistory[]
   checkIns                CheckIn[]
   diaryEntries            DiaryEntry[]
+  notificationPreferences NotificationPreference[]
 
   @@map("users")
 }
@@ -749,6 +750,22 @@ model DiaryEntry {
 
   @@index([userId, visitedAt])
   @@map("diary_entries")
+}
+
+/// Kullanıcının bildirim tercihleri (Sprint-8 #100).
+/// Opt-out modeli: kayıt yoksa bildirim açık sayılır.
+model NotificationPreference {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  enabled   Boolean          @default(true)
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+  @@map("notification_preferences")
 }
 
 /// Kullanıcının aktif check-in'i (Sprint-7 #91).

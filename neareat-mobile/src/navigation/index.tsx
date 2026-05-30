@@ -28,6 +28,7 @@ import RewardsScreen from '../screens/rewards/RewardsScreen';
 import CollectionsScreen from '../screens/collections/CollectionsScreen';
 import DiaryScreen from '../screens/diary/DiaryScreen';
 import ReferralScreen from '../screens/referral/ReferralScreen';
+import NotificationPrefsScreen from '../screens/notifications/NotificationPrefsScreen';
 import CollectionDetailScreen from '../screens/collections/CollectionDetailScreen';
 
 // Restaurant account screens
@@ -399,6 +400,11 @@ export default function Navigation() {
                 name="Referral"
                 component={ReferralScreen}
                 options={{ ...H, title: 'Arkadaşını Davet Et' }}
+              />
+              <Stack.Screen
+                name="NotificationPrefs"
+                component={NotificationPrefsScreen}
+                options={{ ...H, title: 'Bildirim Tercihleri' }}
               />
               <Stack.Screen
                 name="CollectionDetail"

@@ -735,6 +735,8 @@ export type RootStackParamList = {
   AdminLogs: undefined;
   // Referral
   Referral: undefined;
+  // Notification Preferences
+  NotificationPrefs: undefined;
   // Notifications
   Notifications: undefined;
   // AI Recommendation (Sprint-1 Task #8)
