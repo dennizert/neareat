@@ -98,6 +98,15 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
             </View>
           )}
         </View>
+        {r.cuisineTags && r.cuisineTags.length > 0 && (
+          <View style={styles.tagRow}>
+            {r.cuisineTags.slice(0, 2).map((tag) => (
+              <View key={tag} style={styles.cuisineTag}>
+                <Text style={styles.cuisineTagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         {r.isNewlyOpened && (
           <Text style={styles.newPlaceBadge}>✨ Yeni Mekan</Text>
         )}
@@ -148,6 +157,12 @@ function makeStyles(C: Colors) {
     discountBadgeStar: { backgroundColor: C.amberSurface, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
     discountBadgeText: { fontSize: 10, fontWeight: '700', color: C.warning },
     discountBadgeTextStar: { color: C.amber },
+    tagRow: { flexDirection: 'row', gap: 4, marginTop: 4, flexWrap: 'wrap' },
+    cuisineTag: {
+      backgroundColor: C.surfaceAlt, borderRadius: 8,
+      paddingHorizontal: 7, paddingVertical: 2,
+    },
+    cuisineTagText: { fontSize: 10, fontWeight: '600', color: C.textMuted },
     announcement: { fontSize: 11, color: C.textSecondary, marginTop: 3, fontStyle: 'italic' },
     reservationBadge: { fontSize: 11, color: C.success, marginTop: 3, fontWeight: '600' },
     newPlaceBadge: { fontSize: 11, color: C.travel, marginTop: 3, fontWeight: '700' },
