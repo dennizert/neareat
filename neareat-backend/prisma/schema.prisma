@@ -73,6 +73,7 @@ model User {
   recommendationFeedbacks RecommendationFeedback[]
   activityEvents          ActivityEvent[]
   feedbackPreference      FeedbackPreference?
+  searchHistory           SearchHistory[]
 
   @@map("users")
 }
@@ -719,6 +720,22 @@ model RecommendationFeedback {
   @@index([aiRecommendationLogId])
   @@index([placeId, sentiment])
   @@map("recommendation_feedback")
+}
+
+/// Kullanıcının serbest metin arama geçmişi (Sprint-6 #87).
+/// Son aramalar AI önerisinin sistem prompt'una "bu hafta 3x kebap aradı" şeklinde
+/// enjekte edilir. KVKK için kullanıcı silebilir; admin değil.
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  query     String   @db.VarChar(200)
+  type      String?  @db.VarChar(50) // 'free_text' | 'cuisine_tag' | null
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("search_history")
 }
 
 /// Haftalık cron'un ürettiği kullanıcı bazlı mutfak/restoran tipi tercih özeti (S4-7).

@@ -14,6 +14,7 @@ const mockPrisma = {
   friendRequest: { findMany: jest.fn() },
   recommendationFeedback: { findMany: jest.fn().mockResolvedValue([]) },
   feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
+  searchHistory: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), deleteMany: jest.fn() },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
@@ -310,6 +311,30 @@ describe('buildUserProfileSummary', () => {
     const result = await buildUserProfileSummary('u1');
 
     expect(result.profile.cuisinePreferences).toBeUndefined();
+  });
+
+  it('son aramalar prompt\'a recentSearches olarak yansır (S6-6)', async () => {
+    setupEmptyUser();
+    mockPrisma.searchHistory.findMany.mockResolvedValue([
+      { query: 'kebap' }, { query: 'Kebap' }, { query: 'kebap' },
+      { query: 'sushi' },
+    ]);
+
+    const result = await buildUserProfileSummary('u1');
+
+    expect(result.profile.recentSearches).toBeDefined();
+    expect(result.profile.recentSearches.totalLast7Days).toBe(4);
+    expect(result.profile.recentSearches.topKeywords[0]).toEqual({ count: 3, keyword: 'kebap' });
+    expect(result.text).toContain('recentSearches');
+  });
+
+  it('arama geçmişi yoksa recentSearches eklenmez', async () => {
+    setupEmptyUser();
+    mockPrisma.searchHistory.findMany.mockResolvedValue([]);
+
+    const result = await buildUserProfileSummary('u1');
+
+    expect(result.profile.recentSearches).toBeUndefined();
   });
 
   it('computes reviewer avgRating from review records', async () => {
