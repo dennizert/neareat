@@ -29,6 +29,7 @@ export default function HomeScreen() {
     loading, error, viewMode,
     setViewMode, setRestaurants, setLoading, setError,
     getSortedFiltered, selectedCategory, setSelectedCategory,
+    selectedCuisineTag, setSelectedCuisineTag, restaurants,
     searchQuery, searchResults, searchLoading, searchError,
     setSearchQuery, performSearch, clearSearch,
     searchHistory, loadSearchHistory, deleteSearchHistoryItem,
@@ -104,9 +105,16 @@ export default function HomeScreen() {
     setSelectedCategory(key);
   }
 
-  const restaurants = getSortedFiltered();
+  // Yüklü restoranlardan unique cuisine tag'lerini çıkar (alfabetik sıralı)
+  const availableCuisineTags = React.useMemo(() => {
+    const tagSet = new Set<string>();
+    restaurants.forEach((r) => r.cuisineTags?.forEach((t) => tagSet.add(t)));
+    return Array.from(tagSet).sort();
+  }, [restaurants]);
+
+  const displayedRestaurants = getSortedFiltered();
   const isSearching = searchQuery.trim().length >= 2;
-  const displayList = isSearching ? searchResults : restaurants;
+  const displayList = isSearching ? searchResults : displayedRestaurants;
 
   const handlePress = useCallback((restaurant: Restaurant) => {
     navigation.navigate('RestaurantDetail', { placeId: restaurant.placeId });
@@ -253,9 +261,45 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
+      {/* Cuisine Tag Chips (S7-10) — sadece nearby listesinde göster */}
+      {viewMode === 'list' && !isSearching && availableCuisineTags.length > 0 && (
+        <View style={styles.cuisineBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cuisineRow}
+          >
+            {selectedCuisineTag !== null && (
+              <TouchableOpacity
+                style={styles.cuisineClearChip}
+                onPress={() => setSelectedCuisineTag(null)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.cuisineClearText}>✕ Temizle</Text>
+              </TouchableOpacity>
+            )}
+            {availableCuisineTags.map((tag) => {
+              const active = selectedCuisineTag === tag;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.cuisineChip, active && styles.cuisineChipActive]}
+                  onPress={() => setSelectedCuisineTag(active ? null : tag)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.cuisineChipText, active && styles.cuisineChipTextActive]}>
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {viewMode === 'map' ? (
         <MapViewScreen
-          restaurants={restaurants}
+          restaurants={displayedRestaurants}
           onPressRestaurant={handlePress}
           userLat={userCoords?.lat}
           userLng={userCoords?.lng}
@@ -285,11 +329,11 @@ export default function HomeScreen() {
       ) : (
         <>
           <SortFilterBar />
-          {loading && restaurants.length === 0 && <RestaurantListSkeleton />}
+          {loading && displayedRestaurants.length === 0 && <RestaurantListSkeleton />}
           {error && <Text style={styles.errorText}>{error}</Text>}
-          {!error && (loading ? restaurants.length > 0 : true) && (
+          {!error && (loading ? displayedRestaurants.length > 0 : true) && (
             <FlatList
-              data={restaurants}
+              data={displayedRestaurants}
               keyExtractor={(r) => r.placeId}
               renderItem={renderCard}
               contentContainerStyle={styles.list}
@@ -376,6 +420,23 @@ function makeStyles(C: Colors) {
     categoryTabActive: { backgroundColor: C.primary, borderColor: C.primary },
     categoryLabel: { fontSize: 13, fontWeight: '600', color: C.textSecondary, lineHeight: 18 },
     categoryLabelActive: { color: '#fff' },
+
+    cuisineBar: { backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.separator },
+    cuisineRow: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
+    cuisineChip: {
+      height: 28, paddingHorizontal: 12, borderRadius: 14,
+      borderWidth: 1, borderColor: C.border, backgroundColor: C.background,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    cuisineChipActive: { backgroundColor: C.primaryLight, borderColor: C.primary },
+    cuisineChipText: { fontSize: 12, fontWeight: '600', color: C.textSecondary },
+    cuisineChipTextActive: { color: C.primary },
+    cuisineClearChip: {
+      height: 28, paddingHorizontal: 10, borderRadius: 14,
+      backgroundColor: C.surfaceAlt, borderWidth: 1, borderColor: C.border,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    cuisineClearText: { fontSize: 11, fontWeight: '700', color: C.textMuted },
 
     loader: { marginTop: 40 },
     errorText: { textAlign: 'center', color: C.error, marginTop: 40, paddingHorizontal: 16 },
