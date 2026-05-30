@@ -3,6 +3,7 @@ const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl, passesQualityFilter,
 const { haversineKm } = require('../utils/haversine');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
+const { deriveCuisineTags, parseCuisineTagFilter } = require('../utils/cuisineTags');
 
 const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
 const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
@@ -72,6 +73,7 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
     location: place.geometry?.location,
     distanceKm,
     photoUrl: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null,
+    cuisineTags: deriveCuisineTags(place),
     discount: hasDiscount ? {
       starDiscountEnabled: !!dp.discountEnabled,
       starDiscountPercent,
@@ -87,12 +89,13 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
 
 async function getNearby(req, res, next) {
   try {
-    const { lat, lng, type = 'all' } = req.query;
+    const { lat, lng, type = 'all', cuisineTag } = req.query;
     if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
 
     const userLat = parseFloat(lat);
     const userLng = parseFloat(lng);
     const placeType = VALID_TYPES.has(type) ? type : 'all';
+    const cuisineFilter = parseCuisineTagFilter(cuisineTag);
 
     const premium = req.user ? await isPremiumUser(req.user.id) : false;
     const radiusKm = premium ? PREMIUM_RADIUS_KM : FREE_RADIUS_KM;
@@ -123,6 +126,10 @@ async function getNearby(req, res, next) {
       .map((place) => {
         if (!place.geometry?.location) return null;
         if (!passesQualityFilter(place)) return null;
+        if (cuisineFilter.length > 0) {
+          const tags = deriveCuisineTags(place);
+          if (!cuisineFilter.some((t) => tags.includes(t))) return null;
+        }
         const _dist = haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng);
         if (_dist > radiusKm) return null;
         const enriched = { ...place, _dist };
@@ -179,7 +186,7 @@ const SEARCH_RESULT_LIMIT = 20;
 
 async function searchByText(req, res, next) {
   try {
-    const { q, lat, lng } = req.query;
+    const { q, lat, lng, cuisineTag } = req.query;
     const query = String(q || '').trim();
     if (!query) return res.status(400).json({ error: 'q parametresi gerekli' });
     if (query.length < 2) return res.status(400).json({ error: 'En az 2 karakter girin' });
@@ -187,6 +194,7 @@ async function searchByText(req, res, next) {
     const userLat = lat ? parseFloat(lat) : undefined;
     const userLng = lng ? parseFloat(lng) : undefined;
     const hasLocation = Number.isFinite(userLat) && Number.isFinite(userLng);
+    const cuisineFilter = parseCuisineTagFilter(cuisineTag);
 
     const rawPlaces = await searchPlacesByText(
       query,
@@ -199,6 +207,10 @@ async function searchByText(req, res, next) {
       .map((place) => {
         if (!place.geometry?.location) return null;
         if (!passesQualityFilter(place)) return null;
+        if (cuisineFilter.length > 0) {
+          const tags = deriveCuisineTags(place);
+          if (!cuisineFilter.some((t) => tags.includes(t))) return null;
+        }
         const distanceKm = hasLocation
           ? haversineKm(userLat, userLng, place.geometry.location.lat, place.geometry.location.lng)
           : null;
