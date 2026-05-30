@@ -15,6 +15,7 @@ import { useCollectionStore } from '../../store/collectionStore';
 import { recordRating } from '../../services/social';
 import { createCheckin } from '../../services/checkin';
 import { addDiaryEntry } from '../../services/diary';
+import { analyzePhoto, type PhotoAnalysisResult } from '../../services/photoAnalysis';
 import { getMyCollections, addToCollection, createCollection } from '../../services/collections';
 import { getClosingInfo } from '../../utils/closingTime';
 import StarRating from '../../components/StarRating';
@@ -76,6 +77,10 @@ export default function RestaurantDetailScreen() {
 
   // Menü resmi tam ekran görüntüleyici
   const [selectedMenuImage, setSelectedMenuImage] = useState<string | null>(null);
+
+  // S7-6 — fotoğraf analizi
+  const [photoAnalysis, setPhotoAnalysis] = useState<PhotoAnalysisResult | null>(null);
+  const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
 
   const { isFavorite, addFavorite: storeFav, removeFavorite: storeRemoveFav } = useFavoriteStore();
   const { isPremium, user } = useAuthStore();
@@ -171,6 +176,29 @@ export default function RestaurantDetailScreen() {
     const { lat, lng } = detail.location;
     const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     Linking.openURL(url).catch(() => Alert.alert('Hata', 'Harita uygulaması açılamadı.'));
+  }
+
+  async function handlePhotoAnalyze(photoUrl: string) {
+    if (photoAnalyzing) return;
+    setPhotoAnalyzing(true);
+    setPhotoAnalysis(null);
+    try {
+      const result = await analyzePhoto({
+        imageUrl: photoUrl,
+        placeId: detail?.placeId,
+        placeName: detail?.name,
+        placeAddress: detail?.formattedAddress ?? undefined,
+      });
+      setPhotoAnalysis(result);
+    } catch (err: any) {
+      if (err?.response?.status === 429) {
+        Alert.alert('Günlük limit doldu', 'Fotoğraf analizi günlük limitine ulaştın. Yarın tekrar deneyebilirsin ya da premium olabilirsin.');
+      } else {
+        Alert.alert('Hata', 'Analiz yapılamadı, lütfen tekrar dene.');
+      }
+    } finally {
+      setPhotoAnalyzing(false);
+    }
   }
 
   async function handleAddToDiary() {
@@ -349,7 +377,7 @@ export default function RestaurantDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <PhotoGallery photos={detail.photos} />
+        <PhotoGallery photos={detail.photos} onAnalyze={handlePhotoAnalyze} />
 
         <View style={styles.content}>
           <View style={styles.titleRow}>
@@ -667,6 +695,45 @@ export default function RestaurantDetailScreen() {
         </View>
       </Modal>
 
+      {/* Fotoğraf Analizi Modal (S7-6) */}
+      <Modal
+        visible={photoAnalyzing || !!photoAnalysis}
+        animationType="slide"
+        transparent
+        onRequestClose={() => { setPhotoAnalysis(null); setPhotoAnalyzing(false); }}
+      >
+        <View style={styles.analysisOverlay}>
+          <View style={styles.analysisSheet}>
+            <View style={styles.analysisHeader}>
+              <Text style={styles.analysisTitle}>🤖 Fotoğraf Analizi</Text>
+              <TouchableOpacity onPress={() => { setPhotoAnalysis(null); setPhotoAnalyzing(false); }}>
+                <Text style={styles.analysisClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {photoAnalyzing && (
+              <View style={styles.analysisCentered}>
+                <ActivityIndicator color={styles.analysisPrimary.color} size="large" />
+                <Text style={styles.analysisLoadingText}>Claude fotoğrafı analiz ediyor...</Text>
+              </View>
+            )}
+            {!photoAnalyzing && photoAnalysis && (
+              <>
+                {photoAnalysis.analysis ? (
+                  <Text style={styles.analysisText}>{photoAnalysis.analysis}</Text>
+                ) : (
+                  <Text style={styles.analysisEmpty}>Analiz yapılamadı, lütfen tekrar dene.</Text>
+                )}
+                {photoAnalysis.remainingToday != null && (
+                  <Text style={styles.analysisRemaining}>
+                    Bugün kalan hakkın: {photoAnalysis.remainingToday}
+                  </Text>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Menü Resmi Tam Ekran Modal */}
       <Modal
         visible={!!selectedMenuImage}
@@ -903,5 +970,20 @@ function makeStyles(C: Colors) {
     },
     inlineCreateBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
     inlineCreateBtnText: { color: C.primaryOn, fontWeight: '700', fontSize: 14 },
+    // S7-6 — fotoğraf analizi modal
+    analysisOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    analysisSheet: {
+      backgroundColor: C.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+      padding: 20, paddingBottom: 40, minHeight: 200,
+    },
+    analysisHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    analysisTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
+    analysisClose: { fontSize: 18, color: C.textMuted, fontWeight: '600', padding: 4 },
+    analysisCentered: { alignItems: 'center', paddingVertical: 24, gap: 12 },
+    analysisPrimary: { color: C.primary },
+    analysisLoadingText: { fontSize: 14, color: C.textMuted },
+    analysisText: { fontSize: 15, color: C.textSecondary, lineHeight: 24 },
+    analysisEmpty: { fontSize: 14, color: C.textMuted, fontStyle: 'italic' },
+    analysisRemaining: { fontSize: 12, color: C.textMuted, marginTop: 12 },
   });
 }
