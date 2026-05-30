@@ -35,10 +35,20 @@ async function createReservation(req, res, next) {
     // Restoranın rezervasyona açık ve onaylı olduğunu kontrol et
     const restaurant = await prisma.restaurantProfile.findFirst({
       where: { placeId, status: 'APPROVED', acceptsReservations: true },
-      select: { id: true, businessName: true, userId: true, placeName: true },
+      select: { id: true, businessName: true, userId: true, placeName: true, tableCount: true },
     });
     if (!restaurant) {
       return res.status(400).json({ error: 'Bu restoran rezervasyona açık değil veya bulunamadı.' });
+    }
+
+    // Kapasite kontrolü: tableCount varsa aynı placeId+date+time dilimini say
+    if (restaurant.tableCount) {
+      const slotCount = await prisma.reservation.count({
+        where: { placeId, date, time, status: { in: ['PENDING', 'CONFIRMED'] } },
+      });
+      if (slotCount >= restaurant.tableCount) {
+        return res.status(409).json({ error: 'Bu saat dilimi dolu. Lütfen başka bir saat seçin.' });
+      }
     }
 
     // Aynı gün aynı saate aktif rezervasyon var mı?

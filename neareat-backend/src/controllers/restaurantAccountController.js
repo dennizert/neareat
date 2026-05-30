@@ -15,7 +15,7 @@ const RESTAURANT_SELECT = {
   approvedAt: true, reservationUrl: true, announcement: true,
   announcementActive: true, openingHours: true, discountEnabled: true,
   discountPercent: true, discountMinStars: true, discountNote: true,
-  discountActiveUntil: true, acceptsReservations: true, createdAt: true, updatedAt: true,
+  discountActiveUntil: true, acceptsReservations: true, tableCount: true, createdAt: true, updatedAt: true,
 };
 
 async function registerRestaurant(req, res, next) {
@@ -327,7 +327,13 @@ async function updateAnnouncement(req, res, next) {
 
 async function updateInfo(req, res, next) {
   try {
-    const { reservationUrl, phone, contactEmail, address, acceptsReservations } = req.body;
+    const { reservationUrl, phone, contactEmail, address, acceptsReservations, tableCount } = req.body;
+    if (tableCount !== undefined && tableCount !== null) {
+      const n = parseInt(tableCount);
+      if (isNaN(n) || n < 1 || n > 500) {
+        return res.status(400).json({ error: 'Masa kapasitesi 1-500 arasında olmalıdır.' });
+      }
+    }
     const profile = await prisma.restaurantProfile.update({
       where: { userId: req.user.id },
       data: {
@@ -336,6 +342,7 @@ async function updateInfo(req, res, next) {
         contactEmail: contactEmail || undefined,
         address: address || undefined,
         acceptsReservations: typeof acceptsReservations === 'boolean' ? acceptsReservations : undefined,
+        tableCount: tableCount === null ? null : (tableCount !== undefined ? parseInt(tableCount) : undefined),
       },
       select: RESTAURANT_SELECT,
     });
