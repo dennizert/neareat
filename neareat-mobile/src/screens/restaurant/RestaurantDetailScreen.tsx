@@ -18,6 +18,7 @@ import { addDiaryEntry } from '../../services/diary';
 import { analyzePhoto, type PhotoAnalysisResult } from '../../services/photoAnalysis';
 import { getMyCollections, addToCollection, createCollection } from '../../services/collections';
 import { getClosingInfo } from '../../utils/closingTime';
+import { submitPlaceRequest } from '../../services/placeRequests';
 import StarRating from '../../components/StarRating';
 import PhotoGallery from '../../components/PhotoGallery';
 import type { RestaurantDetail, AppReview, Collection } from '../../types';
@@ -254,6 +255,37 @@ export default function RestaurantDetailScreen() {
       photoUrl: detail.photoUrl,
       rating: detail.rating,
     });
+  }
+
+  async function handleSuggestPlace() {
+    if (!detail) return;
+    Alert.alert(
+      'Platforma Öner',
+      `"${detail.name}" mekanını NearEat'e eklenmesi için önermek ister misiniz?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Öner',
+          onPress: async () => {
+            try {
+              await submitPlaceRequest({
+                placeId: detail.placeId,
+                placeName: detail.name,
+                placeAddress: detail.formattedAddress ?? undefined,
+              });
+              Alert.alert('Teşekkürler!', 'Talebiniz alındı. Ekibimiz en kısa sürede değerlendirecek.');
+            } catch (err: any) {
+              const msg = err.response?.data?.error;
+              if (err.response?.status === 409) {
+                Alert.alert('Zaten Önerildi', 'Bu mekan için zaten bir talebiniz bulunuyor.');
+              } else {
+                Alert.alert('Hata', msg ?? 'Talep gönderilemedi.');
+              }
+            }
+          },
+        },
+      ],
+    );
   }
 
   async function handleOpenCollectionModal() {
@@ -497,6 +529,11 @@ export default function RestaurantDetailScreen() {
             <TouchableOpacity style={[styles.actionBtn, styles.collectionBtn]} onPress={handleOpenCollectionModal}>
               <Text style={[styles.actionBtnText, styles.collectionBtnText]}>📋 Liste</Text>
             </TouchableOpacity>
+            {!detail.restaurantId && (
+              <TouchableOpacity style={[styles.actionBtn, styles.suggestBtn]} onPress={handleSuggestPlace}>
+                <Text style={[styles.actionBtnText, styles.suggestBtnText]}>🏷️ Öner</Text>
+              </TouchableOpacity>
+            )}
             {detail.acceptsReservations && detail.restaurantId && (
               <TouchableOpacity
                 style={[styles.actionBtn, styles.reservationBtn]}
@@ -942,6 +979,8 @@ function makeStyles(C: Colors) {
     // Reservation button
     reservationBtn: { backgroundColor: C.successSurface },
     reservationBtnText: { color: C.success },
+    suggestBtn: { backgroundColor: C.travelSurface },
+    suggestBtnText: { color: C.travel },
     // Review reply — restoran sahibi yanıtı (nötr, brand rengi kullanma)
     replyBox: {
       backgroundColor: C.surfaceAlt, borderRadius: 8, padding: 10, marginTop: 8,

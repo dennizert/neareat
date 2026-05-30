@@ -10,6 +10,7 @@ const {
   deleteReview, getFlaggedReviews, seedAdmin,
   getReports, handleReport, triggerFriendSuggestions, triggerNotificationCleanup,
 } = require('../controllers/adminController');
+const { listRequests, reviewRequest } = require('../controllers/placeRequestController');
 
 // One-time seed — ADMIN_SEED_SECRET env var ile korunur
 router.post('/seed', (req, res, next) => {
@@ -62,5 +63,8 @@ router.put('/reports/:id', authenticate, requireAdmin, handleReport);
 // Manuel job tetikleme
 router.post('/jobs/friend-suggestions/run', authenticate, requireAdmin, triggerFriendSuggestions);
 router.post('/jobs/notification-cleanup/run', authenticate, requireAdmin, triggerNotificationCleanup);
+
+router.get('/place-requests', authenticate, requireAdmin, listRequests);
+router.patch('/place-requests/:id/review', authenticate, requireAdmin, reviewRequest);
 
 module.exports = router;

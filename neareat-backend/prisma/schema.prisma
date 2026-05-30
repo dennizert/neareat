@@ -81,6 +81,7 @@ model User {
   checkIns                CheckIn[]
   diaryEntries            DiaryEntry[]
   notificationPreferences NotificationPreference[]
+  placeRequests           PlaceRequest[]
 
   @@map("users")
 }
@@ -836,4 +837,24 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+/// Kullanıcının platforma eklenmesini istediği restoran talebi (Sprint-8 #104).
+/// Aynı kullanıcı aynı placeId için yalnızca bir talep oluşturabilir (unique).
+/// Admin REVIEWED olarak işaretleyebilir.
+model PlaceRequest {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  placeId      String   @map("place_id")
+  placeName    String   @map("place_name")
+  placeAddress String?  @map("place_address") @db.VarChar(300)
+  note         String?  @db.VarChar(500)
+  status       String   @default("PENDING")   // PENDING | REVIEWED
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, placeId])
+  @@index([status, createdAt])
+  @@map("place_requests")
 }
