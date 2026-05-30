@@ -113,6 +113,30 @@ async function getMyReservations(req, res, next) {
   }
 }
 
+// İptal politikası eşikleri (saat cinsinden)
+const CANCEL_FREE_HOURS    = parseInt(process.env.CANCEL_FREE_HOURS    || '24', 10);
+const CANCEL_PENALTY_HOURS = parseInt(process.env.CANCEL_PENALTY_HOURS || '2',  10);
+const CANCEL_PENALTY_STARS = 5;
+
+/**
+ * Rezervasyon için iptal politikasını hesaplar.
+ * @param {string} date  "YYYY-MM-DD" (Türkiye yerel tarihi)
+ * @param {string} time  "HH:MM"      (Türkiye yerel saati)
+ * @param {Date}   [now] Test için override edilebilir
+ * @returns {{ allowed: boolean, penalty: number, hoursUntil: number }}
+ */
+function computeCancelPolicy(date, time, now = new Date()) {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  // Turkey = UTC+3; UTC ms = local – 3h
+  const reservationUtcMs = Date.UTC(year, month - 1, day, hour - 3, minute);
+  const hoursUntil = (reservationUtcMs - now.getTime()) / (60 * 60 * 1000);
+
+  if (hoursUntil < CANCEL_PENALTY_HOURS) return { allowed: false, penalty: 0, hoursUntil };
+  if (hoursUntil < CANCEL_FREE_HOURS)    return { allowed: true, penalty: CANCEL_PENALTY_STARS, hoursUntil };
+  return                                        { allowed: true, penalty: 0, hoursUntil };
+}
+
 // DELETE /api/reservations/:id — kullanıcı iptal eder
 async function cancelReservation(req, res, next) {
   try {
@@ -127,12 +151,33 @@ async function cancelReservation(req, res, next) {
     if (!['PENDING', 'CONFIRMED'].includes(reservation.status)) {
       return res.status(400).json({ error: 'Bu rezervasyon artık iptal edilemez.' });
     }
+
+    const policy = computeCancelPolicy(reservation.date, reservation.time);
+
+    if (!policy.allowed) {
+      return res.status(409).json({
+        error: `Etkinliğe ${CANCEL_PENALTY_HOURS} saatten az kaldığı için iptal engellenmiştir.`,
+        code: 'CANCEL_BLOCKED',
+        hoursUntil: Math.max(0, policy.hoursUntil),
+      });
+    }
+
     await prisma.reservation.update({
       where: { id },
       data: { status: 'CANCELLED' },
     });
 
-    // Restoran kullanıcısına bildirim gönder
+    // Ceza yıldız kesintisi (geç iptal)
+    if (policy.penalty > 0) {
+      deductStars(
+        reservation.userId,
+        policy.penalty,
+        `Geç iptal cezası — ${reservation.placeName} (${reservation.date} ${reservation.time})`,
+        id,
+      ).catch(() => {});
+    }
+
+    // Restorana bildirim
     createNotification(
       reservation.restaurant.userId,
       'RESERVATION_CANCELLED',
@@ -142,7 +187,10 @@ async function cancelReservation(req, res, next) {
     ).catch(() => {});
 
     logRequest({ req, page: 'Rezervasyonlar', action: 'Rezervasyon iptal etti', details: `${reservation.placeName} — ${reservation.date} ${reservation.time}` }).catch(() => {});
-    res.json({ message: 'Rezervasyon iptal edildi.' });
+    res.json({
+      message: 'Rezervasyon iptal edildi.',
+      penaltyStars: policy.penalty,
+    });
   } catch (err) {
     next(err);
   }
@@ -456,6 +504,7 @@ module.exports = {
   createReservation,
   getMyReservations,
   cancelReservation,
+  computeCancelPolicy,
   updateReservation,
   getReservationDetail,
   getRestaurantReservations,
