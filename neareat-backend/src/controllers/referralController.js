@@ -50,9 +50,9 @@ async function getMyCode(req, res, next) {
       });
     }
 
-    // Kaç kişi bu kodu kullandı
-    const usageCount = await prisma.user.count({
-      where: { referralApplied: true, starEvents: { some: { type: 'REFERRAL', referenceId: userId } } },
+    // Kaç kişi bu kodu kullandı — referrer'ın REFERRAL type star event sayısı (her kullanımda 1 event)
+    const usageCount = await prisma.starEvent.count({
+      where: { userId, type: 'REFERRAL' },
     });
 
     res.json({

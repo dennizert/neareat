@@ -21,7 +21,7 @@ jest.mock('../../src/utils/stars', () => ({
 
 const mockPrisma = {
   user: { findUnique: jest.fn(), update: jest.fn(), count: jest.fn() },
-  starEvent: { create: jest.fn() },
+  starEvent: { create: jest.fn(), count: jest.fn() },
   userReward: { create: jest.fn() },
   reward: { findMany: jest.fn() },
   $transaction: jest.fn(),
@@ -56,6 +56,7 @@ beforeEach(() => {
   mockPrisma.reward.findMany.mockResolvedValue([]);
   mockPrisma.$transaction.mockImplementation((ops) => Promise.all(ops));
   mockPrisma.starEvent.create.mockResolvedValue({});
+  mockPrisma.starEvent.count.mockResolvedValue(0);
   mockPrisma.user.update.mockResolvedValue({ starCount: 10 });
   mockPrisma.user.count.mockResolvedValue(0);
 });
@@ -70,7 +71,7 @@ describe('GET /api/referral/my-code', () => {
     mockFindUnique(U1, U1);  // auth, getMyCode
     mockPrisma.user.findUnique.mockResolvedValueOnce(null); // unique check
     mockPrisma.user.update.mockResolvedValue({ ...U1, referralCode: 'AHME5678' });
-    mockPrisma.user.count.mockResolvedValue(3);
+    mockPrisma.starEvent.count.mockResolvedValue(3);
     const res = await request(app).get('/api/referral/my-code').set('Authorization', `Bearer ${token1}`);
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('AHME5678');
@@ -80,7 +81,7 @@ describe('GET /api/referral/my-code', () => {
 
   it('kodu varsa güncelleme yapmadan döner', async () => {
     mockFindUnique(U2, U2); // auth, getMyCode
-    mockPrisma.user.count.mockResolvedValue(1);
+    mockPrisma.starEvent.count.mockResolvedValue(1);
     const res = await request(app).get('/api/referral/my-code').set('Authorization', `Bearer ${token2}`);
     expect(res.status).toBe(200);
     expect(res.body.code).toBe('BORA1234');
