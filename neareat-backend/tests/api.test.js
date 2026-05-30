@@ -38,6 +38,7 @@ const mockPrisma = {
   aiRecommendationLog: { create: jest.fn().mockResolvedValue({ id: 'log-1' }), count: jest.fn().mockResolvedValue(0) },
   recommendationFeedback: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
   feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
+  searchHistory: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), deleteMany: jest.fn() },
   activityEvent: { create: jest.fn().mockResolvedValue({}) },
   $transaction: jest.fn(),
   $queryRaw: jest.fn(),

@@ -178,6 +178,14 @@ kişisel gerekçe yaz. ÇIKTI FORMATINA harfiyen uy (aşağıda).
      en sona koy ve neden uygun olduğunu açıkla.
    - cuisinePreferences YOKSA: bu bölümü hiç işleme.
 
+10. **Son Aramalar (recentSearches, varsa)**: Kullanıcının son 7 gün içinde
+    Keşfet ekranında yaptığı serbest metin aramaları (örn. "kebap", "sushi").
+    - topKeywords[].keyword: Kullanıcının tekrar tekrar aradığı anahtar
+      kelime. Bu canlı bir niyet sinyali — uygun adayları öne çıkar ya da
+      en azından gerekçede bağlam olarak kullan ("bu hafta birkaç kez kebap
+      aramışsın, X tam yakınında").
+    - recentSearches YOKSA: bu bölümü hiç işleme.
+
 # Gerekçe Yazma Standardı
 
 Her gerekçe 2-3 cümle olmalı. Şu yapıyı izle:
@@ -591,7 +599,8 @@ async function buildFeedbackHistory(userId) {
 async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
   const isPremium = tier === 'premium';
 
-  const [user, reviews, favorites, starEvents, sentRecs, friendSignalsData, feedbackData, feedbackPref] = await Promise.all([
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [user, reviews, favorites, starEvents, sentRecs, friendSignalsData, feedbackData, feedbackPref, recentSearches] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -633,6 +642,13 @@ async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
     prisma.feedbackPreference.findUnique({
       where: { userId },
       select: { likedTypes: true, dislikedTypes: true },
+    }),
+    // Son 7 gün içindeki arama geçmişi (S6-6) — AI sinyali için
+    prisma.searchHistory.findMany({
+      where: { userId, createdAt: { gte: since7d } },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: { query: true },
     }),
   ]);
 
@@ -716,6 +732,26 @@ async function buildUserProfileSummary(userId, { tier = 'free' } = {}) {
       likedTypes,
       dislikedTypes,
     };
+  }
+
+  // Son aramalar (S6-6) — son 7 günde aynı keyword'ü kaç kez aramış
+  if (recentSearches.length > 0) {
+    const counts = new Map();
+    for (const s of recentSearches) {
+      const k = String(s.query || '').trim().toLocaleLowerCase('tr-TR');
+      if (!k) continue;
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    const topKeywords = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 5)
+      .map(([keyword, count]) => ({ count, keyword }));
+    if (topKeywords.length > 0) {
+      profile.recentSearches = {
+        topKeywords,
+        totalLast7Days: recentSearches.length,
+      };
+    }
   }
 
   const text =

@@ -18,6 +18,7 @@ const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/auth');
 const restaurantRoutes = require('./routes/restaurants');
 const placesRoutes = require('./routes/places');
+const searchHistoryRoutes = require('./routes/searchHistory');
 const favoriteRoutes = require('./routes/favorites');
 const reviewRoutes = require('./routes/reviews');
 const subscriptionRoutes = require('./routes/subscriptions');
@@ -126,6 +127,7 @@ app.get('/health', async (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/places', placesRoutes);
+app.use('/api/search-history', searchHistoryRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);

@@ -5,6 +5,7 @@ const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
 const { deriveCuisineTags, parseCuisineTagFilter } = require('../utils/cuisineTags');
 const { deriveFreshness } = require('../utils/freshnessTags');
+const { logSearchHistory } = require('./searchHistoryController');
 
 const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
 const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
@@ -245,6 +246,11 @@ async function searchByText(req, res, next) {
     );
 
     res.json({ results, query });
+
+    // Yanıttan sonra fire-and-forget kayıt — yalnızca giriş yapmış kullanıcılar
+    if (req.user?.id) {
+      logSearchHistory(req.user.id, query, cuisineFilter.length ? 'cuisine_tag' : 'free_text');
+    }
   } catch (err) {
     next(err);
   }
