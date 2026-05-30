@@ -336,6 +336,7 @@ export default function ProfileScreen() {
         <ActionRow label="👥 Arkadaşlar" onPress={() => navigation.navigate('Friends')} styles={styles} />
         <ActionRow label="📅 Rezervasyonlarım" onPress={() => navigation.navigate('MyReservations')} styles={styles} />
         <ActionRow label="📖 Yemek Günlüğüm" onPress={() => navigation.navigate('Diary')} styles={styles} />
+        <ActionRow label="🎁 Arkadaşını Davet Et" onPress={() => navigation.navigate('Referral')} styles={styles} />
         <ActionRow label="⭐ Yıldızlarım & Ödüller" onPress={() => navigation.navigate('Rewards')} styles={styles} />
         <ActionRow label="✏️ Profili Düzenle" onPress={() => navigation.navigate('EditProfile')} styles={styles} />
 
