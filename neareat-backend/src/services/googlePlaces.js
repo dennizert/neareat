@@ -116,13 +116,17 @@ async function searchPlacesByText(query, lat, lng) {
 
   const latKey = typeof lat === 'number' ? lat.toFixed(3) : 'x';
   const lngKey = typeof lng === 'number' ? lng.toFixed(3) : 'x';
-  const cacheKey = `placesTextV3:${q.toLocaleLowerCase('tr-TR')}:${latKey}:${lngKey}`;
+  const cacheKey = `placesTextV4:${q.toLocaleLowerCase('tr-TR')}:${latKey}:${lngKey}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
+  // "restoran " öneki: Google'ın "Didim", "Kilis" gibi bilinen yer adlarını
+  // şehir sorgusu değil restoran isim araması olarak yorumlaması için.
+  const googleQuery = `restoran ${q}`;
+
   let url =
     `https://maps.googleapis.com/maps/api/place/textsearch/json` +
-    `?query=${encodeURIComponent(q)}&type=food&language=tr&key=${API_KEY}`;
+    `?query=${encodeURIComponent(googleQuery)}&type=restaurant&language=tr&key=${API_KEY}`;
   if (typeof lat === 'number' && typeof lng === 'number') {
     url += `&location=${lat},${lng}&radius=${TEXT_SEARCH_BIAS_METERS}`;
   }

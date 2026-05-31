@@ -1,5 +1,5 @@
 const prisma = require('../utils/prisma');
-const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl, passesQualityFilter, searchPlacesByText } = require('../services/googlePlaces');
+const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl, passesQualityFilter, isExcludedByName, searchPlacesByText } = require('../services/googlePlaces');
 const { haversineKm } = require('../utils/haversine');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
@@ -207,11 +207,13 @@ async function searchByText(req, res, next) {
       hasLocation ? userLng : undefined,
     );
 
-    // Kalite + isim filtresi (passesQualityFilter içinde her ikisi de var)
+    // Metin aramasında yalnızca isim eleme uygulanır; rating/yorum eşiği yok.
+    // Kullanıcı kasıtlı arama yapıyorsa az yorumluysa da göster —
+    // ilgisiz işletmeleri yalnızca isim filtresi + Google type=restaurant engeller.
     const filtered = rawPlaces
       .map((place) => {
         if (!place.geometry?.location) return null;
-        if (!passesQualityFilter(place)) return null;
+        if (isExcludedByName(place?.name)) return null;
         if (cuisineFilter.length > 0) {
           const tags = deriveCuisineTags(place);
           if (!cuisineFilter.some((t) => tags.includes(t))) return null;

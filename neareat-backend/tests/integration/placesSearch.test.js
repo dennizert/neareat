@@ -106,7 +106,8 @@ describe('GET /api/places/search', () => {
     expect(res.body.results[0].distanceKm).toBeNull();
   });
 
-  it('düşük rating sonucu elenir (passesQualityFilter)', async () => {
+  it('metin aramasında düşük rating elenemez — sadece isim filtresi uygulanır', async () => {
+    // Kasıtlı aramada kullanıcı az yorumlu bir mekanı da görmeli.
     mockSearchPlacesByText.mockResolvedValue([
       goodPlace(),
       goodPlace({ place_id: 'p2', name: 'Kötü Pizza', rating: 1.2, user_ratings_total: 50 }),
@@ -114,8 +115,7 @@ describe('GET /api/places/search', () => {
     const res = await request(app)
       .get('/api/places/search?q=pizza&lat=41&lng=29')
       .set('Authorization', `Bearer ${token}`);
-    expect(res.body.results).toHaveLength(1);
-    expect(res.body.results[0].placeId).toBe('p1');
+    expect(res.body.results).toHaveLength(2);
   });
 
   it('istenmeyen isim (örn. Fırın) elenir', async () => {
