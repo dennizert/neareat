@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const prisma = require('../utils/prisma');
 const { getAuth } = require('../services/firebase');
+const { verifyGoogleIdToken } = require('../services/googleAuth');
 const { signToken } = require('../utils/jwt');
 const { logRequest } = require('../services/logService');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
@@ -22,15 +23,17 @@ async function login(req, res, next) {
     const { idToken } = req.body;
     if (!idToken) return res.status(400).json({ error: 'idToken required' });
 
-    const decoded = await getAuth().verifyIdToken(idToken);
+    // Mobilden gelen Google OAuth idToken'ı google-auth-library ile doğrula.
+    // payload.sub Google'ın kalıcı kullanıcı kimliğidir (googleId olarak saklanır).
+    const decoded = await verifyGoogleIdToken(idToken);
 
-    let user = await prisma.user.findUnique({ where: { googleId: decoded.uid } });
+    let user = await prisma.user.findUnique({ where: { googleId: decoded.sub } });
     let isNew = false;
     if (!user) {
       isNew = true;
       user = await prisma.user.create({
         data: {
-          googleId: decoded.uid,
+          googleId: decoded.sub,
           email: decoded.email,
           displayName: decoded.name || decoded.email.split('@')[0],
           photoUrl: decoded.picture || null,

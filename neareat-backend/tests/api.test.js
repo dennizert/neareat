@@ -57,6 +57,14 @@ jest.mock('../src/services/firebase', () => ({
   }),
 }));
 
+// Google OAuth mock — mobil ham Google idToken gönderir, backend google-auth-library ile doğrular
+jest.mock('../src/services/googleAuth', () => ({
+  verifyGoogleIdToken: jest.fn().mockResolvedValue({
+    sub: 'google-sub-123', email: 'gtest@test.com', name: 'Google Test', picture: null,
+  }),
+  GOOGLE_WEB_CLIENT_ID: 'test-web-client-id',
+}));
+
 // Redis mock
 jest.mock('../src/services/redis', () => ({
   getRedis: () => ({ get: jest.fn(), set: jest.fn(), del: jest.fn(), ping: jest.fn().mockResolvedValue('PONG') }),
@@ -183,6 +191,32 @@ describe('Auth Endpoints', () => {
         .send({ email: 'test@test.com' });
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('POST /api/auth/login (Google)', () => {
+    it('idToken eksikse 400', async () => {
+      const res = await request(app).post('/api/auth/login').send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('geçerli Google idToken → kullanıcı oluşturur/döner (googleId = payload.sub)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null); // yeni kullanıcı
+      mockPrisma.user.create.mockResolvedValueOnce({
+        id: 'u-google', googleId: 'google-sub-123', email: 'gtest@test.com',
+        displayName: 'Google Test', role: 'USER', starCount: 0, isSuspended: false,
+      });
+      mockPrisma.subscription.findUnique.mockResolvedValueOnce(null);
+
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ idToken: 'fake-google-id-token' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user).toBeDefined();
+      expect(mockPrisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ googleId: 'google-sub-123' }) }),
+      );
     });
   });
 

@@ -1,4 +1,4 @@
-const { getAuth } = require('../services/firebase');
+const { verifyGoogleIdToken } = require('../services/googleAuth');
 const { verifyToken } = require('../utils/jwt');
 const prisma = require('../utils/prisma');
 const { logSecurityEvent, EVENTS } = require('./securityLogger');
@@ -34,10 +34,10 @@ async function authenticate(req, res, next) {
     // JWT değil ya da geçersiz — Firebase'i dene
   }
 
-  // Firebase token dene (Google auth)
+  // Google OAuth idToken dene (Google auth)
   try {
-    const decoded = await getAuth().verifyIdToken(token);
-    const user = await prisma.user.findUnique({ where: { googleId: decoded.uid } });
+    const decoded = await verifyGoogleIdToken(token);
+    const user = await prisma.user.findUnique({ where: { googleId: decoded.sub } });
     if (!user) {
       logSecurityEvent(EVENTS.AUTH_FAILED, {
         ip: req.ip,
