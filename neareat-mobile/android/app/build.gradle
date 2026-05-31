@@ -86,9 +86,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.neareat.app'
+    namespace 'com.eatlas.mobile'
     defaultConfig {
-        applicationId 'com.neareat.app'
+        applicationId 'com.eatlas.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 29

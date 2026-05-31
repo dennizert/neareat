@@ -1,4 +1,4 @@
-package com.neareat.app
+package com.eatlas.mobile
 
 import android.os.Build
 import android.os.Bundle

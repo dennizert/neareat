@@ -4,25 +4,15 @@ import {
   Alert, ActivityIndicator, Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import {
-  initConnection,
-  endConnection,
-  getSubscriptions,
-  requestSubscription,
-  purchaseUpdatedListener,
-  purchaseErrorListener,
-  finishTransaction,
-  type Subscription as IAPSubscription,
-  type PurchaseError,
-} from 'react-native-iap';
+import { useIAP } from 'expo-iap';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
-// Google Play Console → Monetization → Subscriptions'da tanımlayacağın Product ID'ler.
-// Faz 4'te bu değerleri Play Console'daki Product ID'lerle eşleştir.
-const ANDROID_SKUS = {
+// Google Play Console → Monetization → Subscriptions'da tanımlanacak Product ID'ler.
+// Bu değerler Play Console'daki Subscription ID'leriyle BİREBİR aynı olmalı.
+const SKUS = {
   monthly: 'premium_monthly',
   yearly: 'premium_yearly',
 };
@@ -43,44 +33,23 @@ export default function PaywallScreen() {
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [selected, setSelected] = useState<'yearly' | 'monthly'>('yearly');
-  const [products, setProducts] = useState<IAPSubscription[]>([]);
-  const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
-  const [iapAvailable, setIapAvailable] = useState(false);
 
-  // IAP başlat + ürünleri getir
-  useEffect(() => {
-    let mounted = true;
-
-    async function setup() {
-      try {
-        if (Platform.OS !== 'android') {
-          setLoading(false);
-          return;
-        }
-        await initConnection();
-        const subs = await getSubscriptions({ skus: Object.values(ANDROID_SKUS) });
-        if (mounted) {
-          setProducts(subs);
-          setIapAvailable(subs.length > 0);
-        }
-      } catch {
-        // Play Store bağlantısı kurulamadı — emülatörde veya test ortamında olabilir
-      } finally {
-        if (mounted) setLoading(false);
+  // expo-iap hook — bağlantı, ürünler ve satın alma callback'lerini yönetir.
+  const { connected, subscriptions, requestProducts, requestPurchase, finishTransaction } = useIAP({
+    onPurchaseSuccess: async (purchase) => {
+      const token = purchase.purchaseToken;
+      if (!token) {
+        setPurchasing(false);
+        return;
       }
-    }
-    setup();
-
-    // Satın alma tamamlandığında tetiklenir
-    const purchaseListener = purchaseUpdatedListener(async (purchase) => {
-      if (!purchase?.purchaseToken) return;
       try {
         const { data } = await api.post('/subscriptions/verify/android', {
-          purchaseToken: purchase.purchaseToken,
+          purchaseToken: token,
           productId: purchase.productId,
         });
         setSubscription(data);
+        // Aboneliği tamamla (consume etme — abonelik tek seferlik tüketilmez)
         await finishTransaction({ purchase, isConsumable: false });
         navigation.goBack();
         Alert.alert('Premium Aktif', 'Aboneliğin başarıyla etkinleştirildi!');
@@ -89,47 +58,37 @@ export default function PaywallScreen() {
       } finally {
         setPurchasing(false);
       }
-    });
-
-    const errorListener = purchaseErrorListener((error: PurchaseError) => {
+    },
+    onPurchaseError: (error) => {
       setPurchasing(false);
-      if (error.code !== 'E_USER_CANCELLED') {
-        Alert.alert('Satın Alma Hatası', error.message || 'Bilinmeyen bir hata oluştu.');
+      // Kullanıcı satın almayı iptal ettiyse sessiz geç; gerçek hatalarda uyar
+      if (error?.code !== 'E_USER_CANCELLED') {
+        Alert.alert('Satın Alma Hatası', error?.message || 'Bilinmeyen bir hata oluştu.');
       }
-    });
+    },
+  });
 
-    return () => {
-      mounted = false;
-      purchaseListener.remove();
-      errorListener.remove();
-      endConnection();
-    };
-  }, []);
+  // Bağlantı kurulunca ürünleri getir
+  useEffect(() => {
+    if (connected) {
+      requestProducts({ skus: Object.values(SKUS), type: 'subs' }).catch(() => {
+        // Play Store erişilemiyor (emülatör / yapılandırılmamış) — trial fallback devreye girer
+      });
+    }
+  }, [connected, requestProducts]);
+
+  const iapAvailable = subscriptions.length > 0;
 
   const getProduct = useCallback(
-    (plan: 'monthly' | 'yearly') =>
-      products.find((p) => p.productId === ANDROID_SKUS[plan]),
-    [products],
+    (plan: 'monthly' | 'yearly') => subscriptions.find((s) => s.id === SKUS[plan]),
+    [subscriptions],
   );
 
-  async function handlePurchase() {
-    const sku = ANDROID_SKUS[selected];
-    if (Platform.OS !== 'android') {
-      Alert.alert('Yakında', 'iOS için App Store entegrasyonu yakında geliyor.');
-      return;
-    }
-    if (!iapAvailable) {
-      // Play Console henüz yapılandırılmadıysa trial'a yönlendir
-      handleTrial();
-      return;
-    }
-    try {
-      setPurchasing(true);
-      await requestSubscription({ sku });
-      // Gerisi purchaseUpdatedListener'da tamamlanır
-    } catch {
-      setPurchasing(false);
-    }
+  function priceLabel(plan: 'monthly' | 'yearly') {
+    const p = getProduct(plan);
+    const suffix = plan === 'yearly' ? '/ yıl' : '/ ay';
+    if (!p?.displayPrice) return `— TRY ${suffix}`;
+    return `${p.displayPrice} ${suffix}`;
   }
 
   async function handleTrial() {
@@ -145,15 +104,35 @@ export default function PaywallScreen() {
     }
   }
 
-  const monthlyProduct = getProduct('monthly');
-  const yearlyProduct = getProduct('yearly');
-
-  function priceLabel(plan: 'monthly' | 'yearly') {
-    const p = getProduct(plan);
-    if (!p) return plan === 'yearly' ? '— TRY / yıl' : '— TRY / ay';
-    return plan === 'yearly'
-      ? `${p.localizedPrice} / yıl`
-      : `${p.localizedPrice} / ay`;
+  async function handlePurchase() {
+    if (Platform.OS !== 'android') {
+      Alert.alert('Yakında', 'iOS için App Store entegrasyonu yakında geliyor.');
+      return;
+    }
+    const sku = SKUS[selected];
+    const product = getProduct(selected);
+    // Play Console henüz yapılandırılmadıysa veya ürün yüklenemediyse trial'a düş
+    if (!product) {
+      handleTrial();
+      return;
+    }
+    // Google Play aboneliklerinde offerToken zorunlu — ürünün offer detaylarından çıkar
+    const offers = ((product as any).subscriptionOfferDetails ?? []).map(
+      (o: { offerToken: string }) => ({ sku, offerToken: o.offerToken }),
+    );
+    try {
+      setPurchasing(true);
+      await requestPurchase({
+        type: 'subs',
+        request: {
+          android: { skus: [sku], subscriptionOffers: offers },
+          ios: { sku },
+        },
+      });
+      // Sonuç onPurchaseSuccess / onPurchaseError callback'lerinde işlenir
+    } catch {
+      setPurchasing(false);
+    }
   }
 
   return (
@@ -171,44 +150,42 @@ export default function PaywallScreen() {
         ))}
       </View>
 
-      {loading ? (
-        <ActivityIndicator color={C.primary} style={{ marginVertical: 24 }} />
-      ) : (
-        <View style={styles.planRow}>
-          {/* Yıllık */}
-          <TouchableOpacity
-            style={[styles.planCard, selected === 'yearly' && styles.planCardActive]}
-            onPress={() => setSelected('yearly')}
-          >
-            <View style={styles.popularBadge}>
-              <Text style={styles.popularText}>En Popüler</Text>
-            </View>
-            <Text style={styles.planName}>Yıllık</Text>
-            <Text style={styles.planPrice}>{priceLabel('yearly')}</Text>
-            <Text style={styles.planSavings}>%35 tasarruf</Text>
-          </TouchableOpacity>
+      <View style={styles.planRow}>
+        {/* Yıllık */}
+        <TouchableOpacity
+          style={[styles.planCard, selected === 'yearly' && styles.planCardActive]}
+          onPress={() => setSelected('yearly')}
+        >
+          <View style={styles.popularBadge}>
+            <Text style={styles.popularText}>En Popüler</Text>
+          </View>
+          <Text style={styles.planName}>Yıllık</Text>
+          <Text style={styles.planPrice}>{priceLabel('yearly')}</Text>
+          <Text style={styles.planSavings}>%35 tasarruf</Text>
+        </TouchableOpacity>
 
-          {/* Aylık */}
-          <TouchableOpacity
-            style={[styles.planCard, selected === 'monthly' && styles.planCardActive]}
-            onPress={() => setSelected('monthly')}
-          >
-            <Text style={styles.planName}>Aylık</Text>
-            <Text style={styles.planPrice}>{priceLabel('monthly')}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        {/* Aylık */}
+        <TouchableOpacity
+          style={[styles.planCard, selected === 'monthly' && styles.planCardActive]}
+          onPress={() => setSelected('monthly')}
+        >
+          <Text style={styles.planName}>Aylık</Text>
+          <Text style={styles.planPrice}>{priceLabel('monthly')}</Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity
         style={[styles.primaryBtn, purchasing && styles.primaryBtnDisabled]}
         onPress={handlePurchase}
-        disabled={purchasing || loading}
+        disabled={purchasing}
         activeOpacity={0.85}
       >
         {purchasing
           ? <ActivityIndicator color="#fff" />
           : <Text style={styles.primaryBtnText}>
-              {iapAvailable ? `✨ ${selected === 'yearly' ? 'Yıllık' : 'Aylık'} Premium'a Geç` : '7 Gün Ücretsiz Dene'}
+              {iapAvailable
+                ? `✨ ${selected === 'yearly' ? 'Yıllık' : 'Aylık'} Premium'a Geç`
+                : '7 Gün Ücretsiz Dene'}
             </Text>
         }
       </TouchableOpacity>
@@ -216,8 +193,7 @@ export default function PaywallScreen() {
       <Text style={styles.legal}>
         {iapAvailable
           ? 'Abonelik Google Play üzerinden yönetilir. İstediğin zaman iptal edebilirsin.'
-          : 'Devam ederek Kullanım Şartları ve Gizlilik Politikasını kabul etmiş olursunuz.'
-        }
+          : 'Devam ederek Kullanım Şartları ve Gizlilik Politikasını kabul etmiş olursunuz.'}
       </Text>
     </View>
   );

@@ -28,7 +28,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#14101C"
       },
-      "package": "com.neareat.app",
+      "package": "com.eatlas.mobile",
       "versionCode": 29,
       "permissions": [
         "ACCESS_FINE_LOCATION",
@@ -45,8 +45,15 @@
         {
           "action": "VIEW",
           "autoVerify": false,
-          "data": [{ "scheme": "neareat" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "neareat"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -66,7 +73,8 @@
           "iosUrlScheme": "com.googleusercontent.apps.YOUR_IOS_CLIENT_ID"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-iap"
     ],
     "extra": {
       "apiBaseUrl": "https://railway-up-production-6cdc.up.railway.app/api",
