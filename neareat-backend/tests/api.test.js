@@ -424,23 +424,23 @@ describe('Subscription Endpoints', () => {
     });
   });
 
-  describe('POST /api/subscriptions/checkout', () => {
-    it('should reject invalid plan type', async () => {
+  describe('POST /api/subscriptions/verify/android', () => {
+    it('purchaseToken veya productId eksikse 400 döner', async () => {
       const res = await request(app)
-        .post('/api/subscriptions/checkout')
+        .post('/api/subscriptions/verify/android')
         .set('Authorization', `Bearer ${testToken}`)
-        .send({ planType: 'invalid' });
+        .send({ productId: 'premium_monthly' });
 
       expect(res.status).toBe(400);
     });
 
-    it('should accept valid plan type', async () => {
+    it('Google Play credentials yapılandırılmamışsa 503 döner', async () => {
       const res = await request(app)
-        .post('/api/subscriptions/checkout')
+        .post('/api/subscriptions/verify/android')
         .set('Authorization', `Bearer ${testToken}`)
-        .send({ planType: 'monthly' });
+        .send({ purchaseToken: 'tok_test', productId: 'premium_monthly' });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(503);
     });
   });
 });

@@ -95,7 +95,6 @@ model Subscription {
   status               SubscriptionStatus
   startedAt            DateTime           @map("started_at")
   expiresAt            DateTime           @map("expires_at")
-  iyzicoSubscriptionId String?            @map("iyzico_subscription_id")
   storeTransactionId   String?            @map("store_transaction_id")
   createdAt            DateTime           @default(now()) @map("created_at")
 
@@ -146,7 +145,6 @@ model Payment {
   userId          String        @map("user_id")
   amount          Decimal       @db.Decimal(10, 2)
   currency        String        @default("TRY")
-  iyzicoPaymentId String?       @map("iyzico_payment_id")
   status          PaymentStatus
   createdAt       DateTime      @default(now()) @map("created_at")
 

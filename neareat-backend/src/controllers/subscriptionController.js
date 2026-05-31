@@ -53,48 +53,76 @@ async function startTrial(req, res, next) {
   }
 }
 
-async function createCheckout(req, res, next) {
+// Google Play satın alma doğrulama — Android IAP akışı:
+// 1. Mobil react-native-iap ile satın alma başlatır
+// 2. Play Store onaylar → purchaseToken + productId gelir
+// 3. Bu endpoint Google Play Developer API ile doğrular
+// 4. Geçerliyse DB'de subscription aktifleştirir
+async function verifyAndroidPurchase(req, res, next) {
   try {
-    const { planType } = req.body;
-    if (!['monthly', 'yearly'].includes(planType)) {
-      return res.status(400).json({ error: 'planType must be monthly or yearly' });
-    }
-    res.json({ message: 'Checkout session created', planType });
-  } catch (err) {
-    next(err);
-  }
-}
-
-async function iyzicoWebhook(req, res, next) {
-  try {
-    const { subscriptionReferenceCode, status } = req.body;
-
-    if (!subscriptionReferenceCode || !status) {
-      return res.status(400).json({ error: 'Invalid webhook payload' });
+    const { purchaseToken, productId } = req.body;
+    if (!purchaseToken || !productId) {
+      return res.status(400).json({ error: 'purchaseToken ve productId gerekli' });
     }
 
-    const subscription = await prisma.subscription.findFirst({
-      where: { iyzicoSubscriptionId: subscriptionReferenceCode },
+    const serviceAccountJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
+    const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME;
+
+    if (!serviceAccountJson || !packageName) {
+      return res.status(503).json({ error: 'Google Play entegrasyonu henüz yapılandırılmadı' });
+    }
+
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(serviceAccountJson),
+      scopes: ['https://www.googleapis.com/auth/androidpublisher'],
     });
 
-    if (subscription) {
-      await prisma.subscription.update({
-        where: { id: subscription.id },
-        data: { status: status === 'ACTIVE' ? 'active' : 'cancelled' },
-      });
+    const androidpublisher = google.androidpublisher({ version: 'v3', auth });
+    const { data: purchase } = await androidpublisher.purchases.subscriptions.get({
+      packageName,
+      subscriptionId: productId,
+      token: purchaseToken,
+    });
+
+    const expiryMs = parseInt(purchase.expiryTimeMillis, 10);
+    if (!expiryMs || expiryMs < Date.now()) {
+      return res.status(400).json({ error: 'Satın alma geçersiz veya süresi dolmuş' });
     }
 
-    res.json({ received: true });
+    const planType = productId.includes('yearly') ? 'yearly' : 'monthly';
+
+    const subscription = await prisma.subscription.upsert({
+      where: { userId: req.user.id },
+      update: {
+        planType,
+        status: 'active',
+        expiresAt: new Date(expiryMs),
+        storeTransactionId: purchaseToken,
+      },
+      create: {
+        userId: req.user.id,
+        planType,
+        status: 'active',
+        startedAt: new Date(),
+        expiresAt: new Date(expiryMs),
+        storeTransactionId: purchaseToken,
+      },
+    });
+
+    res.json(subscription);
   } catch (err) {
     next(err);
   }
 }
 
+// iOS App Store doğrulama — gelecek sprintte eklenecek.
+// Şimdilik client'ın gönderdiği expiresAt'e güveniyor (geçici).
 async function verifyAppStorePurchase(req, res, next) {
   try {
     const { transactionId, planType, expiresAt } = req.body;
     if (!transactionId || !planType || !expiresAt) {
-      return res.status(400).json({ error: 'transactionId, planType, expiresAt required' });
+      return res.status(400).json({ error: 'transactionId, planType, expiresAt gerekli' });
     }
 
     const subscription = await prisma.subscription.upsert({
@@ -121,4 +149,4 @@ async function verifyAppStorePurchase(req, res, next) {
   }
 }
 
-module.exports = { getSubscription, startTrial, createCheckout, iyzicoWebhook, verifyAppStorePurchase };
+module.exports = { getSubscription, startTrial, verifyAndroidPurchase, verifyAppStorePurchase };
