@@ -102,7 +102,7 @@ android {
             keyPassword 'android'
         }
         release {
-            if (project.hasProperty('NEAREAT_UPLOAD_STORE_FILE')) {
+            if (project.hasProperty('NEAREAT_UPLOAD_STORE_FILE') && file(NEAREAT_UPLOAD_STORE_FILE).exists()) {
                 storeFile file(NEAREAT_UPLOAD_STORE_FILE)
                 storePassword NEAREAT_UPLOAD_STORE_PASSWORD
                 keyAlias NEAREAT_UPLOAD_KEY_ALIAS
@@ -115,7 +115,12 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.release
+            // Production keystore (NEAREAT_UPLOAD_STORE_FILE) tanımlı VE dosyası varsa onunla,
+            // yoksa (yerel test build'i) debug anahtarıyla imzala. Debug imzası SHA-1'i
+            // Google Cloud'a kayıtlı olduğu için test APK'sında Google Giriş çalışır;
+            // standalone (Metro'suz) kurulabilir.
+            def hasUploadKeystore = project.hasProperty('NEAREAT_UPLOAD_STORE_FILE') && file(NEAREAT_UPLOAD_STORE_FILE).exists()
+            signingConfig hasUploadKeystore ? signingConfigs.release : signingConfigs.debug
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
