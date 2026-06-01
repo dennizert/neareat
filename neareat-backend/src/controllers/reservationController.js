@@ -12,6 +12,30 @@ const RESERVATION_SELECT = {
   restaurant: { select: { id: true, businessName: true, placePhotoUrl: true, userId: true } },
 };
 
+// Mobil tarafın gönderdiği sabit liste ile uyumlu (MakeReservationScreen / EditReservationScreen)
+const VALID_OCCASIONS = ['Doğum Günü', 'Yıl Dönümü', 'İş Yemeği', 'Arkadaş Buluşması', 'Aile Yemeği', 'Diğer'];
+const MAX_SPECIAL_REQUESTS = 500;
+
+/**
+ * Rezervasyon iş kuralı doğrulaması (format kontrolleri ayrıca yapılır).
+ * Geçmiş tarih/saat, occasion whitelist ve specialRequests uzunluğunu denetler.
+ * @returns {string|null} Hata mesajı veya geçerliyse null.
+ */
+function validateReservationInput({ date, time, occasion, specialRequests }) {
+  // Türkiye saati (UTC+3, DST yok) olarak yorumla ve şu ana göre kıyasla
+  const slot = new Date(`${date}T${time}:00+03:00`);
+  if (isNaN(slot.getTime())) return 'Geçersiz tarih veya saat.';
+  if (slot.getTime() < Date.now()) return 'Geçmiş bir tarih veya saate rezervasyon yapılamaz.';
+
+  if (occasion && !VALID_OCCASIONS.includes(occasion)) {
+    return 'Geçersiz özel gün seçimi.';
+  }
+  if (specialRequests && String(specialRequests).length > MAX_SPECIAL_REQUESTS) {
+    return `Özel istekler en fazla ${MAX_SPECIAL_REQUESTS} karakter olabilir.`;
+  }
+  return null;
+}
+
 // ─── Kullanıcı — Rezervasyon Oluştur ─────────────────────────────────────────
 
 // POST /api/reservations
@@ -31,6 +55,9 @@ async function createReservation(req, res, next) {
     if (!/^\d{2}:\d{2}$/.test(time)) {
       return res.status(400).json({ error: 'Saat HH:MM formatında olmalıdır.' });
     }
+
+    const validationError = validateReservationInput({ date, time, occasion, specialRequests });
+    if (validationError) return res.status(400).json({ error: validationError });
 
     // Restoranın rezervasyona açık ve onaylı olduğunu kontrol et
     const restaurant = await prisma.restaurantProfile.findFirst({
@@ -221,6 +248,9 @@ async function updateReservation(req, res, next) {
     if (!/^\d{2}:\d{2}$/.test(time)) {
       return res.status(400).json({ error: 'Saat HH:MM formatında olmalıdır.' });
     }
+
+    const validationError = validateReservationInput({ date, time, occasion, specialRequests });
+    if (validationError) return res.status(400).json({ error: validationError });
 
     const old = await prisma.reservation.findUnique({
       where: { id },
