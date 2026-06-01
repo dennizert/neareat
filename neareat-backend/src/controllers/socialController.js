@@ -3,7 +3,7 @@ const { awardStars, getLevel } = require('../utils/stars');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
-const { getCachedSuggestions, computeSuggestionsForUser } = require('../services/friendSuggestionService');
+const { getCachedSuggestions, computeSuggestionsForUser, invalidateSuggestions } = require('../services/friendSuggestionService');
 
 const FREE_DAILY_REC_LIMIT = 2;
 
@@ -146,6 +146,7 @@ async function sendFriendRequest(req, res, next) {
         data: { status: 'ACCEPTED' },
       });
       await awardStars(req.user.id, 'FRIEND_ADDED', `${toUserId} ile arkadaş oldun`, accepted.id);
+      await invalidateSuggestions(req.user.id, toUserId);
       logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşlık isteği gönderdi (karşılıklı — otomatik kabul)', details: toUserId }).catch(() => {});
       return res.json({ message: 'Karşılıklı istek — arkadaşlık onaylandı.', autoAccepted: true, request: accepted });
     }
@@ -172,6 +173,7 @@ async function sendFriendRequest(req, res, next) {
         : `${req.user.displayName} sana tekrar arkadaşlık isteği gönderdi`;
       createNotification(toUserId, 'FRIEND_REQUEST', 'Arkadaş Daveti', notifBody,
         { fromUserId: req.user.id, fromUserName: req.user.displayName, note: trimmedNote }).catch(() => {});
+      await invalidateSuggestions(req.user.id, toUserId);
       return res.status(201).json(updated);
     }
 
@@ -191,6 +193,7 @@ async function sendFriendRequest(req, res, next) {
       { fromUserId: req.user.id, fromUserName: req.user.displayName, note: trimmedNote },
     ).catch(() => {});
 
+    await invalidateSuggestions(req.user.id, toUserId);
     logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşlık isteği gönderdi', details: toUserId }).catch(() => {});
     res.status(201).json(request);
   } catch (err) {
@@ -221,6 +224,7 @@ async function acceptFriendRequest(req, res, next) {
       updated.id,
     );
 
+    await invalidateSuggestions(req.user.id, updated.fromUser.id);
     logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşlık isteği kabul etti', details: updated.fromUser.id }).catch(() => {});
     res.json({
       friend: {
@@ -249,6 +253,7 @@ async function rejectFriendRequest(req, res, next) {
       data: { status: 'REJECTED' },
     });
 
+    await invalidateSuggestions(req.user.id, request.fromUserId);
     logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşlık isteği reddetti', details: request.fromUserId }).catch(() => {});
     res.json({ message: 'İstek reddedildi.' });
   } catch (err) {
@@ -268,6 +273,7 @@ async function removeFriend(req, res, next) {
     const otherId = request.fromUserId === req.user.id ? request.toUserId : request.fromUserId;
     logRequest({ req, page: 'Arkadaşlar', action: 'Arkadaşı kaldırdı', details: otherId }).catch(() => {});
     await prisma.friendRequest.delete({ where: { id: req.params.id } });
+    await invalidateSuggestions(req.user.id, otherId);
     res.json({ message: 'Arkadaşlık kaldırıldı.' });
   } catch (err) {
     next(err);

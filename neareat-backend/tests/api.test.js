@@ -577,6 +577,24 @@ describe('Social Endpoints', () => {
       expect(res.status).toBe(201);
     });
 
+    it('arkadaşlık isteği iki kullanıcının öneri cache\'ini temizler (#168)', async () => {
+      const redis = require('../src/services/redis');
+      mockPrisma.friendRequest.findUnique.mockResolvedValue(null);
+      mockPrisma.friendRequest.create.mockResolvedValue({
+        id: 'fr-1', fromUserId: testUser.id, toUserId: testUser2.id, status: 'PENDING',
+      });
+      mockPrisma.notification.create.mockResolvedValue({});
+
+      const res = await request(app)
+        .post('/api/social/friends/requests')
+        .set('Authorization', `Bearer ${testToken}`)
+        .send({ toUserId: testUser2.id });
+
+      expect(res.status).toBe(201);
+      expect(redis.cacheDel).toHaveBeenCalledWith(`friend-suggestions:${testUser.id}`);
+      expect(redis.cacheDel).toHaveBeenCalledWith(`friend-suggestions:${testUser2.id}`);
+    });
+
     it('should reject self-request', async () => {
       const res = await request(app)
         .post('/api/social/friends/requests')
