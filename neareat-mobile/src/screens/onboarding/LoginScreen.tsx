@@ -56,7 +56,7 @@ export default function LoginScreen() {
         navigation.navigate('PremiumIntro');
       }
     } catch (err: any) {
-      Alert.alert('Giriş Hatası', err.response?.data?.error || 'Giriş yapılamadı.');
+      Alert.alert('Giriş Hatası', err.userMessage || err.response?.data?.error || 'Giriş yapılamadı.');
     } finally {
       setLoading(false);
     }
@@ -80,7 +80,8 @@ export default function LoginScreen() {
         navigation.navigate('PremiumIntro');
       }
     } catch (err: any) {
-      Alert.alert('Giriş Hatası', err.message || 'Google ile giriş yapılamadı.');
+      // userMessage interceptor'dan gelir (API hataları); Google SDK hatalarında message'a düş
+      Alert.alert('Giriş Hatası', err.userMessage || err.message || 'Google ile giriş yapılamadı.');
     } finally {
       setLoading(false);
     }
