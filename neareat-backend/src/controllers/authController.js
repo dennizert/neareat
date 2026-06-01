@@ -26,22 +26,38 @@ async function login(req, res, next) {
     // Mobilden gelen Google OAuth idToken'ı google-auth-library ile doğrula.
     // payload.sub Google'ın kalıcı kullanıcı kimliğidir (googleId olarak saklanır).
     const decoded = await verifyGoogleIdToken(idToken);
+    if (!decoded?.email) return res.status(400).json({ error: 'Google hesabında e-posta bulunamadı' });
 
     let user = await prisma.user.findUnique({ where: { googleId: decoded.sub } });
     let isNew = false;
     if (!user) {
-      isNew = true;
-      user = await prisma.user.create({
-        data: {
-          googleId: decoded.sub,
-          email: decoded.email,
-          displayName: decoded.name || decoded.email.split('@')[0],
-          photoUrl: decoded.picture || null,
-          authProvider: 'google',
-          emailVerified: true, // Google hesapları doğrulanmış sayılır
-          lastLoginAt: new Date(),
-        },
-      });
+      // googleId ile bulunamadı — aynı e-postayla mevcut bir hesap var mı?
+      // (email/şifre ile kayıtlı ya da eski bir hesap olabilir.) Varsa googleId'yi
+      // o hesaba bağla (account linking) — yeni kayıt yerine. Aksi halde P2002 (email unique).
+      const existingByEmail = await prisma.user.findUnique({ where: { email: decoded.email } });
+      if (existingByEmail) {
+        user = await prisma.user.update({
+          where: { id: existingByEmail.id },
+          data: {
+            googleId: decoded.sub,
+            photoUrl: existingByEmail.photoUrl || decoded.picture || null,
+            lastLoginAt: new Date(),
+          },
+        });
+      } else {
+        isNew = true;
+        user = await prisma.user.create({
+          data: {
+            googleId: decoded.sub,
+            email: decoded.email,
+            displayName: decoded.name || decoded.email.split('@')[0],
+            photoUrl: decoded.picture || null,
+            authProvider: 'google',
+            emailVerified: true, // Google hesapları doğrulanmış sayılır
+            lastLoginAt: new Date(),
+          },
+        });
+      }
     } else {
       user = await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     }

@@ -201,7 +201,9 @@ describe('Auth Endpoints', () => {
     });
 
     it('geçerli Google idToken → kullanıcı oluşturur/döner (googleId = payload.sub)', async () => {
-      mockPrisma.user.findUnique.mockResolvedValueOnce(null); // yeni kullanıcı
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null)  // googleId ile bulunamadı
+        .mockResolvedValueOnce(null); // email ile de bulunamadı → yeni kayıt
       mockPrisma.user.create.mockResolvedValueOnce({
         id: 'u-google', googleId: 'google-sub-123', email: 'gtest@test.com',
         displayName: 'Google Test', role: 'USER', starCount: 0, isSuspended: false,
@@ -216,6 +218,33 @@ describe('Auth Endpoints', () => {
       expect(res.body.user).toBeDefined();
       expect(mockPrisma.user.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ googleId: 'google-sub-123' }) }),
+      );
+    });
+
+    it('aynı e-postalı mevcut hesap varsa googleId bağlanır, yeni kayıt YAPILMAZ (P2002 önleme)', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // googleId ile bulunamadı
+        .mockResolvedValueOnce({     // email ile mevcut hesap bulundu
+          id: 'u-existing', googleId: null, email: 'gtest@test.com',
+          displayName: 'Eski Hesap', photoUrl: null, role: 'USER', starCount: 0, isSuspended: false,
+        });
+      mockPrisma.user.update.mockResolvedValueOnce({
+        id: 'u-existing', googleId: 'google-sub-123', email: 'gtest@test.com',
+        displayName: 'Eski Hesap', role: 'USER', starCount: 0, isSuspended: false,
+      });
+      mockPrisma.subscription.findUnique.mockResolvedValueOnce(null);
+
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ idToken: 'fake-google-id-token' });
+
+      expect(res.status).toBe(200);
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'u-existing' },
+          data: expect.objectContaining({ googleId: 'google-sub-123' }),
+        }),
       );
     });
   });
