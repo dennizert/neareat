@@ -13,71 +13,61 @@ async function getConversations(req, res, next) {
   try {
     const userId = req.user.id;
 
-    // Kullanıcının mesaj geçmişi olan her kullanıcı ile son mesajı al
-    const sent = await prisma.message.findMany({
-      where: { senderId: userId },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true, content: true, createdAt: true, isRead: true,
-        senderId: true, receiverId: true,
-        receiver: { select: USER_SELECT },
-      },
+    // Konuşma başına yalnızca SON mesajı çek — tüm mesaj geçmişini belleğe
+    // yüklemeden. DISTINCT ON (other_id) ile her "karşı kullanıcı" için en yeni
+    // mesaj satırı alınır. (Eskiden tüm gönderilen+alınan mesajlar çekilip JS'te
+    // dedupe ediliyordu; mesaj sayısı arttıkça ölçeklenmiyordu.)
+    const lastMessages = await prisma.$queryRaw`
+      SELECT DISTINCT ON (other_id)
+        other_id    AS "otherId",
+        id,
+        content,
+        created_at  AS "createdAt",
+        is_read     AS "isRead",
+        sender_id   AS "senderId"
+      FROM (
+        SELECT
+          CASE WHEN sender_id = ${userId} THEN receiver_id ELSE sender_id END AS other_id,
+          id, content, created_at, is_read, sender_id
+        FROM messages
+        WHERE sender_id = ${userId} OR receiver_id = ${userId}
+      ) sub
+      ORDER BY other_id, created_at DESC
+    `;
+
+    if (lastMessages.length === 0) return res.json([]);
+
+    // Karşı kullanıcıların profillerini tek sorguda al (konuşma sayısı kadar — sınırlı)
+    const otherIds = lastMessages.map((m) => m.otherId);
+    const profiles = await prisma.user.findMany({
+      where: { id: { in: otherIds } },
+      select: USER_SELECT,
     });
+    const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
-    const received = await prisma.message.findMany({
-      where: { receiverId: userId },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true, content: true, createdAt: true, isRead: true,
-        senderId: true, receiverId: true,
-        sender: { select: USER_SELECT },
-      },
-    });
-
-    // Her benzersiz conversation için son mesajı bul
-    const convMap = new Map();
-
-    for (const m of sent) {
-      const otherId = m.receiverId;
-      if (!convMap.has(otherId) || m.createdAt > convMap.get(otherId).lastMessage.createdAt) {
-        convMap.set(otherId, {
-          userId: otherId,
-          profile: m.receiver,
-          lastMessage: { content: m.content, createdAt: m.createdAt, isRead: m.isRead, isMine: true },
-          unreadCount: 0,
-        });
-      }
-    }
-
-    for (const m of received) {
-      const otherId = m.senderId;
-      const existing = convMap.get(otherId);
-      if (!existing || m.createdAt > existing.lastMessage.createdAt) {
-        convMap.set(otherId, {
-          userId: otherId,
-          profile: m.sender,
-          lastMessage: { content: m.content, createdAt: m.createdAt, isRead: m.isRead, isMine: false },
-          unreadCount: (existing?.unreadCount ?? 0) + (!m.isRead ? 1 : 0),
-        });
-      } else if (!m.isRead) {
-        existing.unreadCount = (existing.unreadCount ?? 0) + 1;
-      }
-    }
-
-    // Unread counts — doğru hesaplama için
+    // Okunmamış sayıları (gönderen başına) — verimli groupBy
     const unreadCounts = await prisma.message.groupBy({
       by: ['senderId'],
       where: { receiverId: userId, isRead: false },
       _count: { id: true },
     });
-    const unreadMap = new Map(unreadCounts.map(u => [u.senderId, u._count.id]));
-    for (const [otherId, conv] of convMap.entries()) {
-      conv.unreadCount = unreadMap.get(otherId) ?? 0;
-    }
+    const unreadMap = new Map(unreadCounts.map((u) => [u.senderId, u._count.id]));
 
-    const conversations = [...convMap.values()].sort(
-      (a, b) => new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime(),
-    );
+    const conversations = lastMessages
+      .map((m) => ({
+        userId: m.otherId,
+        profile: profileMap.get(m.otherId) || null,
+        lastMessage: {
+          content: m.content,
+          createdAt: m.createdAt,
+          isRead: m.isRead,
+          isMine: m.senderId === userId,
+        },
+        unreadCount: unreadMap.get(m.otherId) ?? 0,
+      }))
+      .sort(
+        (a, b) => new Date(b.lastMessage.createdAt).getTime() - new Date(a.lastMessage.createdAt).getTime(),
+      );
 
     res.json(conversations);
   } catch (err) {

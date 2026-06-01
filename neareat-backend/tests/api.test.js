@@ -32,6 +32,7 @@ const mockPrisma = {
   userReward: { findMany: jest.fn(), create: jest.fn() },
   notification: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), count: jest.fn() },
   message: { findMany: jest.fn(), create: jest.fn(), count: jest.fn(), updateMany: jest.fn(), groupBy: jest.fn() },
+  $queryRaw: jest.fn(),
   collectionItem: { findMany: jest.fn() },
   restaurantProfile: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
   // AI öneri akışı modelleri (#110) — buildUserProfileSummary + controller bunları sorgular
@@ -619,6 +620,43 @@ describe('Message Endpoints', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.count).toBe(3);
+    });
+  });
+
+  describe('GET /api/messages/conversations', () => {
+    it('konuşma başına son mesajı + profil + okunmamış sayısını döner', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([
+        { otherId: testUser2.id, id: 'm1', content: 'Selam', createdAt: new Date('2026-06-01T10:00:00Z'), isRead: false, senderId: testUser2.id },
+      ]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: testUser2.id, displayName: 'User2', photoUrl: null },
+      ]);
+      mockPrisma.message.groupBy.mockResolvedValue([
+        { senderId: testUser2.id, _count: { id: 2 } },
+      ]);
+
+      const res = await request(app)
+        .get('/api/messages/conversations')
+        .set('Authorization', `Bearer ${testToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].userId).toBe(testUser2.id);
+      expect(res.body[0].lastMessage.content).toBe('Selam');
+      expect(res.body[0].lastMessage.isMine).toBe(false);
+      expect(res.body[0].unreadCount).toBe(2);
+      expect(res.body[0].profile.displayName).toBe('User2');
+    });
+
+    it('mesaj yoksa boş dizi döner', async () => {
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+
+      const res = await request(app)
+        .get('/api/messages/conversations')
+        .set('Authorization', `Bearer ${testToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
     });
   });
 
