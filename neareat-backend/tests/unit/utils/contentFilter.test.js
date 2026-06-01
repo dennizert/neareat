@@ -88,5 +88,21 @@ describe('containsOffensiveContent', () => {
     it('detects Turkish suffix "siktirsin" (starts with "siktir" + 3 chars)', () => {
       expect(containsOffensiveContent('siktirsin')).toBe(true);
     });
+
+    it('uzatılmış yazımı yakalar: "siktiiir"', () => {
+      expect(containsOffensiveContent('siktiiir')).toBe(true);
+    });
+
+    it('uzatılmış İngilizce yazımı yakalar: "fuuuck"', () => {
+      expect(containsOffensiveContent('fuuuck')).toBe(true);
+    });
+
+    it('leetspeak ifadeyi yakalar: "s1ktir git" (ifade metni de normalize edilir)', () => {
+      expect(containsOffensiveContent('s1ktir git')).toBe(true);
+    });
+
+    it('temiz uzun yazımda yanlış pozitif yok: "çoook güzeldi"', () => {
+      expect(containsOffensiveContent('çoook güzeldi')).toBe(false);
+    });
   });
 });
