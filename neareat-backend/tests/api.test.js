@@ -654,6 +654,19 @@ describe('Social Endpoints', () => {
       expect(res.status).toBe(200);
       expect(res.body.length).toBeGreaterThan(0);
     });
+
+    it('sayfalama: page=2&limit=20 → skip=20, take=20 ile sorgular (#173)', async () => {
+      mockPrisma.friendRequest.findMany.mockResolvedValue([]);
+      mockPrisma.user.findMany.mockResolvedValue([]);
+
+      await request(app)
+        .get('/api/social/users/search?q=ali&page=2&limit=20')
+        .set('Authorization', `Bearer ${testToken}`);
+
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 20, skip: 20 }),
+      );
+    });
   });
 });
 

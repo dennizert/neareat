@@ -20,6 +20,10 @@ async function searchUsers(req, res, next) {
     const q = (req.query.q || '').trim();
     if (!q) return res.json([]);
 
+    // Sayfalama — eskiden sabit ilk 20 dönüyordu (2. sayfa aynı sonuçları veriyordu).
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+
     // Mevcut ilişkileri bul (ACCEPTED → isFriend, PENDING sent by me → hasPendingRequest)
     const [acceptedRequests, pendingSent] = await Promise.all([
       prisma.friendRequest.findMany({
@@ -53,7 +57,9 @@ async function searchUsers(req, res, next) {
         id: true, displayName: true, photoUrl: true,
         bio: true, city: true, starCount: true, isPublic: true,
       },
-      take: 20,
+      orderBy: [{ starCount: 'desc' }, { displayName: 'asc' }], // sayfalama için kararlı sıra
+      take: limit,
+      skip: (page - 1) * limit,
     });
 
     res.json(users.map(u => ({

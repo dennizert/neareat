@@ -85,7 +85,9 @@ function normalizeTr(str) {
     .replace(/4/g, 'a')
     .replace(/5/g, 's')
     .replace(/\*/g, '')
-    .replace(/-/g, '');
+    .replace(/-/g, '')
+    // Uzatılmış yazımları daralt: "fuuuck" / "siktiiir" → "fuck" / "siktir"
+    .replace(/(.)\1{2,}/g, '$1');
 }
 
 /**
@@ -98,8 +100,10 @@ function containsOffensiveContent(text) {
 
   const lower = text.toLowerCase().trim();
 
-  // 1. Phrase-level check (before tokenizing)
-  if (OFFENSIVE_PHRASES.some(phrase => lower.includes(normalizeTr(phrase)))) return true;
+  // 1. Phrase-level check (before tokenizing) — metni de normalize et ki Türkçe
+  // karakter/leetspeak varyantları ("orospu çocuğu", "s1ktir git") da yakalansın.
+  const normalizedText = normalizeTr(lower);
+  if (OFFENSIVE_PHRASES.some(phrase => normalizedText.includes(normalizeTr(phrase)))) return true;
 
   // 2. Token-level check — split on whitespace and punctuation
   const tokens = lower.split(/[\s.,!?;:'"()\[\]{}\-_\/\\|+=#@&%^~`]+/).filter(Boolean);
