@@ -10,6 +10,7 @@
  */
 import axios from 'axios';
 import Constants from 'expo-constants';
+import { useAuthStore } from '../store/authStore';
 
 /**
  * API base URL'i Expo config'den (app.json → extra.apiBaseUrl) alınır.
@@ -69,5 +70,49 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+/**
+ * Bir axios hatasını kullanıcıya gösterilebilecek anlamlı Türkçe mesaja çevirir.
+ * Ham "Request failed with status code 500" gibi mesajlar yerine kullanılır.
+ *
+ * Ekranlar `error.userMessage` (interceptor tarafından eklenir) veya doğrudan
+ * bu fonksiyonu kullanabilir.
+ */
+export function getApiErrorMessage(error: any): string {
+  if (error?.response) {
+    const status = error.response.status;
+    if (status >= 500) return 'Sunucuda bir sorun oluştu. Lütfen biraz sonra tekrar dene.';
+    // 4xx — sunucunun verdiği Türkçe mesajı tercih et
+    return error.response.data?.error || 'Bir şeyler ters gitti. Lütfen tekrar dene.';
+  }
+  if (error?.code === 'ECONNABORTED') {
+    return 'İstek zaman aşımına uğradı. Bağlantını kontrol edip tekrar dene.';
+  }
+  return 'Bağlantı kurulamadı. İnternet bağlantını kontrol et.';
+}
+
+/**
+ * Response interceptor — merkezi hata yönetimi:
+ * - 401 (oturum dolması, yalnızca giriş yapmış kullanıcıda): token getter'ı sıfırla
+ *   + oturumu kapat → navigation otomatik login ekranına yönlendirir.
+ *   (Giriş denemesindeki 401 — örn. "E-posta veya şifre hatalı" — dokunulmaz,
+ *    sunucu mesajı kullanıcıya gösterilir.)
+ * - Diğer tüm hatalara anlamlı `userMessage` eklenir.
+ */
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const isAuthenticated = !!useAuthStore.getState().user;
+    if (error?.response?.status === 401 && isAuthenticated) {
+      idTokenGetter = null;
+      // logout SecureStore token'ı siler + state'i temizler (fire-and-forget)
+      useAuthStore.getState().logout().catch(() => {});
+      error.userMessage = 'Oturumun sona erdi. Lütfen tekrar giriş yap.';
+    } else {
+      error.userMessage = getApiErrorMessage(error);
+    }
+    return Promise.reject(error);
+  },
+);
 
 export default api;
