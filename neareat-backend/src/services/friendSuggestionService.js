@@ -21,7 +21,7 @@
 const prisma = require('../utils/prisma');
 const { getLevel } = require('../utils/stars');
 const { getCountryCode } = require('../utils/cityCountry');
-const { cacheGet, cacheSet } = require('./redis');
+const { cacheGet, cacheSet, cacheDel } = require('./redis');
 
 // Aday havuzu ve sonuç boyutu sınırları
 const CANDIDATE_POOL_LIMIT = 500;
@@ -348,6 +348,18 @@ async function getCachedSuggestions(userId) {
   return cacheGet(`${CACHE_PREFIX}${userId}`);
 }
 
+/**
+ * Bir veya birden fazla kullanıcının önbelleğe alınmış arkadaş önerilerini siler.
+ * Arkadaşlık durumu değişince (istek gönder/kabul/ret/çıkar) çağrılır; böylece
+ * bayat öneri gösterilmez, sonraki okumada yeniden hesaplanır.
+ * @param {...string} userIds
+ */
+async function invalidateSuggestions(...userIds) {
+  await Promise.all(
+    userIds.filter(Boolean).map((id) => cacheDel(`${CACHE_PREFIX}${id}`)),
+  );
+}
+
 module.exports = {
   scoreCandidate,
   rankForViewer,
@@ -355,6 +367,7 @@ module.exports = {
   computeSuggestionsForUser,
   computeAllSuggestions,
   getCachedSuggestions,
+  invalidateSuggestions,
   aiUsageLevel,
   intersectionCount,
   MAX_SCORE,
