@@ -41,8 +41,8 @@ model User {
   shareWithFriendsRecommender Boolean @default(false) @map("share_with_friends_recommender")
 
   // Referral
-  referralCode    String?  @unique @map("referral_code")
-  referralApplied Boolean  @default(false) @map("referral_applied")
+  referralCode    String? @unique @map("referral_code")
+  referralApplied Boolean @default(false) @map("referral_applied")
 
   lastLoginAt DateTime? @map("last_login_at")
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -52,27 +52,26 @@ model User {
   subscription            Subscription?
   favorites               Favorite[]
   reviews                 Review[]
-  payments                Payment[]
-  sentFriendRequests      FriendRequest[]       @relation("SentRequests")
-  receivedFriendRequests  FriendRequest[]       @relation("ReceivedRequests")
-  sentRecommendations     Recommendation[]      @relation("SentRecommendations")
-  receivedRecommendations Recommendation[]      @relation("ReceivedRecommendations")
+  sentFriendRequests      FriendRequest[]          @relation("SentRequests")
+  receivedFriendRequests  FriendRequest[]          @relation("ReceivedRequests")
+  sentRecommendations     Recommendation[]         @relation("SentRecommendations")
+  receivedRecommendations Recommendation[]         @relation("ReceivedRecommendations")
   starEvents              StarEvent[]
   userRewards             UserReward[]
   collections             Collection[]
-  sharedCollections       CollectionShare[]     @relation("SharedCollections")
+  sharedCollections       CollectionShare[]        @relation("SharedCollections")
   restaurantProfile       RestaurantProfile?
   notifications           Notification[]
-  sentMessages            Message[]             @relation("SentMessages")
-  receivedMessages        Message[]             @relation("ReceivedMessages")
-  givenReports            UserReport[]          @relation("ReportsGiven")
-  receivedReports         UserReport[]          @relation("ReportsReceived")
+  sentMessages            Message[]                @relation("SentMessages")
+  receivedMessages        Message[]                @relation("ReceivedMessages")
+  givenReports            UserReport[]             @relation("ReportsGiven")
+  receivedReports         UserReport[]             @relation("ReportsReceived")
   reservations            Reservation[]
   logs                    UserLog[]
-  mealGroupsCreated       MealGroup[]           @relation("MealGroupCreator")
-  mealGroupMembers        MealGroupMember[]     @relation("MealGroupMemberships")
-  pollsCreated            RestaurantPoll[]      @relation("PollsCreated")
-  pollVotes               PollVote[]            @relation("PollVotes")
+  mealGroupsCreated       MealGroup[]              @relation("MealGroupCreator")
+  mealGroupMembers        MealGroupMember[]        @relation("MealGroupMemberships")
+  pollsCreated            RestaurantPoll[]         @relation("PollsCreated")
+  pollVotes               PollVote[]               @relation("PollVotes")
   aiRecommendationLogs    AiRecommendationLog[]
   recommendationFeedbacks RecommendationFeedback[]
   activityEvents          ActivityEvent[]
@@ -89,14 +88,14 @@ model User {
 // ─── Existing ────────────────────────────────────────────────────────────────
 
 model Subscription {
-  id                   String             @id @default(uuid())
-  userId               String             @unique @map("user_id")
-  planType             PlanType           @map("plan_type")
-  status               SubscriptionStatus
-  startedAt            DateTime           @map("started_at")
-  expiresAt            DateTime           @map("expires_at")
-  storeTransactionId   String?            @map("store_transaction_id")
-  createdAt            DateTime           @default(now()) @map("created_at")
+  id                 String             @id @default(uuid())
+  userId             String             @unique @map("user_id")
+  planType           PlanType           @map("plan_type")
+  status             SubscriptionStatus
+  startedAt          DateTime           @map("started_at")
+  expiresAt          DateTime           @map("expires_at")
+  storeTransactionId String?            @map("store_transaction_id")
+  createdAt          DateTime           @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -138,19 +137,6 @@ model Review {
   @@unique([userId, placeId])
   @@index([placeId])
   @@map("reviews")
-}
-
-model Payment {
-  id              String        @id @default(uuid())
-  userId          String        @map("user_id")
-  amount          Decimal       @db.Decimal(10, 2)
-  currency        String        @default("TRY")
-  status          PaymentStatus
-  createdAt       DateTime      @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("payments")
 }
 
 // ─── Social ───────────────────────────────────────────────────────────────────
@@ -324,12 +310,6 @@ enum SubscriptionStatus {
   cancelled
   expired
   trial
-}
-
-enum PaymentStatus {
-  success
-  failed
-  refunded
 }
 
 enum FriendRequestStatus {
@@ -716,15 +696,15 @@ model RecommendationFeedback {
   userId                String   @map("user_id")
   aiRecommendationLogId String?  @map("ai_recommendation_log_id")
   placeId               String   @map("place_id")
-  sentiment             String   // 'positive' | 'negative'
+  sentiment             String // 'positive' | 'negative'
   comment               String?  @db.VarChar(500)
   visited               Boolean  @default(false)
   // Geri bildirilen mekanın Google place types'ı — mutfak tipi aggregate'i için (S4-7)
   placeTypes            String[] @default([]) @map("place_types")
   createdAt             DateTime @default(now()) @map("created_at")
 
-  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  aiRecLog AiRecommendationLog?  @relation(fields: [aiRecommendationLogId], references: [id], onDelete: SetNull)
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiRecLog AiRecommendationLog? @relation(fields: [aiRecommendationLogId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([aiRecommendationLogId])
@@ -757,11 +737,11 @@ model DiaryEntry {
 /// Kullanıcının bildirim tercihleri (Sprint-8 #100).
 /// Opt-out modeli: kayıt yoksa bildirim açık sayılır.
 model NotificationPreference {
-  id        String           @id @default(uuid())
-  userId    String           @map("user_id")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
   type      String
-  enabled   Boolean          @default(true)
-  updatedAt DateTime         @updatedAt @map("updated_at")
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -847,7 +827,7 @@ model PlaceRequest {
   placeName    String   @map("place_name")
   placeAddress String?  @map("place_address") @db.VarChar(300)
   note         String?  @db.VarChar(500)
-  status       String   @default("PENDING")   // PENDING | REVIEWED
+  status       String   @default("PENDING") // PENDING | REVIEWED
   createdAt    DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
