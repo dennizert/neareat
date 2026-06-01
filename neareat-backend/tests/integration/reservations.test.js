@@ -299,6 +299,36 @@ describe('POST /api/reservations', () => {
     expect(res.body.error).toMatch(/HH:MM/);
   });
 
+  it('geçmiş tarihe rezervasyon → 400', async () => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: PLACE_ID, date: '2020-01-01', time: VALID_TIME, guestCount: 2 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Geçmiş/);
+  });
+
+  it('geçersiz occasion → 400', async () => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: PLACE_ID, date: FUTURE_DATE, time: VALID_TIME, guestCount: 2, occasion: 'Hacker Günü' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/özel gün/);
+  });
+
+  it('500 karakterden uzun specialRequests → 400', async () => {
+    const res = await request(app)
+      .post('/api/reservations')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ placeId: PLACE_ID, date: FUTURE_DATE, time: VALID_TIME, guestCount: 2, specialRequests: 'x'.repeat(501) });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/karakter/);
+  });
+
   it('should return 400 when restaurant does not accept reservations', async () => {
     mockPrisma.restaurantProfile.findFirst.mockResolvedValue(null); // not found / not accepting
 
