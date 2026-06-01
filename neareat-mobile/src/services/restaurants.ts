@@ -12,6 +12,7 @@ import {
   MOCK_APP_REVIEWS,
 } from '../mocks/data';
 import api from './api';
+import { saveCache, loadCache, isNetworkError } from './offlineCache';
 import type { Restaurant, RestaurantDetail, AppReview, StarEvent, Reward } from '../types';
 
 /** Mock modda session boyunca tutulan geçici yorum listesi */
@@ -34,8 +35,19 @@ export async function fetchNearby(
   if (MOCK_MODE) {
     return { results: MOCK_RESTAURANTS, radiusKm: 5 };
   }
-  const { data } = await api.get('/restaurants/nearby', { params: { lat, lng, type } });
-  return data;
+  // Konuma göre kaba anahtar — çevrimdışıyken aynı bölgenin son sonuçlarını göster
+  const cacheKey = `nearby:${type}:${lat.toFixed(2)}:${lng.toFixed(2)}`;
+  try {
+    const { data } = await api.get('/restaurants/nearby', { params: { lat, lng, type } });
+    saveCache(cacheKey, data); // başarılıyı önbelleğe al (fire-and-forget)
+    return data;
+  } catch (err) {
+    if (isNetworkError(err)) {
+      const cached = await loadCache<{ results: Restaurant[]; radiusKm: number }>(cacheKey);
+      if (cached) return cached;
+    }
+    throw err;
+  }
 }
 
 /**
