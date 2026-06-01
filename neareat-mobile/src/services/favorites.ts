@@ -8,7 +8,10 @@
 import { MOCK_MODE } from '../config';
 import { MOCK_FAVORITES } from '../mocks/data';
 import api from './api';
+import { saveCache, loadCache, isNetworkError } from './offlineCache';
 import type { Favorite, RestaurantDetail } from '../types';
+
+const FAVORITES_CACHE_KEY = 'favorites';
 
 /** Mock modda session boyunca tutulan geçici favori listesi */
 let sessionFavorites: Favorite[] = [...MOCK_FAVORITES];
@@ -21,8 +24,18 @@ let sessionFavorites: Favorite[] = [...MOCK_FAVORITES];
  */
 export async function fetchFavorites(): Promise<Favorite[]> {
   if (MOCK_MODE) return [...sessionFavorites];
-  const { data } = await api.get('/favorites');
-  return data;
+  try {
+    const { data } = await api.get('/favorites');
+    saveCache(FAVORITES_CACHE_KEY, data); // başarılıyı önbelleğe al (fire-and-forget)
+    return data;
+  } catch (err) {
+    // Ağ koptuysa son bilinen favorileri göster (çevrimdışı)
+    if (isNetworkError(err)) {
+      const cached = await loadCache<Favorite[]>(FAVORITES_CACHE_KEY);
+      if (cached) return cached;
+    }
+    throw err;
+  }
 }
 
 /**
