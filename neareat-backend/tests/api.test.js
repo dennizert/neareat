@@ -21,7 +21,7 @@ const { createTestToken, randomId, createTestUser } = require('./helpers');
 
 // Prisma mock
 const mockPrisma = {
-  user: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
+  user: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
   subscription: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), upsert: jest.fn() },
   favorite: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
   review: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), upsert: jest.fn() },
@@ -245,6 +245,40 @@ describe('Auth Endpoints', () => {
         expect.objectContaining({
           where: { id: 'u-existing' },
           data: expect.objectContaining({ googleId: 'google-sub-123' }),
+        }),
+      );
+    });
+  });
+
+  describe('Token hash (verify-email / reset-password)', () => {
+    const { hashToken } = require('../src/utils/tokenHash');
+
+    it('verify-email: gelen ham token hash\'lenip DB\'de aranır (düz metin değil)', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
+      const res = await request(app)
+        .post('/api/auth/verify-email')
+        .send({ token: 'raw-token-xyz' });
+
+      expect(res.status).toBe(400);
+      expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ emailVerificationToken: hashToken('raw-token-xyz') }),
+        }),
+      );
+    });
+
+    it('reset-password: gelen ham token hash\'lenip DB\'de aranır', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
+      const res = await request(app)
+        .post('/api/auth/reset-password')
+        .send({ token: 'raw-reset-token', password: 'yenisifre123' });
+
+      expect(res.status).toBe(400);
+      expect(mockPrisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ passwordResetToken: hashToken('raw-reset-token') }),
         }),
       );
     });

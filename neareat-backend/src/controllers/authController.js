@@ -4,6 +4,7 @@ const prisma = require('../utils/prisma');
 const { getAuth } = require('../services/firebase');
 const { verifyGoogleIdToken } = require('../services/googleAuth');
 const { signToken } = require('../utils/jwt');
+const { hashToken } = require('../utils/tokenHash');
 const { logRequest } = require('../services/logService');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 
@@ -91,7 +92,7 @@ async function register(req, res, next) {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const emailVerificationToken = uuidv4();
+    const rawVerificationToken = uuidv4();
     const emailVerificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const user = await prisma.user.create({
@@ -100,12 +101,12 @@ async function register(req, res, next) {
         displayName: trimmedName,
         passwordHash,
         authProvider: 'email',
-        emailVerificationToken,
+        emailVerificationToken: hashToken(rawVerificationToken), // DB'de hash; e-postada ham
         emailVerificationExpiry,
       },
     });
 
-    sendVerificationEmail(user.email, user.displayName, emailVerificationToken)
+    sendVerificationEmail(user.email, user.displayName, rawVerificationToken)
       .catch(e => console.error('[EMAIL] Doğrulama gönderilemedi:', e.message));
 
     const token = signToken(user.id);
@@ -191,7 +192,7 @@ async function verifyEmail(req, res, next) {
 
     const user = await prisma.user.findFirst({
       where: {
-        emailVerificationToken: token,
+        emailVerificationToken: hashToken(token),
         emailVerificationExpiry: { gt: new Date() },
       },
     });
@@ -223,15 +224,15 @@ async function resendVerification(req, res, next) {
       return res.status(400).json({ error: 'E-posta zaten doğrulanmış' });
     }
 
-    const emailVerificationToken = uuidv4();
+    const rawVerificationToken = uuidv4();
     const emailVerificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { emailVerificationToken, emailVerificationExpiry },
+      data: { emailVerificationToken: hashToken(rawVerificationToken), emailVerificationExpiry },
     });
 
-    sendVerificationEmail(user.email, user.displayName, emailVerificationToken)
+    sendVerificationEmail(user.email, user.displayName, rawVerificationToken)
       .catch(e => console.error('[EMAIL] Yeniden gönderim başarısız:', e.message));
 
     res.json({ message: 'Doğrulama e-postası tekrar gönderildi' });
@@ -254,15 +255,15 @@ async function forgotPassword(req, res, next) {
       return res.status(400).json({ error: 'Bu hesap Google ile oluşturulmuş. Giriş ekranından "Google ile Giriş Yap" seçeneğini kullan.' });
     }
 
-    const passwordResetToken = uuidv4();
+    const rawResetToken = uuidv4();
     const passwordResetExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordResetToken, passwordResetExpiry },
+      data: { passwordResetToken: hashToken(rawResetToken), passwordResetExpiry },
     });
 
-    sendPasswordResetEmail(user.email, user.displayName, passwordResetToken)
+    sendPasswordResetEmail(user.email, user.displayName, rawResetToken)
       .catch(e => console.error('[EMAIL] Şifre sıfırlama gönderilemedi:', e.message));
 
     res.json({ message: 'Eğer bu e-posta kayıtlıysa sıfırlama bağlantısı gönderildi' });
@@ -281,7 +282,7 @@ async function resetPassword(req, res, next) {
 
     const user = await prisma.user.findFirst({
       where: {
-        passwordResetToken: token,
+        passwordResetToken: hashToken(token),
         passwordResetExpiry: { gt: new Date() },
       },
     });
