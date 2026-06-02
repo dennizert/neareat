@@ -23,7 +23,7 @@
     "expo-iap": "2.7.14",
     "expo-image": "~2.0.7",
     "expo-image-manipulator": "~13.0.6",
-    "expo-image-picker": "~15.0.7",
+    "expo-image-picker": "~16.0.6",
     "expo-location": "~17.0.1",
     "expo-notifications": "~0.29.0",
     "expo-secure-store": "~14.0.1",
