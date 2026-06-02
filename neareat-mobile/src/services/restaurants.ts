@@ -98,8 +98,19 @@ export async function fetchRestaurantDetail(
     if (!detail) throw new Error('Restoran bulunamadı');
     return detail;
   }
-  const { data } = await api.get(`/restaurants/${placeId}`, { params: { lat, lng } });
-  return data;
+  // Daha önce online açılmış bir restoranın detayı çevrimdışı da gösterilebilsin
+  const cacheKey = `detail:${placeId}`;
+  try {
+    const { data } = await api.get(`/restaurants/${placeId}`, { params: { lat, lng } });
+    saveCache(cacheKey, data); // başarılıyı önbelleğe al (fire-and-forget)
+    return data;
+  } catch (err) {
+    if (isNetworkError(err)) {
+      const cached = await loadCache<RestaurantDetail>(cacheKey);
+      if (cached) return cached;
+    }
+    throw err;
+  }
 }
 
 /**
