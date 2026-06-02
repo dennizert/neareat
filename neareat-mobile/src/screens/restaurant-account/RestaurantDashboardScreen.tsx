@@ -20,7 +20,7 @@ const MENU_ITEMS = [
   { icon: '⚡', label: 'Anlık Kampanya', screen: 'RestaurantCampaign' },
   { icon: '📊', label: 'Analitik Panel', screen: 'RestaurantAnalytics' },
   { icon: '📅', label: 'Rezervasyonlar', screen: 'RestaurantReservations' },
-  { icon: '📞', label: 'İletişim & Ayarlar', screen: 'RestaurantInfo' },
+  { icon: '🏪', label: 'Restoran Bilgileri', screen: 'RestaurantInfo' },
 ];
 
 export default function RestaurantDashboardScreen() {

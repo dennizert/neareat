@@ -170,4 +170,16 @@ describe('GET /api/restaurants/:placeId — detay isim & foto sırası (S10-4)',
     expect(res.body.photos).toEqual(['https://google.example/gref1', 'https://google.example/gref2']);
     expect(res.body.productPhotos).toEqual([]);
   });
+
+  it('B6 — foto sıralaması sortOrder + createdAt tie-breaker ile sorgulanır', async () => {
+    mockGetDetails.mockResolvedValue(detailPlace);
+    mockPrisma.restaurantProfile.findFirst.mockResolvedValue({
+      id: 'r-1', displayName: null, status: 'APPROVED', menuItems: [], photos: [],
+    });
+
+    await request(app).get('/api/restaurants/p1').set('Authorization', `Bearer ${token}`);
+
+    const arg = mockPrisma.restaurantProfile.findFirst.mock.calls[0][0];
+    expect(arg.include.photos.orderBy).toEqual([{ sortOrder: 'asc' }, { createdAt: 'asc' }]);
+  });
 });

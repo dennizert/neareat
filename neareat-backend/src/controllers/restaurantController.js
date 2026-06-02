@@ -289,9 +289,10 @@ async function getDetails(req, res, next) {
             orderBy: { sortOrder: 'asc' },
           },
           // S10-4 — sahibin yüklediği galeri fotoları (RESTAURANT + PRODUCT)
+          // B6 — createdAt tie-breaker: silme sonrası çift sortOrder'da kararlı sıra (listPhotos ile tutarlı).
           photos: {
             select: { kind: true, url: true, sortOrder: true },
-            orderBy: { sortOrder: 'asc' },
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
           },
         },
       }),
