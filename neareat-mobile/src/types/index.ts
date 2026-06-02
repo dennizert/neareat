@@ -127,10 +127,12 @@ export interface RestaurantProfile {
   id: string;
   userId: string;
   businessName: string;
+  displayName: string | null;
   ownerName: string;
   taxNumber: string;
   taxOffice: string;
   phone: string;
+  altPhone: string | null;
   contactEmail: string;
   address: string;
   businessCategory: string;
@@ -155,6 +157,19 @@ export interface RestaurantProfile {
   createdAt: string;
   updatedAt: string;
   menuItems?: RestaurantMenuItemMeta[];
+}
+
+// ─── Restoran foto galerileri (S10) ───────────────────────────────────────────
+
+/** Galeri türü: RESTAURANT (mekan) veya PRODUCT (ürün). */
+export type RestaurantPhotoKind = 'RESTAURANT' | 'PRODUCT';
+
+export interface RestaurantPhoto {
+  id: string;
+  kind: RestaurantPhotoKind;
+  url: string;
+  sortOrder: number;
+  createdAt: string;
 }
 
 export interface RestaurantStats {
