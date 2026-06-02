@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Switch,
-  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { getMyRestaurantProfile, updateInfo } from '../../services/restaurantAccount';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import {
+  getMyRestaurantProfile, updateInfo,
+  getPhotoUploadUrl, uploadPhotoToS3, addRestaurantPhoto,
+  listRestaurantPhotos, deleteRestaurantPhoto, PhotoStorageUnavailableError,
+} from '../../services/restaurantAccount';
+import type { RestaurantPhoto, RestaurantPhotoKind } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+
+const MAX_PHOTOS = 8;
+const TARGET_WIDTH = 1280; // S3 maliyeti + hız için yeniden boyutlandırma
 
 export default function RestaurantInfoScreen() {
   const navigation = useNavigation<any>();
@@ -16,22 +26,34 @@ export default function RestaurantInfoScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
+  const [altPhone, setAltPhone] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [address, setAddress] = useState('');
   const [reservationUrl, setReservationUrl] = useState('');
   const [acceptsReservations, setAcceptsReservations] = useState(false);
   const [tableCount, setTableCount] = useState('');
 
+  const [restaurantPhotos, setRestaurantPhotos] = useState<RestaurantPhoto[]>([]);
+  const [productPhotos, setProductPhotos] = useState<RestaurantPhoto[]>([]);
+
   useEffect(() => {
-    getMyRestaurantProfile()
-      .then(p => {
+    Promise.all([
+      getMyRestaurantProfile(),
+      listRestaurantPhotos().catch(() => [] as RestaurantPhoto[]),
+    ])
+      .then(([p, photos]) => {
+        setDisplayName(p.displayName ?? '');
         setPhone(p.phone ?? '');
+        setAltPhone(p.altPhone ?? '');
         setContactEmail(p.contactEmail ?? '');
         setAddress(p.address ?? '');
         setReservationUrl(p.reservationUrl ?? '');
         setAcceptsReservations(p.acceptsReservations ?? false);
         setTableCount(p.tableCount != null ? String(p.tableCount) : '');
+        setRestaurantPhotos(photos.filter(x => x.kind === 'RESTAURANT'));
+        setProductPhotos(photos.filter(x => x.kind === 'PRODUCT'));
       })
       .catch(() => Alert.alert('Hata', 'Bilgiler yüklenemedi.'))
       .finally(() => setLoading(false));
@@ -50,6 +72,11 @@ export default function RestaurantInfoScreen() {
       Alert.alert('Hata', 'Adres boş bırakılamaz.');
       return;
     }
+    const dn = displayName.trim();
+    if (dn && (dn.length < 2 || dn.length > 80)) {
+      Alert.alert('Hata', 'Görünen ad 2-80 karakter arasında olmalıdır.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -59,18 +86,20 @@ export default function RestaurantInfoScreen() {
         return;
       }
       await updateInfo({
+        displayName: dn || '',
         phone: phone.trim(),
+        altPhone: altPhone.trim() || '',
         contactEmail: contactEmail.trim(),
         address: address.trim(),
         reservationUrl: reservationUrl.trim() || undefined,
         acceptsReservations,
         tableCount: tc ? Number(tc) : null,
       });
-      Alert.alert('Kaydedildi', 'İletişim bilgileriniz güncellendi.', [
+      Alert.alert('Kaydedildi', 'Restoran bilgileriniz güncellendi.', [
         { text: 'Tamam', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
-      Alert.alert('Hata', err.response?.data?.error ?? 'Kaydedilemedi.');
+      Alert.alert('Hata', err.userMessage ?? err.response?.data?.error ?? 'Kaydedilemedi.');
     } finally {
       setSaving(false);
     }
@@ -85,8 +114,18 @@ export default function RestaurantInfoScreen() {
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.sectionLabel}>İletişim Bilgileri</Text>
+        <Text style={styles.sectionLabel}>Restoran Bilgileri</Text>
         <View style={styles.card}>
+          <Field label="Görünen Ad (isteğe bağlı)" styles={styles}>
+            <TextInput
+              style={styles.input}
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholder="Kullanıcılara gösterilecek ad"
+              placeholderTextColor={C.textMuted}
+              maxLength={80}
+            />
+          </Field>
           <Field label="Telefon Numarası" styles={styles}>
             <TextInput
               style={styles.input}
@@ -95,6 +134,17 @@ export default function RestaurantInfoScreen() {
               keyboardType="phone-pad"
               placeholder="+90 555 000 00 00"
               placeholderTextColor={C.textMuted}
+            />
+          </Field>
+          <Field label="Alternatif Telefon (isteğe bağlı)" styles={styles}>
+            <TextInput
+              style={styles.input}
+              value={altPhone}
+              onChangeText={setAltPhone}
+              keyboardType="phone-pad"
+              placeholder="+90 555 111 11 11"
+              placeholderTextColor={C.textMuted}
+              maxLength={20}
             />
           </Field>
           <Field label="İletişim E-postası" styles={styles}>
@@ -120,6 +170,29 @@ export default function RestaurantInfoScreen() {
             />
           </Field>
         </View>
+        <Text style={styles.hint}>
+          Görünen ad girdiğinizde kullanıcılar Google adı yerine bu adı görür. Boş bırakırsanız Google adı kullanılır.
+        </Text>
+
+        <PhotoGallerySection
+          title="Restoran Fotoğrafları"
+          hint="Mekanınızın iç/dış fotoğrafları. Kullanıcı kartında ve detayda önce bunlar gösterilir."
+          kind="RESTAURANT"
+          photos={restaurantPhotos}
+          setPhotos={setRestaurantPhotos}
+          styles={styles}
+          C={C}
+        />
+
+        <PhotoGallerySection
+          title="Ürün Fotoğrafları"
+          hint="Yemek ve ürün fotoğraflarınız. Restoran detayında ayrı bir bölümde gösterilir."
+          kind="PRODUCT"
+          photos={productPhotos}
+          setPhotos={setProductPhotos}
+          styles={styles}
+          C={C}
+        />
 
         <Text style={styles.sectionLabel}>Rezervasyon Sistemi</Text>
         <View style={styles.card}>
@@ -178,6 +251,106 @@ export default function RestaurantInfoScreen() {
   );
 }
 
+/** Tek bir foto galerisi bölümü — seç → S3'e yükle → kaydet → grid; sil. */
+function PhotoGallerySection({
+  title, hint, kind, photos, setPhotos, styles, C,
+}: {
+  title: string;
+  hint: string;
+  kind: RestaurantPhotoKind;
+  photos: RestaurantPhoto[];
+  setPhotos: React.Dispatch<React.SetStateAction<RestaurantPhoto[]>>;
+  styles: ReturnType<typeof makeStyles>;
+  C: Colors;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const atLimit = photos.length >= MAX_PHOTOS;
+
+  async function handleAdd() {
+    if (atLimit) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+      allowsMultipleSelection: false,
+    });
+    if (result.canceled || !result.assets[0]?.uri) return;
+
+    setUploading(true);
+    try {
+      // İstemci tarafı yeniden boyutlandırma + sıkıştırma → JPEG
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: TARGET_WIDTH } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
+      );
+      const contentType = 'image/jpeg';
+
+      const { uploadUrl, publicUrl } = await getPhotoUploadUrl(kind, contentType);
+      await uploadPhotoToS3(uploadUrl, manipulated.uri, contentType);
+      const saved = await addRestaurantPhoto(kind, publicUrl);
+      setPhotos(prev => [...prev, saved]);
+    } catch (err: any) {
+      if (err instanceof PhotoStorageUnavailableError) {
+        Alert.alert('Fotoğraf Yükleme', err.message);
+      } else {
+        Alert.alert('Hata', err.userMessage ?? err.response?.data?.error ?? 'Fotoğraf yüklenemedi. Lütfen tekrar deneyin.');
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleDelete(photo: RestaurantPhoto) {
+    Alert.alert('Fotoğrafı Sil', 'Bu fotoğraf galeriden kaldırılsın mı?', [
+      { text: 'İptal', style: 'cancel' },
+      {
+        text: 'Sil', style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteRestaurantPhoto(photo.id);
+            setPhotos(prev => prev.filter(p => p.id !== photo.id));
+          } catch {
+            Alert.alert('Hata', 'Silinemedi.');
+          }
+        },
+      },
+    ]);
+  }
+
+  return (
+    <>
+      <Text style={styles.sectionLabel}>{title}</Text>
+      <View style={styles.card}>
+        <View style={styles.galleryBody}>
+          <Text style={styles.galleryHint}>{hint}</Text>
+          <View style={styles.galleryGrid}>
+            {photos.map(photo => (
+              <View key={photo.id} style={styles.photoItem}>
+                <Image source={{ uri: photo.url }} style={styles.photoImg} resizeMode="cover" />
+                <TouchableOpacity style={styles.photoDelete} onPress={() => handleDelete(photo)}>
+                  <Text style={styles.photoDeleteText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            {!atLimit && (
+              <TouchableOpacity
+                style={[styles.photoItem, styles.addTile, uploading && { opacity: 0.6 }]}
+                onPress={handleAdd}
+                disabled={uploading}
+              >
+                {uploading
+                  ? <ActivityIndicator color={C.primary} />
+                  : <Text style={styles.addTileText}>＋</Text>}
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.galleryCount}>{photos.length}/{MAX_PHOTOS} fotoğraf</Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
 function Field({ label, children, last, styles }: { label: string; children: React.ReactNode; last?: boolean; styles: ReturnType<typeof makeStyles> }) {
   return (
     <View style={[styles.field, last && { borderBottomWidth: 0 }]}>
@@ -219,5 +392,26 @@ function makeStyles(C: Colors) {
       paddingVertical: 16, alignItems: 'center',
     },
     saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+    // Galeri
+    galleryBody: { padding: 14 },
+    galleryHint: { fontSize: 12, color: C.textMuted, lineHeight: 18, marginBottom: 12 },
+    galleryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    photoItem: {
+      width: '30%', aspectRatio: 1, borderRadius: 10, overflow: 'hidden',
+      backgroundColor: C.inputBg,
+    },
+    photoImg: { width: '100%', height: '100%' },
+    photoDelete: {
+      position: 'absolute', top: 4, right: 4,
+      width: 24, height: 24, borderRadius: 12,
+      backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+    },
+    photoDeleteText: { color: '#fff', fontSize: 13, fontWeight: '700', lineHeight: 16 },
+    addTile: {
+      alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.border,
+    },
+    addTileText: { fontSize: 30, color: C.primary, fontWeight: '300' },
+    galleryCount: { fontSize: 11, color: C.textMuted, marginTop: 10, textAlign: 'right' },
   });
 }

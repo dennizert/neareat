@@ -12,7 +12,7 @@
  * - İstatistikler
  */
 import api from './api';
-import type { RestaurantProfile, RestaurantStats, AppReview, RestaurantMenuItemMeta } from '../types';
+import type { RestaurantProfile, RestaurantStats, AppReview, RestaurantMenuItemMeta, RestaurantPhoto, RestaurantPhotoKind } from '../types';
 
 /** Restoran kayıt (başvuru) formu alanları */
 export interface RegisterRestaurantPayload {
@@ -72,9 +72,79 @@ export async function updateHours(openingHours: Record<string, { open: string; c
  * @param payload - Güncellenecek alanlar (telefon, email, adres, rezervasyon URL'i vb.)
  * @returns Güncellenmiş restoran profili
  */
-export async function updateInfo(payload: { reservationUrl?: string; phone?: string; contactEmail?: string; address?: string; acceptsReservations?: boolean; tableCount?: number | null }): Promise<RestaurantProfile> {
+export async function updateInfo(payload: { reservationUrl?: string; phone?: string; altPhone?: string | null; contactEmail?: string; address?: string; displayName?: string | null; acceptsReservations?: boolean; tableCount?: number | null }): Promise<RestaurantProfile> {
   const { data } = await api.put('/restaurant-account/info', payload);
   return data;
+}
+
+// ─── Foto galerileri (S10-5) ──────────────────────────────────────────────────
+// Akış: getPhotoUploadUrl → uploadPhotoToS3 (presigned PUT) → addRestaurantPhoto.
+
+/** Galeri türünü S3 upload-url'in beklediği küçük harfe çevirir. */
+type UploadKind = 'restaurant' | 'product';
+function toUploadKind(kind: RestaurantPhotoKind): UploadKind {
+  return kind === 'RESTAURANT' ? 'restaurant' : 'product';
+}
+
+/** S3 yapılandırılmadığında (503) fırlatılan typed error. */
+export class PhotoStorageUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PhotoStorageUnavailableError';
+    Object.setPrototypeOf(this, PhotoStorageUnavailableError.prototype);
+  }
+}
+
+/** Bir foto yüklemesi için presigned PUT URL + nihai public URL alır (S10-2). */
+export async function getPhotoUploadUrl(
+  kind: RestaurantPhotoKind,
+  contentType: string,
+): Promise<{ uploadUrl: string; key: string; publicUrl: string; expiresIn: number }> {
+  try {
+    const { data } = await api.post('/restaurant-account/photos/upload-url', {
+      kind: toUploadKind(kind),
+      contentType,
+    });
+    return data;
+  } catch (err: any) {
+    if (err?.response?.status === 503) {
+      throw new PhotoStorageUnavailableError(
+        err.response.data?.error || 'Fotoğraf yükleme yakında aktifleşecek.',
+      );
+    }
+    throw err;
+  }
+}
+
+/** Yerel dosyayı (uri) presigned URL'e doğrudan PUT eder. axios değil — Bearer/baseURL eklenmez. */
+export async function uploadPhotoToS3(uploadUrl: string, fileUri: string, contentType: string): Promise<void> {
+  const fileResp = await fetch(fileUri);
+  const blob = await fileResp.blob();
+  const putResp = await fetch(uploadUrl, {
+    method: 'PUT',
+    body: blob,
+    headers: { 'Content-Type': contentType },
+  });
+  if (!putResp.ok) {
+    throw new Error(`S3 yükleme başarısız (${putResp.status})`);
+  }
+}
+
+/** Yüklenen fotonun public URL'ini ilgili galeriye kaydeder (S10-3). */
+export async function addRestaurantPhoto(kind: RestaurantPhotoKind, url: string): Promise<RestaurantPhoto> {
+  const { data } = await api.post('/restaurant-account/photos', { kind, url });
+  return data;
+}
+
+/** Galeri fotolarını listeler (kind verilmezse tümü), sortOrder sırasıyla. */
+export async function listRestaurantPhotos(kind?: RestaurantPhotoKind): Promise<RestaurantPhoto[]> {
+  const { data } = await api.get('/restaurant-account/photos', { params: kind ? { kind } : {} });
+  return data;
+}
+
+/** Bir galeri fotosunu siler. */
+export async function deleteRestaurantPhoto(id: string): Promise<void> {
+  await api.delete(`/restaurant-account/photos/${id}`);
 }
 
 /**
