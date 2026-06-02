@@ -65,9 +65,11 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
   const overrideIsOpen = dp?.openingHours ? computeIsOpenFromOverride(dp.openingHours) : null;
   const isOpenNow = overrideIsOpen !== null ? overrideIsOpen : (place.opening_hours?.open_now ?? null);
   const { minutesUntilClose, isNewlyOpened } = deriveFreshness(place, dp?.openingHours || null, now);
+  // S10-4 — sahibin girdiği görünen ad + galeri fotosu Google'ın önüne geçer.
+  const ownerPhotoUrl = dp?.photos?.[0]?.url || null;
   return {
     placeId: place.place_id,
-    name: place.name,
+    name: dp?.displayName || place.name,
     rating: place.rating,
     userRatingsTotal: place.user_ratings_total,
     priceLevel: place.price_level,
@@ -75,7 +77,7 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
     isOpenNow,
     location: place.geometry?.location,
     distanceKm,
-    photoUrl: place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null,
+    photoUrl: ownerPhotoUrl || (place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null),
     cuisineTags: deriveCuisineTags(place),
     minutesUntilClose: isOpenNow === true ? minutesUntilClose : null,
     isNewlyOpened,
@@ -165,10 +167,17 @@ async function getNearby(req, res, next) {
     const allProfiles = await prisma.restaurantProfile.findMany({
       where: { placeId: { in: placeIds }, status: 'APPROVED' },
       select: {
-        placeId: true, discountEnabled: true, discountPercent: true,
+        placeId: true, displayName: true, discountEnabled: true, discountPercent: true,
         discountNote: true, discountActiveUntil: true,
         announcement: true, announcementActive: true, reservationUrl: true,
         openingHours: true, acceptsReservations: true,
+        // S10-4 — liste kartı için sahibin ilk RESTAURANT galeri fotosu
+        photos: {
+          where: { kind: 'RESTAURANT' },
+          orderBy: { sortOrder: 'asc' },
+          take: 1,
+          select: { url: true },
+        },
       },
     });
     const discountMap = Object.fromEntries(allProfiles.map((p) => [p.placeId, p]));
@@ -234,10 +243,17 @@ async function searchByText(req, res, next) {
       ? await prisma.restaurantProfile.findMany({
           where: { placeId: { in: placeIds }, status: 'APPROVED' },
           select: {
-            placeId: true, discountEnabled: true, discountPercent: true,
+            placeId: true, displayName: true, discountEnabled: true, discountPercent: true,
             discountNote: true, discountActiveUntil: true,
             announcement: true, announcementActive: true, reservationUrl: true,
             openingHours: true, acceptsReservations: true,
+            // S10-4 — liste kartı için sahibin ilk RESTAURANT galeri fotosu
+            photos: {
+              where: { kind: 'RESTAURANT' },
+              orderBy: { sortOrder: 'asc' },
+              take: 1,
+              select: { url: true },
+            },
           },
         })
       : [];
@@ -272,6 +288,11 @@ async function getDetails(req, res, next) {
             select: { id: true, data: true, mimeType: true, fileName: true, sortOrder: true, uploadedAt: true },
             orderBy: { sortOrder: 'asc' },
           },
+          // S10-4 — sahibin yüklediği galeri fotoları (RESTAURANT + PRODUCT)
+          photos: {
+            select: { kind: true, url: true, sortOrder: true },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
       }),
       isPremiumUser(req.user.id),
@@ -286,9 +307,15 @@ async function getDetails(req, res, next) {
       : null;
     const hasDiscount = rp && (rp.discountEnabled || instantActive);
 
+    // S10-4 — galeri sırası: önce sahibin RESTAURANT fotoları, sonra Google fotoları.
+    // Ayrı bir "Ürünler" bölümü için PRODUCT fotoları productPhotos olarak döner.
+    const ownerRestaurantPhotos = (rp?.photos || []).filter((p) => p.kind === 'RESTAURANT').map((p) => p.url);
+    const productPhotos = (rp?.photos || []).filter((p) => p.kind === 'PRODUCT').map((p) => p.url);
+    const googlePhotos = (place.photos || []).map((p) => getPhotoUrl(p.photo_reference));
+
     const detail = {
       placeId,
-      name: place.name,
+      name: rp?.displayName || place.name,
       rating: place.rating,
       userRatingsTotal: place.user_ratings_total,
       priceLevel: place.price_level,
@@ -297,7 +324,8 @@ async function getDetails(req, res, next) {
       formattedPhoneNumber: place.formatted_phone_number,
       openingHours: place.opening_hours,
       location: place.geometry?.location,
-      photos: (place.photos || []).map((p) => getPhotoUrl(p.photo_reference)),
+      photos: [...ownerRestaurantPhotos, ...googlePhotos],
+      productPhotos,
       googleReviews: place.reviews || [],
       popularTimes: null,
       // Restaurant profile extras
