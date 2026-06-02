@@ -94,12 +94,16 @@ export default function RestaurantDetailScreen() {
     const task = InteractionManager.runAfterInteractions(() => {
       (async () => {
         try {
-          const [d, reviews, savedRating] = await Promise.all([
-            fetchRestaurantDetail(placeId),
-            fetchAppReviews(placeId),
+          // Detay kritik (çevrimdışı cache'ten gelebilir) — önce onu al.
+          const d = await fetchRestaurantDetail(placeId);
+          setDetail(d);
+
+          // Yorumlar + kayıtlı puan ikincil; başarısız olsalar da detay görünmeli
+          // (çevrimdışıyken fetchAppReviews ağ hatası verir → boş liste ile devam).
+          const [reviews, savedRating] = await Promise.all([
+            fetchAppReviews(placeId).catch(() => []),
             AsyncStorage.getItem(`quick_rating:${placeId}`),
           ]);
-          setDetail(d);
           setAppReviews(reviews);
           if (savedRating) {
             setQuickRating(parseInt(savedRating, 10));
