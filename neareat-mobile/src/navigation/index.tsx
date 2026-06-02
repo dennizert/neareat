@@ -309,7 +309,7 @@ export default function Navigation() {
                 <Stack.Screen
                   name="RestaurantInfo"
                   component={RestaurantInfoScreen}
-                  options={{ ...H, title: 'İletişim Bilgileri' }}
+                  options={{ ...H, title: 'Restoran Bilgileri' }}
                 />
                 <Stack.Screen
                   name="RestaurantReservations"
