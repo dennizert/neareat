@@ -8,8 +8,8 @@ const { computeReservationAnalytics, computeReviewAnalytics } = require('../util
 const { generateWeeklyReport } = require('../services/businessReport');
 
 const RESTAURANT_SELECT = {
-  id: true, userId: true, businessName: true, ownerName: true,
-  taxNumber: true, taxOffice: true, phone: true, contactEmail: true,
+  id: true, userId: true, businessName: true, displayName: true, ownerName: true,
+  taxNumber: true, taxOffice: true, phone: true, altPhone: true, contactEmail: true,
   address: true, businessCategory: true, placeId: true, placeName: true,
   placeAddress: true, placePhotoUrl: true, status: true, rejectionReason: true,
   approvedAt: true, reservationUrl: true, announcement: true,
@@ -327,11 +327,35 @@ async function updateAnnouncement(req, res, next) {
 
 async function updateInfo(req, res, next) {
   try {
-    const { reservationUrl, phone, contactEmail, address, acceptsReservations, tableCount } = req.body;
+    const { reservationUrl, phone, altPhone, contactEmail, address, displayName, acceptsReservations, tableCount } = req.body;
     if (tableCount !== undefined && tableCount !== null) {
       const n = parseInt(tableCount);
       if (isNaN(n) || n < 1 || n > 500) {
         return res.status(400).json({ error: 'Masa kapasitesi 1-500 arasında olmalıdır.' });
+      }
+    }
+    // displayName: gönderildiyse trim + 2-80 karakter; boş string → null (Google adına döner)
+    let displayNameUpdate;
+    if (displayName !== undefined) {
+      const trimmed = String(displayName).trim();
+      if (trimmed.length === 0) {
+        displayNameUpdate = null;
+      } else if (trimmed.length < 2 || trimmed.length > 80) {
+        return res.status(400).json({ error: 'Görünen ad 2-80 karakter arasında olmalıdır.' });
+      } else {
+        displayNameUpdate = trimmed;
+      }
+    }
+    // altPhone: gönderildiyse trim, ≤20 karakter; boş → null
+    let altPhoneUpdate;
+    if (altPhone !== undefined) {
+      const trimmed = String(altPhone).trim();
+      if (trimmed.length === 0) {
+        altPhoneUpdate = null;
+      } else if (trimmed.length > 20) {
+        return res.status(400).json({ error: 'Alternatif telefon en fazla 20 karakter olabilir.' });
+      } else {
+        altPhoneUpdate = trimmed;
       }
     }
     const profile = await prisma.restaurantProfile.update({
@@ -339,8 +363,10 @@ async function updateInfo(req, res, next) {
       data: {
         reservationUrl: reservationUrl || null,
         phone: phone || undefined,
+        altPhone: altPhoneUpdate,
         contactEmail: contactEmail || undefined,
         address: address || undefined,
+        displayName: displayNameUpdate,
         acceptsReservations: typeof acceptsReservations === 'boolean' ? acceptsReservations : undefined,
         tableCount: tableCount === null ? null : (tableCount !== undefined ? parseInt(tableCount) : undefined),
       },

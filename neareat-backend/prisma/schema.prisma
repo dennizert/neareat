@@ -361,11 +361,13 @@ model RestaurantProfile {
 
   // Business info
   businessName       String  @map("business_name")
+  displayName        String? @map("display_name") // kullanıcıya gösterilen ad (boşsa Google adı)
   ownerName          String  @map("owner_name")
   taxNumber          String  @unique @map("tax_number")
   taxOffice          String  @map("tax_office")
   taxCertificateData String? @map("tax_certificate_data") @db.Text
   phone              String
+  altPhone           String? @map("alt_phone") // alternatif iletişim numarası
   contactEmail       String  @map("contact_email")
   address            String
   businessCategory   String  @map("business_category")
