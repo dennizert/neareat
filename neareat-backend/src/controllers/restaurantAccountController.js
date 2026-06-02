@@ -6,6 +6,7 @@ const { containsOffensiveContent } = require('../utils/contentFilter');
 const { logRequest } = require('../services/logService');
 const { computeReservationAnalytics, computeReviewAnalytics } = require('../utils/restaurantAnalytics');
 const { generateWeeklyReport } = require('../services/businessReport');
+const s3 = require('../services/s3');
 
 const RESTAURANT_SELECT = {
   id: true, userId: true, businessName: true, displayName: true, ownerName: true,
@@ -591,6 +592,33 @@ async function sendCampaign(req, res, next) {
   }
 }
 
+// S10-2 — restoran/ürün fotoğrafı için S3 presigned yükleme URL'i üretir.
+// İstemci dönen uploadUrl'e dosyayı PUT eder, sonra publicUrl'i galeriye kaydeder (S10-3).
+async function createPhotoUploadUrl(req, res, next) {
+  try {
+    if (!s3.isS3Configured()) {
+      return res.status(503).json({ error: 'Fotoğraf yükleme yakında aktifleşecek (depolama yapılandırılmadı).' });
+    }
+    const { kind, contentType } = req.body;
+    if (!s3.ALLOWED_KINDS.includes(kind)) {
+      return res.status(400).json({ error: "kind 'restaurant' veya 'product' olmalıdır." });
+    }
+    if (!s3.ALLOWED_CONTENT_TYPES[contentType]) {
+      return res.status(400).json({ error: 'Desteklenmeyen dosya türü. Yalnızca JPEG/PNG/WebP.' });
+    }
+    const profile = await prisma.restaurantProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Restoran profili bulunamadı.' });
+
+    const result = await s3.createUploadUrl(profile.id, kind, contentType);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   registerRestaurant, getMyProfile, updateHours,
   uploadMenuItem, getMenuItemData, deleteMenuItem,
@@ -598,4 +626,5 @@ module.exports = {
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
   sendCampaign, getAnalytics, getWeeklyReport,
+  createPhotoUploadUrl,
 };

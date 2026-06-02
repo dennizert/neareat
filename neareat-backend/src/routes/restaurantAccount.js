@@ -9,6 +9,7 @@ const {
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
   sendCampaign, getAnalytics, getWeeklyReport,
+  createPhotoUploadUrl,
 } = require('../controllers/restaurantAccountController');
 
 // Public — no auth
@@ -23,6 +24,9 @@ router.get('/stats', authenticate, requireRestaurant, getStats);
 router.get('/analytics', authenticate, requireRestaurant, getAnalytics);
 router.get('/report', authenticate, requireRestaurant, getWeeklyReport);
 router.get('/reviews', authenticate, requireRestaurant, getMyReviews);
+
+// Fotoğraf yükleme (S3 presigned URL) — S10-2
+router.post('/photos/upload-url', authenticate, requireRestaurant, createPhotoUploadUrl);
 
 // Menu
 router.post('/menu', authenticate, requireRestaurant, uploadMenuItem);
