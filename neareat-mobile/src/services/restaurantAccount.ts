@@ -79,12 +79,7 @@ export async function updateInfo(payload: { reservationUrl?: string; phone?: str
 
 // ─── Foto galerileri (S10-5) ──────────────────────────────────────────────────
 // Akış: getPhotoUploadUrl → uploadPhotoToS3 (presigned PUT) → addRestaurantPhoto.
-
-/** Galeri türünü S3 upload-url'in beklediği küçük harfe çevirir. */
-type UploadKind = 'restaurant' | 'product';
-function toUploadKind(kind: RestaurantPhotoKind): UploadKind {
-  return kind === 'RESTAURANT' ? 'restaurant' : 'product';
-}
+// kind sözleşmesi tek tip: 'RESTAURANT' | 'PRODUCT' (B4 — upload-url + CRUD aynı).
 
 /** S3 yapılandırılmadığında (503) fırlatılan typed error. */
 export class PhotoStorageUnavailableError extends Error {
@@ -102,7 +97,7 @@ export async function getPhotoUploadUrl(
 ): Promise<{ uploadUrl: string; key: string; publicUrl: string; expiresIn: number }> {
   try {
     const { data } = await api.post('/restaurant-account/photos/upload-url', {
-      kind: toUploadKind(kind),
+      kind,
       contentType,
     });
     return data;
