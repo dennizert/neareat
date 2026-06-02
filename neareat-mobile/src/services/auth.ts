@@ -89,14 +89,35 @@ export async function signInWithGoogle(): Promise<{ user: User; subscription: Su
   await GoogleSignin.signIn();
   const { idToken } = await GoogleSignin.getTokens();
 
-  // Her API isteğinde güncel Google idToken kullanılsın diye token getter ayarlanır
-  setTokenGetter(async () => {
-    const tokens = await GoogleSignin.getTokens();
-    return tokens.idToken;
-  });
+  // Her API isteğinde güncel Google idToken kullanılsın diye token getter ayarlanır.
+  // getGoogleIdToken eşzamanlı çağrıları tekilleştirir (aşağıya bak).
+  setTokenGetter(getGoogleIdToken);
 
   const { data } = await api.post('/auth/login', { idToken });
   return data;
+}
+
+/**
+ * Google idToken'ı tekilleştirilmiş (single-flight) şekilde döner.
+ *
+ * Neden: Bir ekran (ör. restoran detayı) aynı anda birden çok API isteği
+ * atıyor; her istek interceptor'da token istiyor. `GoogleSignin.getTokens()`
+ * eşzamanlı çağrıldığında "previous promise did not settle and was
+ * overwritten" hatası veriyordu. Devam eden çağrı varsa onun promise'ini
+ * paylaşarak tek bir getTokens çağrısı yapılır.
+ */
+let inFlightGoogleToken: Promise<string | null> | null = null;
+async function getGoogleIdToken(): Promise<string | null> {
+  if (inFlightGoogleToken) return inFlightGoogleToken;
+  inFlightGoogleToken = (async () => {
+    try {
+      const tokens = await GoogleSignin.getTokens();
+      return tokens.idToken;
+    } finally {
+      inFlightGoogleToken = null;
+    }
+  })();
+  return inFlightGoogleToken;
 }
 
 /**
