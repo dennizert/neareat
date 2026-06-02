@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, FlatList, TouchableOpacity, Modal, StyleSheet, Dimensions, Text } from 'react-native';
-import { Image } from 'expo-image'; // disk/memory cache + yumuşak geçiş
+import { View, Image, FlatList, TouchableOpacity, Modal, StyleSheet, Dimensions, Text } from 'react-native';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
@@ -40,7 +39,7 @@ export default function PhotoGallery({ photos, onAnalyze }: Props) {
           viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => setFullscreen(item)}>
-              <Image source={{ uri: item }} style={styles.image} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+              <Image source={{ uri: item }} style={styles.image} />
             </TouchableOpacity>
           )}
         />
@@ -58,7 +57,7 @@ export default function PhotoGallery({ photos, onAnalyze }: Props) {
       <Modal visible={!!fullscreen} transparent animationType="fade">
         <TouchableOpacity style={styles.modalBg} activeOpacity={1} onPress={() => setFullscreen(null)}>
           {fullscreen && (
-            <Image source={{ uri: fullscreen }} style={styles.fullImage} contentFit="contain" transition={150} cachePolicy="memory-disk" />
+            <Image source={{ uri: fullscreen }} style={styles.fullImage} resizeMode="contain" />
           )}
         </TouchableOpacity>
       </Modal>

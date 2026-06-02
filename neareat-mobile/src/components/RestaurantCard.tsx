@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Image } from 'expo-image'; // disk/memory cache + yumuşak geçiş
+import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import type { Restaurant } from '../types';
 import { formatDistance } from '../utils/haversine';
 import StarRating from './StarRating';
@@ -70,7 +69,7 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
       activeOpacity={0.85}
     >
       {r.photoUrl ? (
-        <Image source={{ uri: r.photoUrl }} style={styles.photo} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+        <Image source={{ uri: r.photoUrl }} style={styles.photo} />
       ) : (
         <View style={[styles.photo, styles.photoPlaceholder]}>
           <Text style={styles.photoPlaceholderText}>🍽️</Text>
