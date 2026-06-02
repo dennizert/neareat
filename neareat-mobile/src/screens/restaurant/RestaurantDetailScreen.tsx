@@ -106,7 +106,8 @@ export default function RestaurantDetailScreen() {
             setQuickRatingDone(true);
           }
         } catch (err: any) {
-          Alert.alert('Hata', err.message);
+          // userMessage interceptor'dan gelir (çevrimdışıyken anlamlı Türkçe mesaj)
+          Alert.alert('Hata', err.userMessage || err.message || 'Restoran bilgileri yüklenemedi.');
         } finally {
           setLoading(false);
         }
