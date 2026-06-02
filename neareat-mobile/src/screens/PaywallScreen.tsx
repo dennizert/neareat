@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, Platform,
+  Alert, ActivityIndicator, Platform, ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useIAP } from 'expo-iap';
@@ -17,25 +17,31 @@ const SKUS = {
   yearly: 'premium_yearly',
 };
 
-const FEATURES = [
-  '♾️  Limitsiz AI öneri — günlük 3 limit yok',
-  '🧠  Daha güçlü model — daha ince zevkleri yakalar',
-  '👥  Arkadaş sinyalleri — opt-in tercih paylaşımı',
-  '📍  25 km mesafede restoran keşfi (5 km\'den fazla)',
-  '❤️  Sınırsız favori kaydet',
-  '🏆  2x Yıldız — ödüllere daha hızlı ulaş',
+// Açıklayıcı özellik listesi — her biri başlık + tek satır açıklama
+const FEATURES: { icon: string; title: string; desc: string }[] = [
+  { icon: '♾️', title: 'Limitsiz AI öneri', desc: 'Günlük 3 hak sınırı olmadan dilediğin kadar "ne yesem?" sor' },
+  { icon: '🧠', title: 'Daha güçlü AI modeli', desc: 'İnce zevkleri ve niş tercihleri daha iyi yakalayan gelişmiş model' },
+  { icon: '👥', title: 'Arkadaş sinyalleri', desc: 'Arkadaşlarının (onay verdiyse) tat tercihleri önerilerine katılır' },
+  { icon: '📍', title: 'Geniş keşif alanı', desc: '5 km yerine 25 km çevrendeki restoranları keşfet' },
+  { icon: '❤️', title: 'Sınırsız favori', desc: 'İstediğin kadar restoranı favorilerine kaydet' },
+  { icon: '🏆', title: '2x Yıldız', desc: 'Her aksiyonda iki kat yıldız — ödüllere daha hızlı ulaş' },
 ];
 
 export default function PaywallScreen() {
   const navigation = useNavigation<any>();
-  const { setSubscription } = useAuthStore();
+  const { subscription, setSubscription, isPremium } = useAuthStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [selected, setSelected] = useState<'yearly' | 'monthly'>('yearly');
   const [purchasing, setPurchasing] = useState(false);
 
-  // expo-iap hook — bağlantı, ürünler ve satın alma callback'lerini yönetir.
+  // Deneme daha önce kullanıldıysa (herhangi bir abonelik kaydı varsa) backend yeni
+  // trial'ı reddeder → "7 gün ücretsiz dene" butonunu gizle.
+  const alreadyPremium = isPremium();
+  const hasUsedTrial = !!subscription;
+  const canTrial = !hasUsedTrial && !alreadyPremium;
+
   const { connected, subscriptions, requestProducts, requestPurchase, finishTransaction } = useIAP({
     onPurchaseSuccess: async (purchase) => {
       const token = purchase.purchaseToken;
@@ -49,30 +55,27 @@ export default function PaywallScreen() {
           productId: purchase.productId,
         });
         setSubscription(data);
-        // Aboneliği tamamla (consume etme — abonelik tek seferlik tüketilmez)
         await finishTransaction({ purchase, isConsumable: false });
         navigation.goBack();
-        Alert.alert('Premium Aktif', 'Aboneliğin başarıyla etkinleştirildi!');
+        Alert.alert('Premium Aktif 🎉', 'Aboneliğin başarıyla etkinleştirildi!');
       } catch (err: any) {
-        Alert.alert('Hata', err.response?.data?.error || 'Abonelik doğrulanamadı.');
+        Alert.alert('Hata', err.userMessage || err.response?.data?.error || 'Abonelik doğrulanamadı.');
       } finally {
         setPurchasing(false);
       }
     },
     onPurchaseError: (error) => {
       setPurchasing(false);
-      // Kullanıcı satın almayı iptal ettiyse sessiz geç; gerçek hatalarda uyar
       if (error?.code !== 'E_USER_CANCELLED') {
         Alert.alert('Satın Alma Hatası', error?.message || 'Bilinmeyen bir hata oluştu.');
       }
     },
   });
 
-  // Bağlantı kurulunca ürünleri getir
   useEffect(() => {
     if (connected) {
       requestProducts({ skus: Object.values(SKUS), type: 'subs' }).catch(() => {
-        // Play Store erişilemiyor (emülatör / yapılandırılmamış) — trial fallback devreye girer
+        // Play Store erişilemiyor (emülatör / yapılandırılmamış) — fiyatlar "—" kalır
       });
     }
   }, [connected, requestProducts]);
@@ -87,8 +90,17 @@ export default function PaywallScreen() {
   function priceLabel(plan: 'monthly' | 'yearly') {
     const p = getProduct(plan);
     const suffix = plan === 'yearly' ? '/ yıl' : '/ ay';
-    if (!p?.displayPrice) return `— TRY ${suffix}`;
+    if (!p?.displayPrice) return `—  ${suffix}`;
     return `${p.displayPrice} ${suffix}`;
+  }
+
+  // Yıllık planın aylık eşdeğeri (fiyat sayısal olarak geldiyse)
+  function yearlyMonthlyEquivalent(): string | null {
+    const p: any = getProduct('yearly');
+    if (!p || typeof p.price !== 'number' || !p.price) return null;
+    const perMonth = p.price / 12;
+    const cur = p.currency || '';
+    return `≈ ${perMonth.toFixed(0)} ${cur}/ay`;
   }
 
   async function handleTrial() {
@@ -97,26 +109,25 @@ export default function PaywallScreen() {
       const { data } = await api.post('/subscriptions/trial');
       setSubscription(data);
       navigation.goBack();
+      Alert.alert('Deneme Başladı 🎉', '7 günlük Premium denemen aktif!');
     } catch (err: any) {
-      Alert.alert('Hata', err.response?.data?.error || 'Deneme başlatılamadı.');
+      Alert.alert('Hata', err.userMessage || err.response?.data?.error || 'Deneme başlatılamadı.');
     } finally {
       setPurchasing(false);
     }
   }
 
-  async function handlePurchase() {
+  async function startPurchase(plan: 'monthly' | 'yearly') {
     if (Platform.OS !== 'android') {
       Alert.alert('Yakında', 'iOS için App Store entegrasyonu yakında geliyor.');
       return;
     }
-    const sku = SKUS[selected];
-    const product = getProduct(selected);
-    // Play Console henüz yapılandırılmadıysa veya ürün yüklenemediyse trial'a düş
+    const sku = SKUS[plan];
+    const product = getProduct(plan);
     if (!product) {
-      handleTrial();
+      Alert.alert('Yakında', 'Ödeme sistemi yakında aktifleşecek. Şimdilik ücretsiz denemeyi kullanabilirsin.');
       return;
     }
-    // Google Play aboneliklerinde offerToken zorunlu — ürünün offer detaylarından çıkar
     const offers = ((product as any).subscriptionOfferDetails ?? []).map(
       (o: { offerToken: string }) => ({ sku, offerToken: o.offerToken }),
     );
@@ -129,11 +140,49 @@ export default function PaywallScreen() {
           ios: { sku },
         },
       });
-      // Sonuç onPurchaseSuccess / onPurchaseError callback'lerinde işlenir
     } catch {
       setPurchasing(false);
     }
   }
+
+  // Ana butona basınca: Play hazırsa satın al; değilse deneme (kullanılabilirse)
+  function handlePrimary() {
+    if (iapAvailable) {
+      startPurchase(selected);
+    } else if (canTrial) {
+      handleTrial();
+    }
+  }
+
+  // ── Zaten premium ise sade bir bilgi ekranı ──
+  if (alreadyPremium) {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.closeBtnText}>✕</Text>
+        </TouchableOpacity>
+        <View style={styles.centered}>
+          <Text style={styles.premiumEmoji}>👑</Text>
+          <Text style={styles.title}>Zaten Premium'sun</Text>
+          <Text style={styles.subtitle}>Tüm premium özelliklere erişimin açık. Teşekkürler!</Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.primaryBtnText}>Harika!</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const primaryLabel = purchasing
+    ? null
+    : iapAvailable
+      ? `✨ ${selected === 'yearly' ? 'Yıllık' : 'Aylık'} Premium'a Geç`
+      : canTrial
+        ? '7 Gün Ücretsiz Dene'
+        : 'Ödeme yakında aktifleşecek';
+
+  const primaryDisabled = purchasing || (!iapAvailable && !canTrial);
+  const monthlyEq = yearlyMonthlyEquivalent();
 
   return (
     <View style={styles.container}>
@@ -141,94 +190,138 @@ export default function PaywallScreen() {
         <Text style={styles.closeBtnText}>✕</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Premium</Text>
-      <Text style={styles.subtitle}>Tüm özelliklere erişin</Text>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <Text style={styles.heroEmoji}>👑</Text>
+        <Text style={styles.title}>Premium</Text>
+        <Text style={styles.subtitle}>
+          Eatlas'tan en iyi şekilde yararlan — sınırsız AI önerisi, daha geniş keşif ve daha fazlası.
+        </Text>
 
-      <View style={styles.featureList}>
-        {FEATURES.map((f) => (
-          <Text key={f} style={styles.featureItem}>{f}</Text>
-        ))}
-      </View>
+        {/* Özellikler — başlık + açıklama */}
+        <View style={styles.featureList}>
+          {FEATURES.map((f) => (
+            <View key={f.title} style={styles.featureRow}>
+              <Text style={styles.featureIcon}>{f.icon}</Text>
+              <View style={styles.featureBody}>
+                <Text style={styles.featureTitle}>{f.title}</Text>
+                <Text style={styles.featureDesc}>{f.desc}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
 
-      <View style={styles.planRow}>
-        {/* Yıllık */}
+        {/* Plan seçimi */}
+        <Text style={styles.sectionLabel}>Planını seç</Text>
+        <View style={styles.planRow}>
+          {/* Yıllık */}
+          <TouchableOpacity
+            style={[styles.planCard, selected === 'yearly' && styles.planCardActive]}
+            onPress={() => setSelected('yearly')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.popularBadge}>
+              <Text style={styles.popularText}>En Popüler · %35 tasarruf</Text>
+            </View>
+            <View style={styles.planHeaderRow}>
+              <Text style={styles.planName}>Yıllık</Text>
+              {selected === 'yearly' && <Text style={styles.checkMark}>✓</Text>}
+            </View>
+            <Text style={styles.planPrice}>{priceLabel('yearly')}</Text>
+            {monthlyEq && <Text style={styles.planSub}>{monthlyEq}</Text>}
+          </TouchableOpacity>
+
+          {/* Aylık */}
+          <TouchableOpacity
+            style={[styles.planCard, selected === 'monthly' && styles.planCardActive]}
+            onPress={() => setSelected('monthly')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.planHeaderRow}>
+              <Text style={styles.planName}>Aylık</Text>
+              {selected === 'monthly' && <Text style={styles.checkMark}>✓</Text>}
+            </View>
+            <Text style={styles.planPrice}>{priceLabel('monthly')}</Text>
+            <Text style={styles.planSub}>Esnek, aylık yenilenir</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Ana CTA */}
         <TouchableOpacity
-          style={[styles.planCard, selected === 'yearly' && styles.planCardActive]}
-          onPress={() => setSelected('yearly')}
+          style={[styles.primaryBtn, primaryDisabled && styles.primaryBtnDisabled]}
+          onPress={handlePrimary}
+          disabled={primaryDisabled}
+          activeOpacity={0.85}
         >
-          <View style={styles.popularBadge}>
-            <Text style={styles.popularText}>En Popüler</Text>
-          </View>
-          <Text style={styles.planName}>Yıllık</Text>
-          <Text style={styles.planPrice}>{priceLabel('yearly')}</Text>
-          <Text style={styles.planSavings}>%35 tasarruf</Text>
+          {purchasing
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.primaryBtnText}>{primaryLabel}</Text>}
         </TouchableOpacity>
 
-        {/* Aylık */}
-        <TouchableOpacity
-          style={[styles.planCard, selected === 'monthly' && styles.planCardActive]}
-          onPress={() => setSelected('monthly')}
-        >
-          <Text style={styles.planName}>Aylık</Text>
-          <Text style={styles.planPrice}>{priceLabel('monthly')}</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Play hazır + deneme hakkı varsa ikincil deneme seçeneği */}
+        {iapAvailable && canTrial && (
+          <TouchableOpacity style={styles.secondaryBtn} onPress={handleTrial} disabled={purchasing}>
+            <Text style={styles.secondaryBtnText}>veya önce 7 gün ücretsiz dene</Text>
+          </TouchableOpacity>
+        )}
 
-      <TouchableOpacity
-        style={[styles.primaryBtn, purchasing && styles.primaryBtnDisabled]}
-        onPress={handlePurchase}
-        disabled={purchasing}
-        activeOpacity={0.85}
-      >
-        {purchasing
-          ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.primaryBtnText}>
-              {iapAvailable
-                ? `✨ ${selected === 'yearly' ? 'Yıllık' : 'Aylık'} Premium'a Geç`
-                : '7 Gün Ücretsiz Dene'}
-            </Text>
-        }
-      </TouchableOpacity>
-
-      <Text style={styles.legal}>
-        {iapAvailable
-          ? 'Abonelik Google Play üzerinden yönetilir. İstediğin zaman iptal edebilirsin.'
-          : 'Devam ederek Kullanım Şartları ve Gizlilik Politikasını kabul etmiş olursunuz.'}
-      </Text>
+        <Text style={styles.legal}>
+          {iapAvailable
+            ? 'Abonelik Google Play üzerinden yönetilir; istediğin zaman iptal edebilirsin. Devam ederek Kullanım Şartları ve Gizlilik Politikasını kabul etmiş olursun.'
+            : 'Devam ederek Kullanım Şartları ve Gizlilik Politikasını kabul etmiş olursun.'}
+        </Text>
+      </ScrollView>
     </View>
   );
 }
 
 function makeStyles(C: Colors) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.surface, padding: 24, paddingTop: 48 },
+    container: { flex: 1, backgroundColor: C.surface },
+    scroll: { padding: 24, paddingTop: 56, paddingBottom: 40 },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     closeBtn: { position: 'absolute', top: 48, right: 24, zIndex: 10 },
     closeBtnText: { fontSize: 20, color: C.textMuted },
-    title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, textAlign: 'center', marginBottom: 4 },
-    subtitle: { fontSize: 15, color: C.textTertiary, textAlign: 'center', marginBottom: 24 },
+
+    heroEmoji: { fontSize: 44, textAlign: 'center', marginBottom: 8 },
+    premiumEmoji: { fontSize: 56, marginBottom: 16 },
+    title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, textAlign: 'center', marginBottom: 8 },
+    subtitle: { fontSize: 14, color: C.textTertiary, textAlign: 'center', lineHeight: 21, marginBottom: 24, paddingHorizontal: 8 },
+
     featureList: { marginBottom: 24 },
-    featureItem: { fontSize: 15, color: C.textSecondary, marginBottom: 10, lineHeight: 22 },
+    featureRow: { flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'flex-start' },
+    featureIcon: { fontSize: 22, width: 30, textAlign: 'center' },
+    featureBody: { flex: 1 },
+    featureTitle: { fontSize: 15, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
+    featureDesc: { fontSize: 13, color: C.textTertiary, lineHeight: 18 },
+
+    sectionLabel: { fontSize: 13, fontWeight: '700', color: C.textSecondary, marginBottom: 10 },
     planRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
     planCard: {
-      flex: 1, borderRadius: 14, borderWidth: 2,
-      borderColor: C.border, padding: 16, alignItems: 'center',
+      flex: 1, borderRadius: 16, borderWidth: 2,
+      borderColor: C.border, padding: 16, paddingTop: 18, minHeight: 110, justifyContent: 'flex-end',
     },
     planCardActive: { borderColor: C.primary, backgroundColor: C.primaryLighter },
     popularBadge: {
+      position: 'absolute', top: -10, left: 12, right: 12,
       backgroundColor: C.primary, borderRadius: 8,
-      paddingHorizontal: 8, paddingVertical: 2, marginBottom: 6,
+      paddingHorizontal: 6, paddingVertical: 3, alignItems: 'center',
     },
-    popularText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-    planName: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
-    planPrice: { fontSize: 13, color: C.textTertiary, marginTop: 2 },
-    planSavings: { fontSize: 11, color: C.success, marginTop: 2 },
+    popularText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+    planHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    planName: { fontSize: 16, fontWeight: '800', color: C.textPrimary },
+    checkMark: { fontSize: 14, fontWeight: '900', color: C.primary },
+    planPrice: { fontSize: 14, color: C.textSecondary, marginTop: 4, fontWeight: '600' },
+    planSub: { fontSize: 11, color: C.success, marginTop: 2 },
+
     primaryBtn: {
       backgroundColor: C.primary, borderRadius: 14,
-      paddingVertical: 16, alignItems: 'center', marginBottom: 12,
+      paddingVertical: 16, alignItems: 'center', marginBottom: 8,
       minHeight: 52, justifyContent: 'center',
     },
-    primaryBtnDisabled: { opacity: 0.6 },
+    primaryBtnDisabled: { opacity: 0.5 },
     primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    legal: { fontSize: 11, color: C.textMuted, textAlign: 'center', lineHeight: 16 },
+    secondaryBtn: { paddingVertical: 10, alignItems: 'center', marginBottom: 8 },
+    secondaryBtnText: { color: C.textTertiary, fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
+    legal: { fontSize: 11, color: C.textMuted, textAlign: 'center', lineHeight: 16, marginTop: 8 },
   });
 }
