@@ -612,6 +612,25 @@ export default function RestaurantDetailScreen() {
             </TouchableOpacity>
           )}
 
+          {/* Ürün Fotoğrafları — sahibin yüklediği PRODUCT galerisi (S10-6) */}
+          {detail.productPhotos && detail.productPhotos.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Ürün Fotoğrafları</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                {detail.productPhotos.map((url, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={styles.menuThumb}
+                    onPress={() => setSelectedMenuImage(url)}
+                    activeOpacity={0.8}
+                  >
+                    <Image source={{ uri: url }} style={styles.menuThumbImage} resizeMode="cover" />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* Menu section — premium only */}
           {detail.hasMenu && (
             <View style={styles.section}>
