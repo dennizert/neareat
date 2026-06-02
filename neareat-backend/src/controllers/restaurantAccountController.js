@@ -619,6 +619,112 @@ async function createPhotoUploadUrl(req, res, next) {
   }
 }
 
+// ─── Foto galerileri (S10-3) ─────────────────────────────────────────────────
+// İki ayrı galeri: RESTAURANT (mekan) ve PRODUCT (ürün). Görseller S3'te (S10-2),
+// burada yalnızca public URL + sıra bilgisi tutulur. Galeri başına en fazla 8 foto.
+const PHOTO_KINDS = ['RESTAURANT', 'PRODUCT'];
+const MAX_PHOTOS_PER_GALLERY = 8;
+
+const PHOTO_SELECT = { id: true, kind: true, url: true, sortOrder: true, createdAt: true };
+
+/**
+ * POST /api/restaurant-account/photos
+ * body: { kind ('RESTAURANT'|'PRODUCT'), url } — S10-2'den gelen nihai public URL'i
+ * ilgili galeriye ekler. Galeri başına en fazla 8 foto (aşımda 409).
+ */
+async function addPhoto(req, res, next) {
+  try {
+    const { kind, url } = req.body || {};
+    if (!PHOTO_KINDS.includes(kind)) {
+      return res.status(400).json({ error: "kind 'RESTAURANT' veya 'PRODUCT' olmalıdır." });
+    }
+    if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url.trim())) {
+      return res.status(400).json({ error: 'Geçerli bir url gerekli.' });
+    }
+    const trimmedUrl = url.trim();
+
+    const profile = await prisma.restaurantProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Restoran profili bulunamadı.' });
+
+    const count = await prisma.restaurantPhoto.count({
+      where: { restaurantProfileId: profile.id, kind },
+    });
+    if (count >= MAX_PHOTOS_PER_GALLERY) {
+      return res.status(409).json({ error: `Bir galeride en fazla ${MAX_PHOTOS_PER_GALLERY} fotoğraf olabilir.` });
+    }
+
+    const photo = await prisma.restaurantPhoto.create({
+      data: { restaurantProfileId: profile.id, kind, url: trimmedUrl, sortOrder: count },
+      select: PHOTO_SELECT,
+    });
+    res.status(201).json(photo);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/restaurant-account/photos?kind=
+ * Kendi galerisini döner (sortOrder'a göre). kind verilmezse tüm fotolar.
+ */
+async function listPhotos(req, res, next) {
+  try {
+    const { kind } = req.query;
+    if (kind !== undefined && !PHOTO_KINDS.includes(kind)) {
+      return res.status(400).json({ error: "kind 'RESTAURANT' veya 'PRODUCT' olmalıdır." });
+    }
+    const profile = await prisma.restaurantProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Restoran profili bulunamadı.' });
+
+    const photos = await prisma.restaurantPhoto.findMany({
+      where: { restaurantProfileId: profile.id, ...(kind ? { kind } : {}) },
+      orderBy: [{ kind: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+      select: PHOTO_SELECT,
+    });
+    res.json(photos);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * DELETE /api/restaurant-account/photos/:id
+ * Sahiplik kontrolüyle siler. S3 nesnesini de best-effort temizler.
+ */
+async function deletePhoto(req, res, next) {
+  try {
+    const { id } = req.params;
+    const profile = await prisma.restaurantProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Restoran profili bulunamadı.' });
+
+    const photo = await prisma.restaurantPhoto.findUnique({ where: { id } });
+    if (!photo || photo.restaurantProfileId !== profile.id) {
+      return res.status(404).json({ error: 'Fotoğraf bulunamadı.' });
+    }
+
+    await prisma.restaurantPhoto.delete({ where: { id } });
+
+    // S3 nesnesini best-effort sil (URL bu bucket'a aitse)
+    const key = s3.keyFromUrl(photo.url);
+    if (key && s3.isS3Configured()) {
+      s3.deleteObject(key).catch(() => {});
+    }
+
+    res.json({ message: 'Silindi' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   registerRestaurant, getMyProfile, updateHours,
   uploadMenuItem, getMenuItemData, deleteMenuItem,
@@ -626,5 +732,5 @@ module.exports = {
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
   sendCampaign, getAnalytics, getWeeklyReport,
-  createPhotoUploadUrl,
+  createPhotoUploadUrl, addPhoto, listPhotos, deletePhoto,
 };

@@ -413,10 +413,32 @@ model RestaurantProfile {
   menuItems     RestaurantMenu[]
   reviewReplies ReviewReply[]
   reservations  Reservation[]
+  photos        RestaurantPhoto[]
 
   @@index([placeId])
   @@index([status])
   @@map("restaurant_profiles")
+}
+
+// Restoran sahibinin yönettiği foto galerileri — RESTAURANT (mekan) ve PRODUCT (ürün).
+// Görseller S3'te tutulur; burada yalnızca public URL + sıra bilgisi saklanır (S10-2/S10-3).
+enum RestaurantPhotoKind {
+  RESTAURANT
+  PRODUCT
+}
+
+model RestaurantPhoto {
+  id                  String              @id @default(uuid())
+  restaurantProfileId String              @map("restaurant_profile_id")
+  kind                RestaurantPhotoKind
+  url                 String
+  sortOrder           Int                 @default(0) @map("sort_order")
+  createdAt           DateTime            @default(now()) @map("created_at")
+
+  restaurantProfile RestaurantProfile @relation(fields: [restaurantProfileId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantProfileId, kind])
+  @@map("restaurant_photos")
 }
 
 model RestaurantMenu {
