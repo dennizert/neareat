@@ -25,7 +25,7 @@ export default function RestaurantMenuScreen() {
 
   async function handleUpload() {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       base64: true,
       quality: 0.8,
       allowsMultipleSelection: false,

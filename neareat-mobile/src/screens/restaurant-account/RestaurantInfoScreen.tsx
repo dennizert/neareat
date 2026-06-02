@@ -269,7 +269,7 @@ function PhotoGallerySection({
   async function handleAdd() {
     if (atLimit) return;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 1,
       allowsMultipleSelection: false,
     });
