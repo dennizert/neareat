@@ -21,22 +21,22 @@ const mockDelete = (api as any).delete as jest.Mock;
 beforeEach(() => jest.clearAllMocks());
 
 describe('getPhotoUploadUrl', () => {
-  it('kind RESTAURANT → upload-url isteğine küçük harf "restaurant" gönderir', async () => {
+  it('kind RESTAURANT → upload-url isteğine kind\'i doğrudan (büyük harf) gönderir', async () => {
     mockPost.mockResolvedValueOnce({ data: { uploadUrl: 'https://s3/put', publicUrl: 'https://cdn/x.jpg', key: 'k', expiresIn: 300 } });
 
     const res = await getPhotoUploadUrl('RESTAURANT', 'image/jpeg');
 
     expect(res.publicUrl).toBe('https://cdn/x.jpg');
     expect(mockPost).toHaveBeenCalledWith('/restaurant-account/photos/upload-url', {
-      kind: 'restaurant',
+      kind: 'RESTAURANT',
       contentType: 'image/jpeg',
     });
   });
 
-  it('kind PRODUCT → "product" gönderir', async () => {
+  it('kind PRODUCT → "PRODUCT" gönderir', async () => {
     mockPost.mockResolvedValueOnce({ data: { uploadUrl: 'u', publicUrl: 'p', key: 'k', expiresIn: 300 } });
     await getPhotoUploadUrl('PRODUCT', 'image/png');
-    expect(mockPost.mock.calls[0][1].kind).toBe('product');
+    expect(mockPost.mock.calls[0][1].kind).toBe('PRODUCT');
   });
 
   it('503 → PhotoStorageUnavailableError fırlatır', async () => {

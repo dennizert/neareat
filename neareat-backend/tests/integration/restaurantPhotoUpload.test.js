@@ -60,16 +60,27 @@ beforeEach(() => {
 });
 
 describe('POST /api/restaurant-account/photos/upload-url (S10-2)', () => {
-  it('geçerli kind + contentType → 200, presigned + public URL döner', async () => {
+  it('geçerli kind (büyük harf) + contentType → 200, presigned + public URL döner', async () => {
     const res = await request(app)
       .post(URL)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ kind: 'restaurant', contentType: 'image/jpeg' });
+      .send({ kind: 'RESTAURANT', contentType: 'image/jpeg' });
 
     expect(res.status).toBe(200);
     expect(res.body.uploadUrl).toBeDefined();
     expect(res.body.publicUrl).toBeDefined();
+    // S3 key segmenti küçük harf kalır
     expect(s3.createUploadUrl).toHaveBeenCalledWith('r-1', 'restaurant', 'image/jpeg');
+  });
+
+  it('eski istemci küçük harf kind gönderse de → 200 (toleranslı)', async () => {
+    const res = await request(app)
+      .post(URL)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ kind: 'product', contentType: 'image/png' });
+
+    expect(res.status).toBe(200);
+    expect(s3.createUploadUrl).toHaveBeenCalledWith('r-1', 'product', 'image/png');
   });
 
   it('desteklenmeyen contentType → 400', async () => {

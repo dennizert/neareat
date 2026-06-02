@@ -600,8 +600,11 @@ async function createPhotoUploadUrl(req, res, next) {
       return res.status(503).json({ error: 'Fotoğraf yükleme yakında aktifleşecek (depolama yapılandırılmadı).' });
     }
     const { kind, contentType } = req.body;
-    if (!s3.ALLOWED_KINDS.includes(kind)) {
-      return res.status(400).json({ error: "kind 'restaurant' veya 'product' olmalıdır." });
+    // B4 — galeri CRUD ile aynı sözleşme: kind büyük harf (RESTAURANT/PRODUCT).
+    // Eski istemciler için küçük harf de toleranslı kabul edilir (case-insensitive).
+    const kindUpper = String(kind || '').toUpperCase();
+    if (!PHOTO_KINDS.includes(kindUpper)) {
+      return res.status(400).json({ error: "kind 'RESTAURANT' veya 'PRODUCT' olmalıdır." });
     }
     if (!s3.ALLOWED_CONTENT_TYPES[contentType]) {
       return res.status(400).json({ error: 'Desteklenmeyen dosya türü. Yalnızca JPEG/PNG/WebP.' });
@@ -612,7 +615,8 @@ async function createPhotoUploadUrl(req, res, next) {
     });
     if (!profile) return res.status(404).json({ error: 'Restoran profili bulunamadı.' });
 
-    const result = await s3.createUploadUrl(profile.id, kind, contentType);
+    // S3 key segmenti küçük harf kalır (createUploadUrl beklentisi).
+    const result = await s3.createUploadUrl(profile.id, kindUpper.toLowerCase(), contentType);
     res.json(result);
   } catch (err) {
     next(err);
