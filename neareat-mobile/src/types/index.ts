@@ -111,6 +111,8 @@ export interface RestaurantDetail extends Restaurant {
     periods?: OpeningHoursPeriod[];
   } | null;
   photos: string[];
+  /** Sahibin yüklediği ürün fotoğrafları (S10) — detayda ayrı galeri. */
+  productPhotos?: string[];
   googleReviews: GoogleReview[];
   popularTimes: PopularTimes | null;
   reservationUrl?: string | null;
