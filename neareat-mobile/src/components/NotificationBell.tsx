@@ -28,13 +28,19 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 86400)} gün önce`;
 }
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+  /** Zil ikonu rengi — koyu/renkli header'larda override edilir (varsayılan: textPrimary). */
+  color?: string;
+}
+
+export default function NotificationBell({ color }: NotificationBellProps = {}) {
   const navigation = useNavigation<any>();
   const { unreadCount, notifications, loading, fetchUnreadCount, fetchNotifications, markRead, markAllRead } = useNotificationStore();
   const [panelVisible, setPanelVisible] = useState(false);
 
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const iconColor = color ?? C.textPrimary;
 
   useEffect(() => {
     fetchUnreadCount();
@@ -72,7 +78,7 @@ export default function NotificationBell() {
     <>
       {/* Zil ikonu */}
       <TouchableOpacity onPress={openPanel} style={styles.bell} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="notifications-outline" size={24} color={C.textPrimary} />
+        <Ionicons name="notifications-outline" size={24} color={iconColor} />
         {unreadCount > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>

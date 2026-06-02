@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Image, RefreshControl,
+  ActivityIndicator, Image, RefreshControl, Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { getMyRestaurantProfile, getRestaurantStats } from '../../services/restaurantAccount';
+import { getRestaurantReservations } from '../../services/reservations';
+import NotificationBell from '../../components/NotificationBell';
 import type { RestaurantProfile, RestaurantStats } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
@@ -31,12 +33,32 @@ export default function RestaurantDashboardScreen() {
   const [stats, setStats] = useState<RestaurantStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const pendingPopupShown = useRef(false);
 
-  async function load() {
+  async function load(isRefresh = false) {
     try {
       const [p, s] = await Promise.all([getMyRestaurantProfile(), getRestaurantStats()]);
       setProfile(p);
       setStats(s);
+
+      // Girişten sonra ilk açılışta bekleyen rezervasyon varsa bir kez bilgilendir
+      if (!isRefresh && !pendingPopupShown.current) {
+        pendingPopupShown.current = true;
+        getRestaurantReservations('PENDING')
+          .then((pending) => {
+            if (pending.length > 0) {
+              Alert.alert(
+                '📅 Bekleyen Rezervasyon',
+                `${pending.length} bekleyen rezervasyon isteğin var. Onaylamak veya reddetmek için görüntüle.`,
+                [
+                  { text: 'Daha Sonra', style: 'cancel' },
+                  { text: 'Görüntüle', onPress: () => navigation.navigate('RestaurantReservations') },
+                ],
+              );
+            }
+          })
+          .catch(() => { /* sessiz — bilgilendirme kritik değil */ });
+      }
     } catch { /* swallow */ } finally {
       setLoading(false);
       setRefreshing(false);
@@ -54,7 +76,7 @@ export default function RestaurantDashboardScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 40 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -72,9 +94,12 @@ export default function RestaurantDashboardScreen() {
             <Text style={styles.placeName} numberOfLines={1}>{profile?.placeName ?? 'Restoran seçilmedi'}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={logout}>
-          <Text style={styles.logoutText}>Çıkış</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <NotificationBell color="#fff" />
+          <TouchableOpacity onPress={logout}>
+            <Text style={styles.logoutText}>Çıkış</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Active discount banner */}
@@ -163,6 +188,7 @@ function makeStyles(C: Colors) {
       backgroundColor: C.primary, paddingHorizontal: 16, paddingTop: 56, paddingBottom: 20,
     },
     headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 },
+    headerRight: { alignItems: 'center', gap: 6 },
     avatar: { width: 56, height: 56, borderRadius: 12, marginRight: 12 },
     avatarPlaceholder: { backgroundColor: '#fff3', alignItems: 'center', justifyContent: 'center' },
     businessName: { fontSize: 17, fontWeight: '800', color: '#fff' },

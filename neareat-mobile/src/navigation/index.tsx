@@ -321,6 +321,11 @@ export default function Navigation() {
                   component={ReservationDetailScreen}
                   options={{ headerShown: false }}
                 />
+                <Stack.Screen
+                  name="Notifications"
+                  component={NotificationsScreen}
+                  options={{ ...H, title: 'Bildirimler' }}
+                />
               </>
             ) : (
               <Stack.Screen
