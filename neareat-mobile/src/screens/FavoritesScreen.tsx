@@ -5,6 +5,7 @@ import { fetchFavorites } from '../services/favorites';
 import { getCurrentLocation } from '../services/location';
 import { haversineKm } from '../utils/haversine';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RestaurantCard from '../components/RestaurantCard';
 import NotificationBell from '../components/NotificationBell';
 import Skeleton from '../components/Skeleton';
@@ -17,6 +18,7 @@ import type { Colors } from '../theme';
 export default function FavoritesScreen() {
   const navigation = useNavigation<any>();
   const { favorites, setFavorites } = useFavoriteStore();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -50,7 +52,7 @@ export default function FavoritesScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.headerRow}>
+        <View style={[styles.headerRow, { paddingTop: insets.top + 12 }]}>
           <Text style={styles.header}>Favoriler</Text>
           <NotificationBell />
         </View>
@@ -72,7 +74,7 @@ export default function FavoritesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.header}>Favoriler</Text>
         <NotificationBell />
       </View>
@@ -123,7 +125,7 @@ export default function FavoritesScreen() {
 function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
-    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 56, paddingBottom: 16, backgroundColor: C.surface },
+    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, backgroundColor: C.surface },
     header: { fontSize: 22, fontWeight: '700', color: C.textPrimary },
     list: { padding: 16 },
     skelRow: {

@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Alert,
   ScrollView, Image, RefreshControl, Switch, InteractionManager,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { useFavoriteStore } from '../store/favoriteStore';
@@ -71,6 +72,7 @@ export default function ProfileScreen() {
   }
 
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   async function loadAll() {
@@ -162,7 +164,7 @@ export default function ProfileScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
     >
       {/* Profile Header */}
-      <View style={styles.headerCard}>
+      <View style={[styles.headerCard, { paddingTop: insets.top + 16 }]}>
         <View style={styles.headerTopRow}>
           <NotificationBell />
           <TouchableOpacity
@@ -422,7 +424,7 @@ function ActionRow({ label, onPress, danger = false, styles }: { label: string; 
 function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
-    headerCard: { backgroundColor: C.surface, alignItems: 'center', padding: 24, paddingTop: 52 },
+    headerCard: { backgroundColor: C.surface, alignItems: 'center', padding: 24 },
     headerTopRow: { position: 'absolute', top: 52, right: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
     editBtn: { backgroundColor: C.inputBg, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 7 },
     editBtnText: { fontSize: 13, fontWeight: '600', color: C.textSecondary },

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, RefreshControl, Alert, ScrollView, Modal, TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { getPlatformStats, getPendingRestaurants, getReports, handleReport, suspendUser, runFriendSuggestionsJob, getPlaceRequests, reviewPlaceRequest } from '../../services/admin';
@@ -17,6 +18,7 @@ export default function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
   const { logout } = useAuthStore();
   const { C, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [tab, setTab] = useState<Tab>('pending');
@@ -121,7 +123,7 @@ export default function AdminDashboardScreen() {
   return (
     <View style={styles.container}>
       {/* Header — intentionally dark in both modes */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>Admin Paneli</Text>
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
           <TouchableOpacity onPress={() => navigation.navigate('AdminLogs')}>
@@ -400,7 +402,7 @@ function makeStyles(C: Colors) {
     // Admin paneli kasıtlı koyu — her iki modda da "sistem konsolu" hissi
     header: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: '#1F1A24',
+      paddingHorizontal: 16, paddingBottom: 12, backgroundColor: '#1F1A24',
     },
     headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
     logoutText: { fontSize: 13, color: C.textMuted, fontWeight: '600' },

@@ -3,6 +3,7 @@ import {
   View, FlatList, StyleSheet, ActivityIndicator, Text,
   TouchableOpacity, ScrollView, RefreshControl, TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import { fetchNearby } from '../../services/restaurants';
 import { getCurrentLocation } from '../../services/location';
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const lastFetchRef = useRef<number>(0);
 
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   // Fetch all data — category changes are client-side (instant, no API call)
@@ -139,7 +141,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.logo}>Eatlas</Text>
         <View style={styles.viewToggle}>
           <TouchableOpacity
@@ -364,7 +366,7 @@ function makeStyles(C: Colors) {
 
     header: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: C.surface,
+      paddingHorizontal: 16, paddingBottom: 12, backgroundColor: C.surface,
     },
     logo: { fontSize: 22, fontWeight: '800', color: C.primary },
     viewToggle: { flexDirection: 'row', backgroundColor: C.surfaceAlt, borderRadius: 8, padding: 2 },
