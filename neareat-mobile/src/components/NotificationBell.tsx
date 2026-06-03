@@ -4,6 +4,7 @@ import {
   FlatList, ActivityIndicator, SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useNotificationStore } from '../store/notificationStore';
 import type { AppNotification } from '../types';
@@ -39,6 +40,7 @@ export default function NotificationBell({ color }: NotificationBellProps = {}) 
   const [panelVisible, setPanelVisible] = useState(false);
 
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const iconColor = color ?? C.textPrimary;
 
@@ -94,7 +96,7 @@ export default function NotificationBell({ color }: NotificationBellProps = {}) 
         onRequestClose={() => setPanelVisible(false)}
       >
         <TouchableOpacity
-          style={styles.backdrop}
+          style={[styles.backdrop, { paddingTop: insets.top + 44 }]}
           activeOpacity={1}
           onPress={() => setPanelVisible(false)}
         >
@@ -176,7 +178,6 @@ function makeStyles(C: Colors) {
       flex: 1,
       backgroundColor: C.overlay,
       alignItems: 'flex-end',
-      paddingTop: 56,
       paddingRight: 8,
     },
     panel: {

@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, Platform, ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useIAP } from 'expo-iap';
 import api from '../services/api';
@@ -31,6 +32,7 @@ export default function PaywallScreen() {
   const navigation = useNavigation<any>();
   const { subscription, setSubscription, isPremium } = useAuthStore();
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [selected, setSelected] = useState<'yearly' | 'monthly'>('yearly');
@@ -190,7 +192,7 @@ export default function PaywallScreen() {
         <Text style={styles.closeBtnText}>✕</Text>
       </TouchableOpacity>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
         <Text style={styles.heroEmoji}>👑</Text>
         <Text style={styles.title}>Premium</Text>
         <Text style={styles.subtitle}>
@@ -277,7 +279,7 @@ export default function PaywallScreen() {
 function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.surface },
-    scroll: { padding: 24, paddingTop: 56, paddingBottom: 40 },
+    scroll: { padding: 24, paddingBottom: 40 },
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     closeBtn: { position: 'absolute', top: 48, right: 24, zIndex: 10 },
     closeBtnText: { fontSize: 20, color: C.textMuted },

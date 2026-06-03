@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, Alert, RefreshControl, TextInput, Modal,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { useCollectionStore } from '../../store/collectionStore';
@@ -19,6 +20,7 @@ export default function CollectionsScreen() {
   const navigation = useNavigation<any>();
   const { isPremium } = useAuthStore();
   const { myCollections, sharedWithMe, setMyCollections, setSharedWithMe, addCollection, removeCollection } = useCollectionStore();
+  const insets = useSafeAreaInsets();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
@@ -156,7 +158,7 @@ export default function CollectionsScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle}>Koleksiyonlarım</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <NotificationBell />
@@ -301,7 +303,7 @@ function makeStyles(C: Colors) {
     container: { flex: 1, backgroundColor: C.background },
     header: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: C.surface,
+      paddingHorizontal: 16, paddingBottom: 12, backgroundColor: C.surface,
     },
     headerTitle: { fontSize: 22, fontWeight: '800', color: C.textPrimary },
     createBtn: {
