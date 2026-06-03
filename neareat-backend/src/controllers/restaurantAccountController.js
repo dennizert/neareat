@@ -115,6 +115,15 @@ async function uploadMenuItem(req, res, next) {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
     if (!allowed.includes(mimeType)) return res.status(400).json({ error: 'Desteklenmeyen dosya türü' });
 
+    // F7 — base64 data için boyut sınırı. Global 5mb body limiti ~3.75MB dosyada 413 verir;
+    // bu kontrol o eşiğin altında (3MB) net bir Türkçe hata döndürür.
+    const MAX_MENU_BYTES = 3 * 1024 * 1024;
+    const base64Part = typeof data === 'string' && data.includes(',') ? data.slice(data.indexOf(',') + 1) : data;
+    const estimatedBytes = Math.floor((base64Part?.length || 0) * 3 / 4);
+    if (estimatedBytes > MAX_MENU_BYTES) {
+      return res.status(400).json({ error: 'Menü dosyası en fazla 3 MB olabilir.' });
+    }
+
     const profile = await prisma.restaurantProfile.findUnique({ where: { userId: req.user.id } });
     if (!profile) return res.status(404).json({ error: 'Profil bulunamadı' });
 

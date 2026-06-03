@@ -7,6 +7,7 @@ const { signToken } = require('../utils/jwt');
 const { hashToken } = require('../utils/tokenHash');
 const { logRequest } = require('../services/logService');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
+const s3 = require('../services/s3');
 
 function sanitizeUser(user) {
   const {
@@ -170,6 +171,19 @@ async function getMe(req, res) {
 
 async function deleteAccount(req, res, next) {
   try {
+    // F6 — restoran ise galeri fotolarının S3 nesnelerini best-effort temizle (orphan önleme).
+    // DB satırları user.delete ile cascade silinir; S3 nesneleri ayrıca temizlenmeli.
+    if (s3.isS3Configured()) {
+      const profile = await prisma.restaurantProfile.findUnique({
+        where: { userId: req.user.id },
+        select: { photos: { select: { url: true } } },
+      });
+      for (const p of profile?.photos ?? []) {
+        const key = s3.keyFromUrl(p.url);
+        if (key) s3.deleteObject(key).catch(() => {});
+      }
+    }
+
     logRequest({ req, page: 'Profil', action: 'Hesabını sildi' }).catch(() => {});
     await prisma.user.delete({ where: { id: req.user.id } });
     if (req.user.googleId) {
