@@ -25,7 +25,8 @@ import ProductPhotosSection from '../../components/ProductPhotosSection';
 import AppIcon from '../../components/AppIcon';
 import Skeleton from '../../components/Skeleton';
 import { useToast } from '../../hooks/useToast';
-import type { RestaurantDetail, AppReview, Collection } from '../../types';
+import { haptics } from '../../utils/haptics';
+import type { RestaurantDetail, AppReview, Collection, Favorite } from '../../types';
 import { formatDistance } from '../../utils/haversine';
 import NotificationBell from '../../components/NotificationBell';
 import { useTheme } from '../../theme';
@@ -123,15 +124,27 @@ export default function RestaurantDetailScreen() {
 
   async function toggleFavorite() {
     if (!detail) return;
+    const wasFavorited = favorited;
+    haptics.light();
+    // Optimistik: önce UI'ı güncelle, sunucu hatasında geri al.
+    const provisional: Favorite = {
+      id: `temp-${placeId}`, placeId, placeName: detail.name,
+      placeAddress: detail.formattedAddress ?? null,
+      placeLat: detail.location?.lat ?? 0, placeLng: detail.location?.lng ?? 0,
+      placePhone: null, placePhotoUrl: detail.photos?.[0] ?? null,
+      placeRating: detail.rating ?? null,
+    };
+    if (wasFavorited) storeRemoveFav(placeId); else storeFav(provisional);
     try {
-      if (favorited) {
+      if (wasFavorited) {
         await removeFavorite(placeId);
-        storeRemoveFav(placeId);
       } else {
         const fav = await addFavorite(detail);
-        storeFav(fav);
+        storeFav(fav); // geçici kaydı gerçek kayıtla değiştir
       }
     } catch (err: any) {
+      // rollback
+      if (wasFavorited) storeFav(provisional); else storeRemoveFav(placeId);
       if (err.response?.data?.code === 'PREMIUM_REQUIRED') {
         navigation.navigate('Paywall', { trigger: 'favorites' });
       } else {
@@ -142,6 +155,7 @@ export default function RestaurantDetailScreen() {
 
   async function handleQuickRating(stars: number) {
     if (quickRatingDone || !detail) return;
+    haptics.success();
     setQuickRating(stars);
     setQuickRatingDone(true);
     try {

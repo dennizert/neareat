@@ -8,6 +8,15 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// expo-haptics native modülü Jest'te yok; tüm fonksiyonları no-op'a indir.
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn().mockResolvedValue(undefined),
+  notificationAsync: jest.fn().mockResolvedValue(undefined),
+  selectionAsync: jest.fn().mockResolvedValue(undefined),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
+  NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
+}));
+
 // @expo/vector-icons Jest'te font yüklemeye çalışır (loadedNativeFonts hatası).
 // Her ikon ailesini (Ionicons, Feather...) prop'ları ileten basit bir View'a indir.
 // Proxy + cache: aynı aile her erişimde AYNI bileşeni döndürür (UNSAFE_getByType eşleşsin).
