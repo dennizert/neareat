@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { randomUUID } = require('crypto');
 
@@ -67,10 +67,17 @@ async function deleteObject(key) {
   await getClient().send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
 }
 
+/** Bir nesnenin boyutunu (byte) döner; bulunamazsa/erişilemezse hata fırlatır. */
+async function getObjectSize(key) {
+  const res = await getClient().send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+  return res.ContentLength ?? null;
+}
+
 module.exports = {
   isS3Configured,
   createUploadUrl,
   deleteObject,
+  getObjectSize,
   keyFromUrl,
   ALLOWED_CONTENT_TYPES,
   ALLOWED_KINDS,

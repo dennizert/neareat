@@ -384,7 +384,7 @@ describe('Favorites Endpoints', () => {
 
     it('should reject when free user hits limit', async () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
-      mockPrisma.favorite.count.mockResolvedValue(3); // FREE_FAVORITES_LIMIT = 3
+      mockPrisma.favorite.count.mockResolvedValue(99); // limit env'den okunur — net şekilde aş
 
       const res = await request(app)
         .post('/api/favorites')

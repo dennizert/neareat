@@ -30,11 +30,13 @@ jest.mock('../../src/jobs/reservationReminders', () => ({ scheduleReservationRem
 jest.mock('../../src/jobs/smartNotifications', () => ({ scheduleSmartNotifications: jest.fn() }));
 jest.mock('../../src/jobs/feedbackAggregator', () => ({ scheduleFeedbackAggregation: jest.fn() }));
 jest.mock('../../src/jobs/friendSuggestions', () => ({ scheduleFriendSuggestions: jest.fn(), runFriendSuggestionsJob: jest.fn() }));
+jest.mock('../../src/utils/contentFilter', () => ({ containsOffensiveContent: jest.fn(() => false) }));
 
 const request = require('supertest');
 const { createTestToken } = require('../helpers');
 const app = require('../../src/app');
 const prisma = require('../../src/utils/prisma');
+const { containsOffensiveContent } = require('../../src/utils/contentFilter');
 
 const ownerToken = createTestToken('owner-1');
 const PUT = '/api/restaurant-account/info';
@@ -96,5 +98,27 @@ describe('PUT /api/restaurant-account/info — displayName + altPhone (S10-1)', 
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ displayName: 'X Restaurant' });
     expect(res.status).toBe(403);
+  });
+
+  it('uygunsuz displayName → 400 (içerik filtresi, F1)', async () => {
+    containsOffensiveContent.mockReturnValueOnce(true);
+    const res = await request(app)
+      .put(PUT)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ displayName: 'Kötü Ad' });
+    expect(res.status).toBe(400);
+    expect(prisma.restaurantProfile.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/restaurant-account/announcement — içerik filtresi (F1)', () => {
+  it('uygunsuz duyuru → 400, prisma çağrılmaz', async () => {
+    containsOffensiveContent.mockReturnValueOnce(true);
+    const res = await request(app)
+      .put('/api/restaurant-account/announcement')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ announcement: 'Kötü duyuru', announcementActive: true });
+    expect(res.status).toBe(400);
+    expect(prisma.restaurantProfile.update).not.toHaveBeenCalled();
   });
 });

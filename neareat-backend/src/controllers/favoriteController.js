@@ -2,7 +2,8 @@ const prisma = require('../utils/prisma');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { logActivity, ACTIVITY_TYPES } = require('../services/logService');
 
-const FREE_FAVORITES_LIMIT = 3;
+// Ücretsiz favori limiti env'den okunur (.env.example: FREE_FAVORITES_LIMIT). Varsayılan 3 (mevcut davranış).
+const FREE_FAVORITES_LIMIT = parseInt(process.env.FREE_FAVORITES_LIMIT, 10) || 3;
 
 async function listFavorites(req, res, next) {
   try {
