@@ -64,7 +64,7 @@ export default function FavoritesScreen() {
               <RestaurantCard
                 restaurant={{
                   placeId: item.placeId,
-                  name: item.placeName,
+                  name: item.displayName ?? item.placeName,
                   rating: item.placeRating ?? 0,
                   userRatingsTotal: 0,
                   priceLevel: null,

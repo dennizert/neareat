@@ -320,6 +320,8 @@ export interface Favorite {
   id: string;
   placeId: string;
   placeName: string;
+  /** Sahibin girdiği görünen ad (S10) — varsa kartta placeName yerine kullanılır. */
+  displayName?: string | null;
   placeAddress: string | null;
   placeLat: number;
   placeLng: number;

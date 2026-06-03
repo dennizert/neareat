@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl, ScrollView,
+  Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
@@ -47,6 +48,10 @@ export default function RestaurantReservationsScreen() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Reddetme modalı (Alert.prompt iOS-only olduğundan cross-platform modal)
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejecting, setRejecting] = useState(false);
 
   async function load(isRefresh = false) {
     if (!isRefresh) setLoading(true);
@@ -87,31 +92,30 @@ export default function RestaurantReservationsScreen() {
     ]);
   }
 
+  // Alert.prompt yalnızca iOS'ta çalışır → cross-platform modal aç.
   function handleReject(id: string) {
-    Alert.prompt(
-      'Rezervasyonu Reddet',
-      'Lütfen red nedenini girin (zorunlu):',
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Reddet',
-          style: 'destructive',
-          onPress: async (reason?: string) => {
-            if (!reason?.trim()) {
-              Alert.alert('Hata', 'Red nedeni girilmesi zorunludur.');
-              return;
-            }
-            try {
-              const updated = await updateReservationStatus(id, 'REJECTED', reason.trim());
-              setReservations(prev => prev.map(r => r.id === id ? updated : r));
-            } catch (err: any) {
-              Alert.alert('Hata', err.response?.data?.error ?? 'Reddedilemedi.');
-            }
-          },
-        },
-      ],
-      'plain-text',
-    );
+    setRejectingId(id);
+    setRejectReason('');
+  }
+
+  async function confirmReject() {
+    const id = rejectingId;
+    if (!id) return;
+    if (!rejectReason.trim()) {
+      Alert.alert('Hata', 'Red nedeni girilmesi zorunludur.');
+      return;
+    }
+    setRejecting(true);
+    try {
+      const updated = await updateReservationStatus(id, 'REJECTED', rejectReason.trim());
+      setReservations(prev => prev.map(r => r.id === id ? updated : r));
+      setRejectingId(null);
+      setRejectReason('');
+    } catch (err: any) {
+      Alert.alert('Hata', err.response?.data?.error ?? 'Reddedilemedi.');
+    } finally {
+      setRejecting(false);
+    }
   }
 
   function handleMarkAttendance(id: string, attended: boolean) {
@@ -277,6 +281,51 @@ export default function RestaurantReservationsScreen() {
             />
           )
       }
+
+      {/* Reddetme modalı — Android + iOS (Alert.prompt yerine) */}
+      <Modal
+        visible={rejectingId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRejectingId(null)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Rezervasyonu Reddet</Text>
+            <Text style={styles.modalHint}>Lütfen red nedenini girin (zorunlu):</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={rejectReason}
+              onChangeText={setRejectReason}
+              placeholder="Örn. O saat dilimi dolu"
+              placeholderTextColor={C.textMuted}
+              multiline
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setRejectingId(null)}
+                disabled={rejecting}
+              >
+                <Text style={styles.modalCancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalRejectBtn, rejecting && { opacity: 0.6 }]}
+                onPress={confirmReject}
+                disabled={rejecting}
+              >
+                {rejecting
+                  ? <ActivityIndicator color={C.error} size="small" />
+                  : <Text style={styles.modalRejectText}>Reddet</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -357,5 +406,19 @@ function makeStyles(C: Colors) {
     noShowBtnSmText: { fontSize: 11, color: C.error, fontWeight: '700' },
     attendedMark: { fontSize: 22 },
     noShowMark: { fontSize: 22 },
+    // Reddetme modalı
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24 },
+    modalCard: { backgroundColor: C.surface, borderRadius: 16, padding: 20 },
+    modalTitle: { fontSize: 17, fontWeight: '800', color: C.textPrimary, marginBottom: 6 },
+    modalHint: { fontSize: 13, color: C.textSecondary, marginBottom: 12 },
+    modalInput: {
+      backgroundColor: C.inputBg, borderRadius: 10, borderWidth: 1, borderColor: C.border,
+      padding: 12, fontSize: 15, color: C.textPrimary, minHeight: 80, textAlignVertical: 'top',
+    },
+    modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+    modalCancelBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: C.inputBg },
+    modalCancelText: { fontSize: 14, color: C.textSecondary, fontWeight: '600' },
+    modalRejectBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8, backgroundColor: C.errorSurface, minWidth: 90, alignItems: 'center' },
+    modalRejectText: { fontSize: 14, color: C.error, fontWeight: '700' },
   });
 }
