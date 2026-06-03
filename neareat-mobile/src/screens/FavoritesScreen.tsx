@@ -8,6 +8,8 @@ import { useNavigation } from '@react-navigation/native';
 import RestaurantCard from '../components/RestaurantCard';
 import NotificationBell from '../components/NotificationBell';
 import Skeleton from '../components/Skeleton';
+import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 import type { Favorite } from '../types';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
@@ -16,27 +18,30 @@ export default function FavoritesScreen() {
   const navigation = useNavigation<any>();
   const { favorites, setFavorites } = useFavoriteStore();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
 
   const { C, isDark } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
-  useEffect(() => {
-    async function load() {
-      const [favs, coords] = await Promise.allSettled([
-        fetchFavorites(),
-        getCurrentLocation(),
-      ]);
-      if (favs.status === 'fulfilled') setFavorites(favs.value);
-      if (coords.status === 'fulfilled') {
-        setUserLat(coords.value.lat);
-        setUserLng(coords.value.lng);
-      }
-      setLoading(false);
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    const [favs, coords] = await Promise.allSettled([
+      fetchFavorites(),
+      getCurrentLocation(),
+    ]);
+    if (favs.status === 'fulfilled') setFavorites(favs.value);
+    else setError(true); // favori listesi çekilemedi → hata durumu
+    if (coords.status === 'fulfilled') {
+      setUserLat(coords.value.lat);
+      setUserLng(coords.value.lng);
     }
-    load();
-  }, []);
+    setLoading(false);
+  }, [setFavorites]);
+
+  useEffect(() => { load(); }, [load]);
 
   function handlePress(fav: Favorite) {
     navigation.navigate('RestaurantDetail', { placeId: fav.placeId });
@@ -71,8 +76,16 @@ export default function FavoritesScreen() {
         <Text style={styles.header}>Favoriler</Text>
         <NotificationBell />
       </View>
-      {favorites.length === 0 ? (
-        <Text style={styles.empty}>Henüz favori eklemediniz.</Text>
+      {error ? (
+        <ErrorState message="Favorilerin yüklenemedi." onRetry={load} />
+      ) : favorites.length === 0 ? (
+        <EmptyState
+          icon="heartOutline"
+          title="Henüz favorin yok"
+          description="Beğendiğin mekanları favorile, hepsi burada toplansın."
+          actionLabel="Keşfet'e git"
+          onAction={() => navigation.navigate('Home')}
+        />
       ) : (
         <FlatList
           data={favorites}
@@ -112,7 +125,6 @@ function makeStyles(C: Colors) {
     container: { flex: 1, backgroundColor: C.background },
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 56, paddingBottom: 16, backgroundColor: C.surface },
     header: { fontSize: 22, fontWeight: '700', color: C.textPrimary },
-    empty: { textAlign: 'center', color: C.textMuted, marginTop: 60, fontSize: 16 },
     list: { padding: 16 },
     skelRow: {
       flexDirection: 'row', backgroundColor: C.surface, borderRadius: 14, marginBottom: 12,

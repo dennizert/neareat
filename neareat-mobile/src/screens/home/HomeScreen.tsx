@@ -8,6 +8,7 @@ import { fetchNearby } from '../../services/restaurants';
 import { getCurrentLocation } from '../../services/location';
 import RestaurantCard from '../../components/RestaurantCard';
 import RestaurantListSkeleton from '../../components/RestaurantListSkeleton';
+import EmptyState from '../../components/EmptyState';
 import SortFilterBar from '../../components/SortFilterBar';
 import MapViewScreen from './MapViewScreen';
 import type { Restaurant } from '../../types';
@@ -309,7 +310,11 @@ export default function HomeScreen() {
           {searchLoading && <ActivityIndicator style={styles.loader} color={C.primary} />}
           {searchError && <Text style={styles.errorText}>{searchError}</Text>}
           {!searchLoading && !searchError && displayList.length === 0 && (
-            <Text style={styles.emptyText}>Sonuç bulunamadı</Text>
+            <EmptyState
+              icon="search"
+              title="Sonuç bulunamadı"
+              description="Farklı bir kelime ya da mutfak türüyle aramayı dene."
+            />
           )}
           {!searchLoading && !searchError && displayList.length > 0 && (
             <FlatList
