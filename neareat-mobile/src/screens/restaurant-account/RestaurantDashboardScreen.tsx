@@ -8,19 +8,21 @@ import { useAuthStore } from '../../store/authStore';
 import { getMyRestaurantProfile, getRestaurantStats } from '../../services/restaurantAccount';
 import { getRestaurantReservations } from '../../services/reservations';
 import NotificationBell from '../../components/NotificationBell';
+import AppIcon from '../../components/AppIcon';
+import type { IconName } from '../../theme/icons';
 import type { RestaurantProfile, RestaurantStats } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
-const MENU_ITEMS = [
-  { icon: '🕐', label: 'Çalışma Saatleri', screen: 'RestaurantHours' },
-  { icon: '📋', label: 'Menü Yönetimi', screen: 'RestaurantMenu' },
-  { icon: '💬', label: 'Yorumlar & Cevaplar', screen: 'RestaurantReviews' },
-  { icon: '🎁', label: 'İndirim Yönetimi', screen: 'RestaurantDiscount' },
-  { icon: '⚡', label: 'Anlık Kampanya', screen: 'RestaurantCampaign' },
-  { icon: '📊', label: 'Analitik Panel', screen: 'RestaurantAnalytics' },
-  { icon: '📅', label: 'Rezervasyonlar', screen: 'RestaurantReservations' },
-  { icon: '🏪', label: 'Restoran Bilgileri', screen: 'RestaurantInfo' },
+const MENU_ITEMS: { icon: IconName; label: string; screen: string }[] = [
+  { icon: 'clock', label: 'Çalışma Saatleri', screen: 'RestaurantHours' },
+  { icon: 'menu', label: 'Menü Yönetimi', screen: 'RestaurantMenu' },
+  { icon: 'message', label: 'Yorumlar & Cevaplar', screen: 'RestaurantReviews' },
+  { icon: 'discount', label: 'İndirim Yönetimi', screen: 'RestaurantDiscount' },
+  { icon: 'campaign', label: 'Anlık Kampanya', screen: 'RestaurantCampaign' },
+  { icon: 'analytics', label: 'Analitik Panel', screen: 'RestaurantAnalytics' },
+  { icon: 'reservation', label: 'Rezervasyonlar', screen: 'RestaurantReservations' },
+  { icon: 'restaurant', label: 'Restoran Bilgileri', screen: 'RestaurantInfo' },
 ];
 
 export default function RestaurantDashboardScreen() {
@@ -138,7 +140,7 @@ export default function RestaurantDashboardScreen() {
             onPress={() => navigation.navigate(item.screen)}
             activeOpacity={0.8}
           >
-            <Text style={styles.menuCardIcon}>{item.icon}</Text>
+            <AppIcon name={item.icon} size={26} color={C.primary} style={styles.menuCardIcon} />
             <Text style={styles.menuCardLabel}>{item.label}</Text>
           </TouchableOpacity>
         ))}
@@ -215,7 +217,7 @@ function makeStyles(C: Colors) {
       width: '47%', backgroundColor: C.surface, borderRadius: 16, padding: 20,
       alignItems: 'center', shadowColor: C.shadow, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
     },
-    menuCardIcon: { fontSize: 32, marginBottom: 8 },
+    menuCardIcon: { marginBottom: 8 },
     menuCardLabel: { fontSize: 13, fontWeight: '700', color: C.textSecondary, textAlign: 'center' },
     infoCard: { backgroundColor: C.surface, borderRadius: 14, marginHorizontal: 16, padding: 4, shadowColor: C.shadow, shadowOpacity: 0.04, elevation: 1 },
     infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.separator },

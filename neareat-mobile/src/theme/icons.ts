@@ -33,6 +33,7 @@ export const ICONS = {
   notification: 'notifications-outline',
   social: 'people-outline',
   collection: 'bookmark-outline',
+  diary: 'book-outline',
   recommend: 'sparkles-outline',
   // Navigasyon & sekmeler
   home: 'home-outline',

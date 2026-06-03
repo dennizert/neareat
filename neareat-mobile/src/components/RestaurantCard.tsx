@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import type { Restaurant } from '../types';
 import { formatDistance } from '../utils/haversine';
 import StarRating from './StarRating';
+import AppIcon from './AppIcon';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
@@ -72,7 +73,7 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
         <Image source={{ uri: r.photoUrl }} style={styles.photo} />
       ) : (
         <View style={[styles.photo, styles.photoPlaceholder]}>
-          <Text style={styles.photoPlaceholderText}>🍽️</Text>
+          <AppIcon name="restaurant" size={28} color={C.textMuted} />
         </View>
       )}
       <View style={styles.info}>
@@ -136,7 +137,6 @@ function makeStyles(C: Colors) {
     cardStarDiscount: { borderLeftWidth: 3, borderLeftColor: C.amber, backgroundColor: C.amberSurface },
     photo: { width: 90, height: 90 },
     photoPlaceholder: { backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
-    photoPlaceholderText: { fontSize: 28 },
     info: { flex: 1, padding: 12, justifyContent: 'center' },
     topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
     name: { fontSize: 15, fontWeight: '700', color: C.textPrimary, flex: 1, marginRight: 8 },
