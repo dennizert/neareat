@@ -20,6 +20,7 @@ interface Props {
 const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPress, closingSoon, closingVerySoon, minutesUntilClose }: Props) {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const [imgError, setImgError] = React.useState(false);
 
   const showClosingSoon = r.isOpenNow && (closingSoon || closingVerySoon);
 
@@ -71,8 +72,8 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
       onPress={onPress}
       activeOpacity={0.85}
     >
-      {r.photoUrl ? (
-        <Image source={{ uri: r.photoUrl }} style={styles.photo} />
+      {r.photoUrl && !imgError ? (
+        <Image source={{ uri: r.photoUrl }} style={styles.photo} onError={() => setImgError(true)} />
       ) : (
         <View style={[styles.photo, styles.photoPlaceholder]}>
           <AppIcon name="restaurant" size={28} color={C.textMuted} />
