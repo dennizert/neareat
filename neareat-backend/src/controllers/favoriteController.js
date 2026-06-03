@@ -10,7 +10,22 @@ async function listFavorites(req, res, next) {
       where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
     });
-    res.json(favorites);
+
+    // S10 — sahibin görünen adıyla zenginleştir (APPROVED profil, placeId eşleşmesi).
+    // Kart "displayName || placeName" gösterir; profil yoksa Google adı (regresyon yok).
+    const placeIds = favorites.map((f) => f.placeId);
+    let nameMap = {};
+    if (placeIds.length) {
+      const profiles = (await prisma.restaurantProfile.findMany({
+        where: { placeId: { in: placeIds }, status: 'APPROVED' },
+        select: { placeId: true, displayName: true },
+      })) || [];
+      nameMap = Object.fromEntries(
+        profiles.filter((p) => p.displayName).map((p) => [p.placeId, p.displayName]),
+      );
+    }
+    const enriched = favorites.map((f) => ({ ...f, displayName: nameMap[f.placeId] ?? null }));
+    res.json(enriched);
   } catch (err) {
     next(err);
   }

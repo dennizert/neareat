@@ -343,6 +343,26 @@ describe('Favorites Endpoints', () => {
       expect(res.body).toHaveLength(1);
       expect(res.body[0].placeName).toBe('Restaurant A');
     });
+
+    it('enriches favorites with owner displayName (S10, #208)', async () => {
+      mockPrisma.favorite.findMany.mockResolvedValue([
+        { id: 'fav-1', placeId: 'place-1', placeName: 'Mavera Gıda', userId: testUser.id },
+        { id: 'fav-2', placeId: 'place-2', placeName: 'Köşe Lokanta', userId: testUser.id },
+      ]);
+      mockPrisma.restaurantProfile.findMany.mockResolvedValue([
+        { placeId: 'place-1', displayName: 'Mavera Restaurant' },
+      ]);
+
+      const res = await request(app)
+        .get('/api/favorites')
+        .set('Authorization', `Bearer ${testToken}`);
+
+      expect(res.status).toBe(200);
+      // placeId eşleşen → displayName; eşleşmeyen → null (kart placeName'e düşer)
+      expect(res.body[0].displayName).toBe('Mavera Restaurant');
+      expect(res.body[1].displayName).toBeNull();
+      expect(mockPrisma.restaurantProfile.findMany).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('POST /api/favorites', () => {
