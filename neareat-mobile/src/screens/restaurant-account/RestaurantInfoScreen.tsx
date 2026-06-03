@@ -12,6 +12,7 @@ import {
   listRestaurantPhotos, deleteRestaurantPhoto, PhotoStorageUnavailableError,
 } from '../../services/restaurantAccount';
 import type { RestaurantPhoto, RestaurantPhotoKind } from '../../types';
+import { useToast } from '../../hooks/useToast';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -20,6 +21,7 @@ const TARGET_WIDTH = 1280; // S3 maliyeti + hız için yeniden boyutlandırma
 
 export default function RestaurantInfoScreen() {
   const navigation = useNavigation<any>();
+  const toast = useToast();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
@@ -95,9 +97,8 @@ export default function RestaurantInfoScreen() {
         acceptsReservations,
         tableCount: tc ? Number(tc) : null,
       });
-      Alert.alert('Kaydedildi', 'Restoran bilgileriniz güncellendi.', [
-        { text: 'Tamam', onPress: () => navigation.goBack() },
-      ]);
+      toast.show('Restoran bilgilerin güncellendi', 'success');
+      navigation.goBack();
     } catch (err: any) {
       Alert.alert('Hata', err.userMessage ?? err.response?.data?.error ?? 'Kaydedilemedi.');
     } finally {
