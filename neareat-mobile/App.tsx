@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Navigation from './src/navigation';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/Toast';
+import OnboardingGate from './src/components/OnboardingGate';
 import { configureGoogleSignIn } from './src/services/auth';
 import { MOCK_MODE, GOOGLE_WEB_CLIENT_ID } from './src/config';
 
@@ -19,9 +20,11 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar style="dark" />
         <ToastProvider>
-          <ErrorBoundary>
-            <Navigation />
-          </ErrorBoundary>
+          <OnboardingGate>
+            <ErrorBoundary>
+              <Navigation />
+            </ErrorBoundary>
+          </OnboardingGate>
         </ToastProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
