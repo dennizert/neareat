@@ -24,6 +24,7 @@ import PhotoGallery from '../../components/PhotoGallery';
 import ProductPhotosSection from '../../components/ProductPhotosSection';
 import AppIcon from '../../components/AppIcon';
 import Skeleton from '../../components/Skeleton';
+import { useToast } from '../../hooks/useToast';
 import type { RestaurantDetail, AppReview, Collection } from '../../types';
 import { formatDistance } from '../../utils/haversine';
 import NotificationBell from '../../components/NotificationBell';
@@ -90,6 +91,7 @@ export default function RestaurantDetailScreen() {
   const { isPremium, user } = useAuthStore();
   const { addStarEvent } = useUserProfileStore();
   const { myCollections, setMyCollections } = useCollectionStore();
+  const toast = useToast();
 
   const favorited = isFavorite(placeId);
 
@@ -146,7 +148,7 @@ export default function RestaurantDetailScreen() {
       await AsyncStorage.setItem(`quick_rating:${placeId}`, String(stars));
       const { starEvent } = await recordRating(detail.placeId, detail.name);
       addStarEvent(starEvent);
-      Alert.alert('Teşekkürler! +2 ⭐', 'Puanın kaydedildi.');
+      toast.show('Puanın kaydedildi · +2 ⭐', 'success');
     } catch {
       // rate-limited or network error — silent fail, UI already updated
     }
@@ -165,10 +167,7 @@ export default function RestaurantDetailScreen() {
       setReviewModalVisible(false);
       setReviewBody('');
       setReviewRating(5);
-      Alert.alert(
-        starEvent ? 'Yorum Eklendi! +5 ⭐' : 'Yorum Güncellendi',
-        starEvent ? 'Yorumun için yıldız kazandın!' : 'Yorumun güncellendi.',
-      );
+      toast.show(starEvent ? 'Yorumun eklendi · +5 ⭐' : 'Yorumun güncellendi', 'success');
     } catch (err: any) {
       Alert.alert('Hata', err.message ?? 'Yorum gönderilemedi.');
     } finally {
@@ -215,10 +214,7 @@ export default function RestaurantDetailScreen() {
         placePhotoUrl: detail.photos?.[0] ?? null,
         placeTypes: detail.types ?? [],
       });
-      Alert.alert(
-        '📖 Günlüğüne eklendi',
-        'Bu ziyaret yemek günlüğüne kaydedildi. Sadece sen görürsün — profil sayfasından bakabilirsin.',
-      );
+      toast.show('Yemek günlüğüne eklendi', 'success');
     } catch (err: any) {
       Alert.alert('Hata', err?.message ?? 'Günlüğe eklenemedi.');
     }
@@ -228,10 +224,7 @@ export default function RestaurantDetailScreen() {
     if (!detail) return;
     try {
       await createCheckin(detail.placeId, detail.name);
-      Alert.alert(
-        '📍 Check-in!',
-        `${detail.name} mekanına check-in yapıldı. Arkadaşların bildirim aldı; aktivite akışında 3 saat görünür kalacak.`,
-      );
+      toast.show('Check-in yapıldı! Arkadaşların bildirim aldı', 'success');
     } catch (err: any) {
       Alert.alert('Hata', err?.message ?? 'Check-in yapılamadı.');
     }
@@ -277,7 +270,7 @@ export default function RestaurantDetailScreen() {
                 placeName: detail.name,
                 placeAddress: detail.formattedAddress ?? undefined,
               });
-              Alert.alert('Teşekkürler!', 'Talebiniz alındı. Ekibimiz en kısa sürede değerlendirecek.');
+              toast.show('Talebin alındı, teşekkürler!', 'success');
             } catch (err: any) {
               const msg = err.response?.data?.error;
               if (err.response?.status === 409) {
@@ -323,7 +316,7 @@ export default function RestaurantDetailScreen() {
         placeRating: detail.rating,
       });
       setCollectionModalVisible(false);
-      Alert.alert('Eklendi!', `"${detail.name}", "${col.name}" koleksiyonuna eklendi.`);
+      toast.show(`"${col.name}" listesine eklendi`, 'success');
     } catch (err: any) {
       Alert.alert('Hata', err.response?.data?.error ?? 'Eklenemedi.');
     }
@@ -345,7 +338,7 @@ export default function RestaurantDetailScreen() {
       setCollectionModalVisible(false);
       setShowInlineCreate(false);
       setNewCollName('');
-      Alert.alert('Oluşturuldu!', `"${col.name}" listesi oluşturuldu ve "${detail.name}" eklendi.`);
+      toast.show(`"${col.name}" oluşturuldu ve eklendi`, 'success');
     } catch (err: any) {
       Alert.alert('Hata', err.response?.data?.error ?? 'Liste oluşturulamadı.');
     } finally {
