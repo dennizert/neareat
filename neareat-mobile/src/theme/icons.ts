@@ -17,6 +17,8 @@ export const ICONS = {
   campaign: 'megaphone-outline',
   announcement: 'megaphone-outline',
   discount: 'pricetag-outline',
+  flash: 'flash-outline',
+  new: 'sparkles-outline',
   analytics: 'bar-chart-outline',
   report: 'document-text-outline',
   menu: 'fast-food-outline',

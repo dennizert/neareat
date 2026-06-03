@@ -426,7 +426,7 @@ export default function RestaurantDetailScreen() {
               </Text>
             </View>
             <TouchableOpacity onPress={toggleFavorite} style={styles.favoriteBtn}>
-              <Text style={styles.heartIcon}>{favorited ? '❤️' : '🤍'}</Text>
+              <AppIcon name={favorited ? 'heart' : 'heartOutline'} size={26} color={favorited ? C.error : C.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -876,7 +876,6 @@ function makeStyles(C: Colors) {
     name: { fontSize: 22, fontWeight: '700', color: C.textPrimary },
     meta: { fontSize: 14, color: C.textTertiary, marginTop: 2 },
     favoriteBtn: { padding: 8 },
-    heartIcon: { fontSize: 24 },
     ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     ratingText: { fontSize: 14, color: C.textSecondary },
     openBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
