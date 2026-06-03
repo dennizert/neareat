@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useNotificationStore } from '../store/notificationStore';
+import { notificationTarget } from '../utils/notificationTarget';
 import type { AppNotification } from '../types';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
@@ -40,14 +41,9 @@ export default function NotificationsScreen() {
 
   async function handlePress(notif: AppNotification) {
     if (!notif.isRead) await markRead(notif.id);
-    const placeId = notif.data?.placeId;
-    if (placeId && (notif.type === 'INSTANT_DISCOUNT' || notif.type === 'REVIEW_REPLY' || notif.type === 'RECOMMENDATION')) {
-      navigation.navigate('RestaurantDetail', { placeId });
-    } else if (notif.type === 'LEVEL_UP') {
-      navigation.navigate('Rewards');
-    } else if (notif.type === 'FRIEND_SUGGESTION') {
-      navigation.navigate('FriendSuggestions');
-    }
+    // Merkezi eşleyici: tip + data → hedef ekran (eşleşme yoksa yalnızca okundu).
+    const target = notificationTarget(notif.type, notif.data);
+    if (target) navigation.navigate(target.screen, target.params);
   }
 
   const onRefresh = useCallback(() => fetchNotifications(1), [fetchNotifications]);
