@@ -5,9 +5,15 @@ let client;
 function getRedis() {
   if (!client) {
     client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      // Railway private domain (redis.railway.internal) yalnızca IPv6 (AAAA) çözülür;
+      // ioredis varsayılanı IPv4 (family:4) olduğundan bağlanamıyordu. family:0 = IPv4+IPv6.
+      family: 0,
       lazyConnect: true,
       enableOfflineQueue: false,
-      retryStrategy: () => null, // bağlanamazsa retry yapma
+      // İlk hatada kalıcı bırakma; sınırlı geri çekilmeyle transient kopmadan kurtul,
+      // 10 denemeden sonra vazgeç (gerçekten kapalıysa spam yapma).
+      retryStrategy: (times) => (times > 10 ? null : Math.min(times * 200, 2000)),
+      maxRetriesPerRequest: 2,
     });
     client.on('error', (err) => console.warn('[Redis]', err.message)); // hataları logla
   }
