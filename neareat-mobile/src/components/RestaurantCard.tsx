@@ -40,14 +40,16 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
     if (closingVerySoon) {
       return (
         <View style={[styles.badge, styles.closingVeryBadge]}>
-          <Text style={[styles.badgeText, styles.badgeTextClosed]}>⚠️ {minutesUntilClose} dk</Text>
+          <AppIcon name="warning" size={11} color={C.error} />
+          <Text style={[styles.badgeText, styles.badgeTextClosed]}>{minutesUntilClose} dk</Text>
         </View>
       );
     }
     if (closingSoon) {
       return (
         <View style={[styles.badge, styles.closingSoonBadge]}>
-          <Text style={[styles.badgeText, styles.badgeTextWarn]}>🕐 {minutesUntilClose} dk</Text>
+          <AppIcon name="clock" size={11} color={C.warning} />
+          <Text style={[styles.badgeText, styles.badgeTextWarn]}>{minutesUntilClose} dk</Text>
         </View>
       );
     }
@@ -90,12 +92,14 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
           <Text style={styles.distance}>{formatDistance(r.distanceKm)}</Text>
           {showInstant && (
             <View style={styles.discountBadgeInstant}>
-              <Text style={styles.discountBadgeText}>⚡ %{instantPct} Anlık!</Text>
+              <AppIcon name="flash" size={10} color={C.warning} />
+              <Text style={styles.discountBadgeText}>%{instantPct} Anlık!</Text>
             </View>
           )}
           {showStar && (
             <View style={styles.discountBadgeStar}>
-              <Text style={[styles.discountBadgeText, styles.discountBadgeTextStar]}>⭐ %{starPct} İndirim</Text>
+              <AppIcon name="star" size={10} color={C.amber} />
+              <Text style={[styles.discountBadgeText, styles.discountBadgeTextStar]}>%{starPct} İndirim</Text>
             </View>
           )}
         </View>
@@ -109,13 +113,22 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
           </View>
         )}
         {r.isNewlyOpened && (
-          <Text style={styles.newPlaceBadge}>✨ Yeni Mekan</Text>
+          <View style={styles.iconLine}>
+            <AppIcon name="new" size={12} color={C.travel} />
+            <Text style={styles.newPlaceBadge}>Yeni Mekan</Text>
+          </View>
         )}
         {r.announcement && (
-          <Text style={styles.announcement} numberOfLines={1}>📢 {r.announcement}</Text>
+          <View style={styles.iconLine}>
+            <AppIcon name="announcement" size={12} color={C.textSecondary} />
+            <Text style={styles.announcement} numberOfLines={1}>{r.announcement}</Text>
+          </View>
         )}
         {r.acceptsReservations && (
-          <Text style={styles.reservationBadge}>📅 Rezervasyon</Text>
+          <View style={styles.iconLine}>
+            <AppIcon name="reservation" size={12} color={C.success} />
+            <Text style={styles.reservationBadge}>Rezervasyon</Text>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -135,12 +148,12 @@ function makeStyles(C: Colors) {
     cardClosingVery: { borderLeftWidth: 3, borderLeftColor: C.error },
     cardInstantDiscount: { borderLeftWidth: 3, borderLeftColor: C.warning, backgroundColor: C.warningSurface },
     cardStarDiscount: { borderLeftWidth: 3, borderLeftColor: C.amber, backgroundColor: C.amberSurface },
-    photo: { width: 90, height: 90 },
+    photo: { width: 104, height: 104 },
     photoPlaceholder: { backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
     info: { flex: 1, padding: 12, justifyContent: 'center' },
     topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-    name: { fontSize: 15, fontWeight: '700', color: C.textPrimary, flex: 1, marginRight: 8 },
-    badge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+    name: { fontSize: 15.5, fontWeight: '700', color: C.textPrimary, flex: 1, marginRight: 8 },
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
     openBadge: { backgroundColor: C.successSurface },
     closedBadge: { backgroundColor: C.errorSurface },
     closingSoonBadge: { backgroundColor: C.warningSurface },
@@ -153,8 +166,8 @@ function makeStyles(C: Colors) {
     metaText: { fontSize: 12, color: C.textTertiary },
     bottomRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
     distance: { fontSize: 13, color: C.travel, fontWeight: '600' },
-    discountBadgeInstant: { backgroundColor: C.warningSurface, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
-    discountBadgeStar: { backgroundColor: C.amberSurface, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+    discountBadgeInstant: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.warningSurface, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
+    discountBadgeStar: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: C.amberSurface, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
     discountBadgeText: { fontSize: 10, fontWeight: '700', color: C.warning },
     discountBadgeTextStar: { color: C.amber },
     tagRow: { flexDirection: 'row', gap: 4, marginTop: 4, flexWrap: 'wrap' },
@@ -163,8 +176,9 @@ function makeStyles(C: Colors) {
       paddingHorizontal: 7, paddingVertical: 2,
     },
     cuisineTagText: { fontSize: 10, fontWeight: '600', color: C.textMuted },
-    announcement: { fontSize: 11, color: C.textSecondary, marginTop: 3, fontStyle: 'italic' },
-    reservationBadge: { fontSize: 11, color: C.success, marginTop: 3, fontWeight: '600' },
-    newPlaceBadge: { fontSize: 11, color: C.travel, marginTop: 3, fontWeight: '700' },
+    iconLine: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+    announcement: { flex: 1, fontSize: 11, color: C.textSecondary, fontStyle: 'italic' },
+    reservationBadge: { fontSize: 11, color: C.success, fontWeight: '600' },
+    newPlaceBadge: { fontSize: 11, color: C.travel, fontWeight: '700' },
   });
 }
