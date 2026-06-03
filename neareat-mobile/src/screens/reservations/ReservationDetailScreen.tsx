@@ -4,6 +4,7 @@ import {
   TextInput, Alert, ActivityIndicator, KeyboardAvoidingView,
   Platform, FlatList,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import {
   getReservationDetail, getReservationMessages,
@@ -47,6 +48,7 @@ export default function ReservationDetailScreen() {
   const { reservationId } = route.params;
   const { user } = useAuthStore();
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [reservation, setReservation] = useState<Reservation | null>(null);
@@ -223,7 +225,7 @@ export default function ReservationDetailScreen() {
 
         {/* Mesaj Giriş Alanı */}
         {canChat && (
-          <View style={styles.inputBar}>
+          <View style={[styles.inputBar, { paddingBottom: insets.bottom + 10 }]}>
             <TextInput
               style={styles.msgInput}
               value={msgText}
@@ -287,7 +289,6 @@ function makeStyles(C: Colors) {
     inputBar: {
       flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, paddingVertical: 10,
       backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.separator, gap: 8,
-      paddingBottom: Platform.OS === 'ios' ? 28 : 10,
     },
     msgInput: {
       flex: 1, backgroundColor: C.inputBg, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,

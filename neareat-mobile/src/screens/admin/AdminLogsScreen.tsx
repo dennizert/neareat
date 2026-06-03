@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity,
-  ActivityIndicator, Alert, RefreshControl, Platform,
+  ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getLogs } from '../../services/admin';
@@ -37,6 +38,7 @@ function formatDate(iso: string) {
 export default function AdminLogsScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [logs, setLogs] = useState<UserLog[]>([]);
@@ -138,7 +140,7 @@ export default function AdminLogsScreen() {
   return (
     <View style={styles.container}>
       {/* Header — intentionally dark in both modes */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
@@ -257,7 +259,6 @@ function makeStyles(C: Colors) {
     // Admin paneli kasıtlı koyu — her iki modda da "sistem konsolu" hissi
     header: {
       backgroundColor: '#1F1A24',
-      paddingTop: Platform.OS === 'ios' ? 54 : 40,
       paddingBottom: 14,
       paddingHorizontal: 16,
       flexDirection: 'row',
