@@ -23,6 +23,7 @@ import StarRating from '../../components/StarRating';
 import PhotoGallery from '../../components/PhotoGallery';
 import ProductPhotosSection from '../../components/ProductPhotosSection';
 import AppIcon from '../../components/AppIcon';
+import Skeleton from '../../components/Skeleton';
 import type { RestaurantDetail, AppReview, Collection } from '../../types';
 import { formatDistance } from '../../utils/haversine';
 import NotificationBell from '../../components/NotificationBell';
@@ -392,7 +393,19 @@ export default function RestaurantDetailScreen() {
   }
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" color={C.primary} />;
+    return (
+      <View style={styles.container}>
+        <Skeleton width="100%" height={240} radius={0} />
+        <View style={{ padding: 16, gap: 12 }}>
+          <Skeleton width="65%" height={24} />
+          <Skeleton width="40%" height={14} />
+          <Skeleton width="100%" height={56} radius={12} />
+          <Skeleton width="90%" height={14} />
+          <Skeleton width="80%" height={14} />
+          <Skeleton width="55%" height={14} />
+        </View>
+      </View>
+    );
   }
 
   if (!detail) return null;
