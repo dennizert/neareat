@@ -6,6 +6,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useNotificationStore } from '../store/notificationStore';
 import { notificationTarget } from '../utils/notificationTarget';
+import AppIcon from '../components/AppIcon';
+import { haptics } from '../utils/haptics';
 import type { AppNotification } from '../types';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
@@ -75,6 +77,16 @@ export default function NotificationsScreen() {
               <Text style={styles.body} numberOfLines={3}>{item.body}</Text>
               <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
             </View>
+            {!item.isRead && (
+              <TouchableOpacity
+                style={styles.markBtn}
+                onPress={() => { haptics.light(); markRead(item.id); }}
+                hitSlop={8}
+                accessibilityLabel="Okundu işaretle"
+              >
+                <AppIcon name="check" size={18} color={C.primary} />
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
         )}
         ListEmptyComponent={
@@ -126,6 +138,10 @@ function makeStyles(C: Colors) {
     titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 },
     title: { fontSize: 14, fontWeight: '700', color: C.textPrimary, flex: 1, marginRight: 8 },
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.primary },
+    markBtn: {
+      width: 36, height: 36, borderRadius: 18, alignSelf: 'center',
+      alignItems: 'center', justifyContent: 'center', backgroundColor: C.primarySurface,
+    },
     body: { fontSize: 13, color: C.textSecondary, lineHeight: 18 },
     time: { fontSize: 11, color: C.textMuted, marginTop: 4 },
 
