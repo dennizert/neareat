@@ -7,3 +7,26 @@ jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
+
+// @expo/vector-icons Jest'te font yüklemeye çalışır (loadedNativeFonts hatası).
+// Her ikon ailesini (Ionicons, Feather...) prop'ları ileten basit bir View'a indir.
+// Proxy + cache: aynı aile her erişimde AYNI bileşeni döndürür (UNSAFE_getByType eşleşsin).
+jest.mock('@expo/vector-icons', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const cache = {};
+  return new Proxy(
+    {},
+    {
+      get: (_t, name) => {
+        if (typeof name !== 'string' || name === '__esModule') return undefined;
+        if (!cache[name]) {
+          const Icon = (props) => React.createElement(View, props);
+          Icon.displayName = name;
+          cache[name] = Icon;
+        }
+        return cache[name];
+      },
+    },
+  );
+});
