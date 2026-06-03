@@ -22,6 +22,7 @@ import { submitPlaceRequest } from '../../services/placeRequests';
 import StarRating from '../../components/StarRating';
 import PhotoGallery from '../../components/PhotoGallery';
 import ProductPhotosSection from '../../components/ProductPhotosSection';
+import AppIcon from '../../components/AppIcon';
 import type { RestaurantDetail, AppReview, Collection } from '../../types';
 import { formatDistance } from '../../utils/haversine';
 import NotificationBell from '../../components/NotificationBell';
@@ -507,7 +508,7 @@ export default function RestaurantDetailScreen() {
           {/* ─── Birincil eylemler: Yol Tarifi + Rezervasyon/Ara ─── */}
           <View style={styles.primaryActions}>
             <TouchableOpacity style={styles.primaryBtn} onPress={handleDirections}>
-              <Text style={styles.primaryBtnIcon}>🗺️</Text>
+              <AppIcon name="map" size={18} color={C.textPrimary} />
               <Text style={styles.primaryBtnText}>Yol Tarifi</Text>
             </TouchableOpacity>
             {detail.acceptsReservations && detail.restaurantId ? (
@@ -519,7 +520,7 @@ export default function RestaurantDetailScreen() {
                   restaurantId: detail.restaurantId!,
                 })}
               >
-                <Text style={styles.primaryBtnIcon}>📅</Text>
+                <AppIcon name="reservation" size={18} color="#fff" />
                 <Text style={[styles.primaryBtnText, styles.primaryBtnAccentText]}>Rezervasyon</Text>
               </TouchableOpacity>
             ) : !detail.acceptsReservations && detail.reservationUrl ? (
@@ -527,7 +528,7 @@ export default function RestaurantDetailScreen() {
                 style={[styles.primaryBtn, styles.primaryBtnAccent]}
                 onPress={() => Linking.openURL(detail.reservationUrl!)}
               >
-                <Text style={styles.primaryBtnIcon}>📅</Text>
+                <AppIcon name="reservation" size={18} color="#fff" />
                 <Text style={[styles.primaryBtnText, styles.primaryBtnAccentText]}>Rezervasyon</Text>
               </TouchableOpacity>
             ) : detail.formattedPhoneNumber ? (
@@ -535,7 +536,7 @@ export default function RestaurantDetailScreen() {
                 style={styles.primaryBtn}
                 onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)}
               >
-                <Text style={styles.primaryBtnIcon}>📞</Text>
+                <AppIcon name="phone" size={18} color={C.textPrimary} />
                 <Text style={styles.primaryBtnText}>Ara</Text>
               </TouchableOpacity>
             ) : null}
@@ -546,33 +547,33 @@ export default function RestaurantDetailScreen() {
             {/* Ara: Rezervasyon primary'deyse chip'te göster */}
             {detail.formattedPhoneNumber && (detail.acceptsReservations || !!detail.reservationUrl) && (
               <TouchableOpacity style={styles.chip} onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)}>
-                <Text style={styles.chipIcon}>📞</Text>
+                <AppIcon name="phone" size={15} color={C.textSecondary} />
                 <Text style={styles.chipText}>Ara</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.chip} onPress={handleShare}>
-              <Text style={styles.chipIcon}>📤</Text>
+              <AppIcon name="share" size={15} color={C.textSecondary} />
               <Text style={styles.chipText}>Paylaş</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.chip} onPress={handleCheckin}>
-              <Text style={styles.chipIcon}>📍</Text>
+              <AppIcon name="checkin" size={15} color={C.textSecondary} />
               <Text style={styles.chipText}>Check-in</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.chip} onPress={handleAddToDiary}>
-              <Text style={styles.chipIcon}>📖</Text>
+              <AppIcon name="diary" size={15} color={C.textSecondary} />
               <Text style={styles.chipText}>Günlük</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.chip, styles.chipHighlight]} onPress={handleRecommend}>
-              <Text style={styles.chipIcon}>💌</Text>
+              <AppIcon name="message" size={15} color={C.primary} />
               <Text style={[styles.chipText, styles.chipHighlightText]}>Arkadaşa Öner</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.chip} onPress={handleOpenCollectionModal}>
-              <Text style={styles.chipIcon}>📋</Text>
+              <AppIcon name="collection" size={15} color={C.textSecondary} />
               <Text style={styles.chipText}>Listeye Ekle</Text>
             </TouchableOpacity>
             {!detail.restaurantId && (
               <TouchableOpacity style={[styles.chip, styles.chipSuggest]} onPress={handleSuggestPlace}>
-                <Text style={styles.chipIcon}>🏷️</Text>
+                <AppIcon name="add" size={15} color={C.travel} />
                 <Text style={[styles.chipText, styles.chipSuggestText]}>Platforma Ekle</Text>
               </TouchableOpacity>
             )}
@@ -906,7 +907,6 @@ function makeStyles(C: Colors) {
       shadowColor: C.shadow, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
     },
     primaryBtnAccent: { backgroundColor: C.primary, borderColor: C.primary },
-    primaryBtnIcon: { fontSize: 18 },
     primaryBtnText: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
     primaryBtnAccentText: { color: '#fff' },
     // ─── Chip butonlar ──────────────────────────────────────────
@@ -917,7 +917,6 @@ function makeStyles(C: Colors) {
       borderWidth: 1, borderColor: C.border,
       paddingHorizontal: 14, paddingVertical: 9,
     },
-    chipIcon: { fontSize: 14 },
     chipText: { fontSize: 13, fontWeight: '600', color: C.textSecondary },
     chipHighlight: { backgroundColor: C.primaryLighter, borderColor: C.primary + '44' },
     chipHighlightText: { color: C.primary },
