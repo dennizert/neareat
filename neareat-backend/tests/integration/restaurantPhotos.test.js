@@ -19,6 +19,7 @@ jest.mock('../../src/services/s3', () => ({
   isS3Configured: jest.fn(() => true),
   keyFromUrl: jest.fn(() => 'restaurants/r-1/restaurant/uuid.jpg'),
   deleteObject: jest.fn().mockResolvedValue(undefined),
+  getObjectSize: jest.fn().mockResolvedValue(123456), // ~120KB (limit altı)
   ALLOWED_KINDS: ['restaurant', 'product'],
   ALLOWED_CONTENT_TYPES: { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' },
   createUploadUrl: jest.fn(),
@@ -62,6 +63,8 @@ beforeEach(() => {
   prisma.user.findUnique.mockResolvedValue({ id: 'owner-1', role: 'RESTAURANT', isSuspended: false });
   prisma.restaurantProfile.findUnique.mockResolvedValue({ id: 'r-1' });
   s3.isS3Configured.mockReturnValue(true);
+  s3.keyFromUrl.mockReturnValue('restaurants/r-1/restaurant/uuid.jpg');
+  s3.getObjectSize.mockResolvedValue(123456);
 });
 
 describe('POST /api/restaurant-account/photos (S10-3)', () => {
@@ -100,6 +103,28 @@ describe('POST /api/restaurant-account/photos (S10-3)', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ kind: 'LOGO', url: 'https://cdn.example/x.jpg' });
     expect(res.status).toBe(400);
+  });
+
+  it('bizim bucket dışından URL → 400 (F2)', async () => {
+    s3.keyFromUrl.mockReturnValueOnce(null); // URL bizim bucket'a ait değil
+    const res = await request(app)
+      .post(BASE)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ kind: 'RESTAURANT', url: 'https://evil.example/x.jpg' });
+    expect(res.status).toBe(400);
+    expect(prisma.restaurantPhoto.create).not.toHaveBeenCalled();
+  });
+
+  it('5MB üzeri nesne → 400 + S3 nesnesi silinir (F3)', async () => {
+    prisma.restaurantPhoto.count.mockResolvedValue(0);
+    s3.getObjectSize.mockResolvedValueOnce(6 * 1024 * 1024); // 6MB
+    const res = await request(app)
+      .post(BASE)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ kind: 'RESTAURANT', url: 'https://cdn.example/big.jpg' });
+    expect(res.status).toBe(400);
+    expect(s3.deleteObject).toHaveBeenCalled();
+    expect(prisma.restaurantPhoto.create).not.toHaveBeenCalled();
   });
 
   it('geçersiz url → 400', async () => {

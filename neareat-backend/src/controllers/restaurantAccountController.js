@@ -289,6 +289,11 @@ async function updateAnnouncement(req, res, next) {
   try {
     const { announcement, announcementActive } = req.body;
 
+    // Duyuru kullanıcılara gösterilir → içerik filtresi (yorumlar/kampanya ile tutarlı).
+    if (announcement && containsOffensiveContent(announcement)) {
+      return res.status(400).json({ error: 'Duyuru uygunsuz içerik (hakaret, argo veya küfür) içeremez.' });
+    }
+
     const prev = await prisma.restaurantProfile.findUnique({
       where: { userId: req.user.id },
       select: { announcementActive: true, placeId: true, placeName: true, businessName: true },
@@ -343,6 +348,8 @@ async function updateInfo(req, res, next) {
         displayNameUpdate = null;
       } else if (trimmed.length < 2 || trimmed.length > 80) {
         return res.status(400).json({ error: 'Görünen ad 2-80 karakter arasında olmalıdır.' });
+      } else if (containsOffensiveContent(trimmed)) {
+        return res.status(400).json({ error: 'Görünen ad uygunsuz içerik (hakaret, argo veya küfür) içeremez.' });
       } else {
         displayNameUpdate = trimmed;
       }
@@ -628,6 +635,7 @@ async function createPhotoUploadUrl(req, res, next) {
 // burada yalnızca public URL + sıra bilgisi tutulur. Galeri başına en fazla 8 foto.
 const PHOTO_KINDS = ['RESTAURANT', 'PRODUCT'];
 const MAX_PHOTOS_PER_GALLERY = 8;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB — yüklenen foto üst sınırı (F3)
 
 const PHOTO_SELECT = { id: true, kind: true, url: true, sortOrder: true, createdAt: true };
 
@@ -647,6 +655,12 @@ async function addPhoto(req, res, next) {
     }
     const trimmedUrl = url.trim();
 
+    // F2 — yalnızca kendi S3 bucket'ımızdan gelen URL kabul edilir (harici/uygunsuz görsel enjeksiyonunu önler).
+    const objectKey = s3.isS3Configured() ? s3.keyFromUrl(trimmedUrl) : null;
+    if (s3.isS3Configured() && !objectKey) {
+      return res.status(400).json({ error: 'Fotoğraf yalnızca uygulama deposundan eklenebilir.' });
+    }
+
     const profile = await prisma.restaurantProfile.findUnique({
       where: { userId: req.user.id },
       select: { id: true },
@@ -658,6 +672,17 @@ async function addPhoto(req, res, next) {
     });
     if (count >= MAX_PHOTOS_PER_GALLERY) {
       return res.status(409).json({ error: `Bir galeride en fazla ${MAX_PHOTOS_PER_GALLERY} fotoğraf olabilir.` });
+    }
+
+    // F3 — yüklenen nesne ≤5MB; aşımda nesneyi sil + reddet (HEAD başarısızsa engelleme).
+    if (objectKey) {
+      try {
+        const size = await s3.getObjectSize(objectKey);
+        if (size != null && size > MAX_PHOTO_BYTES) {
+          s3.deleteObject(objectKey).catch(() => {});
+          return res.status(400).json({ error: 'Fotoğraf en fazla 5 MB olabilir.' });
+        }
+      } catch { /* HEAD erişilemezse boyut kontrolünü atla */ }
     }
 
     const photo = await prisma.restaurantPhoto.create({
