@@ -262,11 +262,11 @@ async function forgotPassword(req, res, next) {
 
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
-    if (!user) {
-      return res.json({ message: 'Eğer bu e-posta kayıtlıysa sıfırlama bağlantısı gönderildi' });
-    }
-    if (user.authProvider !== 'email') {
-      return res.status(400).json({ error: 'Bu hesap Google ile oluşturulmuş. Giriş ekranından "Google ile Giriş Yap" seçeneğini kullan.' });
+    const GENERIC_MSG = { message: 'Eğer bu e-posta kayıtlıysa sıfırlama bağlantısı gönderildi' };
+    // E-posta enumerasyonunu önle (S11-11): kayıtlı değil VEYA Google hesabı →
+    // aynı generic yanıt, e-posta gönderme. Hesabın varlığını/türünü sızdırma.
+    if (!user || user.authProvider !== 'email') {
+      return res.json(GENERIC_MSG);
     }
 
     const rawResetToken = uuidv4();

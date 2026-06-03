@@ -1,5 +1,6 @@
 const prisma = require('../utils/prisma');
 const { isPremiumUser } = require('../utils/premiumCheck');
+const { containsOffensiveContent } = require('../utils/contentFilter');
 
 const FREE_COLLECTION_LIMIT = 0; // Free kullanıcılar koleksiyon oluşturamaz
 
@@ -133,6 +134,9 @@ async function createCollection(req, res, next) {
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Koleksiyon adı zorunludur.' });
     }
+    if (containsOffensiveContent(name) || (description && containsOffensiveContent(description))) {
+      return res.status(400).json({ error: 'Liste adı/açıklaması uygunsuz içerik (hakaret, argo veya küfür) içeremez.' });
+    }
 
     const collection = await prisma.collection.create({
       data: {
@@ -157,6 +161,10 @@ async function updateCollection(req, res, next) {
     if (col.userId !== req.user.id) return res.status(403).json({ error: 'Yetkisiz.' });
 
     const { name, description, isPublic } = req.body;
+    if ((name !== undefined && containsOffensiveContent(name)) ||
+        (description !== undefined && description && containsOffensiveContent(description))) {
+      return res.status(400).json({ error: 'Liste adı/açıklaması uygunsuz içerik (hakaret, argo veya küfür) içeremez.' });
+    }
     const updated = await prisma.collection.update({
       where: { id: req.params.id },
       data: {

@@ -2,6 +2,7 @@ const prisma = require('../utils/prisma');
 const { getLevel } = require('../utils/stars');
 const { isActivePremium } = require('../utils/premiumCheck');
 const { logRequest } = require('../services/logService');
+const { containsOffensiveContent } = require('../utils/contentFilter');
 
 function formatProfile(user, subscription = null) {
   const level = getLevel(user.starCount);
@@ -62,6 +63,12 @@ async function updateMe(req, res, next) {
       displayName, bio, city, favoriteCuisines, isPublic, photoUrl,
       shareWithFriendsRecommender,
     } = req.body;
+
+    // Kullanıcılara gösterilen serbest metinler içerik filtresinden geçer (S11-11).
+    if ((displayName !== undefined && containsOffensiveContent(displayName)) ||
+        (bio !== undefined && bio && containsOffensiveContent(bio))) {
+      return res.status(400).json({ error: 'İsim/biyografi uygunsuz içerik (hakaret, argo veya küfür) içeremez.' });
+    }
 
     const updated = await prisma.user.update({
       where: { id: req.user.id },
