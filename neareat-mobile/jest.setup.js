@@ -17,6 +17,21 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
 }));
 
+// MaskedView native bileşeni Jest'te yok; maskeyi göz ardı edip içeriği render eden
+// basit bir View'a indir (gradient logosu testlerde düz render olsun).
+jest.mock('@react-native-masked-view/masked-view', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return (props) => React.createElement(View, props, props.children);
+});
+
+// expo-linear-gradient native modülü Jest'te yok; çocukları geçiren View'a indir.
+jest.mock('expo-linear-gradient', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return { LinearGradient: (props) => React.createElement(View, props, props.children) };
+});
+
 // @expo/vector-icons Jest'te font yüklemeye çalışır (loadedNativeFonts hatası).
 // Her ikon ailesini (Ionicons, Feather...) prop'ları ileten basit bir View'a indir.
 // Proxy + cache: aynı aile her erişimde AYNI bileşeni döndürür (UNSAFE_getByType eşleşsin).
