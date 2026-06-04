@@ -23,6 +23,7 @@ import StarRating from '../../components/StarRating';
 import PhotoGallery from '../../components/PhotoGallery';
 import ProductPhotosSection from '../../components/ProductPhotosSection';
 import AppIcon from '../../components/AppIcon';
+import type { IconName } from '../../theme/icons';
 import Skeleton from '../../components/Skeleton';
 import { useToast } from '../../hooks/useToast';
 import { haptics } from '../../utils/haptics';
@@ -61,6 +62,7 @@ export default function RestaurantDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'google' | 'app'>('google');
   const [hoursExpanded, setHoursExpanded] = useState(false);
+  const [addMenuVisible, setAddMenuVisible] = useState(false);
 
   // Review modal state
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
@@ -341,6 +343,19 @@ export default function RestaurantDetailScreen() {
     }
   }
 
+  function ActionButton({ icon, label, onPress, tint, bg }: {
+    icon: IconName; label: string; onPress: () => void; tint?: string; bg?: string;
+  }) {
+    return (
+      <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.7}>
+        <View style={[styles.actionIcon, bg ? { backgroundColor: bg } : null]}>
+          <AppIcon name={icon} size={20} color={tint ?? C.textSecondary} />
+        </View>
+        <Text style={styles.actionLabel} numberOfLines={1}>{label}</Text>
+      </TouchableOpacity>
+    );
+  }
+
   function renderAppReviews() {
     return (
       <>
@@ -520,79 +535,45 @@ export default function RestaurantDetailScreen() {
             </View>
           )}
 
-          {/* ─── Birincil eylemler: Yol Tarifi + Rezervasyon/Ara ─── */}
-          <View style={styles.primaryActions}>
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleDirections}>
-              <AppIcon name="map" size={18} color={C.textPrimary} />
-              <Text style={styles.primaryBtnText}>Yol Tarifi</Text>
+          {/* ─── Rezervasyon birincil CTA ─── */}
+          {detail.acceptsReservations && detail.restaurantId ? (
+            <TouchableOpacity
+              style={styles.reserveCta}
+              onPress={() => navigation.navigate('MakeReservation', {
+                placeId: detail.placeId,
+                placeName: detail.name,
+                restaurantId: detail.restaurantId!,
+              })}
+            >
+              <AppIcon name="reservation" size={18} color="#fff" />
+              <Text style={styles.reserveCtaText}>Rezervasyon</Text>
             </TouchableOpacity>
-            {detail.acceptsReservations && detail.restaurantId ? (
-              <TouchableOpacity
-                style={[styles.primaryBtn, styles.primaryBtnAccent]}
-                onPress={() => navigation.navigate('MakeReservation', {
-                  placeId: detail.placeId,
-                  placeName: detail.name,
-                  restaurantId: detail.restaurantId!,
-                })}
-              >
-                <AppIcon name="reservation" size={18} color="#fff" />
-                <Text style={[styles.primaryBtnText, styles.primaryBtnAccentText]}>Rezervasyon</Text>
-              </TouchableOpacity>
-            ) : !detail.acceptsReservations && detail.reservationUrl ? (
-              <TouchableOpacity
-                style={[styles.primaryBtn, styles.primaryBtnAccent]}
-                onPress={() => Linking.openURL(detail.reservationUrl!)}
-              >
-                <AppIcon name="reservation" size={18} color="#fff" />
-                <Text style={[styles.primaryBtnText, styles.primaryBtnAccentText]}>Rezervasyon</Text>
-              </TouchableOpacity>
-            ) : detail.formattedPhoneNumber ? (
-              <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)}
-              >
-                <AppIcon name="phone" size={18} color={C.textPrimary} />
-                <Text style={styles.primaryBtnText}>Ara</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          ) : !detail.acceptsReservations && detail.reservationUrl ? (
+            <TouchableOpacity style={styles.reserveCta} onPress={() => Linking.openURL(detail.reservationUrl!)}>
+              <AppIcon name="reservation" size={18} color="#fff" />
+              <Text style={styles.reserveCtaText}>Rezervasyon</Text>
+            </TouchableOpacity>
+          ) : null}
 
-          {/* ─── İkincil eylemler: chip butonlar ─── */}
-          <View style={styles.chipRow}>
-            {/* Ara: Rezervasyon primary'deyse chip'te göster */}
-            {detail.formattedPhoneNumber && (detail.acceptsReservations || !!detail.reservationUrl) && (
-              <TouchableOpacity style={styles.chip} onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)}>
-                <AppIcon name="phone" size={15} color={C.textSecondary} />
-                <Text style={styles.chipText}>Ara</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.chip} onPress={handleShare}>
-              <AppIcon name="share" size={15} color={C.textSecondary} />
-              <Text style={styles.chipText}>Paylaş</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.chip} onPress={handleCheckin}>
-              <AppIcon name="checkin" size={15} color={C.textSecondary} />
-              <Text style={styles.chipText}>Check-in</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.chip} onPress={handleAddToDiary}>
-              <AppIcon name="diary" size={15} color={C.textSecondary} />
-              <Text style={styles.chipText}>Günlük</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.chip, styles.chipHighlight]} onPress={handleRecommend}>
-              <AppIcon name="message" size={15} color={C.primary} />
-              <Text style={[styles.chipText, styles.chipHighlightText]}>Arkadaşa Öner</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.chip} onPress={handleOpenCollectionModal}>
-              <AppIcon name="collection" size={15} color={C.textSecondary} />
-              <Text style={styles.chipText}>Listeye Ekle</Text>
-            </TouchableOpacity>
+          {/* ─── Kompakt eylem ikonları (tek sıra, kaydırılabilir) ─── */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.actionScroll}
+            contentContainerStyle={styles.actionRow}
+          >
+            <ActionButton icon="map" label="Konum" tint={C.travel} bg={C.travelSurface} onPress={handleDirections} />
+            {detail.formattedPhoneNumber ? (
+              <ActionButton icon="phone" label="Ara" onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)} />
+            ) : null}
+            <ActionButton icon="share" label="Paylaş" onPress={handleShare} />
+            <ActionButton icon="checkin" label="Check-in" onPress={handleCheckin} />
+            <ActionButton icon="add" label="Ekle" onPress={() => setAddMenuVisible(true)} />
+            <ActionButton icon="message" label="Öner" tint={C.primary} bg={C.primaryLighter} onPress={handleRecommend} />
             {!detail.restaurantId && (
-              <TouchableOpacity style={[styles.chip, styles.chipSuggest]} onPress={handleSuggestPlace}>
-                <AppIcon name="add" size={15} color={C.travel} />
-                <Text style={[styles.chipText, styles.chipSuggestText]}>Platforma Ekle</Text>
-              </TouchableOpacity>
+              <ActionButton icon="restaurant" label="Platforma Ekle" tint={C.travel} bg={C.travelSurface} onPress={handleSuggestPlace} />
             )}
-          </View>
+          </ScrollView>
 
           {(detail.openingHoursOverride || detail.openingHours?.weekday_text) && (
             <View style={styles.section}>
@@ -845,6 +826,38 @@ export default function RestaurantDetailScreen() {
         </View>
       </Modal>
 
+      {/* "+" Ekle menüsü — Günlük / Liste */}
+      <Modal
+        visible={addMenuVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setAddMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.addMenuOverlay}
+          activeOpacity={1}
+          onPress={() => setAddMenuVisible(false)}
+        >
+          <View style={styles.addMenuSheet}>
+            <TouchableOpacity
+              style={styles.addMenuRow}
+              onPress={() => { setAddMenuVisible(false); handleAddToDiary(); }}
+            >
+              <AppIcon name="diary" size={20} color={C.textSecondary} />
+              <Text style={styles.addMenuText}>Günlüğe Ekle</Text>
+            </TouchableOpacity>
+            <View style={styles.addMenuDivider} />
+            <TouchableOpacity
+              style={styles.addMenuRow}
+              onPress={() => { setAddMenuVisible(false); handleOpenCollectionModal(); }}
+            >
+              <AppIcon name="collection" size={20} color={C.textSecondary} />
+              <Text style={styles.addMenuText}>Listeye Ekle</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Review Modal */}
       <Modal
         visible={reviewModalVisible}
@@ -926,30 +939,30 @@ function makeStyles(C: Colors) {
     },
     closingBannerUrgent: { backgroundColor: C.errorSurface, borderLeftColor: C.error },
     closingBannerText: { fontSize: 13, fontWeight: '600', color: C.warning },
-    // ─── Birincil eylem butonları ───────────────────────────────
-    primaryActions: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-    primaryBtn: {
-      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-      backgroundColor: C.surface, borderRadius: 14, borderWidth: 1, borderColor: C.border,
-      paddingVertical: 14,
-      shadowColor: C.shadow, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    // ─── Rezervasyon birincil CTA ───────────────────────────────
+    reserveCta: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      backgroundColor: C.primary, borderRadius: 14, paddingVertical: 14, marginBottom: 14,
     },
-    primaryBtnAccent: { backgroundColor: C.primary, borderColor: C.primary },
-    primaryBtnText: { fontSize: 14, fontWeight: '700', color: C.textPrimary },
-    primaryBtnAccentText: { color: '#fff' },
-    // ─── Chip butonlar ──────────────────────────────────────────
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
-    chip: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: C.surface, borderRadius: 20,
-      borderWidth: 1, borderColor: C.border,
-      paddingHorizontal: 14, paddingVertical: 9,
+    reserveCtaText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+    // ─── Kompakt eylem ikonları ─────────────────────────────────
+    actionScroll: { marginBottom: 20 },
+    actionRow: { flexDirection: 'row', gap: 14, paddingVertical: 2, paddingRight: 4 },
+    actionBtn: { alignItems: 'center', width: 60 },
+    actionIcon: {
+      width: 46, height: 46, borderRadius: 23, backgroundColor: C.surfaceAlt,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 5,
     },
-    chipText: { fontSize: 13, fontWeight: '600', color: C.textSecondary },
-    chipHighlight: { backgroundColor: C.primaryLighter, borderColor: C.primary + '44' },
-    chipHighlightText: { color: C.primary },
-    chipSuggest: { backgroundColor: C.travelSurface, borderColor: C.travel + '44' },
-    chipSuggestText: { color: C.travel },
+    actionLabel: { fontSize: 11, fontWeight: '600', color: C.textSecondary, textAlign: 'center' },
+    // ─── "+" Ekle menüsü ────────────────────────────────────────
+    addMenuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' },
+    addMenuSheet: {
+      backgroundColor: C.surface, borderRadius: 16, minWidth: 240, overflow: 'hidden',
+      shadowColor: C.shadow, shadowOpacity: 0.2, shadowRadius: 16, elevation: 8,
+    },
+    addMenuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 16 },
+    addMenuText: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
+    addMenuDivider: { height: 1, backgroundColor: C.separator },
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
     collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
