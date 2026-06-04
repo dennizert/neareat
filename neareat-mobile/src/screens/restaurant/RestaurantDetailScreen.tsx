@@ -168,6 +168,12 @@ export default function RestaurantDetailScreen() {
     }
   }
 
+  function openReviewModal() {
+    // Hızlı puan verildiyse yorum puanı o değerle (kilitli) gelir; yoksa serbest seçim.
+    setReviewRating(quickRatingDone ? quickRating : 5);
+    setReviewModalVisible(true);
+  }
+
   async function handleSubmitReview() {
     if (!reviewBody.trim()) {
       Alert.alert('Hata', 'Yorum metni boş olamaz.');
@@ -178,9 +184,15 @@ export default function RestaurantDetailScreen() {
       const { review, starEvent } = await createReview(placeId, reviewRating, reviewBody.trim(), detail?.name ?? '');
       setAppReviews(prev => [review, ...prev]);
       if (starEvent) addStarEvent(starEvent);
+      // Hızlı puan verilmemişse, yorumdaki puanı mekanın puanı olarak senkronla
+      // (tek değer ilkesi). Hızlı puan +2 ödülü burada tekrar verilmez.
+      if (!quickRatingDone) {
+        setQuickRating(reviewRating);
+        setQuickRatingDone(true);
+        AsyncStorage.setItem(`quick_rating:${placeId}`, String(reviewRating)).catch(() => {});
+      }
       setReviewModalVisible(false);
       setReviewBody('');
-      setReviewRating(5);
       toast.show(starEvent ? 'Yorumun eklendi · +5 ⭐' : 'Yorumun güncellendi', 'success');
     } catch (err: any) {
       Alert.alert('Hata', err.message ?? 'Yorum gönderilemedi.');
@@ -365,7 +377,7 @@ export default function RestaurantDetailScreen() {
       <>
         <TouchableOpacity
           style={styles.writeReviewBtn}
-          onPress={() => setReviewModalVisible(true)}
+          onPress={openReviewModal}
         >
           <Text style={styles.writeReviewText}>✍️ Yorum Yaz  (+5 ⭐)</Text>
         </TouchableOpacity>
@@ -862,11 +874,24 @@ export default function RestaurantDetailScreen() {
 
           <View style={styles.modalStarsRow}>
             {[1, 2, 3, 4, 5].map(s => (
-              <TouchableOpacity key={s} onPress={() => setReviewRating(s)}>
-                <Text style={styles.modalStar}>{s <= reviewRating ? '⭐' : '☆'}</Text>
+              <TouchableOpacity
+                key={s}
+                onPress={() => setReviewRating(s)}
+                disabled={quickRatingDone}
+                activeOpacity={quickRatingDone ? 1 : 0.6}
+              >
+                <Text style={[styles.modalStar, quickRatingDone && styles.modalStarLocked]}>
+                  {s <= reviewRating ? '⭐' : '☆'}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
+
+          {quickRatingDone && (
+            <Text style={styles.modalRatingLocked}>
+              🔒 Puanını hızlı puan bölümünde verdin, değiştirilemez.
+            </Text>
+          )}
 
           <TextInput
             style={styles.modalInput}
@@ -995,6 +1020,8 @@ function makeStyles(C: Colors) {
     modalRestaurant: { fontSize: 16, fontWeight: '600', color: C.textSecondary, marginTop: 16, marginBottom: 12 },
     modalStarsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
     modalStar: { fontSize: 32 },
+    modalStarLocked: { opacity: 0.55 },
+    modalRatingLocked: { fontSize: 12, color: C.textMuted, marginTop: -8, marginBottom: 16 },
     modalInput: {
       borderWidth: 1, borderColor: C.border, borderRadius: 12,
       paddingHorizontal: 16, paddingVertical: 14,
