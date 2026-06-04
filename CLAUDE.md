@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Three user roles: regular user, restaurant owner, admin. Turkish-language UI.
 
+> **Branding:** the product is branded **Eatlas** in the UI (`app.json` name `Eatlas`, Android package `com.eatlas.mobile`, gradient `EatlasLogo` in the header). The repo, directories, and slug stay `neareat`. Keep code identifiers as `NearEat`/`neareat`; only user-facing branding is Eatlas.
+
 ---
 
 ## Commands
@@ -107,12 +109,22 @@ Key stores: `authStore` (session + role), `restaurantStore` (discovery + caching
 
 ### Mobile screen structure
 
-Bottom tab navigator → 5 tabs (Home, Map, Recommendations, Social, Profile). Stack navigators nested per tab. Deep links via `neareat://` scheme for email verification and password reset.
+Bottom tab navigator (regular user) → 5 tabs: **Keşfet** (Home), **Favoriler**, **Listeler** (Collections), **Mesajlar**, **Profil**. Restaurant/admin roles render their own root stacks (no bottom tabs). Deep links via `neareat://` scheme for email verification and password reset; in-app notification taps deep-link via `utils/notificationTarget.ts`.
 
 Three distinct screen sets loaded conditionally by role:
 - Regular user: discovery, favorites, collections, AI recommendations, route recommendations, social
 - Restaurant owner: `RestaurantDashboardScreen`, analytics, reservation management
 - Admin: `AdminScreen` with user/restaurant/log management
+
+**Shared header (`components/AppHeader.tsx`):** all three roles use one uniform light header — left `EatlasLogo`, center role-specific (Liste/Harita toggle · restaurant display name · admin name + "Sistem Yöneticisi"), right actions (notification bell / logout / logs). `EatlasLogo` renders the single word "Eatlas" with a soft left-to-right coral→amber gradient (`expo-linear-gradient` + `@react-native-masked-view/masked-view`).
+
+**Reusable UI (S11):** `AppIcon` (central `theme/icons.ts` semantic map), `Toast` + `useToast`, `Skeleton`/`SkeletonCard`, `EmptyState`, `ErrorState`, `utils/haptics`. Prefer these over ad-hoc `Alert`/spinners/emoji icons.
+
+**Keşfet (Home):** no category tabs (cuisine-tag chips only); free-text search; an "Açık" open-now filter (label stays "Açık", state shown by the radio dot). Favorited places show a heart badge on the card.
+
+**Restaurant detail (`RestaurantDetailScreen`):** dual rating — Google + **Eatlas** (in-app review average + count, computed client-side in `utils/appRating.ts`, no backend); collapsible working hours; one compact row of round action icons (Konum=teal, Öner=coral, rest neutral) + an "Ekle" (+) menu → Favorilere/Günlüğe/Listeye Ekle; a colored Check-in pill by the name; a "Favorilerinde" tag when favorited. **Rating is given only via the review form** (the old standalone quick-rating widget was removed).
+
+**Notifications:** `utils/notificationTarget.ts` maps a notification `type` + `data` to a deep-link target (reservations, places, meal groups, friends, rewards, `WEEKLY_DIGEST` → `WeeklySummaryScreen`); each row also has an inline "mark as read" button that marks read without navigating.
 
 ### Database models (key relations)
 
@@ -129,6 +141,7 @@ Three distinct screen sets loaded conditionally by role:
 
 - **Responses in Turkish** — all user-facing text, error messages, and comments in source code should be Turkish. Commit messages and code identifiers stay English.
 - **Backend tests** mock Firebase, Resend, and Anthropic in `tests/setup.js` — don't call real external APIs in tests.
+- **Mobile tests** (`jest.setup.js`) globally mock native modules (`react-native-safe-area-context`, `@react-native-masked-view/masked-view`, `expo-linear-gradient`, `@expo/vector-icons`, `expo-haptics`, AsyncStorage). When a new component pulls in a native module, add its mock here or the suite breaks. Prefer extracting pure logic into `utils/` with a focused unit test over mounting heavy screens.
 - **Prisma migrations** are committed and applied automatically on `npm start`. Never edit migration files after they've been applied.
 - **`seed-social-test.js`** uses `neareat-test2.com` email domain (vs `neareat-test.com` for `seed-users.js`) to avoid unique constraint conflicts; run with `npx prisma db seed --script prisma/seed-social-test.js`.
 - **Android emulator:** Use `Pixel_7_Standard` (not `Pixel_7` which has 16KB page size incompatibility).
