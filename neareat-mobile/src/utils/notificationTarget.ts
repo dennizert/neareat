@@ -45,6 +45,9 @@ export function notificationTarget(type: string, data?: Record<string, any> | nu
   // Ödüller / seviye
   if (type === 'LEVEL_UP' || type === 'STAR_MILESTONE') return { screen: 'Rewards' };
 
-  // Eşleşmeyen / hedefsiz (WEEKLY_DIGEST, INACTIVITY_REMINDER vb.) → no-op
+  // Haftalık aktivite özeti → arkadaşlardan gelen tavsiyeler ekranı
+  if (type === 'WEEKLY_DIGEST') return { screen: 'WeeklySummary' };
+
+  // Eşleşmeyen / hedefsiz (INACTIVITY_REMINDER vb.) → no-op
   return null;
 }

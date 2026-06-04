@@ -34,10 +34,15 @@ describe('notificationTarget', () => {
     expect(notificationTarget('STAR_MILESTONE', {})).toEqual({ screen: 'Rewards' });
   });
 
+  it('WEEKLY_DIGEST → WeeklySummary (data gerekmez)', () => {
+    expect(notificationTarget('WEEKLY_DIGEST', {})).toEqual({ screen: 'WeeklySummary' });
+    expect(notificationTarget('WEEKLY_DIGEST', null)).toEqual({ screen: 'WeeklySummary' });
+  });
+
   it('parametre eksikse veya bilinmeyen tipte null (no-op)', () => {
     expect(notificationTarget('RESERVATION_CONFIRMED', {})).toBeNull();
     expect(notificationTarget('INSTANT_DISCOUNT', null)).toBeNull();
-    expect(notificationTarget('WEEKLY_DIGEST', {})).toBeNull();
+    expect(notificationTarget('INACTIVITY_REMINDER', {})).toBeNull();
     expect(notificationTarget('BILINMEYEN', { placeId: 'p' })).toBeNull();
   });
 });
