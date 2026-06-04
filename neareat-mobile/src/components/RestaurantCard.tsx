@@ -4,6 +4,7 @@ import type { Restaurant } from '../types';
 import { formatDistance } from '../utils/haversine';
 import StarRating from './StarRating';
 import AppIcon from './AppIcon';
+import { useFavoriteStore } from '../store/favoriteStore';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
@@ -21,6 +22,7 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const [imgError, setImgError] = React.useState(false);
+  const favorited = useFavoriteStore((s) => s.isFavorite(r.placeId));
 
   const showClosingSoon = r.isOpenNow && (closingSoon || closingVerySoon);
 
@@ -77,6 +79,11 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
       ) : (
         <View style={[styles.photo, styles.photoPlaceholder]}>
           <AppIcon name="restaurant" size={28} color={C.textMuted} />
+        </View>
+      )}
+      {favorited && (
+        <View style={styles.favBadge}>
+          <AppIcon name="heart" size={13} color={C.error} />
         </View>
       )}
       <View style={styles.info}>
@@ -151,6 +158,12 @@ function makeStyles(C: Colors) {
     cardStarDiscount: { borderLeftWidth: 3, borderLeftColor: C.amber, backgroundColor: C.amberSurface },
     photo: { width: 104, height: 104 },
     photoPlaceholder: { backgroundColor: C.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
+    favBadge: {
+      position: 'absolute', top: 8, left: 8,
+      backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12,
+      width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2,
+    },
     info: { flex: 1, padding: 12, justifyContent: 'center' },
     topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
     name: { fontSize: 15.5, fontWeight: '700', color: C.textPrimary, flex: 1, marginRight: 8 },

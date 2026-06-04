@@ -41,7 +41,7 @@ export default function SortFilterBar() {
   return (
     <>
       <View style={styles.bar}>
-        {/* Left: radio toggle — "Açık" when unchecked, "Tümü" when checked */}
+        {/* Left: "Açık" filtresi — etiket sabit, aktiflik radyo noktasıyla gösterilir */}
         <TouchableOpacity
           style={[styles.openToggle, isOpen && styles.openToggleActive]}
           onPress={() => setFilters({ openNow: !isOpen })}
@@ -51,7 +51,7 @@ export default function SortFilterBar() {
             {isOpen && <View style={styles.radioDot} />}
           </View>
           <Text style={[styles.openLabel, isOpen && styles.openLabelActive]}>
-            {isOpen ? 'Tümü' : 'Açık'}
+            Açık
           </Text>
         </TouchableOpacity>
 
