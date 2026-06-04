@@ -18,19 +18,12 @@ import AppHeader from '../../components/AppHeader';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
-const CATEGORIES = [
-  { key: 'all',           label: 'Tümü' },
-  { key: 'restaurant',    label: 'Restoran' },
-  { key: 'meal_takeaway', label: 'Fast Food' },
-  { key: 'cafe',          label: 'Kafe' },
-];
-
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const {
     loading, error, viewMode,
     setViewMode, setRestaurants, setLoading, setError,
-    getSortedFiltered, selectedCategory, setSelectedCategory,
+    getSortedFiltered, setSelectedCategory,
     selectedCuisineTag, setSelectedCuisineTag, restaurants,
     searchQuery, searchResults, searchLoading, searchError,
     setSearchQuery, performSearch, clearSearch,
@@ -103,9 +96,8 @@ export default function HomeScreen() {
   useEffect(() => () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); }, []);
 
   // Category change is instant — just update store, getSortedFiltered handles filtering
-  function handleCategoryPress(key: string) {
-    setSelectedCategory(key);
-  }
+  // Kategori filtresi kaldırıldı; persist edilmiş eski seçim listeyi filtrelemesin diye 'all'a sıfırla
+  useEffect(() => { setSelectedCategory('all'); }, [setSelectedCategory]);
 
   // Yüklü restoranlardan unique cuisine tag'lerini çıkar (alfabetik sıralı)
   const availableCuisineTags = React.useMemo(() => {
@@ -234,35 +226,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Category Tabs */}
-      <View style={styles.categoryBar}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryRow}
-        >
-          {CATEGORIES.map((cat, i) => {
-            const active = selectedCategory === cat.key;
-            return (
-              <TouchableOpacity
-                key={cat.key}
-                style={[
-                  styles.categoryTab,
-                  active && styles.categoryTabActive,
-                  i < CATEGORIES.length - 1 && { marginRight: 8 },
-                ]}
-                onPress={() => handleCategoryPress(cat.key)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
 
       {/* Cuisine Tag Chips (S7-10) — sadece nearby listesinde göster */}
       {viewMode === 'list' && !isSearching && availableCuisineTags.length > 0 && (
@@ -412,16 +375,6 @@ function makeStyles(C: Colors) {
     },
     routeCtaTitle: { color: C.travel, fontSize: 13, fontWeight: '700', flex: 1 },
 
-    categoryBar: { backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.separator },
-    categoryRow: { paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center' },
-    categoryTab: {
-      height: 34, paddingHorizontal: 18, borderRadius: 17,
-      borderWidth: 1.5, borderColor: C.disabled, backgroundColor: C.surface,
-      justifyContent: 'center', alignItems: 'center',
-    },
-    categoryTabActive: { backgroundColor: C.primary, borderColor: C.primary },
-    categoryLabel: { fontSize: 13, fontWeight: '600', color: C.textSecondary, lineHeight: 18 },
-    categoryLabelActive: { color: '#fff' },
 
     cuisineBar: { backgroundColor: C.surface, borderBottomWidth: 1, borderColor: C.separator },
     cuisineRow: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },

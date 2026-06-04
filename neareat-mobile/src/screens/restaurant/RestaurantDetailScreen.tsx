@@ -441,6 +441,12 @@ export default function RestaurantDetailScreen() {
                   detail.distanceKm != null ? formatDistance(detail.distanceKm) : undefined,
                 ].filter(Boolean).join('  ·  ')}
               </Text>
+              {favorited && (
+                <View style={styles.favTag}>
+                  <AppIcon name="heart" size={12} color={C.error} />
+                  <Text style={styles.favTagText}>Favorilerinde</Text>
+                </View>
+              )}
             </View>
             <TouchableOpacity style={styles.checkinPill} onPress={handleCheckin} activeOpacity={0.8}>
               <AppIcon name="checkin" size={15} color="#fff" />
@@ -920,6 +926,8 @@ function makeStyles(C: Colors) {
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
     name: { fontSize: 22, fontWeight: '700', color: C.textPrimary },
     meta: { fontSize: 14, color: C.textTertiary, marginTop: 2 },
+    favTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+    favTagText: { fontSize: 12, color: C.error, fontWeight: '700' },
     checkinPill: {
       flexDirection: 'row', alignItems: 'center', gap: 5,
       backgroundColor: C.primary, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7,
