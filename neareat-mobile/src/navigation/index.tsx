@@ -22,6 +22,7 @@ import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import FriendsScreen from '../screens/social/FriendsScreen';
 import ActivityFeedScreen from '../screens/social/ActivityFeedScreen';
 import FriendSuggestionsScreen from '../screens/social/FriendSuggestionsScreen';
+import WeeklySummaryScreen from '../screens/social/WeeklySummaryScreen';
 import FriendProfileScreen from '../screens/social/FriendProfileScreen';
 import SendRecommendationScreen from '../screens/social/SendRecommendationScreen';
 import RewardsScreen from '../screens/rewards/RewardsScreen';
@@ -375,6 +376,11 @@ export default function Navigation() {
                 name="FriendSuggestions"
                 component={FriendSuggestionsScreen}
                 options={{ ...H, title: 'Arkadaş Önerileri' }}
+              />
+              <Stack.Screen
+                name="WeeklySummary"
+                component={WeeklySummaryScreen}
+                options={{ ...H, title: 'Haftalık Özet' }}
               />
               <Stack.Screen
                 name="FriendProfile"

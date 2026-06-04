@@ -715,6 +715,7 @@ export type RootStackParamList = {
   Friends: undefined;
   ActivityFeed: undefined;
   FriendSuggestions: undefined;
+  WeeklySummary: undefined;
   FriendProfile: { userId: string };
   SendRecommendation: {
     placeId: string;
