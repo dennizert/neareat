@@ -17,6 +17,22 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success', Warning: 'warning', Error: 'error' },
 }));
 
+// react-native-safe-area-context native context'i Jest'te yok; sıfır inset'le mock'la.
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const inset = { top: 0, right: 0, bottom: 0, left: 0 };
+  const frame = { x: 0, y: 0, width: 390, height: 844 };
+  return {
+    SafeAreaProvider: ({ children }) => children,
+    SafeAreaConsumer: ({ children }) => children(inset),
+    SafeAreaView: (props) => React.createElement(View, props, props.children),
+    useSafeAreaInsets: () => inset,
+    useSafeAreaFrame: () => frame,
+    initialWindowMetrics: { frame, insets: inset },
+  };
+});
+
 // MaskedView native bileşeni Jest'te yok; maskeyi göz ardı edip içeriği render eden
 // basit bir View'a indir (gradient logosu testlerde düz render olsun).
 jest.mock('@react-native-masked-view/masked-view', () => {

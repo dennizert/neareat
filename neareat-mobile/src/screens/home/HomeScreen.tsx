@@ -3,7 +3,6 @@ import {
   View, FlatList, StyleSheet, ActivityIndicator, Text,
   TouchableOpacity, ScrollView, RefreshControl, TextInput,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import { fetchNearby } from '../../services/restaurants';
 import { getCurrentLocation } from '../../services/location';
@@ -15,7 +14,7 @@ import MapViewScreen from './MapViewScreen';
 import type { Restaurant } from '../../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import NotificationBell from '../../components/NotificationBell';
-import EatlasLogo from '../../components/EatlasLogo';
+import AppHeader from '../../components/AppHeader';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -46,7 +45,6 @@ export default function HomeScreen() {
   const lastFetchRef = useRef<number>(0);
 
   const { C } = useTheme();
-  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   // Fetch all data — category changes are client-side (instant, no API call)
@@ -142,24 +140,25 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <EatlasLogo size={22} />
-        <View style={styles.viewToggle}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'list' && styles.toggleActive]}
-            onPress={() => setViewMode('list')}
-          >
-            <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>Liste</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'map' && styles.toggleActive]}
-            onPress={() => setViewMode('map')}
-          >
-            <Text style={[styles.toggleText, viewMode === 'map' && styles.toggleTextActive]}>Harita</Text>
-          </TouchableOpacity>
-        </View>
-        <NotificationBell />
-      </View>
+      <AppHeader
+        center={(
+          <View style={styles.viewToggle}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, viewMode === 'list' && styles.toggleActive]}
+              onPress={() => setViewMode('list')}
+            >
+              <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>Liste</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, viewMode === 'map' && styles.toggleActive]}
+              onPress={() => setViewMode('map')}
+            >
+              <Text style={[styles.toggleText, viewMode === 'map' && styles.toggleTextActive]}>Harita</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        right={<NotificationBell />}
+      />
 
       {/* Arama çubuğu (S6-2) */}
       {viewMode === 'list' && (
@@ -365,11 +364,6 @@ function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
 
-    header: {
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: 16, paddingBottom: 12, backgroundColor: C.surface,
-    },
-    logo: { fontSize: 22, fontWeight: '800', color: C.primary },
     viewToggle: { flexDirection: 'row', backgroundColor: C.surfaceAlt, borderRadius: 8, padding: 2 },
     toggleBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 6 },
     toggleActive: { backgroundColor: C.primary },

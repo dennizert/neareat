@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/authStore';
 import { getMyRestaurantProfile, getRestaurantStats } from '../../services/restaurantAccount';
 import { getRestaurantReservations } from '../../services/reservations';
 import NotificationBell from '../../components/NotificationBell';
+import AppHeader from '../../components/AppHeader';
 import AppIcon from '../../components/AppIcon';
 import type { IconName } from '../../theme/icons';
 import type { RestaurantProfile, RestaurantStats } from '../../types';
@@ -80,27 +81,36 @@ export default function RestaurantDashboardScreen() {
       contentContainerStyle={{ paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {profile?.placePhotoUrl ? (
-            <Image source={{ uri: profile.placePhotoUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={{ fontSize: 26 }}>🍽️</Text>
-            </View>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={styles.businessName} numberOfLines={1}>{profile?.businessName}</Text>
-            <Text style={styles.category}>{profile?.businessCategory}</Text>
-            <Text style={styles.placeName} numberOfLines={1}>{profile?.placeName ?? 'Restoran seçilmedi'}</Text>
+      {/* Ortak header — orta: restoranın Görünen Adı */}
+      <AppHeader
+        center={(
+          <Text style={styles.headerName} numberOfLines={1}>
+            {profile?.displayName ?? profile?.businessName}
+          </Text>
+        )}
+        right={(
+          <>
+            <NotificationBell />
+            <TouchableOpacity onPress={logout}>
+              <Text style={styles.logoutText}>Çıkış</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      />
+
+      {/* Restoran kimlik kartı (eski header bilgileri) */}
+      <View style={styles.identityCard}>
+        {profile?.placePhotoUrl ? (
+          <Image source={{ uri: profile.placePhotoUrl }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, styles.avatarPlaceholder]}>
+            <Text style={{ fontSize: 26 }}>🍽️</Text>
           </View>
-        </View>
-        <View style={styles.headerRight}>
-          <NotificationBell color="#fff" />
-          <TouchableOpacity onPress={logout}>
-            <Text style={styles.logoutText}>Çıkış</Text>
-          </TouchableOpacity>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.businessName} numberOfLines={1}>{profile?.businessName}</Text>
+          <Text style={styles.category}>{profile?.businessCategory}</Text>
+          <Text style={styles.placeName} numberOfLines={1}>{profile?.placeName ?? 'Restoran seçilmedi'}</Text>
         </View>
       </View>
 
@@ -185,18 +195,17 @@ function InfoRow({ label, value, styles }: { label: string; value: string; style
 function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
-    header: {
-      flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
-      backgroundColor: C.primary, paddingHorizontal: 16, paddingTop: 56, paddingBottom: 20,
+    headerName: { fontSize: 16, fontWeight: '800', color: C.textPrimary },
+    identityCard: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: C.surface, paddingHorizontal: 16, paddingBottom: 16,
     },
-    headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 },
-    headerRight: { alignItems: 'center', gap: 6 },
     avatar: { width: 56, height: 56, borderRadius: 12, marginRight: 12 },
-    avatarPlaceholder: { backgroundColor: '#fff3', alignItems: 'center', justifyContent: 'center' },
-    businessName: { fontSize: 17, fontWeight: '800', color: '#fff' },
-    category: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 1 },
-    placeName: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
-    logoutText: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600', marginTop: 4 },
+    avatarPlaceholder: { backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+    businessName: { fontSize: 17, fontWeight: '800', color: C.textPrimary },
+    category: { fontSize: 12, color: C.textTertiary, marginTop: 1 },
+    placeName: { fontSize: 12, color: C.textSecondary, marginTop: 2 },
+    logoutText: { color: C.textSecondary, fontSize: 13, fontWeight: '600' },
     activeBanner: { backgroundColor: C.successSurface, padding: 12, alignItems: 'center' },
     activeBannerText: { color: C.success, fontWeight: '700', fontSize: 13 },
     announcementBanner: { backgroundColor: C.amberSurface, padding: 12 },

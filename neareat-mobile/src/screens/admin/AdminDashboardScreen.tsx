@@ -3,9 +3,9 @@ import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, RefreshControl, Alert, ScrollView, Modal, TextInput,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
+import AppHeader from '../../components/AppHeader';
 import { getPlatformStats, getPendingRestaurants, getReports, handleReport, suspendUser, runFriendSuggestionsJob, getPlaceRequests, reviewPlaceRequest } from '../../services/admin';
 import type { AdminPlaceRequest } from '../../services/admin';
 import type { AdminStats, AdminRestaurantSummary, UserReport } from '../../types';
@@ -16,9 +16,8 @@ type Tab = 'pending' | 'approved' | 'rejected' | 'reports' | 'place_requests' | 
 
 export default function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const { C, isDark } = useTheme();
-  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [tab, setTab] = useState<Tab>('pending');
@@ -122,18 +121,25 @@ export default function AdminDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header — intentionally dark in both modes */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>Admin Paneli</Text>
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-          <TouchableOpacity onPress={() => navigation.navigate('AdminLogs')}>
-            <Text style={styles.logoutText}>Loglar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={logout}>
-            <Text style={styles.logoutText}>Çıkış</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Ortak header — orta: admin adı + unvanı */}
+      <AppHeader
+        center={(
+          <View style={styles.adminCenter}>
+            <Text style={styles.adminName} numberOfLines={1}>{user?.displayName ?? 'Admin'}</Text>
+            <Text style={styles.adminTitle}>Sistem Yöneticisi</Text>
+          </View>
+        )}
+        right={(
+          <>
+            <TouchableOpacity onPress={() => navigation.navigate('AdminLogs')}>
+              <Text style={styles.logoutText}>Loglar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={logout}>
+              <Text style={styles.logoutText}>Çıkış</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      />
 
       {/* Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabRow}>
@@ -399,13 +405,10 @@ function StatRowComponent({ label, value, styles }: { label: string; value: numb
 function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.background },
-    // Admin paneli kasıtlı koyu — her iki modda da "sistem konsolu" hissi
-    header: {
-      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingHorizontal: 16, paddingBottom: 12, backgroundColor: '#1F1A24',
-    },
-    headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
-    logoutText: { fontSize: 13, color: C.textMuted, fontWeight: '600' },
+    adminCenter: { alignItems: 'center' },
+    adminName: { fontSize: 16, fontWeight: '800', color: C.textPrimary },
+    adminTitle: { fontSize: 11, color: C.textTertiary, fontWeight: '600', marginTop: 1 },
+    logoutText: { fontSize: 13, color: C.textSecondary, fontWeight: '600' },
     tabScroll: { backgroundColor: C.surface, maxHeight: 48 },
     tabRow: { paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center' },
     tab: { paddingHorizontal: 14, paddingVertical: 12 },
