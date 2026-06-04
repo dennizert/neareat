@@ -15,6 +15,7 @@ import MapViewScreen from './MapViewScreen';
 import type { Restaurant } from '../../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import NotificationBell from '../../components/NotificationBell';
+import EatlasLogo from '../../components/EatlasLogo';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -142,7 +143,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.logo}>Eatlas</Text>
+        <EatlasLogo size={22} />
         <View style={styles.viewToggle}>
           <TouchableOpacity
             style={[styles.toggleBtn, viewMode === 'list' && styles.toggleActive]}
