@@ -5,6 +5,7 @@ import {
   Platform, FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import {
   getReservationDetail, getReservationMessages,
@@ -19,6 +20,9 @@ function getTodayString(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
+
+// Hatırlatma yanıtı cihazda kalıcı saklanır → aynı rezervasyon için tekrar gösterilmez.
+const reminderKey = (reservationId: string) => `reservation-reminder:${reservationId}`;
 
 function getCancelPolicyInfo(date: string, time: string): { label: string; color: 'success' | 'warning' | 'error' } | null {
   const [year, month, day] = date.split('-').map(Number);
@@ -73,7 +77,13 @@ export default function ReservationDetailScreen() {
     }
   }
 
+  function saveReminderChoice(reservationId: string, choice: string) {
+    AsyncStorage.setItem(reminderKey(reservationId), choice).catch(() => {});
+  }
+
   function showReminderAlert(res: Reservation) {
+    // Pop-up gösterildiği an "shown" yazılır → yanıt verilmeden çıkılsa bile tekrar çıkmaz.
+    saveReminderChoice(res.id, 'shown');
     Alert.alert(
       '📅 Rezervasyon Hatırlatması',
       `Bugün saat ${res.time}'de ${res.restaurant.businessName} rezervasyonunuz bulunmaktadır. Katılım durumunuzu belirtebilir misiniz?`,
@@ -82,6 +92,7 @@ export default function ReservationDetailScreen() {
           text: 'Hayır, katılamayacağım. İptal etmek istiyorum.',
           style: 'destructive',
           onPress: async () => {
+            saveReminderChoice(res.id, 'cancelled');
             try {
               await cancelReservation(res.id);
               setReservation(prev => prev ? { ...prev, status: 'CANCELLED' } : null);
@@ -91,18 +102,28 @@ export default function ReservationDetailScreen() {
             }
           },
         },
-        { text: 'Evet, katılacağım.', style: 'default' },
+        {
+          text: 'Evet, katılacağım.',
+          style: 'default',
+          onPress: () => saveReminderChoice(res.id, 'attending'),
+        },
       ],
     );
   }
 
   useEffect(() => {
-    load().then(res => {
+    load().then(async res => {
       if (!res || reminderShown.current) return;
-      if (res.status === 'CONFIRMED' && res.date === getTodayString()) {
-        reminderShown.current = true;
-        setTimeout(() => showReminderAlert(res), 600);
-      }
+      // Yalnızca rezervasyon sahibi normal kullanıcıya gösterilir (restoran rolüne asla).
+      if (res.userId !== user?.id) return;
+      if (res.status !== 'CONFIRMED' || res.date !== getTodayString()) return;
+      // Daha önce gösterilmiş/yanıtlanmışsa tekrar gösterme.
+      try {
+        const prev = await AsyncStorage.getItem(reminderKey(res.id));
+        if (prev) return;
+      } catch { /* okuma hatasında yine de göster */ }
+      reminderShown.current = true;
+      setTimeout(() => showReminderAlert(res), 600);
     });
   }, []);
 
