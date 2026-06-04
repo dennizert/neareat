@@ -5,6 +5,7 @@ import {
   InteractionManager,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { fetchRestaurantDetail, fetchAppReviews, createReview } from '../../services/restaurants';
 import { addFavorite, removeFavorite } from '../../services/favorites';
@@ -18,6 +19,7 @@ import { addDiaryEntry } from '../../services/diary';
 import { analyzePhoto, type PhotoAnalysisResult } from '../../services/photoAnalysis';
 import { getMyCollections, addToCollection, createCollection } from '../../services/collections';
 import { getClosingInfo } from '../../utils/closingTime';
+import { computeAppRating } from '../../utils/appRating';
 import { submitPlaceRequest } from '../../services/placeRequests';
 import StarRating from '../../components/StarRating';
 import PhotoGallery from '../../components/PhotoGallery';
@@ -429,6 +431,7 @@ export default function RestaurantDetailScreen() {
 
   if (!detail) return null;
 
+  const appRating = computeAppRating(appReviews);
   const today = new Date().getDay();
   const effectiveOpenNow = detail.openingHoursOverride
     ? computeIsOpenFromOverride(detail.openingHoursOverride)
@@ -462,10 +465,37 @@ export default function RestaurantDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.ratingRow}>
-            <StarRating rating={detail.rating} />
-            <Text style={styles.ratingText}>{detail.rating} ({detail.userRatingsTotal} oy)</Text>
-            {(detail.openingHours || detail.openingHoursOverride) && (
+          {/* Çift puan: Google + Eatlas (uygulama içi) */}
+          <View style={styles.dualRatingRow}>
+            <View style={styles.ratingBlock}>
+              <View style={styles.ratingSourceRow}>
+                <Ionicons name="logo-google" size={13} color={C.textTertiary} />
+                <Text style={styles.ratingSource}>Google</Text>
+              </View>
+              <StarRating rating={detail.rating} size={14} />
+              <Text style={styles.ratingText}>{detail.rating} ({detail.userRatingsTotal} oy)</Text>
+            </View>
+
+            <View style={styles.ratingDivider} />
+
+            <View style={styles.ratingBlock}>
+              <View style={styles.ratingSourceRow}>
+                <Image source={require('../../../assets/icon.png')} style={styles.eatlasIcon} />
+                <Text style={styles.ratingSource}>Eatlas</Text>
+              </View>
+              {appRating.count > 0 ? (
+                <>
+                  <StarRating rating={appRating.avg} size={14} />
+                  <Text style={styles.ratingText}>{appRating.avg.toFixed(1)} ({appRating.count} oy)</Text>
+                </>
+              ) : (
+                <Text style={styles.ratingEmpty}>Henüz puan yok</Text>
+              )}
+            </View>
+          </View>
+
+          {(detail.openingHours || detail.openingHoursOverride) && (
+            <View style={styles.openBadgeRow}>
               <View style={[
                 styles.openBadge,
                 closingInfo.closingVerySoon ? styles.openBadgeClosingVery :
@@ -480,8 +510,8 @@ export default function RestaurantDetailScreen() {
                     : effectiveOpenNow ? 'Açık' : 'Kapalı'}
                 </Text>
               </View>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* Duyuru banner */}
           {detail.announcement && (
@@ -923,6 +953,15 @@ function makeStyles(C: Colors) {
     favoriteBtn: { padding: 8 },
     ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     ratingText: { fontSize: 14, color: C.textSecondary },
+    // Çift puan blokları (Google + Eatlas)
+    dualRatingRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+    ratingBlock: { flex: 1, gap: 3 },
+    ratingSourceRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 1 },
+    ratingSource: { fontSize: 12, fontWeight: '600', color: C.textTertiary },
+    eatlasIcon: { width: 14, height: 14, borderRadius: 3 },
+    ratingDivider: { width: 1, alignSelf: 'stretch', backgroundColor: C.separator, marginHorizontal: 14 },
+    ratingEmpty: { fontSize: 13, color: C.textMuted, fontStyle: 'italic', marginTop: 2 },
+    openBadgeRow: { flexDirection: 'row', marginBottom: 12 },
     openBadge: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
     openBadgeOpen: { backgroundColor: C.successSurface },
     openBadgeClosed: { backgroundColor: C.errorSurface },
