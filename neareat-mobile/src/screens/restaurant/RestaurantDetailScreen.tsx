@@ -4,7 +4,6 @@ import {
   ActivityIndicator, Alert, Share, Image, TextInput, Modal, FlatList,
   InteractionManager,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { fetchRestaurantDetail, fetchAppReviews, createReview } from '../../services/restaurants';
@@ -13,7 +12,6 @@ import { useFavoriteStore } from '../../store/favoriteStore';
 import { useAuthStore } from '../../store/authStore';
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { useCollectionStore } from '../../store/collectionStore';
-import { recordRating } from '../../services/social';
 import { createCheckin } from '../../services/checkin';
 import { addDiaryEntry } from '../../services/diary';
 import { analyzePhoto, type PhotoAnalysisResult } from '../../services/photoAnalysis';
@@ -64,10 +62,6 @@ export default function RestaurantDetailScreen() {
   const [activeTab, setActiveTab] = useState<'google' | 'app'>('google');
   const [hoursExpanded, setHoursExpanded] = useState(false);
 
-  // Quick rating state
-  const [quickRating, setQuickRating] = useState(0);
-  const [quickRatingDone, setQuickRatingDone] = useState(false);
-
   // Review modal state
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
@@ -103,17 +97,12 @@ export default function RestaurantDetailScreen() {
     const task = InteractionManager.runAfterInteractions(() => {
       (async () => {
         try {
-          const [d, reviews, savedRating] = await Promise.all([
+          const [d, reviews] = await Promise.all([
             fetchRestaurantDetail(placeId),
             fetchAppReviews(placeId),
-            AsyncStorage.getItem(`quick_rating:${placeId}`),
           ]);
           setDetail(d);
           setAppReviews(reviews);
-          if (savedRating) {
-            setQuickRating(parseInt(savedRating, 10));
-            setQuickRatingDone(true);
-          }
         } catch (err: any) {
           // userMessage interceptor'dan gelir (çevrimdışıyken anlamlı Türkçe mesaj)
           Alert.alert('Hata', err.userMessage || err.message || 'Restoran bilgileri yüklenemedi.');
@@ -156,24 +145,8 @@ export default function RestaurantDetailScreen() {
     }
   }
 
-  async function handleQuickRating(stars: number) {
-    if (quickRatingDone || !detail) return;
-    haptics.success();
-    setQuickRating(stars);
-    setQuickRatingDone(true);
-    try {
-      await AsyncStorage.setItem(`quick_rating:${placeId}`, String(stars));
-      const { starEvent } = await recordRating(detail.placeId, detail.name);
-      addStarEvent(starEvent);
-      toast.show('Puanın kaydedildi · +2 ⭐', 'success');
-    } catch {
-      // rate-limited or network error — silent fail, UI already updated
-    }
-  }
-
   function openReviewModal() {
-    // Hızlı puan verildiyse yorum puanı o değerle (kilitli) gelir; yoksa serbest seçim.
-    setReviewRating(quickRatingDone ? quickRating : 5);
+    setReviewRating(5);
     setReviewModalVisible(true);
   }
 
@@ -187,13 +160,6 @@ export default function RestaurantDetailScreen() {
       const { review, starEvent } = await createReview(placeId, reviewRating, reviewBody.trim(), detail?.name ?? '');
       setAppReviews(prev => [review, ...prev]);
       if (starEvent) addStarEvent(starEvent);
-      // Hızlı puan verilmemişse, yorumdaki puanı mekanın puanı olarak senkronla
-      // (tek değer ilkesi). Hızlı puan +2 ödülü burada tekrar verilmez.
-      if (!quickRatingDone) {
-        setQuickRating(reviewRating);
-        setQuickRatingDone(true);
-        AsyncStorage.setItem(`quick_rating:${placeId}`, String(reviewRating)).catch(() => {});
-      }
       setReviewModalVisible(false);
       setReviewBody('');
       toast.show(starEvent ? 'Yorumun eklendi · +5 ⭐' : 'Yorumun güncellendi', 'success');
@@ -554,20 +520,6 @@ export default function RestaurantDetailScreen() {
             </View>
           )}
 
-          {/* Quick Rating */}
-          <View style={styles.quickRatingSection}>
-            <Text style={styles.quickRatingLabel}>
-              {quickRatingDone ? `Puanın: ${'⭐'.repeat(quickRating)}` : 'Hızlı Puan Ver (+2 ⭐)'}
-            </Text>
-            <View style={styles.quickStars}>
-              {[1, 2, 3, 4, 5].map(s => (
-                <TouchableOpacity key={s} onPress={() => handleQuickRating(s)} disabled={quickRatingDone}>
-                  <Text style={styles.quickStar}>{s <= quickRating ? '⭐' : '☆'}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
           {/* ─── Birincil eylemler: Yol Tarifi + Rezervasyon/Ara ─── */}
           <View style={styles.primaryActions}>
             <TouchableOpacity style={styles.primaryBtn} onPress={handleDirections}>
@@ -917,24 +869,11 @@ export default function RestaurantDetailScreen() {
 
           <View style={styles.modalStarsRow}>
             {[1, 2, 3, 4, 5].map(s => (
-              <TouchableOpacity
-                key={s}
-                onPress={() => setReviewRating(s)}
-                disabled={quickRatingDone}
-                activeOpacity={quickRatingDone ? 1 : 0.6}
-              >
-                <Text style={[styles.modalStar, quickRatingDone && styles.modalStarLocked]}>
-                  {s <= reviewRating ? '⭐' : '☆'}
-                </Text>
+              <TouchableOpacity key={s} onPress={() => setReviewRating(s)}>
+                <Text style={styles.modalStar}>{s <= reviewRating ? '⭐' : '☆'}</Text>
               </TouchableOpacity>
             ))}
           </View>
-
-          {quickRatingDone && (
-            <Text style={styles.modalRatingLocked}>
-              🔒 Puanını hızlı puan bölümünde verdin, değiştirilemez.
-            </Text>
-          )}
 
           <TextInput
             style={styles.modalInput}
@@ -987,13 +926,6 @@ function makeStyles(C: Colors) {
     },
     closingBannerUrgent: { backgroundColor: C.errorSurface, borderLeftColor: C.error },
     closingBannerText: { fontSize: 13, fontWeight: '600', color: C.warning },
-    quickRatingSection: {
-      backgroundColor: C.warningSurface, borderRadius: 12,
-      padding: 12, marginBottom: 16, alignItems: 'center',
-    },
-    quickRatingLabel: { fontSize: 13, color: C.warning, fontWeight: '600', marginBottom: 8 },
-    quickStars: { flexDirection: 'row', gap: 8 },
-    quickStar: { fontSize: 26 },
     // ─── Birincil eylem butonları ───────────────────────────────
     primaryActions: { flexDirection: 'row', gap: 10, marginBottom: 10 },
     primaryBtn: {
@@ -1073,8 +1005,6 @@ function makeStyles(C: Colors) {
     modalRestaurant: { fontSize: 16, fontWeight: '600', color: C.textSecondary, marginTop: 16, marginBottom: 12 },
     modalStarsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
     modalStar: { fontSize: 32 },
-    modalStarLocked: { opacity: 0.55 },
-    modalRatingLocked: { fontSize: 12, color: C.textMuted, marginTop: -8, marginBottom: 16 },
     modalInput: {
       borderWidth: 1, borderColor: C.border, borderRadius: 12,
       paddingHorizontal: 16, paddingVertical: 14,
