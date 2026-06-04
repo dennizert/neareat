@@ -6,10 +6,11 @@ import { render, screen } from '@testing-library/react-native';
 import EatlasLogo from '../../components/EatlasLogo';
 
 describe('EatlasLogo', () => {
-  it('Eat ve Atlas parçalarını render eder', () => {
+  it('tek kelime "Eatlas" render eder (bölünmez)', () => {
     render(<EatlasLogo />);
-    expect(screen.getByText('Eat')).toBeTruthy();
-    expect(screen.getByText('Atlas')).toBeTruthy();
+    expect(screen.getByText('Eatlas')).toBeTruthy();
+    expect(screen.queryByText('Eat')).toBeNull();
+    expect(screen.queryByText('Atlas')).toBeNull();
   });
 
   it('erişilebilirlik etiketi "Eatlas"', () => {
