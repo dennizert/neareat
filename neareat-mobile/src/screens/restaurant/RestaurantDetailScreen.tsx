@@ -434,7 +434,7 @@ export default function RestaurantDetailScreen() {
         <View style={styles.content}>
           <View style={styles.titleRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{detail.name}</Text>
+              <Text style={styles.name} numberOfLines={2}>{detail.name}</Text>
               <Text style={styles.meta}>
                 {[
                   PRICE_MAP[detail.priceLevel ?? 0],
@@ -442,8 +442,12 @@ export default function RestaurantDetailScreen() {
                 ].filter(Boolean).join('  ·  ')}
               </Text>
             </View>
-            <TouchableOpacity onPress={toggleFavorite} style={styles.favoriteBtn}>
-              <AppIcon name={favorited ? 'heart' : 'heartOutline'} size={26} color={favorited ? C.error : C.textMuted} />
+            <TouchableOpacity style={styles.checkinPill} onPress={handleCheckin} activeOpacity={0.8}>
+              <AppIcon name="checkin" size={15} color="#fff" />
+              <Text style={styles.checkinPillText}>Check-in</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addBtnTop} onPress={() => setAddMenuVisible(true)} activeOpacity={0.7}>
+              <AppIcon name="add" size={24} color={C.primary} />
             </TouchableOpacity>
           </View>
 
@@ -555,25 +559,18 @@ export default function RestaurantDetailScreen() {
             </TouchableOpacity>
           ) : null}
 
-          {/* ─── Kompakt eylem ikonları (tek sıra, kaydırılabilir) ─── */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.actionScroll}
-            contentContainerStyle={styles.actionRow}
-          >
+          {/* ─── Kompakt eylem ikonları (sarmalanan, kaydırmasız) ─── */}
+          <View style={styles.actionRow}>
             <ActionButton icon="map" label="Konum" tint={C.travel} bg={C.travelSurface} onPress={handleDirections} />
             {detail.formattedPhoneNumber ? (
               <ActionButton icon="phone" label="Ara" onPress={() => Linking.openURL(`tel:${detail.formattedPhoneNumber}`)} />
             ) : null}
             <ActionButton icon="share" label="Paylaş" onPress={handleShare} />
-            <ActionButton icon="checkin" label="Check-in" onPress={handleCheckin} />
-            <ActionButton icon="add" label="Ekle" onPress={() => setAddMenuVisible(true)} />
             <ActionButton icon="message" label="Öner" tint={C.primary} bg={C.primaryLighter} onPress={handleRecommend} />
             {!detail.restaurantId && (
               <ActionButton icon="restaurant" label="Platforma Ekle" tint={C.travel} bg={C.travelSurface} onPress={handleSuggestPlace} />
             )}
-          </ScrollView>
+          </View>
 
           {(detail.openingHoursOverride || detail.openingHours?.weekday_text) && (
             <View style={styles.section}>
@@ -841,6 +838,14 @@ export default function RestaurantDetailScreen() {
           <View style={styles.addMenuSheet}>
             <TouchableOpacity
               style={styles.addMenuRow}
+              onPress={() => { setAddMenuVisible(false); toggleFavorite(); }}
+            >
+              <AppIcon name={favorited ? 'heart' : 'heartOutline'} size={20} color={favorited ? C.error : C.textSecondary} />
+              <Text style={styles.addMenuText}>{favorited ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}</Text>
+            </TouchableOpacity>
+            <View style={styles.addMenuDivider} />
+            <TouchableOpacity
+              style={styles.addMenuRow}
               onPress={() => { setAddMenuVisible(false); handleAddToDiary(); }}
             >
               <AppIcon name="diary" size={20} color={C.textSecondary} />
@@ -912,10 +917,19 @@ function makeStyles(C: Colors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: C.surface },
     content: { padding: 16 },
-    titleRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
     name: { fontSize: 22, fontWeight: '700', color: C.textPrimary },
     meta: { fontSize: 14, color: C.textTertiary, marginTop: 2 },
-    favoriteBtn: { padding: 8 },
+    checkinPill: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      backgroundColor: C.primary, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7,
+    },
+    checkinPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    addBtnTop: {
+      width: 40, height: 40, borderRadius: 20,
+      borderWidth: 1, borderColor: C.border, backgroundColor: C.primaryLighter,
+      alignItems: 'center', justifyContent: 'center',
+    },
     ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
     ratingText: { fontSize: 14, color: C.textSecondary },
     // Çift puan blokları (Google + Eatlas)
@@ -946,9 +960,11 @@ function makeStyles(C: Colors) {
     },
     reserveCtaText: { fontSize: 15, fontWeight: '700', color: '#fff' },
     // ─── Kompakt eylem ikonları ─────────────────────────────────
-    actionScroll: { marginBottom: 20 },
-    actionRow: { flexDirection: 'row', gap: 14, paddingVertical: 2, paddingRight: 4 },
-    actionBtn: { alignItems: 'center', width: 60 },
+    actionRow: {
+      flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around',
+      columnGap: 8, rowGap: 14, marginBottom: 20,
+    },
+    actionBtn: { alignItems: 'center', minWidth: 58 },
     actionIcon: {
       width: 46, height: 46, borderRadius: 23, backgroundColor: C.surfaceAlt,
       alignItems: 'center', justifyContent: 'center', marginBottom: 5,
