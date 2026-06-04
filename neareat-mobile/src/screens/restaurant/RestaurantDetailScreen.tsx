@@ -62,6 +62,7 @@ export default function RestaurantDetailScreen() {
   const [appReviews, setAppReviews] = useState<AppReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'google' | 'app'>('google');
+  const [hoursExpanded, setHoursExpanded] = useState(false);
 
   // Quick rating state
   const [quickRating, setQuickRating] = useState(0);
@@ -643,22 +644,34 @@ export default function RestaurantDetailScreen() {
 
           {(detail.openingHoursOverride || detail.openingHours?.weekday_text) && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Çalışma Saatleri</Text>
-              {detail.openingHoursOverride
-                ? HOURS_DAY_KEYS.map((key, i) => {
-                    const day = detail.openingHoursOverride![key];
-                    if (!day) return null;
-                    const value = day.closed ? 'Kapalı' : `${day.open} – ${day.close}`;
-                    return (
-                      <Text key={key} style={[styles.hourLine, i === todayOverrideIdx && styles.todayLine]}>
-                        {HOURS_DAY_LABELS[i]}: {value}
-                      </Text>
-                    );
-                  })
-                : detail.openingHours!.weekday_text.map((line, i) => (
-                    <Text key={i} style={[styles.hourLine, i === today - 1 && styles.todayLine]}>{line}</Text>
-                  ))
-              }
+              <TouchableOpacity
+                style={styles.collapsibleHeader}
+                onPress={() => setHoursExpanded(v => !v)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.sectionTitle}>Çalışma Saatleri</Text>
+                <Ionicons
+                  name={hoursExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={C.textTertiary}
+                />
+              </TouchableOpacity>
+              {hoursExpanded && (
+                detail.openingHoursOverride
+                  ? HOURS_DAY_KEYS.map((key, i) => {
+                      const day = detail.openingHoursOverride![key];
+                      if (!day) return null;
+                      const value = day.closed ? 'Kapalı' : `${day.open} – ${day.close}`;
+                      return (
+                        <Text key={key} style={[styles.hourLine, i === todayOverrideIdx && styles.todayLine]}>
+                          {HOURS_DAY_LABELS[i]}: {value}
+                        </Text>
+                      );
+                    })
+                  : detail.openingHours!.weekday_text.map((line, i) => (
+                      <Text key={i} style={[styles.hourLine, i === today - 1 && styles.todayLine]}>{line}</Text>
+                    ))
+              )}
             </View>
           )}
 
@@ -1007,6 +1020,7 @@ function makeStyles(C: Colors) {
     chipSuggestText: { color: C.travel },
     section: { marginBottom: 20 },
     sectionTitle: { fontSize: 16, fontWeight: '700', color: C.textPrimary, marginBottom: 8 },
+    collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     hourLine: { fontSize: 13, color: C.textTertiary, marginBottom: 2 },
     todayLine: { fontWeight: '700', color: C.textPrimary },
     premiumHint: { fontSize: 13, color: C.textMuted },
