@@ -69,7 +69,7 @@ const {
   summarizeUsage,
   recommend,
   recommendStream,
-  __test: { parseLlmJson, enforceZoneDiversity },
+  __test: { parseLlmJson, enforceZoneDiversity, routeFallbackReason, generateReasonsForPicks },
 } = require('../../../src/services/recommendationService');
 
 /** messages.stream() dönüşünü simüle eder: finalMessage + abort. */
@@ -495,11 +495,13 @@ describe('enforceZoneDiversity', () => {
     expect(ids).toContain('a1'); // zone 1 (manual fallback)
     expect(ids).toContain('c1'); // zone 3 (manual fallback)
     expect(ids).toHaveLength(3);
-    // Manuel pick'lerin reason'ı boş, LLM'in dolu
+    // LLM pick'in reason'ı korunur; manuel pick'e templated gerekçe verilir
+    // (boş "Neden bu?" kartı oluşmasın diye).
     const b1 = result.find((r) => r.placeId === 'b1');
     expect(b1.reason).toBe('LLM-reason-b1');
     const a1 = result.find((r) => r.placeId === 'a1');
-    expect(a1.reason).toBe('');
+    expect(a1.reason).toBeTruthy();
+    expect(a1.reason).not.toBe('LLM-reason-a1'); // LLM'den değil, fallback'ten
   });
 
   it('empty zone 2: backfills from other zones with haversine ≥ 0.45x', () => {
@@ -549,6 +551,63 @@ describe('enforceZoneDiversity', () => {
   it('all zones empty → returns empty array', () => {
     const result = enforceZoneDiversity([], [], X);
     expect(result).toEqual([]);
+  });
+
+  it('manuel pick → manual:true bayrağı taşır (2. LLM çağrısı hedeflesin)', () => {
+    const z1 = makeCand({ id: 'z1', zone: 1, score: 5 });
+    const z2 = makeCand({ id: 'z2', zone: 2, score: 4 });
+    const z3 = makeCand({ id: 'z3', zone: 3, score: 3 });
+    // LLM yalnızca zone 1'den seçti → z2, z3 manuel eklenir
+    const result = enforceZoneDiversity([makeRec(z1)], [z1, z2, z3], X);
+    const byId = Object.fromEntries(result.map((r) => [r.placeId, r]));
+    expect(byId.z1.manual).toBeFalsy();      // LLM picki
+    expect(byId.z2.manual).toBe(true);       // manuel
+    expect(byId.z3.manual).toBe(true);       // manuel
+  });
+});
+
+// ─── routeFallbackReason (manuel durak templated gerekçesi) ───────────────────
+describe('routeFallbackReason', () => {
+  it('puan varsa puanı içeren gerekçe döner', () => {
+    expect(routeFallbackReason({ rating: 4.6 })).toContain('4.6');
+  });
+  it('puan yoksa generic ama dolu gerekçe döner', () => {
+    const r = routeFallbackReason({ rating: null });
+    expect(typeof r).toBe('string');
+    expect(r.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── generateReasonsForPicks (manuel duraklar için 2. LLM çağrısı) ────────────
+describe('generateReasonsForPicks', () => {
+  const picks = [
+    { placeId: 'm1', candidate: { placeId: 'm1', name: 'Durak 1', rating: 4.5, userRatingsTotal: 50, types: ['restaurant'], vicinity: 'Bolu' } },
+    { placeId: 'm2', candidate: { placeId: 'm2', name: 'Durak 2', rating: 4.2, userRatingsTotal: 30, types: ['cafe'], vicinity: 'Düzce' } },
+  ];
+
+  it('boş pick listesi → LLM çağrısı yapılmaz, boş map döner', async () => {
+    mockAnthropicCreate.mockClear();
+    const out = await generateReasonsForPicks([], { profileSummaryText: '', routeContext: '', model: 'm' });
+    expect(out).toEqual({});
+    expect(mockAnthropicCreate).not.toHaveBeenCalled();
+  });
+
+  it('LLM JSON döndürdüğünde placeId→gerekçe map üretir', async () => {
+    mockAnthropicCreate.mockResolvedValueOnce(mockAnthropicResponse({
+      rawText: JSON.stringify({ reasons: { m1: 'Bolu yolunda mola için harika.', m2: 'Düzce çıkışında rahat bir kahve durağı.' } }),
+    }));
+    const out = await generateReasonsForPicks(picks, { profileSummaryText: 'profil', routeContext: 'rota', model: 'm' });
+    expect(out.m1).toBe('Bolu yolunda mola için harika.');
+    expect(out.m2).toBe('Düzce çıkışında rahat bir kahve durağı.');
+  });
+
+  it('boş/geçersiz gerekçeleri eler', async () => {
+    mockAnthropicCreate.mockResolvedValueOnce(mockAnthropicResponse({
+      rawText: JSON.stringify({ reasons: { m1: '   ', m2: 'Geçerli gerekçe.' } }),
+    }));
+    const out = await generateReasonsForPicks(picks, { profileSummaryText: '', routeContext: '', model: 'm' });
+    expect(out.m1).toBeUndefined();
+    expect(out.m2).toBe('Geçerli gerekçe.');
   });
 });
 

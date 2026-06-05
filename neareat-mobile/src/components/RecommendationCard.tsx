@@ -134,11 +134,14 @@ const RecommendationCard = React.memo(function RecommendationCard({
           </View>
         )}
 
-        {/* LLM gerekçesi — bu kartın yıldız özelliği */}
-        <View style={styles.reasonBox}>
-          <Text style={styles.reasonLabel}>🤖 Neden bu?</Text>
-          <Text style={styles.reasonText}>{rec.reason}</Text>
-        </View>
+        {/* LLM gerekçesi — bu kartın yıldız özelliği. Gerekçe boşsa (örn. rota
+            zone-dağıtımında manuel eklenen durak) boş "Neden bu?" kutusu gösterme. */}
+        {!!rec.reason?.trim() && (
+          <View style={styles.reasonBox}>
+            <Text style={styles.reasonLabel}>🤖 Neden bu?</Text>
+            <Text style={styles.reasonText}>{rec.reason}</Text>
+          </View>
+        )}
 
         {/* Adres + Detay CTA */}
         <View style={styles.footer}>

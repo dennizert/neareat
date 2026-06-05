@@ -486,12 +486,81 @@ async function recommendStream({
 }
 
 /**
+ * Manuel zone pick'leri için templated Türkçe gerekçe.
+ * LLM bu zone'dan seçim yapmadığında (zone-dağıtım enforcement manuel ekler)
+ * kart "🤖 Neden bu?" alanı boş kalmasın diye aday verisinden kısa bir
+ * gerekçe üretir.
+ */
+function routeFallbackReason(candidate) {
+  const rating = candidate?.rating;
+  if (rating != null) {
+    return `Rotanın bu bölgesindeki en yüksek puanlı (${rating}) seçenek — yolda durmaya değer.`;
+  }
+  return 'Rotanın bu bölgesinde öne çıkan, yolda durmaya değer bir seçenek.';
+}
+
+/**
+ * Zone-dağıtımının manuel eklediği duraklar için tek (batched) ek LLM çağrısıyla
+ * gerçek Türkçe gerekçe üretir. LLM bu durakları kendi seçiminde gerekçelendirmedi;
+ * burada profil + rota bağlamıyla her biri için kısa gerekçe yazdırırız.
+ *
+ * Başarısız olursa boş map döner → caller templated gerekçeyi korur (graceful).
+ *
+ * @returns {Promise<Record<string,string>>} placeId → gerekçe
+ */
+async function generateReasonsForPicks(picks, { profileSummaryText, routeContext, model }) {
+  if (!picks.length) return {};
+
+  const lines = picks.map((p, i) => {
+    const c = p.candidate;
+    return (
+      `${i + 1}. placeId: ${c.placeId}\n` +
+      `   ad: ${c.name}\n` +
+      `   puan: ${c.rating ?? 'N/A'} (${c.userRatingsTotal ?? 0} oy)\n` +
+      `   kategoriler: ${(c.types || []).slice(0, 6).join(', ') || '—'}\n` +
+      `   adres: ${c.vicinity ?? '—'}`
+    );
+  });
+
+  const system =
+    'Sen bir yemek-rota asistanısın. Sana verilen rota duraklarının HER BİRİ için ' +
+    '2-3 cümlelik, doğal ve samimi Türkçe bir "neden burada durmalı" gerekçesi yaz. ' +
+    'Gerekçeyi adayın puanı/kategorisi ve kullanıcı profiliyle ilişkilendir; abartı ve ' +
+    'uydurma bilgi yok. "priceLevel" gibi teknik ifade kullanma. Sadece geçerli JSON döndür: ' +
+    '{"reasons":{"<placeId>":"<gerekçe>"}}. Markdown, başlık veya başka metin YOK.';
+
+  const user =
+    `# Kullanıcı Profili\n${profileSummaryText || '(profil verisi yok)'}\n\n` +
+    `# Rota Bağlamı\n${routeContext}\n\n` +
+    `# Duraklar\n${lines.join('\n\n')}\n\n` +
+    'Yukarıdaki HER placeId için bir gerekçe üret.';
+
+  const client = getClient();
+  const resp = await client.messages.create({
+    model,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    system,
+    messages: [{ role: 'user', content: user }],
+  });
+
+  const textBlock = resp.content?.find((b) => b.type === 'text');
+  const parsed = parseLlmJson(textBlock?.text);
+  const rawReasons = parsed && typeof parsed.reasons === 'object' && parsed.reasons ? parsed.reasons : {};
+
+  const out = {};
+  for (const [placeId, reason] of Object.entries(rawReasons)) {
+    if (typeof reason === 'string' && reason.trim()) out[placeId] = reason.trim();
+  }
+  return out;
+}
+
+/**
  * Uzun rota (≥300 km) için zone-dağıtım enforcement.
  *
  * Mantık:
  *   1. LLM önerilerini zone'a göre grupla (1, 2, 3)
  *   2. Her zone için: o zone'dan LLM seçimi varsa onu kullan;
- *      yoksa o zone'un en iyi adayını manuel ekle (LLM gerekçesi olmaz)
+ *      yoksa o zone'un en iyi adayını manuel ekle (templated gerekçe ile)
  *   3. Eksik kalırsa (zone boş) → en çok adaylı zone'dan haversine
  *      ≥ 0.45x kuralına uyan en iyi adayla 3'e tamamla
  *
@@ -544,7 +613,10 @@ function enforceZoneDiversity(validRecs, candidates, xKm) {
       const top = candidatesByZone.get(z)[0];
       finalPicks.push({
         placeId: top.placeId,
-        reason: '', // LLM gerekçesi yok — boş bırakılır, frontend handle eder
+        // LLM bu durağı seçmedi → şimdilik templated gerekçe; recommendForRoute
+        // ikinci bir LLM çağrısıyla bunu gerçek gerekçeyle değiştirmeye çalışır.
+        reason: routeFallbackReason(top),
+        manual: true,
         candidate: top,
         waypointIndex: top.waypointIndex ?? 0,
       });
@@ -584,7 +656,8 @@ function enforceZoneDiversity(validRecs, candidates, xKm) {
           if (okGap) {
             finalPicks.push({
               placeId: next.placeId,
-              reason: '',
+              reason: routeFallbackReason(next),
+              manual: true,
               candidate: next,
               waypointIndex: next.waypointIndex ?? 0,
             });
@@ -751,6 +824,28 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
     ? enforceZoneDiversity(validRecs, candidates, xKm)
     : validRecs;
 
+  // Zone-dağıtım, LLM'in seçmediği bölgelere manuel durak eklemiş olabilir;
+  // bu durakların LLM gerekçesi yok (şimdilik templated). Tek bir ek LLM çağrısıyla
+  // bunlara gerçek gerekçe ürettir. Başarısızsa templated gerekçe korunur.
+  const manualPicks = finalRecs.filter((r) => r.manual);
+  if (manualPicks.length) {
+    try {
+      const reasonMap = await generateReasonsForPicks(manualPicks, {
+        profileSummaryText: profileSummary.text,
+        routeContext,
+        model,
+      });
+      for (const r of finalRecs) {
+        if (r.manual && reasonMap[r.placeId]) r.reason = reasonMap[r.placeId];
+      }
+    } catch (reasonErr) {
+      console.warn(
+        '[recommendForRoute] manuel durak gerekçe üretimi başarısız, templated kullanılıyor:',
+        reasonErr.message,
+      );
+    }
+  }
+
   // Rota akışına göre sırala (origin → ara nokta → ...)
   finalRecs.sort((a, b) => a.waypointIndex - b.waypointIndex);
 
@@ -813,5 +908,7 @@ module.exports = {
   __test: {
     parseLlmJson,
     enforceZoneDiversity,
+    routeFallbackReason,
+    generateReasonsForPicks,
   },
 };
