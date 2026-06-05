@@ -834,6 +834,18 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext, ref
 
   if (routeContext) {
     text += '\n\n# Rota Bağlamı\n\n' + routeContext;
+    text +=
+      '\n\n# Rota Gerekçe Rehberi\n\n' +
+      'Bu bir ROTA önerisi — aday listesindeki "zone" ve "rota km" bilgilerini gerekçelere yansıt.\n' +
+      'Her gerekçede şu unsurları doğal Türkçeyle birleştir:\n' +
+      '  - Durakın rotadaki konumu ("rotanın ilk/orta/son üçte biri", "~100 km noktasında" vb)\n' +
+      '  - Tahmini varış saatine göre öğün/mola bağlamı (sabah kahvaltısı molası, öğle, akşam yemeği vb)\n' +
+      '  - Sapma mesafesi ("yalnızca X km sapmayla" veya "rotaya çok yakın")\n' +
+      '  - Kullanıcı profiliyle kişisel bağ (önceki tercihler, mutfak zevki)\n\n' +
+      'KÖTÜ: "Profiline uygun, iyi puanlı bir yer." (rota bağlamı yok)\n' +
+      'İYİ: "~150 km\'lik rotanın tam ortasında, saat ~13:00\'a denk gelecek bir öğle molası için ideal. ' +
+      'Profilinde ev yemeklerine sürekli yüksek puan verdiğin görülüyor — tam tercihin. ' +
+      'Yalnızca 1.2 km sapmayla rotadan fazla ayrılmadan uğrayabilirsin."';
   }
 
   // Konuşmaya dayalı iyileştirme (Sprint-4 Task #2) — yalnızca variable blokta

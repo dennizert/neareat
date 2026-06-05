@@ -508,32 +508,60 @@ function routeFallbackReason(candidate) {
  *
  * @returns {Promise<Record<string,string>>} placeId → gerekçe
  */
-async function generateReasonsForPicks(picks, { profileSummaryText, routeContext, model }) {
+async function generateReasonsForPicks(picks, { profileSummaryText, routeContext, model, waypointArrivalTimes }) {
   if (!picks.length) return {};
+
+  const DAY_NAMES_LOCAL = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  const ZONE_LABELS = { 1: 'rotanın ilk üçte biri', 2: 'rotanın orta bölgesi', 3: 'rotanın son üçte biri' };
 
   const lines = picks.map((p, i) => {
     const c = p.candidate;
+
+    let arrivalInfo = '';
+    if (waypointArrivalTimes && c.waypointIndex != null && waypointArrivalTimes.has(c.waypointIndex)) {
+      const ms = waypointArrivalTimes.get(c.waypointIndex);
+      const { dayOfWeek, timeHHMM } = istanbulTimeAtMs(ms);
+      arrivalInfo = `\n   tahmini varış: ${DAY_NAMES_LOCAL[dayOfWeek]} ~${timeHHMM.slice(0, 2)}:${timeHHMM.slice(2)}`;
+    }
+
     return (
       `${i + 1}. placeId: ${c.placeId}\n` +
       `   ad: ${c.name}\n` +
       `   puan: ${c.rating ?? 'N/A'} (${c.userRatingsTotal ?? 0} oy)\n` +
       `   kategoriler: ${(c.types || []).slice(0, 6).join(', ') || '—'}\n` +
-      `   adres: ${c.vicinity ?? '—'}`
+      `   adres: ${c.vicinity ?? '—'}` +
+      (c.projectedKm != null ? `\n   rotadaki konum: ~${Math.round(c.projectedKm)} km` : '') +
+      (c.detourKm != null ? `\n   sapma: ~${c.detourKm.toFixed(1)} km` : '') +
+      (c.zoneIndex && ZONE_LABELS[c.zoneIndex] ? `\n   rota bölgesi: ${ZONE_LABELS[c.zoneIndex]}` : '') +
+      arrivalInfo
     );
   });
 
   const system =
-    'Sen bir yemek-rota asistanısın. Sana verilen rota duraklarının HER BİRİ için ' +
-    '2-3 cümlelik, doğal ve samimi Türkçe bir "neden burada durmalı" gerekçesi yaz. ' +
-    'Gerekçeyi adayın puanı/kategorisi ve kullanıcı profiliyle ilişkilendir; abartı ve ' +
-    'uydurma bilgi yok. "priceLevel" gibi teknik ifade kullanma. Sadece geçerli JSON döndür: ' +
-    '{"reasons":{"<placeId>":"<gerekçe>"}}. Markdown, başlık veya başka metin YOK.';
+    'Sen bir yemek-rota asistanısın. Uzun bir yolculukta durak seçmek isteyen bir ' +
+    'kullanıcı için sana verilen her rota durağına neden uğraması gerektiğini 2-3 cümleyle açıkla.\n\n' +
+    '## Gerekçe Yapısı\n\n' +
+    'Cümle 1: Durakın rotadaki konumunu ve tahmini varış saatine göre öğün/mola bağlamını doğal dilde belirt ' +
+    '(ör. "rotanın orta bölgesinde, saat ~13:00\'da buradayken öğle molası için ideal").\n' +
+    'Cümle 2: Kullanıcı profiliyle kişisel bağ kur (mutfak zevki, geçmiş tercihler, yıldız geçmişi).\n' +
+    'Cümle 3: Adayın puanı/kategorisi ve sapma mesafesiyle kararı güçlendir.\n\n' +
+    '## İyi Örnek\n\n' +
+    '"Rotanın orta bölgesinde, tahminen öğle saatine denk gelecek bir mola için ideal bir nokta. ' +
+    'Profilinde ev yemeklerine sürekli yüksek puan verdiğin görülüyor — bu kategori tam tercihin. ' +
+    'Hasbihal 5.0 puana sahip ve yalnızca ~1.1 km sapmayla rotadan fazla ayrılmadan uğrayabilirsin."\n\n' +
+    '## Kötü Örnek (Bunlardan Kaçın)\n\n' +
+    '"İyi puanlı bir restoran, profiline uygun olabilir." → Rota bağlamı yok, çok genel.\n\n' +
+    '## Kurallar\n\n' +
+    '- Zone numarasını (zone 1/2/3) doğrudan yazma; "rotanın ilk/orta/son üçte biri" gibi doğal dil kullan\n' +
+    '- "priceLevel" gibi teknik ifade kullanma; "ekonomik", "uygun fiyatlı", "₺₺" gibi doğal Türkçe kullan\n' +
+    '- Abartı ve uydurma bilgi yasak\n' +
+    '- Sadece geçerli JSON döndür: {"reasons":{"<placeId>":"<gerekçe>"}}. Markdown veya başka metin YOK.';
 
   const user =
     `# Kullanıcı Profili\n${profileSummaryText || '(profil verisi yok)'}\n\n` +
     `# Rota Bağlamı\n${routeContext}\n\n` +
     `# Duraklar\n${lines.join('\n\n')}\n\n` +
-    'Yukarıdaki HER placeId için bir gerekçe üret.';
+    'Yukarıdaki HER placeId için yukarıdaki gerekçe yapısını izleyerek bir gerekçe üret.';
 
   const client = getClient();
   const resp = await client.messages.create({
@@ -834,6 +862,7 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
         profileSummaryText: profileSummary.text,
         routeContext,
         model,
+        waypointArrivalTimes,
       });
       for (const r of finalRecs) {
         if (r.manual && reasonMap[r.placeId]) r.reason = reasonMap[r.placeId];
