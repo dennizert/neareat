@@ -6,6 +6,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getMyReservations, cancelReservation } from '../../services/reservations';
 import type { Reservation } from '../../types';
+import { reservationRestaurantName } from '../../utils/reservationName';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -71,7 +72,7 @@ export default function MyReservationsScreen() {
         activeOpacity={0.85}
       >
         <View style={styles.cardTop}>
-          <Text style={styles.restaurantName} numberOfLines={1}>{item.restaurant.businessName}</Text>
+          <Text style={styles.restaurantName} numberOfLines={1}>{reservationRestaurantName(item)}</Text>
           <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
             <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
           </View>

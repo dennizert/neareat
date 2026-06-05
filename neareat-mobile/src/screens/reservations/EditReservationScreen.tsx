@@ -6,6 +6,7 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getReservationDetail, updateReservation } from '../../services/reservations';
 import type { Reservation } from '../../types';
+import { reservationRestaurantName } from '../../utils/reservationName';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -111,7 +112,7 @@ export default function EditReservationScreen() {
 
         {reservation && (
           <View style={styles.restaurantBadge}>
-            <Text style={styles.restaurantName}>🍽️ {reservation.restaurant.businessName}</Text>
+            <Text style={styles.restaurantName}>🍽️ {reservationRestaurantName(reservation)}</Text>
             <Text style={styles.updateNote}>
               ⚠️ Güncelleme yapıldığında mevcut rezervasyonunuz iptal edilerek yeni talep oluşturulur ve restoran onayı beklenir.
             </Text>

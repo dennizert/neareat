@@ -13,6 +13,7 @@ import {
 } from '../../services/reservations';
 import { useAuthStore } from '../../store/authStore';
 import type { Reservation, ReservationMessage } from '../../types';
+import { reservationRestaurantName } from '../../utils/reservationName';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -86,7 +87,7 @@ export default function ReservationDetailScreen() {
     saveReminderChoice(res.id, 'shown');
     Alert.alert(
       '📅 Rezervasyon Hatırlatması',
-      `Bugün saat ${res.time}'de ${res.restaurant.businessName} rezervasyonunuz bulunmaktadır. Katılım durumunuzu belirtebilir misiniz?`,
+      `Bugün saat ${res.time}'de ${reservationRestaurantName(res)} rezervasyonunuz bulunmaktadır. Katılım durumunuzu belirtebilir misiniz?`,
       [
         {
           text: 'Hayır, katılamayacağım. İptal etmek istiyorum.',
@@ -188,7 +189,7 @@ export default function ReservationDetailScreen() {
           {/* Restoran + Durum */}
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <Text style={styles.restaurantName}>{reservation.restaurant.businessName}</Text>
+              <Text style={styles.restaurantName}>{reservationRestaurantName(reservation)}</Text>
               <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
                 <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
               </View>

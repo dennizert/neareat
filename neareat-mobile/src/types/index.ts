@@ -415,7 +415,7 @@ export interface Reservation {
   createdAt: string;
   updatedAt: string;
   user: { id: string; displayName: string; photoUrl: string | null };
-  restaurant: { id: string; businessName: string; placePhotoUrl: string | null; userId: string };
+  restaurant: { id: string; businessName: string; displayName: string | null; placePhotoUrl: string | null; userId: string };
 }
 
 export interface ReservationMessage {

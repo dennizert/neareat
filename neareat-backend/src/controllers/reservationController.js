@@ -9,7 +9,7 @@ const RESERVATION_SELECT = {
   status: true, rejectionReason: true, attended: true,
   createdAt: true, updatedAt: true,
   user: { select: { id: true, displayName: true, photoUrl: true } },
-  restaurant: { select: { id: true, businessName: true, placePhotoUrl: true, userId: true } },
+  restaurant: { select: { id: true, businessName: true, displayName: true, placePhotoUrl: true, userId: true } },
 };
 
 // Mobil tarafın gönderdiği sabit liste ile uyumlu (MakeReservationScreen / EditReservationScreen)
