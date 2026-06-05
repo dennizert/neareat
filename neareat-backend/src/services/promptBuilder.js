@@ -814,8 +814,8 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext, ref
       `   kategoriler: ${(c.types || []).slice(0, 6).join(', ')}\n` +
       `   adres: ${c.vicinity ?? '—'}\n` +
       `   durum: ${c.openNow === false ? 'KAPALI' : c.openNow === true ? 'AÇIK' : 'belirsiz'}` +
-      // Uzun rota zone etiketi — yalnızca route flow'da set edilir
-      (c.zoneIndex ? `\n   zone: ${c.zoneIndex} (rota ${c.projectedKm} km)` : '') +
+      // Uzun rota bölge etiketi — yalnızca route flow'da set edilir
+      (c.zoneIndex ? `\n   rota bölgesi: ${['', 'rotanın ilk üçte biri', 'rotanın orta bölgesi', 'rotanın son üçte biri'][c.zoneIndex] || `bölge ${c.zoneIndex}`} (~${Math.round(c.projectedKm)} km)` : '') +
       (c.neverVisited ? '\n   [İLK ZİYARET — kullanıcı bu mekânı daha önce hiç favorilemememiş veya yorum yazmamış]' : '')
     );
   });
@@ -836,7 +836,7 @@ function buildVariableBlock({ candidates, location, mood, now, routeContext, ref
     text += '\n\n# Rota Bağlamı\n\n' + routeContext;
     text +=
       '\n\n# Rota Gerekçe Rehberi\n\n' +
-      'Bu bir ROTA önerisi — aday listesindeki "zone" ve "rota km" bilgilerini gerekçelere yansıt.\n' +
+      'Bu bir ROTA önerisi — aday listesindeki "rota bölgesi" ve km bilgilerini gerekçelere yansıt.\n' +
       'Her gerekçede şu unsurları doğal Türkçeyle birleştir:\n' +
       '  - Durakın rotadaki konumu ("rotanın ilk/orta/son üçte biri", "~100 km noktasında" vb)\n' +
       '  - Tahmini varış saatine göre öğün/mola bağlamı (sabah kahvaltısı molası, öğle, akşam yemeği vb)\n' +

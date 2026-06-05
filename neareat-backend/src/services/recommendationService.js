@@ -552,7 +552,7 @@ async function generateReasonsForPicks(picks, { profileSummaryText, routeContext
     '## Kötü Örnek (Bunlardan Kaçın)\n\n' +
     '"İyi puanlı bir restoran, profiline uygun olabilir." → Rota bağlamı yok, çok genel.\n\n' +
     '## Kurallar\n\n' +
-    '- Zone numarasını (zone 1/2/3) doğrudan yazma; "rotanın ilk/orta/son üçte biri" gibi doğal dil kullan\n' +
+    '- "rota bölgesi" alanı zaten doğal dile çevrilmiş ("rotanın ilk üçte biri" vb); bu ifadeleri aynen kullan, teknik terim türetme\n' +
     '- "priceLevel" gibi teknik ifade kullanma; "ekonomik", "uygun fiyatlı", "₺₺" gibi doğal Türkçe kullan\n' +
     '- Abartı ve uydurma bilgi yasak\n' +
     '- Sadece geçerli JSON döndür: {"reasons":{"<placeId>":"<gerekçe>"}}. Markdown veya başka metin YOK.';
@@ -802,9 +802,10 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
   if (isLongRoute) {
     routeContext +=
       `\n\nUZUN ROTA DAĞITIM KURALI (zorunlu):\n` +
-      `Bu rota 3 eşit zone'a bölündü (orta segment). Adaylar zone 1, 2 ve 3 etiketli.\n` +
-      `Tam 3 öneri seç ve her zone'dan EN AZ 1 tane olacak şekilde dağıt.\n` +
-      `Aynı zone'dan birden fazla seçme — kullanıcı rota boyunca farklı noktalarda durmak istiyor.`;
+      `Bu rota 3 eşit bölgeye ayrıldı: rotanın ilk üçte biri, orta bölge, son üçte biri.\n` +
+      `Her aday "rota bölgesi" etiketiyle hangi bölgeden geldiğini gösteriyor.\n` +
+      `Tam 3 öneri seç ve her bölgeden EN AZ 1 tane olacak şekilde dağıt.\n` +
+      `Aynı bölgeden birden fazla seçme — kullanıcı rota boyunca farklı noktalarda durmak istiyor.`;
   }
 
   const req = buildClaudeRequest({ profileSummary, candidates, location: origin, routeContext, now: nowOverride });
