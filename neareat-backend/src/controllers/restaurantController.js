@@ -91,6 +91,7 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
     } : null,
     announcement: dp?.announcementActive ? dp.announcement : null,
     acceptsReservations: dp?.acceptsReservations ?? false,
+    isRegistered: !!dp,
   };
 }
 
@@ -342,6 +343,7 @@ async function getDetails(req, res, next) {
       reservationUrl: rp?.reservationUrl ?? null,
       openingHoursOverride: rp?.openingHours ?? null,
       acceptsReservations: rp?.acceptsReservations ?? false,
+      isRegistered: !!rp,
       restaurantId: rp?.id ?? null,
       // Menu only for premium users
       menu: premium && rp ? rp.menuItems : [],

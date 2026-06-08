@@ -138,6 +138,12 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
             <Text style={styles.reservationBadge}>Rezervasyon</Text>
           </View>
         )}
+        {r.isRegistered && (
+          <View style={styles.iconLine}>
+            <AppIcon name="verified" size={12} color={C.primary} />
+            <Text style={styles.registeredBadge}>Eatlas'ta Kayıtlı</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -194,5 +200,6 @@ function makeStyles(C: Colors) {
     announcement: { flex: 1, fontSize: 11, color: C.textSecondary, fontStyle: 'italic' },
     reservationBadge: { fontSize: 11, color: C.success, fontWeight: '600' },
     newPlaceBadge: { fontSize: 11, color: C.travel, fontWeight: '700' },
+    registeredBadge: { fontSize: 11, color: C.primary, fontWeight: '600' },
   });
 }

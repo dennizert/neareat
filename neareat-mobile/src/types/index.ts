@@ -69,6 +69,7 @@ export interface Restaurant {
   // S6-5
   minutesUntilClose?: number | null;
   isNewlyOpened?: boolean;
+  isRegistered?: boolean;
 }
 
 export interface OpeningHoursPeriodTime {
@@ -631,6 +632,7 @@ export interface AiRecommendation {
     distanceKm: number;
     openNow: boolean | null;
     photoUrl: string | null;
+    isRegistered?: boolean;
   };
 }
 

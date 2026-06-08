@@ -447,6 +447,12 @@ export default function RestaurantDetailScreen() {
                   <Text style={styles.favTagText}>Favorilerinde</Text>
                 </View>
               )}
+              {detail.isRegistered && (
+                <View style={styles.registeredTag}>
+                  <AppIcon name="verified" size={12} color={C.primary} />
+                  <Text style={styles.registeredTagText}>Eatlas'ta Kayıtlı</Text>
+                </View>
+              )}
             </View>
             <TouchableOpacity style={styles.checkinPill} onPress={handleCheckin} activeOpacity={0.8}>
               <AppIcon name="checkin" size={15} color="#fff" />
@@ -928,6 +934,8 @@ function makeStyles(C: Colors) {
     meta: { fontSize: 14, color: C.textTertiary, marginTop: 2 },
     favTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
     favTagText: { fontSize: 12, color: C.error, fontWeight: '700' },
+    registeredTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+    registeredTagText: { fontSize: 12, color: C.primary, fontWeight: '700' },
     checkinPill: {
       flexDirection: 'row', alignItems: 'center', gap: 5,
       backgroundColor: C.primary, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7,

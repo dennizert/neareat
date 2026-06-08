@@ -12,6 +12,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import type { AiRecommendation, FeedbackSentiment } from '../types';
 import StarRating from './StarRating';
+import AppIcon from './AppIcon';
 import { formatDistance } from '../utils/haversine';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
@@ -131,6 +132,12 @@ const RecommendationCard = React.memo(function RecommendationCard({
         {neverVisited && (
           <View style={styles.newPlaceBadge}>
             <Text style={styles.newPlaceBadgeText}>✨ Daha önce gitmediniz</Text>
+          </View>
+        )}
+        {r.isRegistered && (
+          <View style={styles.registeredBadge}>
+            <AppIcon name="verified" size={11} color={C.primary} />
+            <Text style={styles.registeredBadgeText}>Eatlas'ta Kayıtlı</Text>
           </View>
         )}
 
@@ -331,6 +338,17 @@ function makeStyles(C: Colors) {
       fontSize: 12,
       fontWeight: '600',
       color: C.success,
+    },
+    registeredBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 4,
+      marginBottom: 6,
+    },
+    registeredBadgeText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: C.primary,
     },
 
     // AI gerekçesi — mor kart: kullanıcı bu metnin yapay zekadan geldiğini anlasın

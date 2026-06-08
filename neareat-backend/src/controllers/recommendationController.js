@@ -128,6 +128,7 @@ async function getDinnerTonight(req, res, next) {
         distanceKm: r.candidate.distanceKm,
         openNow: r.candidate.openNow,
         photoUrl: r.candidate.photoUrl ?? null,
+        isRegistered: r.candidate.isRegistered ?? false,
       },
     }));
 
@@ -439,6 +440,7 @@ async function getRouteTonightRecommendation(req, res, next) {
         distanceKm: r.candidate.distanceKm,
         openNow: r.candidate.openNow,
         photoUrl: r.candidate.photoUrl ?? null,
+        isRegistered: r.candidate.isRegistered ?? false,
         sequenceOrder: i + 1,
         detourKm: r.detourKm ?? null,
         openAtArrival: r.openAtArrival ?? null,

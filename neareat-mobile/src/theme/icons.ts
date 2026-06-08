@@ -52,6 +52,7 @@ export const ICONS = {
   back: 'chevron-back',
   chevronRight: 'chevron-forward',
   check: 'checkmark',
+  verified: 'checkmark-circle-outline',
   reject: 'close-circle-outline',
   info: 'information-circle-outline',
   warning: 'warning-outline',

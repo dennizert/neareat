@@ -203,7 +203,7 @@ function scoreCandidate(place, distanceKm, prefs) {
  * Google Places place objesini LLM-dostu hafif şekle dönüştür.
  * Token tasarrufu için sadece gerekli alanlar.
  */
-function toCandidate(place, distanceKm, score, photoUrl = null, neverVisited = false) {
+function toCandidate(place, distanceKm, score, photoUrl = null, neverVisited = false, isRegistered = false) {
   return {
     placeId: place.place_id,
     name: place.name,
@@ -219,6 +219,7 @@ function toCandidate(place, distanceKm, score, photoUrl = null, neverVisited = f
     openNow: place.opening_hours?.open_now ?? null,
     photoUrl,
     neverVisited,
+    isRegistered,
     score: Number(score.toFixed(3)),
   };
 }
@@ -294,8 +295,17 @@ async function getCandidates(userId, { lat, lng }) {
     );
   }
 
+  const topPlaceIds = top.map((e) => e.place.place_id);
+  const approvedProfiles = topPlaceIds.length
+    ? await prisma.restaurantProfile.findMany({
+        where: { placeId: { in: topPlaceIds }, status: 'APPROVED' },
+        select: { placeId: true },
+      })
+    : [];
+  const registeredSet = new Set(approvedProfiles.map((p) => p.placeId));
+
   const candidates = top.map((e) =>
-    toCandidate(e.place, e.distanceKm, e.score, photoMap.get(e.place.place_id) ?? null, e.neverVisited)
+    toCandidate(e.place, e.distanceKm, e.score, photoMap.get(e.place.place_id) ?? null, e.neverVisited, registeredSet.has(e.place.place_id))
   );
 
   return {

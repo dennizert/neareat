@@ -431,6 +431,7 @@ async function recommendStream({
         distanceKm: r.candidate.distanceKm,
         openNow: r.candidate.openNow,
         photoUrl: r.candidate.photoUrl ?? null,
+        isRegistered: r.candidate.isRegistered ?? false,
       },
     });
   }
