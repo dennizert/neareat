@@ -450,7 +450,7 @@ export default function RestaurantDetailScreen() {
               {detail.isRegistered && (
                 <View style={styles.registeredTag}>
                   <AppIcon name="verified" size={12} color={C.primary} />
-                  <Text style={styles.registeredTagText}>Eatlas'ta Kayıtlı</Text>
+                  <Text style={styles.registeredTagText}>Eatlas Ortağı</Text>
                 </View>
               )}
             </View>

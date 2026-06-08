@@ -137,7 +137,7 @@ const RecommendationCard = React.memo(function RecommendationCard({
         {r.isRegistered && (
           <View style={styles.registeredBadge}>
             <AppIcon name="verified" size={11} color={C.primary} />
-            <Text style={styles.registeredBadgeText}>Eatlas'ta Kayıtlı</Text>
+            <Text style={styles.registeredBadgeText}>Eatlas Ortağı</Text>
           </View>
         )}
 

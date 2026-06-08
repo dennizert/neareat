@@ -141,7 +141,7 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
         {r.isRegistered && (
           <View style={styles.iconLine}>
             <AppIcon name="verified" size={12} color={C.primary} />
-            <Text style={styles.registeredBadge}>Eatlas'ta Kayıtlı</Text>
+            <Text style={styles.registeredBadge}>Eatlas Ortağı</Text>
           </View>
         )}
       </View>
