@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eatlas — Monogram E İnce Ayar</title>
+<style>
+  :root{--ink:#14101a;--card:#1f1a24;--line:rgba(255,255,255,.08);--txt:#ECE7F2;--muted:#9C92A8;--amber:#FFB627}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--txt);
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;padding:48px 24px 90px}
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;letter-spacing:-.5px;margin:0 0 6px}
+  h1 .g{background:linear-gradient(90deg,#FF5A3C,#FF7A34 55%,#FFB627);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:var(--muted);max-width:720px;margin:0 0 30px;font-size:15px}
+  h2.sec{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--amber);
+    margin:38px 0 16px;border-bottom:1px solid var(--line);padding-bottom:9px}
+  h2.sec small{color:var(--muted);text-transform:none;letter-spacing:0;font-weight:400;margin-left:8px}
+  .row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  @media(max-width:860px){.row{grid-template-columns:repeat(2,1fr)}}
+  .cell{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;text-align:center}
+  .cell.sel{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+  .hero{width:128px;height:128px;border-radius:30px;overflow:hidden;margin:0 auto 12px;box-shadow:0 14px 32px -12px rgba(0,0,0,.6)}
+  .nm{font-weight:700;font-size:15px;margin-bottom:2px}
+  .ds{color:var(--muted);font-size:12.5px;min-height:32px}
+  .mini{margin-top:10px;display:flex;justify-content:center;gap:8px;align-items:center}
+  .mini .s{border-radius:22%;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+  svg{display:block;width:100%;height:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="g">Eatlas</span> — Monogram E · İnce Ayar</h1>
+  <p class="lead">Üç eksen: <b>zemin</b>, <b>gradient yönü</b>, <b>harf ağırlığı</b>.
+  Her satırdan bir favori söyle (örn. “A2 + B2 + C3”), onları birleştirip final ikonu üretirim.
+  Vurgulu kart = baz aldığımız E2.</p>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="gDiag" gradientUnits="userSpaceOnUse" x1="160" y1="150" x2="350" y2="360">
+      <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/></linearGradient>
+    <linearGradient id="gHorz" gradientUnits="userSpaceOnUse" x1="178" y1="256" x2="338" y2="256">
+      <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/></linearGradient>
+    <linearGradient id="gVert" gradientUnits="userSpaceOnUse" x1="256" y1="150" x2="256" y2="362">
+      <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/></linearGradient>
+    <linearGradient id="bgGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="512" y2="512">
+      <stop offset="0" stop-color="#251E32"/><stop offset="1" stop-color="#120E18"/></linearGradient>
+
+    <!-- E weights as reusable groups -->
+    <g id="EW1"><rect x="178" y="150" width="42" height="214" rx="18"/><rect x="178" y="150" width="158" height="42" rx="18"/><rect x="178" y="236" width="128" height="40" rx="18"/><rect x="178" y="322" width="158" height="42" rx="18"/></g>
+    <g id="EW2"><rect x="176" y="150" width="50" height="214" rx="20"/><rect x="176" y="150" width="162" height="48" rx="20"/><rect x="176" y="232" width="134" height="46" rx="20"/><rect x="176" y="316" width="162" height="48" rx="20"/></g>
+    <g id="EW3"><rect x="182" y="156" width="36" height="202" rx="17"/><rect x="182" y="156" width="150" height="36" rx="18"/><rect x="182" y="238" width="114" height="34" rx="17"/><rect x="182" y="322" width="150" height="36" rx="18"/></g>
+
+    <!-- ROW A: backgrounds (diag gradient, W1) -->
+    <symbol id="a1" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#1C1726"/><use href="#EW1" fill="url(#gDiag)"/></symbol>
+    <symbol id="a2" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#16121C"/><use href="#EW1" fill="url(#gDiag)"/></symbol>
+    <symbol id="a3" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#100C16"/><use href="#EW1" fill="url(#gDiag)"/></symbol>
+    <symbol id="a4" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="url(#bgGrad)"/><use href="#EW1" fill="url(#gDiag)"/></symbol>
+
+    <!-- ROW B: gradient direction (plum bg, W1) -->
+    <symbol id="b1" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#16121C"/><use href="#EW1" fill="url(#gDiag)"/></symbol>
+    <symbol id="b2" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#16121C"/><use href="#EW1" fill="url(#gHorz)"/></symbol>
+    <symbol id="b3" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#16121C"/><use href="#EW1" fill="url(#gVert)"/></symbol>
+
+    <!-- ROW C: weight (plum bg, horizontal gradient) -->
+    <symbol id="c1" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#16121C"/><use href="#EW1" fill="url(#gHorz)"/></symbol>
+    <symbol id="c2" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#16121C"/><use href="#EW2" fill="url(#gHorz)"/></symbol>
+    <symbol id="c3" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#16121C"/><use href="#EW3" fill="url(#gHorz)"/></symbol>
+  </defs></svg>
+
+  <h2 class="sec">A · Zemin <small>(diagonal gradient · normal ağırlık)</small></h2>
+  <div class="row">
+    <div class="cell sel"><div class="hero"><svg viewBox="0 0 512 512"><use href="#a1"/></svg></div><div class="nm">A1 · Charcoal</div><div class="ds">#1C1726 — E2 bazı, dengeli koyu.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#a1"/></svg></div></div></div>
+    <div class="cell"><div class="hero"><svg viewBox="0 0 512 512"><use href="#a2"/></svg></div><div class="nm">A2 · Plum</div><div class="ds">#16121C — biraz daha derin, sıcak mor alt-ton.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#a2"/></svg></div></div></div>
+    <div class="cell"><div class="hero"><svg viewBox="0 0 512 512"><use href="#a3"/></svg></div><div class="nm">A3 · Near-black</div><div class="ds">#100C16 — en koyu, en yüksek kontrast.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#a3"/></svg></div></div></div>
+    <div class="cell"><div class="hero"><svg viewBox="0 0 512 512"><use href="#a4"/></svg></div><div class="nm">A4 · Degrade zemin</div><div class="ds">#251E32→#120E18 — zeminde hafif derinlik.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#a4"/></svg></div></div></div>
+  </div>
+
+  <h2 class="sec">B · Gradient Yönü <small>(plum zemin · normal ağırlık)</small></h2>
+  <div class="row">
+    <div class="cell sel"><div class="hero"><svg viewBox="0 0 512 512"><use href="#b1"/></svg></div><div class="nm">B1 · Diagonal ↘</div><div class="ds">Sol-üst coral → sağ-alt amber. Dinamik.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#b1"/></svg></div></div></div>
+    <div class="cell"><div class="hero"><svg viewBox="0 0 512 512"><use href="#b2"/></svg></div><div class="nm">B2 · Yatay →</div><div class="ds">Kelime-logosuyla birebir uyumlu. Önerilen.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#b2"/></svg></div></div></div>
+    <div class="cell"><div class="hero"><svg viewBox="0 0 512 512"><use href="#b3"/></svg></div><div class="nm">B3 · Dikey ↓</div><div class="ds">Üst coral → alt amber. Sakin, oturaklı.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#b3"/></svg></div></div></div>
+    <div class="cell" style="opacity:.35;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)">—</div>
+  </div>
+
+  <h2 class="sec">C · Harf Ağırlığı <small>(plum zemin · yatay gradient)</small></h2>
+  <div class="row">
+    <div class="cell sel"><div class="hero"><svg viewBox="0 0 512 512"><use href="#c1"/></svg></div><div class="nm">C1 · Normal</div><div class="ds">E2'nin mevcut ağırlığı. Dengeli.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#c1"/></svg></div></div></div>
+    <div class="cell"><div class="hero"><svg viewBox="0 0 512 512"><use href="#c2"/></svg></div><div class="nm">C2 · Kalın</div><div class="ds">Daha tombul, daha “tok” ve iddialı.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#c2"/></svg></div></div></div>
+    <div class="cell"><div class="hero"><svg viewBox="0 0 512 512"><use href="#c3"/></svg></div><div class="nm">C3 · İnce</div><div class="ds">Daha narin, zarif, “butik” hava.</div><div class="mini"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#c3"/></svg></div></div></div>
+    <div class="cell" style="opacity:.35;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted)">—</div>
+  </div>
+
+</div>
+</body>
+</html>

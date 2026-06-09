@@ -7,8 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
+      "image": "./assets/splash-logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#14101C"
+      "backgroundColor": "#100C16"
     },
     "scheme": "neareat",
     "ios": {
@@ -26,7 +27,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#14101C"
+        "backgroundColor": "#100C16"
       },
       "package": "com.eatlas.mobile",
       "versionCode": 29,
@@ -35,6 +36,10 @@
         "ACCESS_COARSE_LOCATION",
         "INTERNET",
         "READ_EXTERNAL_STORAGE"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ],
       "config": {
         "googleMaps": {
@@ -59,6 +64,15 @@
     },
     "plugins": [
       "./plugins/withAndroidBuildFixes",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#100C16"
+        }
+      ],
       "expo-location",
       "expo-notifications",
       [

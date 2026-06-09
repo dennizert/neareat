@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Eatlas — Login Tasarım Önizleme</title>
+<style>
+  body{margin:0;background:#0d0a12;color:#ECE7F2;
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:40px 20px 70px}
+  .wrap{max-width:920px;margin:0 auto}
+  h1{font-size:26px;font-weight:800;margin:0 0 4px}
+  h1 .g{background:linear-gradient(90deg,#FF5A3C,#FF7A34 55%,#FFB627);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:#9C92A8;margin:0 0 34px;font-size:14.5px}
+  .stage{display:flex;gap:36px;justify-content:center;flex-wrap:wrap}
+  .col{text-align:center}
+  .cap{margin-top:14px;color:#9C92A8;font-size:13px}
+  .phone{width:340px;height:710px;border-radius:42px;padding:12px;background:#000;
+    box-shadow:0 30px 70px -20px rgba(0,0,0,.8);position:relative}
+  .screen{width:100%;height:100%;border-radius:32px;overflow:hidden;position:relative}
+
+  /* ---- ortak iç düzen ---- */
+  .scr{position:absolute;inset:0;padding:26px 22px;display:flex;flex-direction:column;align-items:center}
+  .corner{position:absolute;top:18px;left:22px;font-weight:800;font-size:17px;letter-spacing:.2px}
+  .corner .g{background:linear-gradient(90deg,#FF5A3C,#FF7A34 55%,#FFB627);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .mark{width:78px;height:78px;border-radius:22px;background:#100C16;display:flex;align-items:center;justify-content:center;
+    margin-top:64px;box-shadow:0 8px 22px -4px rgba(255,90,60,.45)}
+  .mark span{font-weight:900;font-size:48px;line-height:1;
+    background:linear-gradient(90deg,#FF5A3C,#FF7A34 55%,#FFB627);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .ttl{font-size:27px;font-weight:800;margin:20px 0 7px;letter-spacing:-.3px}
+  .sub{font-size:13.5px;line-height:1.5;text-align:center;margin:0 0 24px;padding:0 6px}
+  .card{width:100%;border-radius:20px;padding:18px;border:1px solid;box-sizing:border-box;
+    box-shadow:0 10px 30px -10px rgba(0,0,0,.35)}
+  .tabs{display:flex;border-radius:11px;padding:4px;margin-bottom:18px}
+  .tab{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-size:13.5px;font-weight:500}
+  .lbl{font-size:12.5px;font-weight:600;margin:12px 0 6px}
+  .inp{display:flex;align-items:center;gap:9px;border-radius:11px;padding:0 13px;border:1.5px solid transparent}
+  .inp svg{width:17px;height:17px;flex:0 0 auto}
+  .inp .ph{flex:1;padding:12px 0;font-size:14px}
+  .forgot{text-align:right;font-size:12.5px;font-weight:600;margin-top:11px}
+  .btn{border-radius:13px;padding:15px 0;text-align:center;font-size:15px;font-weight:800;margin-top:16px;letter-spacing:.2px}
+  .reg{text-align:center;font-size:13.5px;margin-top:16px}
+  .rest{text-align:center;font-size:12.5px;margin-top:24px}
+  svg.i{width:17px;height:17px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="g">Eatlas</span> — Login Tasarım</h1>
+  <p class="lead">Köşede wordmark · ortada marka rozeti (app ikonuyla aynı) · ikonlu input'lar · derinlikli kart.
+  Soldan açık tema, sağdan koyu tema.</p>
+
+  <div class="stage">
+    <!-- ====== AÇIK TEMA ====== -->
+    <div class="col">
+      <div class="phone"><div class="screen" style="background:#FBF7F2;color:#1F1A24">
+        <div class="scr">
+          <div class="corner"><span class="g">Eatlas</span></div>
+          <div class="mark"><span>E</span></div>
+          <div class="ttl" style="color:#1F1A24">Hoş geldin</div>
+          <div class="sub" style="color:#5C5366">Favorilerini kaydet, yorum yap, kişiselleştirilmiş deneyim yaşa.</div>
+
+          <div class="card" style="background:#fff;border-color:rgba(22,18,28,.10)">
+            <div class="tabs" style="background:#F4EFE8">
+              <div class="tab" style="background:#fff;color:#1F1A24;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.1)">E-posta</div>
+              <div class="tab" style="color:#8C8198">Google</div>
+            </div>
+            <div class="lbl" style="color:#5C5366">E-posta</div>
+            <div class="inp" style="background:#F4EFE8">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#8C8198" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+              <div class="ph" style="color:#B0A6BC">ornek@email.com</div>
+            </div>
+            <div class="lbl" style="color:#5C5366">Şifre</div>
+            <div class="inp" style="background:#fff;border-color:#E84427">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#E84427" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+              <div class="ph" style="color:#1F1A24">••••••••</div>
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="#8C8198" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <div class="forgot" style="color:#C7381E">Şifremi Unuttum</div>
+            <div class="btn" style="background:#E84427;color:#fff;box-shadow:0 8px 18px -4px rgba(232,68,39,.5)">Giriş Yap</div>
+            <div class="reg" style="color:#8C8198">Hesabın yok mu? <b style="color:#C7381E">Kayıt Ol</b></div>
+          </div>
+          <div class="rest" style="color:#B0A6BC">İşletme sahibi misiniz? <b style="color:#C7381E">İşletme Hesabı Oluştur</b></div>
+        </div>
+      </div></div>
+      <div class="cap">Açık tema</div>
+    </div>
+
+    <!-- ====== KOYU TEMA ====== -->
+    <div class="col">
+      <div class="phone"><div class="screen" style="background:#16121C;color:#F7F1EA">
+        <div class="scr">
+          <div class="corner"><span class="g">Eatlas</span></div>
+          <div class="mark"><span>E</span></div>
+          <div class="ttl" style="color:#F7F1EA">Hoş geldin</div>
+          <div class="sub" style="color:#B9AEC4">Favorilerini kaydet, yorum yap, kişiselleştirilmiş deneyim yaşa.</div>
+
+          <div class="card" style="background:#211B2A;border-color:rgba(255,255,255,.10)">
+            <div class="tabs" style="background:#2A2335">
+              <div class="tab" style="background:#211B2A;color:#F7F1EA;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.4)">E-posta</div>
+              <div class="tab" style="color:#7E7589">Google</div>
+            </div>
+            <div class="lbl" style="color:#B9AEC4">E-posta</div>
+            <div class="inp" style="background:#2A2335">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#7E7589" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+              <div class="ph" style="color:#5F566B">ornek@email.com</div>
+            </div>
+            <div class="lbl" style="color:#B9AEC4">Şifre</div>
+            <div class="inp" style="background:#211B2A;border-color:#FF5A3C">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#FF5A3C" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+              <div class="ph" style="color:#F7F1EA">••••••••</div>
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="#7E7589" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+            <div class="forgot" style="color:#FF5A3C">Şifremi Unuttum</div>
+            <div class="btn" style="background:#FF5A3C;color:#16121C;box-shadow:0 8px 18px -4px rgba(255,90,60,.5)">Giriş Yap</div>
+            <div class="reg" style="color:#7E7589">Hesabın yok mu? <b style="color:#FF5A3C">Kayıt Ol</b></div>
+          </div>
+          <div class="rest" style="color:#5F566B">İşletme sahibi misiniz? <b style="color:#FF5A3C">İşletme Hesabı Oluştur</b></div>
+        </div>
+      </div></div>
+      <div class="cap">Koyu tema</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

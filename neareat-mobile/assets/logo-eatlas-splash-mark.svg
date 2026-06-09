@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="gHorz" gradientUnits="userSpaceOnUse" x1="380" y1="512" x2="650" y2="512">
+      <stop offset="0" stop-color="#FF5A3C"/>
+      <stop offset="0.55" stop-color="#FF7A34"/>
+      <stop offset="1" stop-color="#FFB627"/>
+    </linearGradient>
+  </defs>
+  <!-- Kompakt dikey kilit: Android 12+ daire maskesine sığacak şekilde merkezde -->
+  <g fill="url(#gHorz)">
+    <rect x="452" y="360" width="36" height="190" rx="16"/>
+    <rect x="452" y="360" width="120" height="36" rx="16"/>
+    <rect x="452" y="447" width="96" height="34" rx="16"/>
+    <rect x="452" y="514" width="120" height="36" rx="16"/>
+  </g>
+  <text x="512" y="642" text-anchor="middle" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+        font-size="78" font-weight="800" letter-spacing="1" fill="url(#gHorz)">Eatlas</text>
+</svg>

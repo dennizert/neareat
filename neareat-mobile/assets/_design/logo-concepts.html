@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eatlas — Logo Konseptleri</title>
+<style>
+  :root{
+    --coral:#FF5A3C; --orange:#FF7A34; --amber:#FFB627;
+    --ink:#14101a; --card:#1f1a24; --line:rgba(255,255,255,.08);
+    --txt:#ECE7F2; --muted:#9C92A8; --cream:#FBF7F2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--txt);
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;padding:48px 24px 80px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:34px;font-weight:800;letter-spacing:-.5px;margin:0 0 6px}
+  h1 .g{background:linear-gradient(90deg,var(--coral),var(--orange) 55%,var(--amber));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:var(--muted);max-width:680px;margin:0 0 40px;font-size:15px}
+  .grid{display:grid;gap:22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:24px;
+    padding:26px;display:grid;grid-template-columns:200px 1fr;gap:28px;align-items:center}
+  @media(max-width:680px){.card{grid-template-columns:1fr;text-align:center}}
+  .hero{width:180px;height:180px;border-radius:40px;overflow:hidden;
+    box-shadow:0 18px 40px -12px rgba(0,0,0,.6);justify-self:center}
+  .meta .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.6px;
+    text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+  .meta h2{margin:0 0 8px;font-size:22px;font-weight:700}
+  .meta p{margin:0 0 16px;color:var(--muted);font-size:14.5px;max-width:560px}
+  .sizes{display:flex;align-items:center;gap:14px}
+  .sizes .s{border-radius:22%;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+  .sizes .lbl{font-size:11px;color:var(--muted);margin-left:4px}
+  svg{display:block;width:100%;height:100%}
+  .foot{margin-top:48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="g">Eatlas</span> — Logo Konseptleri</h1>
+  <p class="lead">"Eat" (yemek) + "Atlas" (harita/keşif) fikrini marka gradient'iyle
+  (coral&nbsp;→&nbsp;amber) birleştiren 6 premium yön. Her konsept büyük ve küçük
+  (48/32/24&nbsp;px) boyutta gösteriliyor — küçükte okunaklılık premium app ikonunun testidir.</p>
+
+  <!-- ===== Hidden symbol library ===== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+
+    <!-- 1: Monogram E -->
+    <symbol id="c1" viewBox="0 0 512 512">
+      <defs><linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="150" y1="150" x2="360" y2="362">
+        <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/>
+      </linearGradient></defs>
+      <rect width="512" height="512" rx="110" fill="#FBF7F2"/>
+      <g fill="url(#g1)">
+        <rect x="178" y="150" width="42" height="214" rx="18"/>
+        <rect x="178" y="150" width="158" height="42" rx="18"/>
+        <rect x="178" y="236" width="128" height="40" rx="18"/>
+        <rect x="178" y="322" width="158" height="42" rx="18"/>
+      </g>
+    </symbol>
+
+    <!-- 2: Fork & Knife Pin -->
+    <symbol id="c2" viewBox="0 0 512 512">
+      <defs><linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="150" y1="116" x2="360" y2="396">
+        <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/>
+      </linearGradient></defs>
+      <rect width="512" height="512" rx="110" fill="#FBF7F2"/>
+      <path fill="url(#g2)" d="M256 112c-58 0-106 47-106 108 0 82 106 184 106 184s106-102 106-184c0-61-48-108-106-108z"/>
+      <g fill="#FBF7F2">
+        <!-- fork -->
+        <rect x="216" y="166" width="7" height="34" rx="3.5"/>
+        <rect x="229" y="166" width="7" height="34" rx="3.5"/>
+        <rect x="242" y="166" width="7" height="34" rx="3.5"/>
+        <path d="M216 196 h33 v10 a6 6 0 0 1 -6 6 h-6 v76 a8 8 0 0 1 -9 0 v-76 h-6 a6 6 0 0 1 -6 -6 z"/>
+        <!-- knife -->
+        <path d="M286 166 c14 0 18 18 18 40 0 18 -5 26 -12 28 v54 a7 7 0 0 1 -12 0 v-122 z"/>
+      </g>
+    </symbol>
+
+    <!-- 3: Plate Atlas (refined globe) -->
+    <symbol id="c3" viewBox="0 0 512 512">
+      <defs><linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="138" y1="128" x2="374" y2="364">
+        <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/>
+      </linearGradient></defs>
+      <rect width="512" height="512" rx="110" fill="#1C1726"/>
+      <g fill="none" stroke="url(#g3)" stroke-width="13">
+        <circle cx="256" cy="246" r="116"/>
+        <ellipse cx="256" cy="246" rx="116" ry="44" stroke-width="9"/>
+        <ellipse cx="256" cy="246" rx="44" ry="116" stroke-width="9"/>
+      </g>
+      <path fill="url(#g3)" d="M256 196c-21 0-38 17-38 38 0 29 38 64 38 64s38-35 38-64c0-21-17-38-38-38z"/>
+      <circle cx="256" cy="232" r="13" fill="#1C1726"/>
+    </symbol>
+
+    <!-- 4: Contour / Steam -->
+    <symbol id="c4" viewBox="0 0 512 512">
+      <defs><linearGradient id="g4" gradientUnits="userSpaceOnUse" x1="110" y1="110" x2="402" y2="402">
+        <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/>
+      </linearGradient></defs>
+      <rect width="512" height="512" rx="110" fill="#FBF7F2"/>
+      <g fill="none" stroke="url(#g4)" stroke-linecap="round">
+        <ellipse cx="256" cy="258" rx="40" ry="34" stroke-width="17"/>
+        <ellipse cx="250" cy="252" rx="82" ry="70" stroke-width="14"/>
+        <ellipse cx="244" cy="248" rx="124" ry="106" stroke-width="11"/>
+        <ellipse cx="238" cy="244" rx="166" ry="142" stroke-width="8"/>
+      </g>
+    </symbol>
+
+    <!-- 5: Bitten Pin -->
+    <symbol id="c5" viewBox="0 0 512 512">
+      <defs>
+        <linearGradient id="g5" gradientUnits="userSpaceOnUse" x1="150" y1="116" x2="360" y2="396">
+          <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/>
+        </linearGradient>
+        <mask id="bite">
+          <rect width="512" height="512" fill="#fff"/>
+          <circle cx="346" cy="178" r="52" fill="#000"/>
+        </mask>
+      </defs>
+      <rect width="512" height="512" rx="110" fill="#1C1726"/>
+      <path mask="url(#bite)" fill="url(#g5)" d="M256 112c-58 0-106 47-106 108 0 82 106 184 106 184s106-102 106-184c0-61-48-108-106-108z"/>
+      <circle cx="256" cy="222" r="30" fill="#1C1726"/>
+    </symbol>
+
+    <!-- 6: Compass / Discovery -->
+    <symbol id="c6" viewBox="0 0 512 512">
+      <defs><linearGradient id="g6" gradientUnits="userSpaceOnUse" x1="130" y1="120" x2="382" y2="372">
+        <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/>
+      </linearGradient></defs>
+      <rect width="512" height="512" rx="110" fill="#FBF7F2"/>
+      <path fill="url(#g6)" d="M256 118 L288 214 L384 246 L288 278 L256 374 L224 278 L128 246 L224 214 Z"/>
+      <circle cx="256" cy="246" r="30" fill="#FBF7F2"/>
+      <circle cx="256" cy="246" r="13" fill="url(#g6)"/>
+    </symbol>
+  </svg>
+
+  <div class="grid">
+
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#c1"/></svg></div>
+      <div class="meta">
+        <span class="tag">01 · Monogram</span>
+        <h2>Eatlas “E”</h2>
+        <p>Tek harfli, geometrik letter-mark. En premium ve en ölçeklenebilir yön —
+        küçük boyutta bile net, marka olgunlaştığında küre/çatal gibi süslere ihtiyaç
+        duymadan kendi başına durur. Krem zemin + sıcak gradient.</p>
+        <div class="sizes">
+          <div class="s" style="width:48px;height:48px"><svg viewBox="0 0 512 512"><use href="#c1"/></svg></div>
+          <div class="s" style="width:32px;height:32px"><svg viewBox="0 0 512 512"><use href="#c1"/></svg></div>
+          <div class="s" style="width:24px;height:24px"><svg viewBox="0 0 512 512"><use href="#c1"/></svg></div>
+          <span class="lbl">48 / 32 / 24 px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#c2"/></svg></div>
+      <div class="meta">
+        <span class="tag">02 · Yemek + Konum</span>
+        <h2>Çatal-Bıçak Pin</h2>
+        <p>Harita pini (Atlas) içinde çatal &amp; bıçak (Eat). İki kavramı tek sembolde
+        birleştiren en “anlatımcı” yön — ne yaptığını ilk bakışta söyler. Dolu gradient pin,
+        beyaz negatif boşlukta gereçler.</p>
+        <div class="sizes">
+          <div class="s" style="width:48px;height:48px"><svg viewBox="0 0 512 512"><use href="#c2"/></svg></div>
+          <div class="s" style="width:32px;height:32px"><svg viewBox="0 0 512 512"><use href="#c2"/></svg></div>
+          <div class="s" style="width:24px;height:24px"><svg viewBox="0 0 512 512"><use href="#c2"/></svg></div>
+          <span class="lbl">48 / 32 / 24 px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#c3"/></svg></div>
+      <div class="meta">
+        <span class="tag">03 · Mevcudun Evrimi</span>
+        <h2>Tabak-Atlas</h2>
+        <p>Şu anki küre fikrinin rafine, premium hâli: ince gradient meridyen çizgileri +
+        merkezde konum pini. Koyu zemin lüks bir his verir. Mevcut kimlikten kopmadan
+        “oyunsu”luktan kurtulmak istersen en güvenli geçiş.</p>
+        <div class="sizes">
+          <div class="s" style="width:48px;height:48px"><svg viewBox="0 0 512 512"><use href="#c3"/></svg></div>
+          <div class="s" style="width:32px;height:32px"><svg viewBox="0 0 512 512"><use href="#c3"/></svg></div>
+          <div class="s" style="width:24px;height:24px"><svg viewBox="0 0 512 512"><use href="#c3"/></svg></div>
+          <span class="lbl">48 / 32 / 24 px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#c4"/></svg></div>
+      <div class="meta">
+        <span class="tag">04 · Soyut / Modern</span>
+        <h2>Kontur &amp; Buhar</h2>
+        <p>İç içe eş-yükselti (topografik harita) çizgileri — aynı zamanda yemekten yükselen
+        buharı çağrıştırır. Atlas + Eat fikrini soyut ve çok modern bir dille söyler.
+        En “tasarımcı işi” premium yön.</p>
+        <div class="sizes">
+          <div class="s" style="width:48px;height:48px"><svg viewBox="0 0 512 512"><use href="#c4"/></svg></div>
+          <div class="s" style="width:32px;height:32px"><svg viewBox="0 0 512 512"><use href="#c4"/></svg></div>
+          <div class="s" style="width:24px;height:24px"><svg viewBox="0 0 512 512"><use href="#c4"/></svg></div>
+          <span class="lbl">48 / 32 / 24 px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#c5"/></svg></div>
+      <div class="meta">
+        <span class="tag">05 · Akılda Kalıcı</span>
+        <h2>Isırık Pin</h2>
+        <p>Harita pininden bir ısırık alınmış (Eat). Sade, cesur ve hatırlanması kolay bir
+        silüet — koyu zeminde tek renk gradient ile çok tok durur. Genç ve enerjik marka
+        sesi isteyen yön.</p>
+        <div class="sizes">
+          <div class="s" style="width:48px;height:48px"><svg viewBox="0 0 512 512"><use href="#c5"/></svg></div>
+          <div class="s" style="width:32px;height:32px"><svg viewBox="0 0 512 512"><use href="#c5"/></svg></div>
+          <div class="s" style="width:24px;height:24px"><svg viewBox="0 0 512 512"><use href="#c5"/></svg></div>
+          <span class="lbl">48 / 32 / 24 px</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#c6"/></svg></div>
+      <div class="meta">
+        <span class="tag">06 · Keşif</span>
+        <h2>Pusula</h2>
+        <p>Dört köşeli pusula yıldızı — “keşfet / yakınında ne var” fikrini doğrudan anlatır.
+        Atlas/seyahat ruhunu yemekle değil keşifle bağlar. Net, kurumsal ve premium.</p>
+        <div class="sizes">
+          <div class="s" style="width:48px;height:48px"><svg viewBox="0 0 512 512"><use href="#c6"/></svg></div>
+          <div class="s" style="width:32px;height:32px"><svg viewBox="0 0 512 512"><use href="#c6"/></svg></div>
+          <div class="s" style="width:24px;height:24px"><svg viewBox="0 0 512 512"><use href="#c6"/></svg></div>
+          <span class="lbl">48 / 32 / 24 px</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="foot">Tümü vektör (SVG) — seçtiğinde 512/1024 px PNG + Android adaptive-icon
+  (foreground + background) olarak export ederim. Zemin (krem ↔ koyu) ve gradient açısı
+  her konseptte kolayca değiştirilebilir.</p>
+</div>
+</body>
+</html>

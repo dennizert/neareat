@@ -4,6 +4,7 @@ import type { Restaurant } from '../types';
 import { formatDistance } from '../utils/haversine';
 import StarRating from './StarRating';
 import AppIcon from './AppIcon';
+import { EatlasEInline } from './EatlasMark';
 import { useFavoriteStore } from '../store/favoriteStore';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
@@ -140,7 +141,7 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
         )}
         {r.isRegistered && (
           <View style={styles.iconLine}>
-            <AppIcon name="verified" size={12} color={C.primary} />
+            <EatlasEInline size={12} />
             <Text style={styles.registeredBadge}>Eatlas Ortağı</Text>
           </View>
         )}

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eatlas — Monogram E & Tabak-Atlas Varyasyonları</title>
+<style>
+  :root{--ink:#14101a;--card:#1f1a24;--line:rgba(255,255,255,.08);
+    --txt:#ECE7F2;--muted:#9C92A8;--amber:#FFB627}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--txt);
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;padding:48px 24px 80px}
+  .wrap{max-width:1120px;margin:0 auto}
+  h1{font-size:32px;font-weight:800;letter-spacing:-.5px;margin:0 0 6px}
+  h1 .g{background:linear-gradient(90deg,#FF5A3C,#FF7A34 55%,#FFB627);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:var(--muted);max-width:720px;margin:0 0 36px;font-size:15px}
+  h2.sec{font-size:14px;letter-spacing:1px;text-transform:uppercase;color:var(--amber);
+    margin:40px 0 18px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px;
+    display:flex;gap:22px;align-items:center}
+  .hero{width:140px;height:140px;border-radius:32px;overflow:hidden;flex:0 0 auto;
+    box-shadow:0 16px 36px -12px rgba(0,0,0,.6)}
+  .meta h3{margin:0 0 6px;font-size:18px;font-weight:700}
+  .meta p{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+  .sizes{display:flex;align-items:center;gap:10px}
+  .sizes .s{border-radius:22%;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,.4)}
+  svg{display:block;width:100%;height:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="g">Eatlas</span> — Monogram E &amp; Tabak-Atlas</h1>
+  <p class="lead">Seçtiğin iki yön, koyu ve açık zeminde + farklı işlemelerle.
+  Her kart büyük (140px) ve küçük (40/28/22px) gösteriliyor.</p>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="gw" gradientUnits="userSpaceOnUse" x1="150" y1="150" x2="360" y2="362">
+        <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/>
+      </linearGradient>
+    </defs>
+
+    <!-- ===== Monogram E ===== -->
+    <!-- E1 sharp / cream -->
+    <symbol id="e1" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="110" fill="#FBF7F2"/>
+      <g fill="url(#gw)">
+        <rect x="178" y="150" width="42" height="214" rx="18"/>
+        <rect x="178" y="150" width="158" height="42" rx="18"/>
+        <rect x="178" y="236" width="128" height="40" rx="18"/>
+        <rect x="178" y="322" width="158" height="42" rx="18"/>
+      </g>
+    </symbol>
+    <!-- E2 sharp / dark -->
+    <symbol id="e2" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="110" fill="#1C1726"/>
+      <g fill="url(#gw)">
+        <rect x="178" y="150" width="42" height="214" rx="18"/>
+        <rect x="178" y="150" width="158" height="42" rx="18"/>
+        <rect x="178" y="236" width="128" height="40" rx="18"/>
+        <rect x="178" y="322" width="158" height="42" rx="18"/>
+      </g>
+    </symbol>
+    <!-- E3 soft / dark (ince, zarif oranlar) -->
+    <symbol id="e3" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="110" fill="#16121C"/>
+      <g fill="url(#gw)">
+        <rect x="182" y="156" width="34" height="200" rx="17"/>
+        <rect x="182" y="156" width="146" height="36" rx="18"/>
+        <rect x="182" y="238" width="116" height="34" rx="17"/>
+        <rect x="182" y="320" width="146" height="36" rx="18"/>
+      </g>
+    </symbol>
+    <!-- E4 inverted knockout (gradient tile, E negatif) -->
+    <symbol id="e4" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="110" fill="url(#gw)"/>
+      <g fill="#FBF7F2">
+        <rect x="178" y="150" width="42" height="214" rx="18"/>
+        <rect x="178" y="150" width="158" height="42" rx="18"/>
+        <rect x="178" y="236" width="128" height="40" rx="18"/>
+        <rect x="178" y="322" width="158" height="42" rx="18"/>
+      </g>
+    </symbol>
+
+    <!-- ===== Tabak-Atlas ===== -->
+    <!-- A1 full / dark -->
+    <symbol id="a1" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="110" fill="#1C1726"/>
+      <g fill="none" stroke="url(#gw)">
+        <circle cx="256" cy="246" r="116" stroke-width="13"/>
+        <ellipse cx="256" cy="246" rx="116" ry="44" stroke-width="9"/>
+        <ellipse cx="256" cy="246" rx="44" ry="116" stroke-width="9"/>
+      </g>
+      <path fill="url(#gw)" d="M256 196c-21 0-38 17-38 38 0 29 38 64 38 64s38-35 38-64c0-21-17-38-38-38z"/>
+      <circle cx="256" cy="232" r="13" fill="#1C1726"/>
+    </symbol>
+    <!-- A2 full / cream -->
+    <symbol id="a2" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="110" fill="#FBF7F2"/>
+      <g fill="none" stroke="url(#gw)">
+        <circle cx="256" cy="246" r="116" stroke-width="13"/>
+        <ellipse cx="256" cy="246" rx="116" ry="44" stroke-width="9"/>
+        <ellipse cx="256" cy="246" rx="44" ry="116" stroke-width="9"/>
+      </g>
+      <path fill="url(#gw)" d="M256 196c-21 0-38 17-38 38 0 29 38 64 38 64s38-35 38-64c0-21-17-38-38-38z"/>
+      <circle cx="256" cy="232" r="13" fill="#FBF7F2"/>
+    </symbol>
+    <!-- A3 minimal / dark (dikey elips yok) -->
+    <symbol id="a3" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="110" fill="#16121C"/>
+      <g fill="none" stroke="url(#gw)">
+        <circle cx="256" cy="246" r="116" stroke-width="14"/>
+        <ellipse cx="256" cy="246" rx="116" ry="42" stroke-width="10"/>
+      </g>
+      <path fill="url(#gw)" d="M256 198c-20 0-36 16-36 36 0 27 36 60 36 60s36-33 36-60c0-20-16-36-36-36z"/>
+      <circle cx="256" cy="232" r="12" fill="#16121C"/>
+    </symbol>
+    <!-- A4 solid plate / dark (dolu disk, çizgiler negatif, pin negatif) -->
+    <symbol id="a4" viewBox="0 0 512 512">
+      <rect width="512" height="512" rx="110" fill="#16121C"/>
+      <circle cx="256" cy="246" r="118" fill="url(#gw)"/>
+      <g fill="none" stroke="rgba(22,18,28,.30)" stroke-width="7">
+        <ellipse cx="256" cy="246" rx="118" ry="46"/>
+        <ellipse cx="256" cy="246" rx="46" ry="118"/>
+      </g>
+      <path fill="#16121C" d="M256 196c-21 0-38 17-38 38 0 29 38 64 38 64s38-35 38-64c0-21-17-38-38-38z"/>
+      <circle cx="256" cy="232" r="13" fill="url(#gw)"/>
+    </symbol>
+  </svg>
+
+  <h2 class="sec">Monogram “E”</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#e1"/></svg></div>
+      <div class="meta"><h3>E1 · Net / Krem</h3>
+        <p>Geometrik, cesur. Sıcak ve davetkâr food-app hissi.</p>
+        <div class="sizes">
+          <div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#e1"/></svg></div>
+          <div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#e1"/></svg></div>
+          <div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#e1"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#e2"/></svg></div>
+      <div class="meta"><h3>E2 · Net / Koyu</h3>
+        <p>Aynı form, koyu zeminde. Daha lüks, daha tok.</p>
+        <div class="sizes">
+          <div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#e2"/></svg></div>
+          <div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#e2"/></svg></div>
+          <div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#e2"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#e3"/></svg></div>
+      <div class="meta"><h3>E3 · İnce / Koyu</h3>
+        <p>Daha ince çizgi, zarif oranlar, diagonal gradient. Daha “butik”.</p>
+        <div class="sizes">
+          <div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#e3"/></svg></div>
+          <div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#e3"/></svg></div>
+          <div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#e3"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#e4"/></svg></div>
+      <div class="meta"><h3>E4 · Ters / Damga</h3>
+        <p>Gradient dolu zemin, E negatif boşlukta. En “marka damgası” his, çok tok.</p>
+        <div class="sizes">
+          <div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#e4"/></svg></div>
+          <div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#e4"/></svg></div>
+          <div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#e4"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec">Tabak-Atlas</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#a1"/></svg></div>
+      <div class="meta"><h3>A1 · Tam / Koyu</h3>
+        <p>Küre + meridyenler + merkez pin. Mevcut kimliğin rafine hâli.</p>
+        <div class="sizes">
+          <div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#a1"/></svg></div>
+          <div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#a1"/></svg></div>
+          <div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#a1"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#a2"/></svg></div>
+      <div class="meta"><h3>A2 · Tam / Krem</h3>
+        <p>Aynı yapı açık zeminde. Daha hafif ve ferah.</p>
+        <div class="sizes">
+          <div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#a2"/></svg></div>
+          <div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#a2"/></svg></div>
+          <div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#a2"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#a3"/></svg></div>
+      <div class="meta"><h3>A3 · Minimal / Koyu</h3>
+        <p>Sadece dış halka + ekvator + pin. Küçük boyutta en okunaklısı.</p>
+        <div class="sizes">
+          <div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#a3"/></svg></div>
+          <div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#a3"/></svg></div>
+          <div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#a3"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="hero"><svg viewBox="0 0 512 512"><use href="#a4"/></svg></div>
+      <div class="meta"><h3>A4 · Dolu Disk / Koyu</h3>
+        <p>Dolu gradient tabak, çizgiler ve pin negatif. En cesur ve en tok varyant.</p>
+        <div class="sizes">
+          <div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#a4"/></svg></div>
+          <div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#a4"/></svg></div>
+          <div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#a4"/></svg></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="gHorz" gradientUnits="userSpaceOnUse" x1="352" y1="512" x2="676" y2="512">
+      <stop offset="0" stop-color="#FF5A3C"/>
+      <stop offset="0.55" stop-color="#FF7A34"/>
+      <stop offset="1" stop-color="#FFB627"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#100C16"/>
+  <g fill="url(#gHorz)">
+    <rect x="352" y="300" width="100" height="428" rx="40"/>
+    <rect x="352" y="300" width="324" height="96" rx="40"/>
+    <rect x="352" y="464" width="268" height="92" rx="40"/>
+    <rect x="352" y="632" width="324" height="96" rx="40"/>
+  </g>
+</svg>

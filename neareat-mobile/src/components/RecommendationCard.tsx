@@ -13,6 +13,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-na
 import type { AiRecommendation, FeedbackSentiment } from '../types';
 import StarRating from './StarRating';
 import AppIcon from './AppIcon';
+import { EatlasEInline } from './EatlasMark';
 import { formatDistance } from '../utils/haversine';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
@@ -136,7 +137,7 @@ const RecommendationCard = React.memo(function RecommendationCard({
         )}
         {r.isRegistered && (
           <View style={styles.registeredBadge}>
-            <AppIcon name="verified" size={11} color={C.primary} />
+            <EatlasEInline size={11} />
             <Text style={styles.registeredBadgeText}>Eatlas Ortağı</Text>
           </View>
         )}

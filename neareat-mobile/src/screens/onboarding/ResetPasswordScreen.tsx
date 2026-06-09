@@ -1,26 +1,34 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
+  View, Text, StyleSheet,
+  Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { resetPassword } from '../../services/auth';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import EatlasLogo from '../../components/EatlasLogo';
+import AppIcon from '../../components/AppIcon';
+import AuthInput from '../../components/auth/AuthInput';
+import GlowButton from '../../components/auth/GlowButton';
 
 export default function ResetPasswordScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const token: string = route.params?.token ?? '';
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  const mismatch = confirmPassword.length > 0 && confirmPassword !== password;
+  const topPad = Math.max(insets.top, 12);
 
   async function handleReset() {
     if (!password || !confirmPassword) {
@@ -54,15 +62,12 @@ export default function ResetPasswordScreen() {
   if (done) {
     return (
       <View style={[styles.flex, styles.centerContent]}>
-        <Text style={styles.doneIcon}>✅</Text>
-        <Text style={styles.doneTitle}>Şifren Güncellendi!</Text>
-        <Text style={styles.doneText}>Yeni şifrenle giriş yapabilirsin.</Text>
-        <TouchableOpacity
-          style={styles.primaryBtn}
-          onPress={() => navigation.navigate('Login')}
-        >
-          <Text style={styles.primaryBtnText}>Giriş Yap</Text>
-        </TouchableOpacity>
+        <View style={[styles.medallion, styles.medallionSuccess]}>
+          <AppIcon name="verified" size={44} color={C.success} />
+        </View>
+        <Text style={styles.title}>Şifren Güncellendi!</Text>
+        <Text style={styles.subtitle}>Yeni şifrenle giriş yapabilirsin.</Text>
+        <GlowButton label="Giriş Yap" onPress={() => navigation.navigate('Login')} style={styles.ctaWide} />
       </View>
     );
   }
@@ -72,56 +77,43 @@ export default function ResetPasswordScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.icon}>🔑</Text>
+      <View style={[styles.topBar, { top: topPad + 2 }]}>
+        <EatlasLogo size={18} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: topPad + 70 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.medallion}>
+          <AppIcon name="lock" size={38} color={C.primary} />
+        </View>
         <Text style={styles.title}>Yeni Şifre Belirle</Text>
         <Text style={styles.subtitle}>En az 8 karakter uzunluğunda bir şifre seç.</Text>
 
         <View style={styles.form}>
-          <Text style={styles.label}>Yeni Şifre</Text>
-          <View style={styles.passwordRow}>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="En az 8 karakter"
-              placeholderTextColor={C.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(v => !v)}>
-              <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.label}>Şifre Tekrar</Text>
-          <TextInput
-            style={[
-              styles.input,
-              confirmPassword.length > 0 && confirmPassword !== password && styles.inputError,
-            ]}
+          <AuthInput
+            icon="lock"
+            label="Yeni Şifre"
+            placeholder="En az 8 karakter"
+            value={password}
+            onChangeText={setPassword}
+            isPassword
+            autoCapitalize="none"
+            containerStyle={styles.firstField}
+          />
+          <AuthInput
+            icon="lock"
+            label="Şifre Tekrar"
             placeholder="Şifrenizi tekrar girin"
-            placeholderTextColor={C.textMuted}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            secureTextEntry={!showPassword}
+            isPassword
             autoCapitalize="none"
+            error={mismatch ? 'Şifreler eşleşmiyor' : null}
           />
-          {confirmPassword.length > 0 && confirmPassword !== password && (
-            <Text style={styles.errorText}>Şifreler eşleşmiyor</Text>
-          )}
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
-            onPress={handleReset}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryBtnText}>Şifremi Güncelle</Text>
-            )}
-          </TouchableOpacity>
+          <GlowButton label="Şifremi Güncelle" onPress={handleReset} loading={loading} style={styles.cta} />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -130,34 +122,25 @@ export default function ResetPasswordScreen() {
 
 function makeStyles(C: Colors) {
   return StyleSheet.create({
-    flex: { flex: 1, backgroundColor: C.surface },
+    flex: { flex: 1, backgroundColor: C.background },
     centerContent: { justifyContent: 'center', alignItems: 'center', padding: 28 },
-    container: { flexGrow: 1, padding: 28, paddingTop: 80, alignItems: 'center' },
-    icon: { fontSize: 52, textAlign: 'center', marginBottom: 12 },
-    title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, marginBottom: 8, textAlign: 'center' },
-    subtitle: { fontSize: 15, color: C.textTertiary, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+    topBar: { position: 'absolute', right: 20, zIndex: 10 },
+
+    container: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingBottom: 36 },
+
+    medallion: {
+      width: 84, height: 84, borderRadius: 26, backgroundColor: C.primarySurface,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 22,
+      borderWidth: 1, borderColor: C.primaryLight,
+    },
+    medallionSuccess: { backgroundColor: C.successSurface, borderColor: C.successSurface },
+
+    title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, marginBottom: 10, textAlign: 'center', letterSpacing: -0.3 },
+    subtitle: { fontSize: 15, color: C.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24, paddingHorizontal: 6 },
 
     form: { width: '100%' },
-    label: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6, marginTop: 14 },
-    input: {
-      backgroundColor: C.background, borderWidth: 1, borderColor: C.border,
-      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary,
-    },
-    inputError: { borderColor: C.error },
-    errorText: { fontSize: 12, color: C.error, marginTop: 4 },
-    passwordRow: {
-      flexDirection: 'row', backgroundColor: C.background,
-      borderWidth: 1, borderColor: C.border, borderRadius: 10, alignItems: 'center',
-    },
-    passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary },
-    eyeBtn: { paddingHorizontal: 12, paddingVertical: 12 },
-    eyeText: { fontSize: 16 },
-    primaryBtn: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 22 },
-    btnDisabled: { opacity: 0.6 },
-    primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-
-    doneIcon: { fontSize: 64, marginBottom: 16 },
-    doneTitle: { fontSize: 22, fontWeight: '800', color: C.textPrimary, marginBottom: 10, textAlign: 'center' },
-    doneText: { fontSize: 15, color: C.textTertiary, textAlign: 'center', marginBottom: 28 },
+    firstField: { marginTop: 0 },
+    cta: { marginTop: 22 },
+    ctaWide: { marginTop: 8, alignSelf: 'stretch' },
   });
 }

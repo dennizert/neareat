@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, ActivityIndicator, Image, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +14,10 @@ import type { Restaurant } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import PrivacyPolicyModal from '../../components/PrivacyPolicyModal';
+import EatlasLogo from '../../components/EatlasLogo';
+import AppIcon from '../../components/AppIcon';
+import AuthInput from '../../components/auth/AuthInput';
+import GlowButton from '../../components/auth/GlowButton';
 
 const CATEGORIES = ['Restoran', 'Kafe', 'Fast Food', 'Pastane/Fırın', 'Esnaf Lokantası', 'Diğer'];
 const STEPS = ['Hesap Bilgileri', 'İşletme Bilgileri', 'Vergi Levhası', 'Restoran Seç', 'Onay'];
@@ -144,9 +148,9 @@ export default function RestaurantRegisterScreen() {
         return (
           <View>
             <Text style={styles.stepTitle}>Hesap Bilgileri</Text>
-            <TextInput style={styles.input} placeholder="Adınız Soyadınız" value={ownerName} onChangeText={setOwnerName} placeholderTextColor={C.textMuted} />
-            <TextInput style={styles.input} placeholder="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholderTextColor={C.textMuted} />
-            <TextInput style={styles.input} placeholder="Şifre (en az 8 karakter)" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor={C.textMuted} />
+            <AuthInput icon="profile" label="Ad Soyad" placeholder="Adınız Soyadınız" value={ownerName} onChangeText={setOwnerName} autoCapitalize="words" />
+            <AuthInput icon="email" label="E-posta" placeholder="ornek@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+            <AuthInput icon="lock" label="Şifre" placeholder="En az 8 karakter" value={password} onChangeText={setPassword} isPassword autoCapitalize="none" />
             <View style={styles.privacyNotice}>
               <Text style={styles.privacyText}>
                 {'Devam ederek '}
@@ -172,12 +176,12 @@ export default function RestaurantRegisterScreen() {
         return (
           <View>
             <Text style={styles.stepTitle}>İşletme Bilgileri</Text>
-            <TextInput style={styles.input} placeholder="İşletme Adı" value={businessName} onChangeText={setBusinessName} placeholderTextColor={C.textMuted} />
-            <TextInput style={styles.input} placeholder="Vergi Numarası (10 hane)" value={taxNumber} onChangeText={setTaxNumber} keyboardType="number-pad" maxLength={10} placeholderTextColor={C.textMuted} />
-            <TextInput style={styles.input} placeholder="Vergi Dairesi" value={taxOffice} onChangeText={setTaxOffice} placeholderTextColor={C.textMuted} />
-            <TextInput style={styles.input} placeholder="Telefon Numarası" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholderTextColor={C.textMuted} />
-            <TextInput style={styles.input} placeholder="İletişim E-postası" value={contactEmail} onChangeText={setContactEmail} keyboardType="email-address" autoCapitalize="none" placeholderTextColor={C.textMuted} />
-            <TextInput style={[styles.input, styles.inputMulti]} placeholder="İşletme Adresi" value={address} onChangeText={setAddress} multiline numberOfLines={2} placeholderTextColor={C.textMuted} />
+            <AuthInput icon="restaurant" label="İşletme Adı" placeholder="İşletme Adı" value={businessName} onChangeText={setBusinessName} />
+            <AuthInput icon="report" label="Vergi Numarası" placeholder="10 haneli" value={taxNumber} onChangeText={setTaxNumber} keyboardType="number-pad" maxLength={10} />
+            <AuthInput icon="info" label="Vergi Dairesi" placeholder="Vergi Dairesi" value={taxOffice} onChangeText={setTaxOffice} />
+            <AuthInput icon="phone" label="Telefon Numarası" placeholder="05xx xxx xx xx" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+            <AuthInput icon="email" label="İletişim E-postası" placeholder="iletisim@email.com" value={contactEmail} onChangeText={setContactEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+            <AuthInput icon="location" label="İşletme Adresi" placeholder="Açık adres" value={address} onChangeText={setAddress} multiline numberOfLines={2} />
             <Text style={styles.fieldLabel}>İşletme Kategorisi</Text>
             <View style={styles.categoryGrid}>
               {CATEGORIES.map(cat => (
@@ -202,7 +206,7 @@ export default function RestaurantRegisterScreen() {
                 <Image source={{ uri: taxCertUri }} style={styles.certPreview} resizeMode="contain" />
               ) : (
                 <>
-                  <Text style={styles.certUploadIcon}>📄</Text>
+                  <AppIcon name="photo" size={40} color={C.textTertiary} style={styles.certUploadIcon} />
                   <Text style={styles.certUploadText}>Fotoğraf Seç</Text>
                 </>
               )}
@@ -228,14 +232,14 @@ export default function RestaurantRegisterScreen() {
                     <Image source={{ uri: place.photoUrl }} style={styles.placePhoto} />
                   ) : (
                     <View style={[styles.placePhoto, { backgroundColor: C.inputBg, alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={{ fontSize: 20 }}>🍽️</Text>
+                      <AppIcon name="restaurant" size={22} color={C.textTertiary} />
                     </View>
                   )}
                   <View style={{ flex: 1, paddingLeft: 10 }}>
                     <Text style={styles.placeName}>{place.name}</Text>
                     <Text style={styles.placeAddr} numberOfLines={1}>{(place as any).formattedAddress ?? `${place.distanceKm.toFixed(1)} km`}</Text>
                   </View>
-                  {selectedPlace?.placeId === place.placeId && <Text style={{ color: C.success, fontWeight: '700', fontSize: 18 }}>✓</Text>}
+                  {selectedPlace?.placeId === place.placeId && <AppIcon name="check" size={20} color={C.success} />}
                 </TouchableOpacity>
               ))
             )}
@@ -269,11 +273,16 @@ export default function RestaurantRegisterScreen() {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => step > 0 ? setStep(s => s - 1) : navigation.goBack()}>
-            <Text style={styles.backBtn}>‹ Geri</Text>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => step > 0 ? setStep(s => s - 1) : navigation.goBack()}
+            hitSlop={8}
+          >
+            <AppIcon name="back" size={22} color={C.primary} />
+            <Text style={styles.backText}>Geri</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>İşletme Kaydı</Text>
-          <View style={{ width: 60 }} />
+          <EatlasLogo size={16} />
         </View>
 
         {/* Step indicators */}
@@ -289,15 +298,11 @@ export default function RestaurantRegisterScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.nextBtn, loading && { opacity: 0.6 }]}
+          <GlowButton
+            label={step === 4 ? 'Başvuruyu Gönder' : 'Devam Et'}
             onPress={handleNext}
-            disabled={loading}
-          >
-            {loading ? <ActivityIndicator color="#fff" /> : (
-              <Text style={styles.nextBtnText}>{step === 4 ? 'Başvuruyu Gönder' : 'Devam Et'}</Text>
-            )}
-          </TouchableOpacity>
+            loading={loading}
+          />
         </View>
       </View>
 
@@ -327,7 +332,8 @@ function makeStyles(C: Colors) {
       paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, backgroundColor: C.surface,
       borderBottomWidth: 1, borderBottomColor: C.separator,
     },
-    backBtn: { fontSize: 17, color: C.primary, fontWeight: '600', width: 60 },
+    backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    backText: { fontSize: 16, color: C.primary, fontWeight: '600' },
     headerTitle: { fontSize: 17, fontWeight: '700', color: C.textPrimary },
     stepBar: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 12, backgroundColor: C.surface },
     stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.border },
@@ -359,7 +365,7 @@ function makeStyles(C: Colors) {
       backgroundColor: C.background, overflow: 'hidden',
     },
     certPreview: { width: 200, height: 200 },
-    certUploadIcon: { fontSize: 40, marginBottom: 8 },
+    certUploadIcon: { marginBottom: 8 },
     certUploadText: { fontSize: 15, color: C.textTertiary, fontWeight: '600' },
     certNote: { marginTop: 12, fontSize: 12, color: C.textMuted, textAlign: 'center' },
     placeRow: {

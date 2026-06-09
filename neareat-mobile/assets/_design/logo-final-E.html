@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eatlas — Final İkon (A3+B2+C2)</title>
+<style>
+  :root{--ink:#14101a;--card:#1f1a24;--line:rgba(255,255,255,.08);--txt:#ECE7F2;--muted:#9C92A8;--amber:#FFB627}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--txt);
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;padding:48px 24px 90px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:30px;font-weight:800;letter-spacing:-.5px;margin:0 0 6px}
+  h1 .g{background:linear-gradient(90deg,#FF5A3C,#FF7A34 55%,#FFB627);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:var(--muted);max-width:680px;margin:0 0 34px;font-size:15px}
+  .panel{display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:center;
+    background:var(--card);border:1px solid var(--line);border-radius:24px;padding:34px}
+  @media(max-width:720px){.panel{grid-template-columns:1fr;justify-items:center;text-align:center}}
+  .hero{width:200px;height:200px;border-radius:44px;overflow:hidden;box-shadow:0 22px 50px -14px rgba(0,0,0,.7)}
+  .spec h2{margin:0 0 4px;font-size:22px}
+  .spec .sub{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+  .sizes{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+  .sz{text-align:center}
+  .sz .s{border-radius:22%;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.5);margin:0 auto 6px}
+  .sz .l{font-size:11px;color:var(--muted)}
+  svg{display:block;width:100%;height:100%}
+  .home{margin-top:36px;background:linear-gradient(160deg,#2a2336,#15111d);border:1px solid var(--line);
+    border-radius:28px;padding:34px;display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+  .app{width:72px;text-align:center}
+  .app .ic{width:62px;height:62px;border-radius:24%;overflow:hidden;margin:0 auto 7px;box-shadow:0 6px 14px rgba(0,0,0,.5)}
+  .app .nm{font-size:11px;color:#d9d3e2}
+  .ph{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--amber);margin:0 0 16px;width:100%}
+  .dot{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:middle;margin-right:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="g">Eatlas</span> — Final İkon</h1>
+  <p class="lead">Seçimin: <b>near-black zemin</b> + <b>yatay gradient</b> + <b>kalın monogram</b>.
+  Aşağıda gerçek app-store boyutlarında ve bir ana-ekran bağlamında.</p>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="gHorz" gradientUnits="userSpaceOnUse" x1="176" y1="256" x2="338" y2="256">
+      <stop offset="0" stop-color="#FF5A3C"/><stop offset=".55" stop-color="#FF7A34"/><stop offset="1" stop-color="#FFB627"/></linearGradient>
+    <!-- kalın E (C2) -->
+    <g id="EWb"><rect x="176" y="150" width="50" height="214" rx="20"/><rect x="176" y="150" width="162" height="48" rx="20"/><rect x="176" y="232" width="134" height="46" rx="20"/><rect x="176" y="316" width="162" height="48" rx="20"/></g>
+    <!-- full icon -->
+    <symbol id="fin" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#100C16"/><use href="#EWb" fill="url(#gHorz)"/></symbol>
+  </defs></svg>
+
+  <div class="panel">
+    <div class="hero"><svg viewBox="0 0 512 512"><use href="#fin"/></svg></div>
+    <div class="spec">
+      <h2>Eatlas “E” · Final</h2>
+      <div class="sub">Zemin #100C16 · gradient #FF5A3C→#FF7A34→#FFB627 (yatay) · kalın</div>
+      <div class="sizes">
+        <div class="sz"><div class="s" style="width:80px;height:80px"><svg viewBox="0 0 512 512"><use href="#fin"/></svg></div><div class="l">80</div></div>
+        <div class="sz"><div class="s" style="width:60px;height:60px"><svg viewBox="0 0 512 512"><use href="#fin"/></svg></div><div class="l">60</div></div>
+        <div class="sz"><div class="s" style="width:40px;height:40px"><svg viewBox="0 0 512 512"><use href="#fin"/></svg></div><div class="l">40</div></div>
+        <div class="sz"><div class="s" style="width:28px;height:28px"><svg viewBox="0 0 512 512"><use href="#fin"/></svg></div><div class="l">28</div></div>
+        <div class="sz"><div class="s" style="width:22px;height:22px"><svg viewBox="0 0 512 512"><use href="#fin"/></svg></div><div class="l">22</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="home">
+    <div class="ph">Ana ekran bağlamı (komşu ikonlar arasında)</div>
+    <div class="app"><div class="ic" style="background:linear-gradient(135deg,#34c759,#2aa84a)"></div><div class="nm">Takvim</div></div>
+    <div class="app"><div class="ic" style="background:linear-gradient(135deg,#0a84ff,#0060df)"></div><div class="nm">Harita</div></div>
+    <div class="app"><div class="ic"><svg viewBox="0 0 512 512"><use href="#fin"/></svg></div><div class="nm">Eatlas</div></div>
+    <div class="app"><div class="ic" style="background:linear-gradient(135deg,#ff2d55,#d70040)"></div><div class="nm">Müzik</div></div>
+    <div class="app"><div class="ic" style="background:#1d1d1f"></div><div class="nm">Ayarlar</div></div>
+    <div class="app"><div class="ic" style="background:linear-gradient(135deg,#5ac8fa,#34aadc)"></div><div class="nm">Mesaj</div></div>
+  </div>
+</div>
+</body>
+</html>

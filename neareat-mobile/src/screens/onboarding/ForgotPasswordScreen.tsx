@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet,
+  Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { forgotPassword } from '../../services/auth';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import EatlasLogo from '../../components/EatlasLogo';
+import AppIcon from '../../components/AppIcon';
+import AuthInput from '../../components/auth/AuthInput';
+import GlowButton from '../../components/auth/GlowButton';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [email, setEmail] = useState('');
@@ -36,61 +42,63 @@ export default function ForgotPasswordScreen() {
     }
   }
 
+  const topPad = Math.max(insets.top, 12);
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← Geri</Text>
+      <View style={[styles.topBar, { top: topPad + 2 }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
+          <AppIcon name="back" size={22} color={C.textPrimary} />
+          <Text style={styles.backText}>Geri</Text>
         </TouchableOpacity>
+        <EatlasLogo size={18} />
+      </View>
 
-        <Text style={styles.icon}>🔐</Text>
-        <Text style={styles.title}>Şifremi Unuttum</Text>
-
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: topPad + 70 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {sent ? (
-          <View style={styles.successBox}>
-            <Text style={styles.successIcon}>📬</Text>
-            <Text style={styles.successTitle}>E-posta Gönderildi</Text>
-            <Text style={styles.successText}>
+          <View style={styles.centerBlock}>
+            <View style={[styles.medallion, styles.medallionSuccess]}>
+              <AppIcon name="verified" size={40} color={C.success} />
+            </View>
+            <Text style={styles.title}>E-posta Gönderildi</Text>
+            <Text style={styles.subtitle}>
               Eğer bu e-posta Eatlas'ta kayıtlıysa, şifre sıfırlama bağlantısı gönderildi.{'\n\n'}
               Gelen kutunu ve spam klasörünü kontrol et.
             </Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.goBack()}>
-              <Text style={styles.primaryBtnText}>Giriş Ekranına Dön</Text>
-            </TouchableOpacity>
+            <GlowButton label="Giriş Ekranına Dön" onPress={() => navigation.goBack()} style={styles.ctaWide} />
           </View>
         ) : (
-          <View style={styles.form}>
+          <View style={styles.centerBlock}>
+            <View style={styles.medallion}>
+              <AppIcon name="lock" size={38} color={C.primary} />
+            </View>
+            <Text style={styles.title}>Şifremi Unuttum</Text>
             <Text style={styles.subtitle}>
               E-posta adresini gir. Şifre sıfırlama bağlantısı göndereceğiz.
             </Text>
 
-            <Text style={styles.label}>E-posta</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="ornek@email.com"
-              placeholderTextColor={C.textMuted}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-            />
-
-            <TouchableOpacity
-              style={[styles.primaryBtn, loading && styles.btnDisabled]}
-              onPress={handleSend}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryBtnText}>Bağlantı Gönder</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.form}>
+              <AuthInput
+                icon="email"
+                label="E-posta"
+                placeholder="ornek@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoFocus
+                containerStyle={styles.firstField}
+              />
+              <GlowButton label="Bağlantı Gönder" onPress={handleSend} loading={loading} style={styles.cta} />
+            </View>
           </View>
         )}
       </ScrollView>
@@ -100,27 +108,30 @@ export default function ForgotPasswordScreen() {
 
 function makeStyles(C: Colors) {
   return StyleSheet.create({
-    flex: { flex: 1, backgroundColor: C.surface },
-    container: { flexGrow: 1, padding: 28, paddingTop: 60 },
-    backBtn: { marginBottom: 24 },
-    backText: { fontSize: 15, color: C.primary, fontWeight: '600' },
-    icon: { fontSize: 52, textAlign: 'center', marginBottom: 12 },
-    title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, marginBottom: 8, textAlign: 'center' },
-
-    form: { marginTop: 8 },
-    subtitle: { fontSize: 15, color: C.textTertiary, lineHeight: 22, marginBottom: 24, textAlign: 'center' },
-    label: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6, marginTop: 8 },
-    input: {
-      backgroundColor: C.background, borderWidth: 1, borderColor: C.border,
-      borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary,
+    flex: { flex: 1, backgroundColor: C.background },
+    topBar: {
+      position: 'absolute', left: 20, right: 20, zIndex: 10,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     },
-    primaryBtn: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 22 },
-    btnDisabled: { opacity: 0.6 },
-    primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    backText: { fontSize: 15, color: C.textPrimary, fontWeight: '600' },
 
-    successBox: { marginTop: 16, alignItems: 'center' },
-    successIcon: { fontSize: 52, marginBottom: 16 },
-    successTitle: { fontSize: 20, fontWeight: '800', color: C.textPrimary, marginBottom: 12 },
-    successText: { fontSize: 15, color: C.textTertiary, lineHeight: 22, textAlign: 'center', marginBottom: 28 },
+    container: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingBottom: 36 },
+    centerBlock: { width: '100%', alignItems: 'center' },
+
+    medallion: {
+      width: 84, height: 84, borderRadius: 26, backgroundColor: C.primarySurface,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 22,
+      borderWidth: 1, borderColor: C.primaryLight,
+    },
+    medallionSuccess: { backgroundColor: C.successSurface, borderColor: C.successSurface },
+
+    title: { fontSize: 26, fontWeight: '800', color: C.textPrimary, marginBottom: 10, textAlign: 'center', letterSpacing: -0.3 },
+    subtitle: { fontSize: 15, color: C.textSecondary, lineHeight: 22, marginBottom: 24, textAlign: 'center', paddingHorizontal: 6 },
+
+    form: { width: '100%' },
+    firstField: { marginTop: 0 },
+    cta: { marginTop: 22 },
+    ctaWide: { marginTop: 8, alignSelf: 'stretch' },
   });
 }
