@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eatlas — Gizlilik Politikası</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand:    #E8614C;
+      --bg:       #FAFAF9;
+      --surface:  #FFFFFF;
+      --border:   #E8E4DF;
+      --text:     #1A1A18;
+      --muted:    #6B6860;
+      --radius:   12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-mark {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: linear-gradient(135deg, #E8614C 0%, #F4A261 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 16px; letter-spacing: -0.5px;
+      flex-shrink: 0;
+    }
+    .logo-name { font-size: 20px; font-weight: 800; color: var(--text); }
+    .logo-tagline { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+    /* ── Layout ── */
+    .page {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 32px 28px;
+      margin-bottom: 32px;
+    }
+    .hero h1 {
+      font-size: 26px; font-weight: 800; color: var(--text);
+      margin-bottom: 8px;
+    }
+    .hero p { color: var(--muted); font-size: 14px; max-width: 540px; }
+    .hero .meta {
+      display: flex; gap: 20px; flex-wrap: wrap;
+      margin-top: 20px; padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 13px; color: var(--muted);
+    }
+    .meta span strong { color: var(--text); }
+
+    /* ── TOC ── */
+    .toc {
+      background: #FFF8F6;
+      border: 1px solid #FAD5CD;
+      border-left: 4px solid var(--brand);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 32px;
+    }
+    .toc h2 { font-size: 13px; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .toc ol { padding-left: 18px; }
+    .toc li { margin-bottom: 5px; }
+    .toc a { color: var(--brand); text-decoration: none; font-size: 14px; font-weight: 500; }
+    .toc a:hover { text-decoration: underline; }
+
+    /* ── Sections ── */
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 20px;
+    }
+    section h2 {
+      font-size: 18px; font-weight: 800; color: var(--text);
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sec-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--brand); color: #fff;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    section h3 {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      margin: 20px 0 8px;
+    }
+    section h3:first-of-type { margin-top: 0; }
+    section p { color: var(--muted); margin-bottom: 10px; }
+    section p:last-child { margin-bottom: 0; }
+    section ul, section ol { padding-left: 20px; color: var(--muted); margin-bottom: 10px; }
+    section li { margin-bottom: 5px; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 12px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th {
+      background: var(--bg); text-align: left;
+      padding: 10px 12px; font-weight: 700; color: var(--text);
+      border: 1px solid var(--border);
+    }
+    td {
+      padding: 9px 12px; color: var(--muted);
+      border: 1px solid var(--border); vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #FCFBFA; }
+
+    /* ── Tag ── */
+    .tag {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
+      background: #FFF0ED; color: var(--brand);
+      border: 1px solid #FAD5CD;
+    }
+    .tag.green  { background: #F0FBF4; color: #2D7A4F; border-color: #C3E8D0; }
+    .tag.blue   { background: #EFF6FF; color: #2563EB; border-color: #BFDBFE; }
+    .tag.yellow { background: #FFFBEB; color: #92400E; border-color: #FDE68A; }
+
+    /* ── Callout ── */
+    .callout {
+      background: #FFF8F6; border: 1px solid #FAD5CD;
+      border-left: 4px solid var(--brand);
+      border-radius: 8px; padding: 14px 18px;
+      margin: 14px 0; font-size: 14px; color: #7A3828;
+    }
+
+    /* ── Rights grid ── */
+    .rights-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 12px; margin-top: 12px;
+    }
+    .right-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px;
+    }
+    .right-card .r-icon { font-size: 20px; margin-bottom: 6px; }
+    .right-card .r-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .right-card .r-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; margin-top: 48px;
+      font-size: 12px; color: var(--muted);
+    }
+    footer a { color: var(--brand); text-decoration: none; }
+
+    @media (max-width: 600px) {
+      .page { padding: 24px 16px 60px; }
+      section { padding: 20px 18px; }
+      .hero { padding: 22px 18px; }
+      .hero h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">E</div>
+  <div>
+    <div class="logo-name">Eatlas</div>
+    <div class="logo-tagline">Restoran Keşif Platformu</div>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Gizlilik Politikası</h1>
+    <p>
+      Eatlas olarak kişisel verilerinizin gizliliğine önem veriyoruz. Bu politika, uygulamamızı
+      kullanırken hangi verileri topladığımızı, bu verileri nasıl kullandığımızı ve haklarınızı açıklar.
+    </p>
+    <div class="meta">
+      <span><strong>Son güncelleme:</strong> 9 Haziran 2026</span>
+      <span><strong>Yürürlük tarihi:</strong> 9 Haziran 2026</span>
+      <span><strong>Sürüm:</strong> 1.0</span>
+    </div>
+  </div>
+
+  <!-- TOC -->
+  <div class="toc">
+    <h2>İçindekiler</h2>
+    <ol>
+      <li><a href="#s1">Veri Sorumlusu</a></li>
+      <li><a href="#s2">Topladığımız Veriler</a></li>
+      <li><a href="#s3">Verilerin Kullanım Amaçları</a></li>
+      <li><a href="#s4">Üçüncü Taraf Hizmetler ve Veri Aktarımı</a></li>
+      <li><a href="#s5">Veri Saklama Süreleri</a></li>
+      <li><a href="#s6">Veri Güvenliği</a></li>
+      <li><a href="#s7">Çerezler ve Yerel Depolama</a></li>
+      <li><a href="#s8">Çocukların Gizliliği</a></li>
+      <li><a href="#s9">KVKK Kapsamındaki Haklarınız</a></li>
+      <li><a href="#s10">Politika Değişiklikleri</a></li>
+      <li><a href="#s11">İletişim</a></li>
+    </ol>
+  </div>
+
+  <!-- 1. Veri Sorumlusu -->
+  <section id="s1">
+    <h2><span class="sec-num">1</span> Veri Sorumlusu</h2>
+    <p>
+      6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") ve Avrupa Birliği Genel Veri Koruma
+      Tüzüğü ("GDPR") kapsamında veri sorumlusu aşağıda belirtilmiştir:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Ad Soyad</th><td>Deniz Ertekin</td></tr>
+        <tr><th>Uygulama</th><td>Eatlas (Android paketi: com.eatlas.mobile)</td></tr>
+        <tr><th>E-posta</th><td>denniz.ertekin@gmail.com</td></tr>
+        <tr><th>Ülke</th><td>Türkiye</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- 2. Topladığımız Veriler -->
+  <section id="s2">
+    <h2><span class="sec-num">2</span> Topladığımız Veriler</h2>
+
+    <h3>2.1 Hesap ve Kimlik Bilgileri</h3>
+    <p>Uygulamaya kaydolurken veya profil oluştururken aşağıdaki veriler işlenir:</p>
+    <ul>
+      <li>Ad ve soyadı (görünen ad)</li>
+      <li>E-posta adresi</li>
+      <li>Şifre (bcrypt ile şifrelenmiş olarak saklanır — düz metin asla saklanmaz)</li>
+      <li>Profil fotoğrafı (isteğe bağlı; Google hesabından veya cihazdan yüklenebilir)</li>
+      <li>Şehir (isteğe bağlı)</li>
+      <li>Biyografi / kısa tanıtım (isteğe bağlı)</li>
+      <li>Favori mutfak tercihleri (isteğe bağlı)</li>
+    </ul>
+    <p>
+      Google ile Giriş seçeneğini kullandığınızda Google, adınızı, e-posta adresinizi ve profil
+      fotoğrafı URL'nizi bizimle paylaşır. Bu bilgiler Google'ın OAuth 2.0 akışı aracılığıyla güvenli
+      biçimde aktarılır.
+    </p>
+
+    <h3>2.2 Konum Verisi</h3>
+    <p>
+      Yakınızdaki restoranları listelemek ve kişiselleştirilmiş öneriler sunmak için cihazınızın
+      <strong>anlık konumuna</strong> erişim talep ederiz. Konum yalnızca uygulama ön plandayken
+      (foreground) kullanılır; arka planda kesinlikle izlenmez.
+    </p>
+    <div class="callout">
+      Konum izni zorunlu değildir — izni reddederseniz uygulama çalışmaya devam eder; ancak
+      yakındaki restoranları listeleme ve mesafeye göre sıralama özellikleri kullanılamaz.
+    </div>
+    <p>Konum verisi:</p>
+    <ul>
+      <li>Veritabanımızda kalıcı olarak <strong>saklanmaz</strong>.</li>
+      <li>Yalnızca AI öneri günlüklerinde yaklaşık enlem/boylam şeklinde kayıt altına alınır (bkz. Bölüm 2.5).</li>
+      <li>Google Places API sorgularında anlık olarak kullanılır (bkz. Bölüm 4).</li>
+    </ul>
+
+    <h3>2.3 Kullanıcı İçeriği</h3>
+    <ul>
+      <li><strong>Yorumlar ve puanlar:</strong> Restoranlar için yazdığınız metin yorumlar ve verdiğiniz puanlar.</li>
+      <li><strong>Favoriler:</strong> Kaydettiğiniz restoranların adı, adresi ve Google Places kimliği.</li>
+      <li><strong>Koleksiyonlar ve listeler:</strong> Oluşturduğunuz listeler ve listeye eklediğiniz notlar.</li>
+      <li><strong>Yemek günlüğü:</strong> Ziyaret ettiğiniz restoranlar ve isteğe bağlı olarak yazdığınız notlar.</li>
+      <li><strong>Check-in kayıtları:</strong> Bir mekâna check-in yaptığınızda oluşturulan geçici kayıt (3 saat sonra otomatik silinir).</li>
+      <li><strong>Fotoğraf yükleme:</strong> Profil fotoğrafı veya restoran sahibiyseniz mekân/ürün görselleri. Bu fotoğraflar AWS S3 üzerinde saklanır.</li>
+    </ul>
+
+    <h3>2.4 Sosyal ve Etkileşim Verileri</h3>
+    <ul>
+      <li>Arkadaşlık istekleri (gönderen/alan kullanıcı kimliği, istek notu)</li>
+      <li>Kullanıcılar arasında gönderilen mesajlar</li>
+      <li>Arkadaşlara gönderilen restoran önerileri</li>
+      <li>Rezervasyon bilgileri (tarih, saat, kişi sayısı, özel notlar)</li>
+      <li>Şikâyet/bildirimlerin içeriği</li>
+    </ul>
+
+    <h3>2.5 Uygulama Kullanım ve Aktivite Verileri</h3>
+    <ul>
+      <li><strong>Arama geçmişi:</strong> Metin aramaları ve mutfak türü filtreleri. İstediğiniz zaman tamamen veya tek tek silebilirsiniz.</li>
+      <li><strong>AI öneri günlükleri:</strong> Her AI önerisi çağrısında hangi model kullanıldığı, aday mekân kimlikleri, seçilen mekânlar, yaklaşık konum ve kullanılan token sayısı kayıt altına alınır. Bu kayıtlar hizmet iyileştirme amacıyla tutulur.</li>
+      <li><strong>Aktivite akışı:</strong> Yorum, favori, rezervasyon ve öneri eylemleri sosyal akışta görünür hâle getirilir (profiliniz herkese açık ise).</li>
+      <li><strong>Bildirim tercihleri:</strong> Hangi bildirim türlerini almak istediğinize dair tercihler.</li>
+    </ul>
+
+    <h3>2.6 Cihaz ve Teknik Veriler</h3>
+    <ul>
+      <li>Firebase Cloud Messaging (FCM) push bildirim token'ı</li>
+      <li>İşletim sistemi türü (Android)</li>
+      <li>IP adresi (güvenlik ve hız sınırlama amacıyla istek bazında işlenir; kalıcı günlüklerde kısmen saklanır)</li>
+    </ul>
+
+    <h3>2.7 Restoran Sahiplerine Özgü Veriler</h3>
+    <p>
+      Uygulamaya restoran hesabıyla kayıt yaptırırsanız ayrıca şu veriler işlenir:
+    </p>
+    <ul>
+      <li>Ticari unvan, vergi numarası, vergi dairesi</li>
+      <li>İşletme sahibinin adı ve iletişim bilgileri</li>
+      <li>İşletme adresi ve kategorisi</li>
+      <li>Restoran menüsü, çalışma saatleri ve galeri fotoğrafları</li>
+    </ul>
+
+    <h3>2.8 Abonelik Bilgileri</h3>
+    <p>
+      Premium abonelik satın aldığınızda Google Play Faturalama sisteminden aldığımız
+      <em>satın alma token'ı</em> ve abonelik geçerlilik süresi işlenir. Ödeme kartı bilgileriniz
+      tamamen Google Play altyapısında saklanır; bu verilere hiçbir şekilde erişimimiz yoktur.
+    </p>
+  </section>
+
+  <!-- 3. Kullanım Amaçları -->
+  <section id="s3">
+    <h2><span class="sec-num">3</span> Verilerin Kullanım Amaçları</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Amaç</th>
+            <th>İşlenen Veriler</th>
+            <th>Hukuki Dayanak</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hesap oluşturma ve kimlik doğrulama</td>
+            <td>E-posta, şifre, Google kimliği</td>
+            <td><span class="tag blue">Sözleşme ifası</span></td>
+          </tr>
+          <tr>
+            <td>Yakındaki restoranları listeleme</td>
+            <td>Anlık konum</td>
+            <td><span class="tag blue">Sözleşme ifası</span></td>
+          </tr>
+          <tr>
+            <td>Kişiselleştirilmiş AI yemek önerileri</td>
+            <td>Konum, favoriler, arama geçmişi, tercihler</td>
+            <td><span class="tag blue">Sözleşme ifası</span></td>
+          </tr>
+          <tr>
+            <td>Sosyal özellikler (arkadaşlar, öneri gönderme)</td>
+            <td>Kullanıcı adı, aktivite verileri</td>
+            <td><span class="tag blue">Sözleşme ifası</span></td>
+          </tr>
+          <tr>
+            <td>Push bildirimleri gönderme</td>
+            <td>FCM token</td>
+            <td><span class="tag">Açık rıza</span></td>
+          </tr>
+          <tr>
+            <td>Rezervasyon yönetimi</td>
+            <td>Rezervasyon detayları, iletişim bilgileri</td>
+            <td><span class="tag blue">Sözleşme ifası</span></td>
+          </tr>
+          <tr>
+            <td>E-posta doğrulama ve şifre sıfırlama</td>
+            <td>E-posta adresi</td>
+            <td><span class="tag blue">Sözleşme ifası</span></td>
+          </tr>
+          <tr>
+            <td>Hizmet güvenliği ve sahtekârlık önleme</td>
+            <td>IP adresi, istek meta verileri</td>
+            <td><span class="tag yellow">Meşru menfaat</span></td>
+          </tr>
+          <tr>
+            <td>Hizmet analizi ve iyileştirme</td>
+            <td>AI günlükleri, aktivite verileri (anonim)</td>
+            <td><span class="tag yellow">Meşru menfaat</span></td>
+          </tr>
+          <tr>
+            <td>Premium abonelik yönetimi</td>
+            <td>Abonelik durumu, satın alma token'ı</td>
+            <td><span class="tag blue">Sözleşme ifası</span></td>
+          </tr>
+          <tr>
+            <td>Yasal yükümlülüklerin yerine getirilmesi</td>
+            <td>İşlem ve ödeme kayıtları</td>
+            <td><span class="tag green">Yasal yükümlülük</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 4. Üçüncü Taraflar -->
+  <section id="s4">
+    <h2><span class="sec-num">4</span> Üçüncü Taraf Hizmetler ve Veri Aktarımı</h2>
+    <p>
+      Uygulamanın işlevselliğini sağlamak için aşağıdaki üçüncü taraf hizmet sağlayıcılarla çalışıyoruz.
+      Her sağlayıcıya yalnızca hizmetin gerektirdiği kadar veri aktarılmaktadır.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Hizmet Sağlayıcı</th><th>Amaç</th><th>Aktarılan Veriler</th><th>Gizlilik Politikası</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Google Firebase</strong></td>
+            <td>Kimlik doğrulama (Google ile Giriş), push bildirimler (FCM)</td>
+            <td>E-posta, Google kimliği, FCM token</td>
+            <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com</a></td>
+          </tr>
+          <tr>
+            <td><strong>Google Places API</strong></td>
+            <td>Restoran arama, mekân detayları, fotoğraflar</td>
+            <td>Anlık enlem/boylam, arama sorguları</td>
+            <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com</a></td>
+          </tr>
+          <tr>
+            <td><strong>Google Play Billing</strong></td>
+            <td>Android abonelik yönetimi ve doğrulama</td>
+            <td>Satın alma token'ı, ürün kimliği</td>
+            <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com</a></td>
+          </tr>
+          <tr>
+            <td><strong>Anthropic (Claude API)</strong></td>
+            <td>AI yemek önerileri, fotoğraf analizi, işletme raporları</td>
+            <td>Kullanıcı tercihleri, yaklaşık konum, aday mekânlar, yüklenen fotoğraf analiz verisi</td>
+            <td><a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">anthropic.com/privacy</a></td>
+          </tr>
+          <tr>
+            <td><strong>Resend</strong></td>
+            <td>İşlemsel e-posta (doğrulama, şifre sıfırlama)</td>
+            <td>E-posta adresi, görünen ad</td>
+            <td><a href="https://resend.com/legal/privacy-policy" target="_blank" rel="noopener">resend.com</a></td>
+          </tr>
+          <tr>
+            <td><strong>Amazon Web Services (S3)</strong></td>
+            <td>Fotoğraf depolama (profil, restoran, ürün görselleri)</td>
+            <td>Yüklenen fotoğraf dosyaları</td>
+            <td><a href="https://aws.amazon.com/privacy/" target="_blank" rel="noopener">aws.amazon.com</a></td>
+          </tr>
+          <tr>
+            <td><strong>Railway</strong></td>
+            <td>Sunucu altyapısı (bulut barındırma)</td>
+            <td>Tüm uygulama verileri (şifreli)</td>
+            <td><a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">railway.app</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      Verileriniz hiçbir koşulda reklam amaçlı üçüncü taraflarla paylaşılmaz, satılmaz veya
+      kiralanmaz. Yukarıdaki aktarımlar yalnızca hizmetin sunulması için zorunlu olan minimum
+      veri ile gerçekleştirilir.
+    </div>
+    <p>
+      Bazı hizmet sağlayıcılar (özellikle Google ve Anthropic) Türkiye dışında, Avrupa Ekonomik
+      Alanı veya Amerika Birleşik Devletleri'nde veri işleyebilir. Bu aktarımlar, ilgili sağlayıcıların
+      GDPR Standart Sözleşme Maddeleri ve KVKK'nın 9. maddesi kapsamındaki güvencelerine
+      dayanmaktadır.
+    </p>
+  </section>
+
+  <!-- 5. Saklama Süreleri -->
+  <section id="s5">
+    <h2><span class="sec-num">5</span> Veri Saklama Süreleri</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Veri Kategorisi</th><th>Saklama Süresi</th><th>Açıklama</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hesap ve profil bilgileri</td>
+            <td>Hesap silinene kadar</td>
+            <td>Siz silmediğiniz sürece saklanır</td>
+          </tr>
+          <tr>
+            <td>Yorumlar, favoriler, listeler</td>
+            <td>Hesap silinene kadar</td>
+            <td>Hesap silinince cascade ile kaldırılır</td>
+          </tr>
+          <tr>
+            <td>Arama geçmişi</td>
+            <td>Siz silinceye kadar</td>
+            <td>Uygulama içinden tek tıkla silebilirsiniz</td>
+          </tr>
+          <tr>
+            <td>Check-in kayıtları</td>
+            <td>3 saat</td>
+            <td>Otomatik olarak sona erer</td>
+          </tr>
+          <tr>
+            <td>Okunmuş bildirimler</td>
+            <td>90 gün</td>
+            <td>Otomatik temizlenir</td>
+          </tr>
+          <tr>
+            <td>E-posta doğrulama token'ları</td>
+            <td>24 saat</td>
+            <td>Süresi dolunca geçersiz olur, silinir</td>
+          </tr>
+          <tr>
+            <td>Şifre sıfırlama token'ları</td>
+            <td>1 saat</td>
+            <td>Süresi dolunca geçersiz olur, silinir</td>
+          </tr>
+          <tr>
+            <td>AI öneri günlükleri</td>
+            <td>2 yıl</td>
+            <td>Hizmet kalitesi ve denetim amacıyla</td>
+          </tr>
+          <tr>
+            <td>Güvenlik ve erişim günlükleri</td>
+            <td>2 yıl</td>
+            <td>KVKK madde 12 kapsamında güvenlik</td>
+          </tr>
+          <tr>
+            <td>Ödeme ve abonelik kayıtları</td>
+            <td>10 yıl</td>
+            <td>Türk Ticaret Kanunu'nun zorunlu kıldığı süre</td>
+          </tr>
+          <tr>
+            <td>Redis önbelleği</td>
+            <td>30 dk – 24 saat</td>
+            <td>TTL sonrası otomatik silinir</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Hesabınızı sildiğinizde; yorumlarınız, favorileriniz, mesajlarınız ve kişisel profiliniz
+      veritabanından kalıcı olarak kaldırılır. Yasal saklama yükümlülüğü olan ödeme kayıtları
+      (anonim olarak) saklanmaya devam edebilir.
+    </p>
+  </section>
+
+  <!-- 6. Güvenlik -->
+  <section id="s6">
+    <h2><span class="sec-num">6</span> Veri Güvenliği</h2>
+    <p>Verilerinizi korumak için endüstri standardı teknik önlemler uygulamaktayız:</p>
+    <ul>
+      <li><strong>Şifre koruması:</strong> Şifreler bcrypt algoritmasıyla (10 tur) özetlenerek saklanır; düz metin asla tutulmaz.</li>
+      <li><strong>Kimlik doğrulama token'ları:</strong> JWT ile imzalanmış, sunucu tarafında doğrulanan oturum token'ları.</li>
+      <li><strong>Aktarım güvenliği:</strong> Uygulama ile sunucular arasındaki tüm veri transferi HTTPS/TLS ile şifrelenir.</li>
+      <li><strong>API güvenliği:</strong> Rate limiting, HTTP güvenlik başlıkları (Helmet) ve istek kimliği takibi uygulanır.</li>
+      <li><strong>Erişim kontrolü:</strong> Rol tabanlı yetkilendirme (kullanıcı / restoran sahibi / yönetici); her kullanıcı yalnızca kendi verilerine erişebilir.</li>
+      <li><strong>Gizli anahtar yönetimi:</strong> API anahtarları ve kimlik bilgileri ortam değişkenlerinde saklanır, kaynak koda dahil edilmez.</li>
+    </ul>
+    <div class="callout">
+      Hiçbir sistem %100 güvenli değildir. Veri güvenliğini etkileyen bir olaydan haberdar olursak
+      sizi ve yetkili makamları KVKK'nın öngördüğü süre içinde bilgilendireceğiz.
+    </div>
+  </section>
+
+  <!-- 7. Çerezler ve Yerel Depolama -->
+  <section id="s7">
+    <h2><span class="sec-num">7</span> Çerezler ve Yerel Depolama</h2>
+    <p>
+      Eatlas bir <strong>mobil uygulamadır</strong>; geleneksel web çerezleri kullanılmaz.
+      Uygulama, aşağıdaki verileri yalnızca cihazınızda yerel olarak saklar:
+    </p>
+    <ul>
+      <li><strong>Kimlik doğrulama token'ı:</strong> Oturum açık kalması için cihazın güvenli depolama alanında (Android Keystore) saklanır.</li>
+      <li><strong>Kullanıcı tercihleri:</strong> Tema (açık/koyu mod) ve UI durumu gibi tercihler yerel olarak tutulur.</li>
+    </ul>
+    <p>
+      Bu veriler yalnızca uygulamanın işlevselliği için kullanılır ve üçüncü taraflarla paylaşılmaz.
+      Uygulamayı cihazdan kaldırdığınızda tüm yerel veriler silinir.
+    </p>
+  </section>
+
+  <!-- 8. Çocuklar -->
+  <section id="s8">
+    <h2><span class="sec-num">8</span> Çocukların Gizliliği</h2>
+    <p>
+      Eatlas <strong>13 yaşın altındaki çocuklara yönelik değildir</strong> ve bu kişilerden bilerek
+      veri toplamaz. 13 yaş altı bir kullanıcının hesap açtığından haberdar olursak söz konusu
+      hesabı ve ilgili verileri derhal sileriz.
+    </p>
+    <p>
+      13–18 yaş arasındaki kullanıcıların uygulamayı ebeveyn veya vasi onayıyla kullanması önerilir.
+    </p>
+  </section>
+
+  <!-- 9. KVKK Hakları -->
+  <section id="s9">
+    <h2><span class="sec-num">9</span> KVKK Kapsamındaki Haklarınız</h2>
+    <p>
+      6698 sayılı KVKK'nın 11. maddesi uyarınca aşağıdaki haklara sahipsiniz:
+    </p>
+    <div class="rights-grid">
+      <div class="right-card">
+        <div class="r-icon">🔍</div>
+        <div class="r-title">Bilgi Edinme</div>
+        <div class="r-desc">Hakkınızda hangi kişisel verilerin işlendiğini öğrenme hakkı.</div>
+      </div>
+      <div class="right-card">
+        <div class="r-icon">✏️</div>
+        <div class="r-title">Düzeltme</div>
+        <div class="r-desc">Yanlış veya eksik verilerin düzeltilmesini talep etme.</div>
+      </div>
+      <div class="right-card">
+        <div class="r-icon">🗑️</div>
+        <div class="r-title">Silme</div>
+        <div class="r-desc">Hesabınızı ve verilerinizi kalıcı olarak silme. Uygulama içinden yapılabilir.</div>
+      </div>
+      <div class="right-card">
+        <div class="r-icon">🚫</div>
+        <div class="r-title">İşlemeye İtiraz</div>
+        <div class="r-desc">Meşru menfaate dayalı işlemlere itiraz etme hakkı.</div>
+      </div>
+      <div class="right-card">
+        <div class="r-icon">📦</div>
+        <div class="r-title">Taşınabilirlik</div>
+        <div class="r-desc">Verilerinizi makine okunabilir formatta talep etme.</div>
+      </div>
+      <div class="right-card">
+        <div class="r-icon">🔒</div>
+        <div class="r-title">Kısıtlama</div>
+        <div class="r-desc">Belirli koşullarda veri işlemenin kısıtlanmasını talep etme.</div>
+      </div>
+    </div>
+
+    <h3>Hakları Nasıl Kullanabilirsiniz?</h3>
+    <p>
+      Çoğu hakkınızı doğrudan uygulama içinden kullanabilirsiniz:
+    </p>
+    <ul>
+      <li><strong>Profil düzenleme:</strong> Profil ekranı → Düzenle</li>
+      <li><strong>Arama geçmişini silme:</strong> Arama ekranı → Geçmişi Temizle</li>
+      <li><strong>Bildirim tercihlerini yönetme:</strong> Profil → Bildirim Ayarları</li>
+      <li><strong>Hesabı silme:</strong> Profil → Ayarlar → Hesabı Sil</li>
+    </ul>
+    <p>
+      Yukarıda yer almayan talepler için aşağıdaki e-posta adresine başvurabilirsiniz.
+      Başvurularınız en geç <strong>30 gün</strong> içinde yanıtlanacaktır.
+    </p>
+    <p>
+      Ayrıca Kişisel Verileri Koruma Kurumu'na (KVKK) şikâyette bulunma hakkınız saklıdır:
+      <a href="https://www.kvkk.gov.tr" target="_blank" rel="noopener">www.kvkk.gov.tr</a>
+    </p>
+  </section>
+
+  <!-- 10. Değişiklikler -->
+  <section id="s10">
+    <h2><span class="sec-num">10</span> Politika Değişiklikleri</h2>
+    <p>
+      Bu gizlilik politikası zaman zaman güncellenebilir. Önemli değişiklikler yapılması durumunda:
+    </p>
+    <ul>
+      <li>Bu sayfadaki "Son güncelleme" tarihi değiştirilir.</li>
+      <li>Değişiklik kişisel veri işleme biçimini önemli ölçüde etkiliyorsa uygulama içi bildirim veya e-posta ile bilgilendirilirsiniz.</li>
+    </ul>
+    <p>
+      Politikayı düzenli olarak incelemenizi öneririz. Uygulamayı kullanmaya devam etmeniz
+      güncel politikayı kabul ettiğiniz anlamına gelir.
+    </p>
+  </section>
+
+  <!-- 11. İletişim -->
+  <section id="s11">
+    <h2><span class="sec-num">11</span> İletişim</h2>
+    <p>
+      Gizlilik politikamız veya kişisel verileriniz hakkında sorularınız için:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <tr><th>E-posta</th><td><a href="mailto:denniz.ertekin@gmail.com">denniz.ertekin@gmail.com</a></td></tr>
+        <tr><th>Konu satırı</th><td>KVKK / Gizlilik Talebi</td></tr>
+        <tr><th>Yanıt süresi</th><td>En geç 30 gün</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2026 Eatlas · <a href="privacy-policy.html">Gizlilik Politikası</a></p>
+    <p style="margin-top:6px">Bu sayfa GitHub Pages üzerinde barındırılmaktadır.</p>
+  </footer>
+
+</div>
+</body>
+</html>
