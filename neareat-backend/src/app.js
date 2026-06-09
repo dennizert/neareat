@@ -37,6 +37,7 @@ const mealGroupRoutes = require('./routes/mealGroups');
 const recommendationRoutes = require('./routes/recommendations');
 const referralRoutes = require('./routes/referral');
 const placeRequestRoutes = require('./routes/placeRequests');
+const webhookRoutes = require('./routes/webhooks');
 const errorHandler = require('./middleware/errorHandler');
 const requestId = require('./middleware/requestId');
 const sanitize = require('./middleware/sanitize');
@@ -151,6 +152,9 @@ app.use('/api/meal-groups', mealGroupRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/referral', referralRoutes);
 app.use('/api/place-requests', placeRequestRoutes);
+
+// Google Cloud Pub/Sub push — JWT auth yok, Google imzasıyla korunur
+app.use('/webhooks', webhookRoutes);
 
 // Email linklerinden gelen deep link yönlendirmeleri
 // Email istemcileri neareat:// şemasını bloke eder; HTTPS link → deep link

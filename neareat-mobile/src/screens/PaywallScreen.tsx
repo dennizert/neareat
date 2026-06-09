@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useIAP } from 'expo-iap';
+import { useIAP, getAvailablePurchases } from 'expo-iap';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../theme';
@@ -75,12 +75,34 @@ export default function PaywallScreen() {
   });
 
   useEffect(() => {
-    if (connected) {
-      requestProducts({ skus: Object.values(SKUS), type: 'subs' }).catch(() => {
-        // Play Store erişilemiyor (emülatör / yapılandırılmamış) — fiyatlar "—" kalır
-      });
-    }
-  }, [connected, requestProducts]);
+    if (!connected) return;
+
+    requestProducts({ skus: Object.values(SKUS), type: 'subs' }).catch(() => {
+      // Play Store erişilemiyor (emülatör / yapılandırılmamış) — fiyatlar "—" kalır
+    });
+
+    // Tamamlanmamış satın almaları kurtar: ödendi ama doğrulama tamamlanmadıysa
+    // (ağ kopması / crash) backend'e tekrar gönder.
+    getAvailablePurchases().then(async (purchases) => {
+      for (const purchase of purchases) {
+        const token = purchase.purchaseToken;
+        if (!token || !purchase.productId) continue;
+        try {
+          const { data } = await api.post('/subscriptions/verify/android', {
+            purchaseToken: token,
+            productId: purchase.productId,
+          });
+          setSubscription(data);
+          await finishTransaction({ purchase, isConsumable: false });
+          break; // İlk başarılı doğrulamadan sonra dur
+        } catch {
+          // Bu satın alma doğrulanamadı — bir sonrakini dene
+        }
+      }
+    }).catch(() => {
+      // getAvailablePurchases desteklenmiyorsa (emülatör) sessizce geç
+    });
+  }, [connected, requestProducts, finishTransaction, setSubscription]);
 
   const iapAvailable = subscriptions.length > 0;
 

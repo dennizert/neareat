@@ -4,9 +4,17 @@ const TRIAL_DAYS = parseInt(process.env.TRIAL_DAYS || '7');
 
 async function getSubscription(req, res, next) {
   try {
-    const subscription = await prisma.subscription.findUnique({
+    let subscription = await prisma.subscription.findUnique({
       where: { userId: req.user.id },
     });
+
+    // Güvenlik ağı: RTDN henüz gelmemişse expired'ı düzelt
+    if (subscription?.status === 'active' && new Date(subscription.expiresAt) < new Date()) {
+      subscription = await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { status: 'expired' },
+      });
+    }
 
     // Allowlist override — aktif aboneliği olmayan "her zaman premium" hesaplar için
     // sentetik premium abonelik döndür (mobil UI premium gösterir).
@@ -149,4 +157,106 @@ async function verifyAppStorePurchase(req, res, next) {
   }
 }
 
-module.exports = { getSubscription, startTrial, verifyAndroidPurchase, verifyAppStorePurchase };
+// ─── Google Play Real-time Developer Notifications (RTDN) ────────────────────
+// Google Cloud Pub/Sub push subscription bu endpoint'i çağırır.
+// Bildirim türlerine göre DB'deki abonelik durumunu günceller.
+// Pub/Sub'un yeniden deneme (retry) mekanizmasını tetiklememek için
+// geçici hatalar dahil HER ZAMAN 200 döndürülür.
+
+async function handleGooglePlayRTDN(req, res) {
+  try {
+    const message = req.body?.message;
+    if (!message?.data) return res.status(200).json({ received: true });
+
+    let notification;
+    try {
+      notification = JSON.parse(Buffer.from(message.data, 'base64').toString('utf8'));
+    } catch {
+      return res.status(200).json({ received: true });
+    }
+
+    const { packageName, subscriptionNotification } = notification;
+
+    const expectedPackage = process.env.GOOGLE_PLAY_PACKAGE_NAME;
+    if (expectedPackage && packageName !== expectedPackage) {
+      return res.status(200).json({ received: true });
+    }
+
+    if (!subscriptionNotification) return res.status(200).json({ received: true });
+
+    const { notificationType, purchaseToken, subscriptionId } = subscriptionNotification;
+
+    // 1=RECOVERED 2=RENEWED 4=PURCHASED 7=RESTARTED → Google Play'den güncel durum çek
+    if ([1, 2, 4, 7].includes(notificationType)) {
+      await _refreshFromPlay(purchaseToken, subscriptionId);
+    }
+    // 3=CANCELED → iptal edildi ama bitiş tarihine kadar hâlâ aktif
+    else if (notificationType === 3) {
+      await _setSubscriptionStatus(purchaseToken, 'cancelled');
+    }
+    // 5=ON_HOLD 6=GRACE_PERIOD → Play'den güncel expiresAt al
+    else if ([5, 6].includes(notificationType)) {
+      await _refreshFromPlay(purchaseToken, subscriptionId);
+    }
+    // 12=REVOKED 13=EXPIRED → hemen expired yap
+    else if ([12, 13].includes(notificationType)) {
+      await _setSubscriptionStatus(purchaseToken, 'expired');
+    }
+  } catch (err) {
+    console.error('[RTDN] İşleme hatası:', err.message);
+  }
+  return res.status(200).json({ received: true });
+}
+
+async function _refreshFromPlay(purchaseToken, subscriptionId) {
+  const serviceAccountJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
+  const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME;
+  if (!serviceAccountJson || !packageName) return;
+
+  const { google } = require('googleapis');
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(serviceAccountJson),
+    scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+  });
+  const androidpublisher = google.androidpublisher({ version: 'v3', auth });
+  const { data: purchase } = await androidpublisher.purchases.subscriptions.get({
+    packageName,
+    subscriptionId,
+    token: purchaseToken,
+  });
+
+  const expiryMs = parseInt(purchase.expiryTimeMillis, 10);
+  if (!expiryMs) return;
+
+  const subscription = await prisma.subscription.findFirst({
+    where: { storeTransactionId: purchaseToken },
+  });
+  if (!subscription) return;
+
+  await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: {
+      status: expiryMs > Date.now() ? 'active' : 'expired',
+      expiresAt: new Date(expiryMs),
+    },
+  });
+}
+
+async function _setSubscriptionStatus(purchaseToken, status) {
+  const subscription = await prisma.subscription.findFirst({
+    where: { storeTransactionId: purchaseToken },
+  });
+  if (!subscription) return;
+  await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: { status },
+  });
+}
+
+module.exports = {
+  getSubscription,
+  startTrial,
+  verifyAndroidPurchase,
+  verifyAppStorePurchase,
+  handleGooglePlayRTDN,
+};

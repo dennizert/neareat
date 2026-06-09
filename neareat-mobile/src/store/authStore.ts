@@ -14,6 +14,7 @@
  */
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import api from '../services/api';
 import type { User, Subscription } from '../types';
 
 /** Restoran hesabının onay durumu bilgisi */
@@ -36,6 +37,7 @@ interface AuthState {
   setToken: (token: string | null) => void;
   setRestaurantStatus: (status: RestaurantStatus | null) => void;
   isPremium: () => boolean;
+  loadSubscription: () => Promise<void>;
   logout: () => Promise<void>;
   clear: () => void;
 }
@@ -83,6 +85,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       ['active', 'trial'].includes(sub.status) &&
       new Date(sub.expiresAt) > new Date()
     );
+  },
+
+  /** Sunucudan güncel abonelik durumunu çeker ve store'u günceller */
+  loadSubscription: async () => {
+    if (!get().token) return;
+    try {
+      const { data } = await api.get<Subscription>('/subscriptions');
+      set({ subscription: data });
+    } catch {
+      // Sessiz hata — mevcut abonelik state'i korunur
+    }
   },
 
   /**
