@@ -1,0 +1,1549 @@
+{
+  "info": {
+    "_postman_id": "neareat-backend-api-v1",
+    "name": "NearEat Backend API",
+    "description": "NearEat / Eatlas backend REST API collection.\n\n**Ortamlar**\n- `{{baseUrl}}` → local: `http://localhost:3000` · prod: `https://railway-up-production-6cdc.up.railway.app`\n\n**Auth akışı**\n1. *Auth > E-posta ile Kayıt* veya *E-posta ile Giriş* isteğini çalıştır → `authToken` değişkeni otomatik set edilir.\n2. *Auth > Admin Giriş* → `adminToken` set edilir.\n3. *Restaurant Account > Kayıt* veya e-posta girişi (RESTAURANT rolü) → `restaurantToken` set edilir.\n\n**Değişkenler**\n| Değişken | Açıklama |\n|---|---|\n| `baseUrl` | Sunucu kök URL'i |\n| `authToken` | Kullanıcı JWT |\n| `adminToken` | Admin JWT |\n| `restaurantToken` | Restoran sahibi JWT |\n| `placeId` | Test için Google placeId |\n| `reservationId` | Test rezervasyon ID |\n| `collectionId` | Test koleksiyon ID |\n| `groupId` | Test grup ID |\n| `userId` | Test kullanıcı ID |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string", "description": "Local: http://localhost:3000  |  Prod: https://railway-up-production-6cdc.up.railway.app" },
+    { "key": "authToken", "value": "", "type": "string", "description": "Login/Register sonrası otomatik set edilir" },
+    { "key": "adminToken", "value": "", "type": "string", "description": "Admin login sonrası otomatik set edilir" },
+    { "key": "restaurantToken", "value": "", "type": "string", "description": "Restoran girişi sonrası otomatik set edilir" },
+    { "key": "placeId", "value": "ChIJrTLr-GyuEmsRBfy61i59si0", "type": "string", "description": "Test için örnek Google placeId" },
+    { "key": "userId", "value": "", "type": "string" },
+    { "key": "reservationId", "value": "", "type": "string" },
+    { "key": "collectionId", "value": "", "type": "string" },
+    { "key": "groupId", "value": "", "type": "string" },
+    { "key": "reviewId", "value": "", "type": "string" },
+    { "key": "friendRequestId", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{authToken}}", "type": "string" }]
+  },
+  "item": [
+
+    {
+      "name": "🏥 Health",
+      "description": "Sunucu sağlık kontrolü. Auth gerektirmez.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] },
+            "description": "Sunucu, DB ve Redis durumunu döner. Deploy sonrası kontrol için kullanılır."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔐 Auth",
+      "description": "Kimlik doğrulama: Google OAuth, e-posta/şifre kaydı/girişi, şifre sıfırlama, e-posta doğrulama. Auth rate limit: 20 istek/15 dakika.",
+      "item": [
+        {
+          "name": "Google OAuth Giriş",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200) {", "  const j = pm.response.json();", "  if (j.token) pm.collectionVariables.set('authToken', j.token);", "  if (j.user && j.user.id) pm.collectionVariables.set('userId', j.user.id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"idToken\": \"FIREBASE_GOOGLE_ID_TOKEN_BURAYA\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "description": "Firebase Google IdToken ile giriş. Hesap yoksa otomatik oluşturulur. Başarılı yanıtta `authToken` değişkeni otomatik set edilir."
+          }
+        },
+        {
+          "name": "E-posta ile Kayıt",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  const j = pm.response.json();", "  if (j.token) pm.collectionVariables.set('authToken', j.token);", "  if (j.user && j.user.id) pm.collectionVariables.set('userId', j.user.id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Guclu123!\",\n  \"displayName\": \"Test Kullanıcı\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] },
+            "description": "E-posta + şifre ile yeni kullanıcı kaydı. `password` 8-128 karakter, `displayName` min 2 karakter olmalı."
+          }
+        },
+        {
+          "name": "E-posta ile Giriş",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200) {", "  const j = pm.response.json();", "  if (j.token) pm.collectionVariables.set('authToken', j.token);", "  if (j.user && j.user.id) pm.collectionVariables.set('userId', j.user.id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Guclu123!\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/auth/login/email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login", "email"] },
+            "description": "E-posta + şifre ile giriş. Yanıtta `user`, `subscription` ve `token` döner. `authToken` değişkeni otomatik set edilir."
+          }
+        },
+        {
+          "name": "Mevcut Kullanıcı Bilgisi (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] },
+            "description": "JWT'den çözülen kullanıcı bilgisi, aktif subscription ve restoran profili (varsa) döner."
+          }
+        },
+        {
+          "name": "E-posta Doğrulama",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"EMAIL_DOGRULAMA_TOKEN_BURAYA\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/auth/verify-email", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify-email"] },
+            "description": "Kayıt e-postasındaki bağlantıdan gelen token ile e-postayı doğrular."
+          }
+        },
+        {
+          "name": "Doğrulama E-postasını Yeniden Gönder",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/auth/resend-verification", "host": ["{{baseUrl}}"], "path": ["api", "auth", "resend-verification"] },
+            "description": "Doğrulanmamış hesaplar için yeniden doğrulama e-postası gönderir."
+          }
+        },
+        {
+          "name": "Şifremi Unuttum",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@example.com\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "forgot-password"] },
+            "description": "Şifre sıfırlama bağlantısı e-posta ile gönderilir. E-posta kayıtlı olup olmadığına bakılmaksızın aynı yanıt döner (enumeration koruması)."
+          }
+        },
+        {
+          "name": "Şifre Sıfırlama",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"SIFRE_SIFIRLAMA_TOKEN_BURAYA\",\n  \"password\": \"YeniGuclu123!\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api", "auth", "reset-password"] },
+            "description": "E-postadaki token ile yeni şifre belirlenir. Şifre 8-128 karakter olmalı."
+          }
+        },
+        {
+          "name": "Hesabı Sil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/auth/account", "host": ["{{baseUrl}}"], "path": ["api", "auth", "account"] },
+            "description": "Kullanıcının kendi hesabını kalıcı olarak siler. Tüm kullanıcıya ait veriler (favoriler, yorumlar, koleksiyonlar, S3 fotoğraflar) cascade silinir."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🍽 Restaurants",
+      "description": "Yakın restoran keşfi ve detay endpoint'leri. Auth opsiyoneldir; premium kullanıcılar daha geniş yarıçaptan yararlanır.",
+      "item": [
+        {
+          "name": "Yakın Restoranlar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/restaurants/nearby?lat=41.0082&lng=28.9784&type=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "restaurants", "nearby"],
+              "query": [
+                { "key": "lat", "value": "41.0082", "description": "Kullanıcı enlemi" },
+                { "key": "lng", "value": "28.9784", "description": "Kullanıcı boylamı" },
+                { "key": "type", "value": "all", "description": "restaurant | cafe | meal_takeaway | meal_delivery | bakery | all" },
+                { "key": "cuisineTag", "value": "", "description": "Virgülle ayrılmış mutfak etiketleri (ör: Pizza,Kebap)", "disabled": true }
+              ]
+            },
+            "description": "Google Places Nearby Search ile yakın restoranlar getirilir. Free: 5 km, Premium: 25 km. Her sonuçta cuisineTags, minutesUntilClose, isNewlyOpened, discount ve acceptsReservations bilgisi eklenir."
+          }
+        },
+        {
+          "name": "Restoran Detayı",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/restaurants/{{placeId}}?lat=41.0082&lng=28.9784",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "restaurants", "{{placeId}}"],
+              "query": [
+                { "key": "lat", "value": "41.0082", "description": "Mesafe hesabı için" },
+                { "key": "lng", "value": "28.9784" }
+              ]
+            },
+            "description": "Tek bir restoranın Google Places detayları: fotoğraflar, çalışma saatleri, indirim/duyuru bilgisi, rezervasyon URL'i. Menü yalnızca premium kullanıcılara gösterilir."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔍 Arama & Yerler",
+      "description": "Metin tabanlı restoran arama ve arama geçmişi yönetimi.",
+      "item": [
+        {
+          "name": "Metin ile Ara",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/places/search?q=kebap&lat=41.0082&lng=28.9784",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "places", "search"],
+              "query": [
+                { "key": "q", "value": "kebap", "description": "Arama metni, min 2 karakter" },
+                { "key": "lat", "value": "41.0082", "description": "25 km konuma göre sıralama için" },
+                { "key": "lng", "value": "28.9784" },
+                { "key": "cuisineTag", "value": "", "description": "Mutfak filtresi", "disabled": true }
+              ]
+            },
+            "description": "Google Places Text Search. Oturum açık kullanıcılar için arama geçmişine fire-and-forget kaydı yapılır. passesQualityFilter ile fırın/market/eczane gibi yerler filtrelenir."
+          }
+        },
+        {
+          "name": "Arama Geçmişini Listele",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/search-history", "host": ["{{baseUrl}}"], "path": ["api", "search-history"] },
+            "description": "Kullanıcının son 30 arama kaydını döner."
+          }
+        },
+        {
+          "name": "Tüm Arama Geçmişini Sil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/search-history", "host": ["{{baseUrl}}"], "path": ["api", "search-history"] },
+            "description": "KVKK kapsamında kullanıcının tüm arama geçmişini siler."
+          }
+        },
+        {
+          "name": "Tek Arama Kaydı Sil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/search-history/:id", "host": ["{{baseUrl}}"], "path": ["api", "search-history", ":id"], "variable": [{ "key": "id", "value": "SEARCH_HISTORY_ID" }] },
+            "description": "Belirli bir arama kaydını siler. Sahiplik kontrolü yapılır."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📍 Check-in",
+      "description": "Restoranda anlık check-in. Check-in 3 saat geçerlidir; arkadaşlara bildirim gönderilir.",
+      "item": [
+        {
+          "name": "Check-in Yap",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"placeId\": \"{{placeId}}\",\n  \"placeName\": \"Test Restoran\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/checkin", "host": ["{{baseUrl}}"], "path": ["api", "checkin"] },
+            "description": "Belirtilen restoranda check-in oluşturur (3 saat TTL). Arkadaşlara CHECK_IN bildirimi gönderilir."
+          }
+        },
+        {
+          "name": "Aktif Check-in Sorgula",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/checkin/me", "host": ["{{baseUrl}}"], "path": ["api", "checkin", "me"] },
+            "description": "Aktif check-in varsa döner, yoksa null."
+          }
+        },
+        {
+          "name": "Check-in İptal Et",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/checkin", "host": ["{{baseUrl}}"], "path": ["api", "checkin"] },
+            "description": "Aktif check-in'i iptal eder."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📔 Günlük (Diary)",
+      "description": "Yemek günlüğü: ziyaret edilen restoranların kişisel notlarla kaydı.",
+      "item": [
+        {
+          "name": "Günlük Girişi Ekle",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"placeId\": \"{{placeId}}\",\n  \"placeName\": \"Test Restoran\",\n  \"placePhotoUrl\": \"\",\n  \"placeTypes\": [\"restaurant\"],\n  \"note\": \"Harika bir deneyimdi.\",\n  \"visitedAt\": \"2026-06-01T12:00:00.000Z\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/diary", "host": ["{{baseUrl}}"], "path": ["api", "diary"] },
+            "description": "Restoran ziyaretini günlüğe ekler. `visitedAt` verilmezse şimdiki zaman kullanılır."
+          }
+        },
+        {
+          "name": "Günlük Listesi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/diary?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "diary"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20", "description": "Maks 30" }
+              ]
+            },
+            "description": "Kullanıcının tüm günlük kayıtlarını sayfalı döner."
+          }
+        },
+        {
+          "name": "Günlük İstatistikleri",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/diary/stats", "host": ["{{baseUrl}}"], "path": ["api", "diary", "stats"] },
+            "description": "Spotify Wrapped tarzı yıllık özet: toplam ziyaret, benzersiz mekan, en çok ziyaret edilen mutfak, aylık dağılım."
+          }
+        },
+        {
+          "name": "Günlük Girişi Sil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/diary/:id", "host": ["{{baseUrl}}"], "path": ["api", "diary", ":id"], "variable": [{ "key": "id", "value": "DIARY_ID" }] },
+            "description": "Belirli bir günlük girişini siler. Sahiplik kontrolü yapılır."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "❤️ Favoriler",
+      "description": "Favori restoranlar. Free: 3 adet limit, Premium: sınırsız.",
+      "item": [
+        {
+          "name": "Favorileri Listele",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/favorites", "host": ["{{baseUrl}}"], "path": ["api", "favorites"] },
+            "description": "Kullanıcının tüm favori restoranlarını döner. Restoran sahibinin ayarladığı displayName ile zenginleştirilir."
+          }
+        },
+        {
+          "name": "Favoriye Ekle",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"placeId\": \"{{placeId}}\",\n  \"placeName\": \"Test Restoran\",\n  \"placeLat\": 41.0082,\n  \"placeLng\": 28.9784,\n  \"placeAddress\": \"Beyoğlu, İstanbul\",\n  \"placePhone\": \"+902121234567\",\n  \"placePhotoUrl\": \"\",\n  \"placeRating\": 4.5\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/favorites", "host": ["{{baseUrl}}"], "path": ["api", "favorites"] },
+            "description": "Restoranı favorilere ekler. Free kullanıcılarda limit aşılırsa 403 PREMIUM_REQUIRED döner."
+          }
+        },
+        {
+          "name": "Favoriden Çıkar",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/favorites/{{placeId}}", "host": ["{{baseUrl}}"], "path": ["api", "favorites", "{{placeId}}"] },
+            "description": "Restoranı favorilerden kaldırır."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "⭐ Yorumlar",
+      "description": "Restoran yorumları: oluştur, güncelle, sil. Yorum yazma yıldız kazandırır.",
+      "item": [
+        {
+          "name": "Yorum Listesi (Restoran)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/reviews/{{placeId}}", "host": ["{{baseUrl}}"], "path": ["api", "reviews", "{{placeId}}"] },
+            "description": "Belirli bir restorana ait tüm yorumları getirir. Her yorumda kullanıcı profili ve varsa restoran yanıtı dahildir."
+          }
+        },
+        {
+          "name": "Yorum Yaz / Güncelle",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200 || pm.response.code === 201) {", "  const j = pm.response.json();", "  if (j.review && j.review.id) pm.collectionVariables.set('reviewId', j.review.id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"placeId\": \"{{placeId}}\",\n  \"rating\": 4,\n  \"body\": \"Yemekler lezzetliydi, servis hızlıydı.\",\n  \"placeName\": \"Test Restoran\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/reviews", "host": ["{{baseUrl}}"], "path": ["api", "reviews"] },
+            "description": "Yeni yorum oluşturur; aynı placeId için zaten yorum varsa günceller. İlk yorum yıldız kazandırır. İçerik moderasyonundan geçer."
+          }
+        },
+        {
+          "name": "Yorum Güncelle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rating\": 5,\n  \"body\": \"Tekrar gittim, harika!\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/reviews/{{reviewId}}", "host": ["{{baseUrl}}"], "path": ["api", "reviews", "{{reviewId}}"] },
+            "description": "Kendi yorumunu günceller. Sahiplik kontrolü yapılır."
+          }
+        },
+        {
+          "name": "Yorum Sil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/reviews/{{reviewId}}", "host": ["{{baseUrl}}"], "path": ["api", "reviews", "{{reviewId}}"] },
+            "description": "Kendi yorumunu siler."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "💳 Abonelik",
+      "description": "Premium üyelik yönetimi: deneme başlatma, Google Play ve App Store satın alma doğrulama.",
+      "item": [
+        {
+          "name": "Abonelik Bilgisi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/subscriptions", "host": ["{{baseUrl}}"], "path": ["api", "subscriptions"] },
+            "description": "Aktif aboneliği döner. Allowlist'te tanımlı hesaplar her zaman premium görünür."
+          }
+        },
+        {
+          "name": "Ücretsiz Deneme Başlat",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/subscriptions/trial", "host": ["{{baseUrl}}"], "path": ["api", "subscriptions", "trial"] },
+            "description": "Yalnızca daha önce aboneliği olmayan kullanıcılara deneme başlatır."
+          }
+        },
+        {
+          "name": "Google Play Satın Almayı Doğrula",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"purchaseToken\": \"GOOGLE_PLAY_PURCHASE_TOKEN\",\n  \"productId\": \"com.eatlas.mobile.premium_monthly\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/subscriptions/verify/android", "host": ["{{baseUrl}}"], "path": ["api", "subscriptions", "verify", "android"] },
+            "description": "Google Play IAP token'ını server-side doğrular ve abonelik oluşturur."
+          }
+        },
+        {
+          "name": "App Store Satın Almayı Doğrula",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"transactionId\": \"APP_STORE_TRANSACTION_ID\",\n  \"planType\": \"premium\",\n  \"expiresAt\": \"2027-06-01T00:00:00.000Z\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/subscriptions/verify/appstore", "host": ["{{baseUrl}}"], "path": ["api", "subscriptions", "verify", "appstore"] },
+            "description": "iOS App Store satın almasını kaydeder."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔔 Bildirimler",
+      "description": "Push bildirim yönetimi: FCM token güncelleme, tercihler, okundu işaretleme.",
+      "item": [
+        {
+          "name": "FCM Token Güncelle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fcmToken\": \"FCM_DEVICE_TOKEN_BURAYA\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/notifications/token", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "token"] },
+            "description": "Cihazın FCM push token'ını günceller. Uygulama açılışında çağrılmalı."
+          }
+        },
+        {
+          "name": "Bildirim Tercihleri",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/notifications/type-preferences", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "type-preferences"] },
+            "description": "Bildirim tipi bazlı açık/kapalı tercihlerini listeler."
+          }
+        },
+        {
+          "name": "Bildirim Tercihleri Güncelle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"preferences\": [\n    { \"type\": \"FRIEND_REQUEST\", \"enabled\": true },\n    { \"type\": \"INSTANT_DISCOUNT\", \"enabled\": false },\n    { \"type\": \"WEEKLY_DIGEST\", \"enabled\": true }\n  ]\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/notifications/type-preferences", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "type-preferences"] },
+            "description": "Bildirim tiplerini aç/kapat. Tipler: FRIEND_REQUEST, RECOMMENDATION, REVIEW_REPLY, INSTANT_DISCOUNT, RESERVATION_CONFIRMED, RESERVATION_REJECTED, WEEKLY_DIGEST vb."
+          }
+        },
+        {
+          "name": "Bildirimleri Listele",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "notifications"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20", "description": "Maks 50" }
+              ]
+            },
+            "description": "Sayfalı bildirim listesi. Her bildirimde type, data, isRead, createdAt bilgisi bulunur."
+          }
+        },
+        {
+          "name": "Okunmamış Sayısı",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/notifications/unread-count", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "unread-count"] },
+            "description": "Bildirim zili için okunmamış bildirim sayısı."
+          }
+        },
+        {
+          "name": "Tümünü Okundu İşaretle",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/notifications/read-all", "host": ["{{baseUrl}}"], "path": ["api", "notifications", "read-all"] },
+            "description": "Tüm bildirimleri okundu olarak işaretler."
+          }
+        },
+        {
+          "name": "Tek Bildirimi Okundu İşaretle",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/notifications/:id/read", "host": ["{{baseUrl}}"], "path": ["api", "notifications", ":id", "read"], "variable": [{ "key": "id", "value": "NOTIFICATION_ID" }] },
+            "description": "Belirli bir bildirimi okundu olarak işaretler."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "💬 Mesajlar",
+      "description": "Arkadaşlar arası direkt mesajlaşma. Mesaj göndermek için arkadaşlık zorunludur.",
+      "item": [
+        {
+          "name": "Okunmamış Mesaj Sayısı",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/messages/unread-count", "host": ["{{baseUrl}}"], "path": ["api", "messages", "unread-count"] },
+            "description": "Gönderici bazında okunmamış mesaj sayılarını döner."
+          }
+        },
+        {
+          "name": "Konuşma Listesi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/messages/conversations", "host": ["{{baseUrl}}"], "path": ["api", "messages", "conversations"] },
+            "description": "Tüm aktif konuşmaları listeler; her konuşmada son mesaj ve okunmamış sayısı bulunur."
+          }
+        },
+        {
+          "name": "Mesaj Geçmişi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/{{userId}}?limit=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "messages", "{{userId}}"],
+              "query": [
+                { "key": "limit", "value": "30", "description": "Maks 50" },
+                { "key": "cursor", "value": "", "description": "Cursor-tabanlı sayfalama için mesaj ID", "disabled": true }
+              ]
+            },
+            "description": "Belirli bir kullanıcıyla mesaj geçmişi. Arkadaşlık zorunlu. Cursor-tabanlı sayfalama desteklenir."
+          }
+        },
+        {
+          "name": "Mesaj Gönder",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Merhaba! Nasılsın?\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/messages/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "messages", "{{userId}}"] },
+            "description": "Arkadaşa mesaj gönderir. İçerik moderasyonundan geçer. Rate limited."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "👤 Profil",
+      "description": "Kullanıcı profil yönetimi ve görüntüleme.",
+      "item": [
+        {
+          "name": "Kendi Profilim",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/profile/me", "host": ["{{baseUrl}}"], "path": ["api", "profile", "me"] },
+            "description": "Oturum açmış kullanıcının profili: yıldız sayısı, seviye, rozet ve istatistikler (arkadaş/yorum/öneri sayısı)."
+          }
+        },
+        {
+          "name": "Profil Güncelle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"displayName\": \"Deniz E.\",\n  \"bio\": \"Yemek meraklısı 🍜\",\n  \"city\": \"İstanbul\",\n  \"favoriteCuisines\": [\"Türk\", \"İtalyan\"],\n  \"isPublic\": true,\n  \"shareWithFriendsRecommender\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/profile/me", "host": ["{{baseUrl}}"], "path": ["api", "profile", "me"] },
+            "description": "Kullanıcı profilini günceller. `displayName` ve `bio` içerik moderasyonundan geçer. `shareWithFriendsRecommender: true` ile arkadaş AI sinyallerine anonim katkı yapılır."
+          }
+        },
+        {
+          "name": "Kullanıcı Profili Görüntüle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/profile/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "profile", "{{userId}}"] },
+            "description": "Başka bir kullanıcının profilini görüntüler. Gizli profil arkadaş değilse `{ hidden: true }` döner."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "👥 Sosyal",
+      "description": "Arkadaşlık sistemi, yıldız/ödül geçmişi, liderboard, arkadaş önerileri, kullanıcı şikayet.",
+      "item": [
+        {
+          "name": "Kullanıcı Ara",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/social/users/search?q=test&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "social", "users", "search"],
+              "query": [
+                { "key": "q", "value": "test", "description": "displayName arama metni" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "displayName ile kullanıcı arar. Sonuçlarda `isFriend` ve `hasPendingRequest` durumları bulunur. Sadece KULLANICI rolündeki hesaplar listelenir."
+          }
+        },
+        {
+          "name": "Arkadaş Listesi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/friends", "host": ["{{baseUrl}}"], "path": ["api", "social", "friends"] },
+            "description": "Kabul edilmiş arkadaşlıkları listeler."
+          }
+        },
+        {
+          "name": "Arkadaşlık İstekleri (Gelen)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/friends/requests", "host": ["{{baseUrl}}"], "path": ["api", "social", "friends", "requests"] },
+            "description": "Kullanıcıya gelen PENDING arkadaşlık isteklerini listeler."
+          }
+        },
+        {
+          "name": "Arkadaşlık İsteği Gönder",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200 || pm.response.code === 201) {", "  const j = pm.response.json();", "  if (j.id) pm.collectionVariables.set('friendRequestId', j.id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"toUserId\": \"HEDEF_KULLANICI_ID\",\n  \"note\": \"Merhaba! Arkadaş olalım.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/social/friends/requests", "host": ["{{baseUrl}}"], "path": ["api", "social", "friends", "requests"] },
+            "description": "Başka bir kullanıcıya arkadaşlık isteği gönderir. Oto-kabul: iki taraf birbirini istemişse anında ACCEPTED."
+          }
+        },
+        {
+          "name": "Arkadaşlık İsteği Kabul Et",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/friends/requests/{{friendRequestId}}/accept", "host": ["{{baseUrl}}"], "path": ["api", "social", "friends", "requests", "{{friendRequestId}}", "accept"] },
+            "description": "Gelen arkadaşlık isteğini kabul eder."
+          }
+        },
+        {
+          "name": "Arkadaşlık İsteği Reddet",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/friends/requests/{{friendRequestId}}/reject", "host": ["{{baseUrl}}"], "path": ["api", "social", "friends", "requests", "{{friendRequestId}}", "reject"] },
+            "description": "Gelen arkadaşlık isteğini reddeder."
+          }
+        },
+        {
+          "name": "Arkadaşlığı Kaldır",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/friends/{{friendRequestId}}", "host": ["{{baseUrl}}"], "path": ["api", "social", "friends", "{{friendRequestId}}"] },
+            "description": "Arkadaşlığı bitirir."
+          }
+        },
+        {
+          "name": "Restoran Öner (Arkadaşa)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"toUserId\": \"HEDEF_KULLANICI_ID\",\n  \"placeId\": \"{{placeId}}\",\n  \"placeName\": \"Test Restoran\",\n  \"message\": \"Buraya mutlaka gitmelisin!\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/social/recommendations", "host": ["{{baseUrl}}"], "path": ["api", "social", "recommendations"] },
+            "description": "Arkadaşa restoran önerir. `message` içerik moderasyonundan geçer."
+          }
+        },
+        {
+          "name": "Gönderdiğim Öneriler",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/recommendations/mine", "host": ["{{baseUrl}}"], "path": ["api", "social", "recommendations", "mine"] }
+          }
+        },
+        {
+          "name": "Gelen Öneriler",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/recommendations/received", "host": ["{{baseUrl}}"], "path": ["api", "social", "recommendations", "received"] }
+          }
+        },
+        {
+          "name": "Yıldız Geçmişi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/stars", "host": ["{{baseUrl}}"], "path": ["api", "social", "stars"] },
+            "description": "Yıldız kazanım geçmişi: yorum yazma, rezervasyon, referral vb."
+          }
+        },
+        {
+          "name": "Ödüller / Rozetler",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/rewards", "host": ["{{baseUrl}}"], "path": ["api", "social", "rewards"] },
+            "description": "Seviye bazlı rozetler; kazanılanlar `earnedAt` ile işaretli."
+          }
+        },
+        {
+          "name": "Liderboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/leaderboard", "host": ["{{baseUrl}}"], "path": ["api", "social", "leaderboard"] },
+            "description": "Yıldız sayısına göre en iyi kullanıcılar."
+          }
+        },
+        {
+          "name": "Arkadaş Önerileri",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/social/friend-suggestions", "host": ["{{baseUrl}}"], "path": ["api", "social", "friend-suggestions"] },
+            "description": "Önceden hesaplanmış (Redis cache) uyumlu arkadaş önerileri. Ortak şehir, favori, mutfak zevki ve AI kullanım düzeyine göre skorlanmış."
+          }
+        },
+        {
+          "name": "Kullanıcı Şikayet Et",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Rahatsız edici mesajlar gönderiyor\",\n  \"details\": \"Ek detaylar buraya\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/social/users/{{userId}}/report", "host": ["{{baseUrl}}"], "path": ["api", "social", "users", "{{userId}}", "report"] },
+            "description": "Bir kullanıcıyı admin moderasyonu için şikayet eder."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📋 Koleksiyonlar",
+      "description": "Restoran listeleri oluşturma ve paylaşma. Oluşturma Premium gerektirir.",
+      "item": [
+        {
+          "name": "Koleksiyonlarım",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/collections", "host": ["{{baseUrl}}"], "path": ["api", "collections"] }
+          }
+        },
+        {
+          "name": "Benimle Paylaşılanlar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/collections/shared-with-me", "host": ["{{baseUrl}}"], "path": ["api", "collections", "shared-with-me"] }
+          }
+        },
+        {
+          "name": "Koleksiyon Oluştur",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  const j = pm.response.json();", "  if (j.id) pm.collectionVariables.set('collectionId', j.id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"İstanbul'un En İyi Kebapçıları\",\n  \"description\": \"Şehrin dört bir yanındaki en iyi kebap mekanları\",\n  \"isPublic\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/collections", "host": ["{{baseUrl}}"], "path": ["api", "collections"] },
+            "description": "Yeni koleksiyon oluşturur. Premium gerektirir."
+          }
+        },
+        {
+          "name": "Koleksiyon Detayı",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/collections/{{collectionId}}?sortBy=addedAt_desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "collections", "{{collectionId}}"],
+              "query": [{ "key": "sortBy", "value": "addedAt_desc", "description": "addedAt_desc | addedAt_asc | rating" }]
+            }
+          }
+        },
+        {
+          "name": "Koleksiyon Güncelle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Güncellenmiş Ad\",\n  \"isPublic\": false\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/collections/{{collectionId}}", "host": ["{{baseUrl}}"], "path": ["api", "collections", "{{collectionId}}"] }
+          }
+        },
+        {
+          "name": "Koleksiyon Sil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/collections/{{collectionId}}", "host": ["{{baseUrl}}"], "path": ["api", "collections", "{{collectionId}}"] }
+          }
+        },
+        {
+          "name": "Koleksiyona Restoran Ekle",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"placeId\": \"{{placeId}}\",\n  \"placeName\": \"Test Restoran\",\n  \"placeRating\": 4.5\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/collections/{{collectionId}}/items", "host": ["{{baseUrl}}"], "path": ["api", "collections", "{{collectionId}}", "items"] }
+          }
+        },
+        {
+          "name": "Koleksiyondan Restoran Çıkar",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/collections/{{collectionId}}/items/{{placeId}}", "host": ["{{baseUrl}}"], "path": ["api", "collections", "{{collectionId}}", "items", "{{placeId}}"] }
+          }
+        },
+        {
+          "name": "Koleksiyonu Arkadaşla Paylaş",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/collections/{{collectionId}}/share/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "collections", "{{collectionId}}", "share", "{{userId}}"] }
+          }
+        },
+        {
+          "name": "Koleksiyon Paylaşımı Kaldır",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/collections/{{collectionId}}/share/{{userId}}", "host": ["{{baseUrl}}"], "path": ["api", "collections", "{{collectionId}}", "share", "{{userId}}"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🏪 Restoran Hesabı",
+      "description": "Restoran sahipleri için: kayıt, profil, menü, fotoğraf, indirim, kampanya, analitik. Auth: `{{restaurantToken}}`.",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{restaurantToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Restoran Kaydı",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  const j = pm.response.json();", "  if (j.token) pm.collectionVariables.set('restaurantToken', j.token);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"restoran@example.com\",\n  \"password\": \"Guclu123!\",\n  \"ownerName\": \"Ahmet Yılmaz\",\n  \"businessName\": \"Test Restoran\",\n  \"taxNumber\": \"1234567890\",\n  \"taxOffice\": \"Beyoğlu\",\n  \"phone\": \"+902121234567\",\n  \"contactEmail\": \"iletisim@testrestoran.com\",\n  \"address\": \"Beyoğlu, İstanbul\",\n  \"businessCategory\": \"Türk Mutfağı\",\n  \"placeId\": \"{{placeId}}\",\n  \"placeName\": \"Test Restoran\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/register", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "register"] },
+            "description": "Yeni restoran hesabı oluşturur (PENDING durumunda). Admin onayından geçmesi gerekir."
+          }
+        },
+        {
+          "name": "Restoran Profilim",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/me", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "me"] },
+            "description": "Restoran profilini ve menü öğelerini döner."
+          }
+        },
+        {
+          "name": "Temel Bilgileri Güncelle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"displayName\": \"Test Restoran\",\n  \"phone\": \"+902121234567\",\n  \"contactEmail\": \"yeni@testrestoran.com\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/info", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "info"] }
+          }
+        },
+        {
+          "name": "Çalışma Saatlerini Güncelle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"openingHours\": {\n    \"monday\":    { \"open\": \"09:00\", \"close\": \"22:00\" },\n    \"tuesday\":   { \"open\": \"09:00\", \"close\": \"22:00\" },\n    \"wednesday\": { \"open\": \"09:00\", \"close\": \"22:00\" },\n    \"thursday\":  { \"open\": \"09:00\", \"close\": \"22:00\" },\n    \"friday\":    { \"open\": \"09:00\", \"close\": \"23:00\" },\n    \"saturday\":  { \"open\": \"10:00\", \"close\": \"23:00\" },\n    \"sunday\":    { \"open\": \"10:00\", \"close\": \"21:00\" }\n  }\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/hours", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "hours"] },
+            "description": "Çalışma saatlerini Google verileri yerine bu JSON ile override eder."
+          }
+        },
+        {
+          "name": "Duyuru Güncelle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"announcement\": \"Bu hafta sonu özel menümüz var!\",\n  \"announcementActive\": true\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/announcement", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "announcement"] }
+          }
+        },
+        {
+          "name": "Analitik Verileri",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/analytics", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "analytics"] },
+            "description": "Rezervasyon trendi, en yoğun saatler, durum dağılımı ve puan dağılımı."
+          }
+        },
+        {
+          "name": "Haftalık İş Raporu (AI)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/report", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "report"] },
+            "description": "Claude Haiku ile üretilmiş kısa Türkçe iş özeti. AI başarısız olursa template'e düşer."
+          }
+        },
+        {
+          "name": "Restoran Yorumları",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/reviews", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "reviews"] }
+          }
+        },
+        {
+          "name": "Yoruma Yanıt Ver",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Teşekkürler! Sizi tekrar ağırlamaktan memnuniyet duyarız.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/reviews/:reviewId/reply", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "reviews", ":reviewId", "reply"], "variable": [{ "key": "reviewId", "value": "{{reviewId}}" }] },
+            "description": "Kullanıcı yorumuna restoran cevabı ekler. Onaylı restoran gerektirir."
+          }
+        },
+        {
+          "name": "Yorum Yanıtı Sil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/reviews/:reviewId/reply", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "reviews", ":reviewId", "reply"], "variable": [{ "key": "reviewId", "value": "{{reviewId}}" }] }
+          }
+        },
+        {
+          "name": "Fotoğraf Yükleme URL'i Al",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fileName\": \"restoran-ic-mekan.jpg\",\n  \"mimeType\": \"image/jpeg\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/photos/upload-url", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "photos", "upload-url"] },
+            "description": "S3 presigned URL alır. URL'ye PUT ile fotoğraf yüklenir, ardından /photos endpoint'i ile kaydedilir."
+          }
+        },
+        {
+          "name": "Fotoğraf Ekle (S3'ten Sonra)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://s3.amazonaws.com/bucket/key.jpg\",\n  \"kind\": \"RESTAURANT\",\n  \"sortOrder\": 1\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/photos", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "photos"] },
+            "description": "S3'e yükleme sonrası fotoğrafı galeri kaydına ekler. `kind`: RESTAURANT | PRODUCT."
+          }
+        },
+        {
+          "name": "Fotoğrafları Listele",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/photos", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "photos"] }
+          }
+        },
+        {
+          "name": "Fotoğraf Sil",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/photos/:photoId", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "photos", ":photoId"], "variable": [{ "key": "photoId", "value": "PHOTO_ID" }] },
+            "description": "Fotoğrafı DB'den ve S3'ten siler."
+          }
+        },
+        {
+          "name": "İndirim Ayarları",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"discountEnabled\": true,\n  \"discountPercent\": 15,\n  \"discountMinStars\": 100,\n  \"discountNote\": \"100 yıldız sahibi müşterilere %15 indirim\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/discount", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "discount"] },
+            "description": "Yıldız bazlı sürekli indirim ayarı. Minimum yıldıza sahip kullanıcılara otomatik uygulanır."
+          }
+        },
+        {
+          "name": "Anlık İndirim Kampanyası Başlat",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"discountPercent\": 20,\n  \"activeUntilMinutes\": 120\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/discount/activate", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "discount", "activate"] },
+            "description": "Belirtilen süre için anlık indirim başlatır. Favorileyen ve rezervasyon yapan kullanıcılara push bildirim gönderilir. Günde 1 kez limit."
+          }
+        },
+        {
+          "name": "Anlık İndirimi Durdur",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/discount/deactivate", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "discount", "deactivate"] }
+          }
+        },
+        {
+          "name": "Kampanya Bildirimi Gönder",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"message\": \"Bu akşam özel menümüzde %10 indirim! Sizi bekliyoruz.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/restaurant-account/campaign", "host": ["{{baseUrl}}"], "path": ["api", "restaurant-account", "campaign"] },
+            "description": "Favorileyen ve rezervasyon yapan kullanıcılara push bildirim. Günde 1 kez limit. Maks 500 karakter."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📅 Rezervasyonlar",
+      "description": "Rezervasyon sistemi: oluşturma, onaylama, iptal, katılım takibi. Kullanıcı ve restoran sahibi endpoint'leri ayrı.",
+      "item": [
+        {
+          "name": "--- Kullanıcı ---",
+          "item": [
+            {
+              "name": "Rezervasyon Oluştur",
+              "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  const j = pm.response.json();", "  if (j.id) pm.collectionVariables.set('reservationId', j.id);", "}"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"placeId\": \"{{placeId}}\",\n  \"date\": \"2026-07-15\",\n  \"time\": \"19:30\",\n  \"guestCount\": 2,\n  \"occasion\": \"Doğum Günü\",\n  \"specialRequests\": \"Pencere kenarı tercih ediyorum.\"\n}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{baseUrl}}/api/reservations", "host": ["{{baseUrl}}"], "path": ["api", "reservations"] },
+                "description": "Yeni rezervasyon isteği oluşturur (PENDING). Başarılı olursa yıldız kazandırır."
+              }
+            },
+            {
+              "name": "Rezervasyonlarım",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/reservations/me", "host": ["{{baseUrl}}"], "path": ["api", "reservations", "me"] }
+              }
+            },
+            {
+              "name": "Rezervasyon Güncelle",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"date\": \"2026-07-20\",\n  \"time\": \"20:00\",\n  \"guestCount\": 3\n}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{baseUrl}}/api/reservations/{{reservationId}}", "host": ["{{baseUrl}}"], "path": ["api", "reservations", "{{reservationId}}"] }
+              }
+            },
+            {
+              "name": "Rezervasyon İptal Et",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/reservations/{{reservationId}}", "host": ["{{baseUrl}}"], "path": ["api", "reservations", "{{reservationId}}"] }
+              }
+            },
+            {
+              "name": "Rezervasyon Mesajı Gönder",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"content\": \"Biraz geç kalabilirim, esneklik olur mu?\"\n}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{baseUrl}}/api/reservations/{{reservationId}}/messages", "host": ["{{baseUrl}}"], "path": ["api", "reservations", "{{reservationId}}", "messages"] }
+              }
+            },
+            {
+              "name": "Rezervasyon Mesajları",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/api/reservations/{{reservationId}}/messages", "host": ["{{baseUrl}}"], "path": ["api", "reservations", "{{reservationId}}", "messages"] }
+              }
+            }
+          ]
+        },
+        {
+          "name": "--- Restoran Sahibi ---",
+          "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{restaurantToken}}", "type": "string" }] },
+          "item": [
+            {
+              "name": "Gelen Rezervasyonlar",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/reservations/restaurant?status=PENDING",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "reservations", "restaurant"],
+                  "query": [{ "key": "status", "value": "PENDING", "description": "PENDING | CONFIRMED | REJECTED | CANCELLED | COMPLETED" }]
+                }
+              }
+            },
+            {
+              "name": "Rezervasyon Durumu Güncelle",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"CONFIRMED\"\n}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{baseUrl}}/api/reservations/{{reservationId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "reservations", "{{reservationId}}", "status"] },
+                "description": "Durumu CONFIRMED, REJECTED, CANCELLED veya COMPLETED olarak günceller. Reddetmede `rejectionReason` eklenebilir."
+              }
+            },
+            {
+              "name": "Katılım Durumu İşaretle",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"attended\": true\n}", "options": { "raw": { "language": "json" } } },
+                "url": { "raw": "{{baseUrl}}/api/reservations/{{reservationId}}/attendance", "host": ["{{baseUrl}}"], "path": ["api", "reservations", "{{reservationId}}", "attendance"] },
+                "description": "Müşteri geldi mi gelmedi mi? `attended: false` (no-show) durumunda yıldız düşülür."
+              }
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "name": "🤖 AI Öneriler",
+      "description": "Anthropic Claude tabanlı kişiselleştirilmiş yemek önerileri. Free: 3/gün, Premium: sınırsız.",
+      "item": [
+        {
+          "name": "Akşam Yemeği Önerisi (Streaming SSE)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "text/event-stream" }],
+            "body": { "mode": "raw", "raw": "{\n  \"lat\": 41.0082,\n  \"lng\": 28.9784,\n  \"mood\": \"romantik\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/recommendations/dinner-tonight/stream", "host": ["{{baseUrl}}"], "path": ["api", "recommendations", "dinner-tonight", "stream"] },
+            "description": "Server-Sent Events (SSE) akışı. `mood` opsiyonel. Mobil uygulama bu endpoint'i kullanır. 15 sn keepalive ping gönderilir."
+          }
+        },
+        {
+          "name": "Akşam Yemeği Önerisi (JSON)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"lat\": 41.0082,\n  \"lng\": 28.9784,\n  \"mood\": \"hızlı\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/recommendations/dinner-tonight", "host": ["{{baseUrl}}"], "path": ["api", "recommendations", "dinner-tonight"] },
+            "description": "Kişiye özel restoran önerisi döner. `mood`: hızlı | şık | romantik | aile | sağlıklı | uygun fiyatlı | lüks. 429 → limit doldu."
+          }
+        },
+        {
+          "name": "Rota Önerisi (Yolda Ne Yesem?)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"origin\": { \"lat\": 41.0082, \"lng\": 28.9784 },\n  \"destination\": { \"lat\": 39.9334, \"lng\": 32.8597 },\n  \"departureTime\": \"2026-06-10T08:00:00.000Z\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/recommendations/route-tonight", "host": ["{{baseUrl}}"], "path": ["api", "recommendations", "route-tonight"] },
+            "description": "Yolculuk rotası boyunca durak önerileri. ≥300 km: 3 bölgeye dağıtılmış 3 öneri. Her durak: konum, tahmini varış zamanı, kişisel gerekçe, sapma km."
+          }
+        },
+        {
+          "name": "Konuşmaya Dayalı İyileştirme",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"lat\": 41.0082,\n  \"lng\": 28.9784,\n  \"sessionId\": \"SESSION_ID_BURAYA\",\n  \"refinement\": \"daha uygun fiyatlı bir yer olsun\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/recommendations/dinner-tonight/stream", "host": ["{{baseUrl}}"], "path": ["api", "recommendations", "dinner-tonight", "stream"] },
+            "description": "Önceki öneriden memnun kalınmadığında `sessionId` ve `refinement` ile yeni öneri alınır. Daha önce önerilen mekanlar dışlanır."
+          }
+        },
+        {
+          "name": "Fotoğraf Analizi (Vision)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"imageUrl\": \"https://example.com/food-photo.jpg\",\n  \"placeId\": \"{{placeId}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/recommendations/analyze-photo", "host": ["{{baseUrl}}"], "path": ["api", "recommendations", "analyze-photo"] },
+            "description": "Restoran fotoğrafını AI ile analiz eder: yemek türü, sunum kalitesi, mutfak tespiti."
+          }
+        },
+        {
+          "name": "Öneri Geri Bildirimi",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"sessionId\": \"SESSION_ID_BURAYA\",\n  \"feedback\": \"helpful\",\n  \"comment\": \"Harika öneri!\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/recommendations/feedback", "host": ["{{baseUrl}}"], "path": ["api", "recommendations", "feedback"] },
+            "description": "AI önerisine 👍/👎 geri bildirimi. AI limit sayısından düşmez. Haftalık cron bu verilerden mutfak tercihi çıkarır."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🍲 Grup Yemeği",
+      "description": "Arkadaş grupları oluşturma, anket başlatma, oy kullanma. Tüm endpoint'ler rate limited.",
+      "item": [
+        {
+          "name": "Gruplarım",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/meal-groups", "host": ["{{baseUrl}}"], "path": ["api", "meal-groups"] }
+          }
+        },
+        {
+          "name": "Grup Oluştur",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 201) {", "  const j = pm.response.json();", "  if (j.id) pm.collectionVariables.set('groupId', j.id);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Akşam Grubu\",\n  \"memberIds\": []\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/meal-groups", "host": ["{{baseUrl}}"], "path": ["api", "meal-groups"] },
+            "description": "`memberIds` arkadaş ID'leri, maks 19 kişi. Üyeler davet bildirimi alır."
+          }
+        },
+        {
+          "name": "Grup Detayı",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/meal-groups/{{groupId}}", "host": ["{{baseUrl}}"], "path": ["api", "meal-groups", "{{groupId}}"] }
+          }
+        },
+        {
+          "name": "Davet Yanıtla",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"ACCEPTED\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/meal-groups/{{groupId}}/respond", "host": ["{{baseUrl}}"], "path": ["api", "meal-groups", "{{groupId}}", "respond"] }
+          }
+        },
+        {
+          "name": "Üye Ekle",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"memberIds\": [\"KULLANICI_ID_1\", \"KULLANICI_ID_2\"]\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/meal-groups/{{groupId}}/members", "host": ["{{baseUrl}}"], "path": ["api", "meal-groups", "{{groupId}}", "members"] },
+            "description": "Kurucu yeni arkadaş ekleyebilir. Toplam maks 19 üye."
+          }
+        },
+        {
+          "name": "Restoran Anketi Oluştur",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Bu akşam nereye gidelim?\",\n  \"restaurants\": [\n    { \"placeId\": \"PLACE_ID_1\", \"name\": \"Restoran 1\" },\n    { \"placeId\": \"PLACE_ID_2\", \"name\": \"Restoran 2\" },\n    { \"placeId\": \"PLACE_ID_3\", \"name\": \"Restoran 3\" }\n  ]\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/meal-groups/{{groupId}}/quick-poll", "host": ["{{baseUrl}}"], "path": ["api", "meal-groups", "{{groupId}}", "quick-poll"] },
+            "description": "Hızlı restoran seçimi anketi. 2-5 seçenek."
+          }
+        },
+        {
+          "name": "Oy Kullan",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"optionIds\": [\"OPTION_ID\"]\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/meal-groups/{{groupId}}/polls/:pollId/vote", "host": ["{{baseUrl}}"], "path": ["api", "meal-groups", "{{groupId}}", "polls", ":pollId", "vote"], "variable": [{ "key": "pollId", "value": "POLL_ID" }] }
+          }
+        },
+        {
+          "name": "Anketi Kapat",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/meal-groups/{{groupId}}/polls/:pollId/close", "host": ["{{baseUrl}}"], "path": ["api", "meal-groups", "{{groupId}}", "polls", ":pollId", "close"], "variable": [{ "key": "pollId", "value": "POLL_ID" }] },
+            "description": "Anketi kapatır, sonuçlar gruba bildirilir. Sadece kurucu yapabilir."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🎁 Referral",
+      "description": "Referans kodu sistemi. Kod uygulaması her iki tarafa da yıldız kazandırır.",
+      "item": [
+        {
+          "name": "Referans Kodum",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/referral/my-code", "host": ["{{baseUrl}}"], "path": ["api", "referral", "my-code"] },
+            "description": "Kişisel referans kodunu döner (yoksa oluşturur). `usageCount` ve `earnedStars` bilgisi içerir."
+          }
+        },
+        {
+          "name": "Referans Kodu Uygula",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"ABC123\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/referral/apply", "host": ["{{baseUrl}}"], "path": ["api", "referral", "apply"] },
+            "description": "Bir referans kodunu uygular. Her kullanıcı yalnızca bir kez uygulayabilir. Kod sahibi ve uygulayan yıldız kazanır."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📍 Mekan Talebi",
+      "description": "Platformda olmayan restoranların eklenmesi için talep sistemi.",
+      "item": [
+        {
+          "name": "Mekan Talebi Oluştur",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"placeId\": \"{{placeId}}\",\n  \"placeName\": \"Yeni Restoran\",\n  \"placeAddress\": \"Kadıköy, İstanbul\",\n  \"note\": \"Bu restoran çok popüler ama listede yok.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/place-requests", "host": ["{{baseUrl}}"], "path": ["api", "place-requests"] },
+            "description": "Platforma eklenmesini istenen restoranı admin incelemesi için bildirir."
+          }
+        },
+        {
+          "name": "Taleplerim",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/place-requests/my", "host": ["{{baseUrl}}"], "path": ["api", "place-requests", "my"] },
+            "description": "Kullanıcının kendi mekan taleplerini listeler (maks 50)."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔑 Admin",
+      "description": "Platform yönetimi: kullanıcı/restoran moderasyonu, istatistikler, job tetikleme. Auth: `{{adminToken}}`.",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Admin Girişi",
+          "event": [{ "listen": "test", "script": { "exec": ["if (pm.response.code === 200) {", "  const j = pm.response.json();", "  if (j.token) pm.collectionVariables.set('adminToken', j.token);", "}"], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@neareat.com\",\n  \"password\": \"AdminSifresi\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/admin/login", "host": ["{{baseUrl}}"], "path": ["api", "admin", "login"] },
+            "description": "Admin kimlik bilgileriyle giriş. `adminToken` otomatik set edilir."
+          }
+        },
+        {
+          "name": "Platform İstatistikleri",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/stats", "host": ["{{baseUrl}}"], "path": ["api", "admin", "stats"] },
+            "description": "Toplam kullanıcı, restoran, yorum, aktif premium sayıları; bugünkü yeni kayıt ve aktif kullanıcı istatistikleri."
+          }
+        },
+        {
+          "name": "Restoran Listesi (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/restaurants?status=PENDING&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "restaurants"],
+              "query": [
+                { "key": "status", "value": "PENDING", "description": "PENDING | APPROVED | REJECTED" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Restoran Detayı (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/restaurants/:restaurantId", "host": ["{{baseUrl}}"], "path": ["api", "admin", "restaurants", ":restaurantId"], "variable": [{ "key": "restaurantId", "value": "RESTORAN_PROFIL_ID" }] }
+          }
+        },
+        {
+          "name": "Vergi Sertifikası Görüntüle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/restaurants/:restaurantId/certificate", "host": ["{{baseUrl}}"], "path": ["api", "admin", "restaurants", ":restaurantId", "certificate"], "variable": [{ "key": "restaurantId", "value": "RESTORAN_PROFIL_ID" }] }
+          }
+        },
+        {
+          "name": "Restoranı Onayla",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/restaurants/:restaurantId/approve", "host": ["{{baseUrl}}"], "path": ["api", "admin", "restaurants", ":restaurantId", "approve"], "variable": [{ "key": "restaurantId", "value": "RESTORAN_PROFIL_ID" }] },
+            "description": "Restoran kaydını APPROVED yapar. Sahibe onay e-postası gönderilir."
+          }
+        },
+        {
+          "name": "Restoranı Reddet",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rejectionReason\": \"Vergi numarası doğrulanamadı.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/admin/restaurants/:restaurantId/reject", "host": ["{{baseUrl}}"], "path": ["api", "admin", "restaurants", ":restaurantId", "reject"], "variable": [{ "key": "restaurantId", "value": "RESTORAN_PROFIL_ID" }] }
+          }
+        },
+        {
+          "name": "Kullanıcı Listesi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users"],
+              "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "50" }]
+            }
+          }
+        },
+        {
+          "name": "Kullanıcıyı Askıya Al",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/users/{{userId}}/suspend", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", "{{userId}}", "suspend"] }
+          }
+        },
+        {
+          "name": "Askıyı Kaldır",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/users/{{userId}}/unsuspend", "host": ["{{baseUrl}}"], "path": ["api", "admin", "users", "{{userId}}", "unsuspend"] }
+          }
+        },
+        {
+          "name": "Şikayet Listesi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/reports", "host": ["{{baseUrl}}"], "path": ["api", "admin", "reports"] }
+          }
+        },
+        {
+          "name": "Şikayeti İşle",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"APPROVE\",\n  \"reason\": \"Kural ihlali tespit edildi.\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": { "raw": "{{baseUrl}}/api/admin/reports/:reportId", "host": ["{{baseUrl}}"], "path": ["api", "admin", "reports", ":reportId"], "variable": [{ "key": "reportId", "value": "REPORT_ID" }] },
+            "description": "`action`: APPROVE (şikayeti kabul et) | DISMISS (reddet) | SUSPEND (kullanıcıyı askıya al)."
+          }
+        },
+        {
+          "name": "Mekan Talepleri",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/place-requests?status=PENDING&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "place-requests"],
+              "query": [{ "key": "status", "value": "PENDING" }, { "key": "page", "value": "1" }]
+            }
+          }
+        },
+        {
+          "name": "Mekan Talebini İncele",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/place-requests/:requestId/review", "host": ["{{baseUrl}}"], "path": ["api", "admin", "place-requests", ":requestId", "review"], "variable": [{ "key": "requestId", "value": "REQUEST_ID" }] }
+          }
+        },
+        {
+          "name": "Arkadaş Öneri Job'ı Çalıştır",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/jobs/friend-suggestions/run", "host": ["{{baseUrl}}"], "path": ["api", "admin", "jobs", "friend-suggestions", "run"] },
+            "description": "Gece 03:00'de otomatik çalışan arkadaş öneri job'ını manuel tetikler."
+          }
+        },
+        {
+          "name": "Bildirim Temizleme Job'ı Çalıştır",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/admin/jobs/notification-cleanup/run", "host": ["{{baseUrl}}"], "path": ["api", "admin", "jobs", "notification-cleanup", "run"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📊 Aktivite Logları",
+      "description": "Kullanıcı aktivite logları (admin only). E-posta, tarih ve zaman aralığıyla filtreleme.",
+      "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+      "item": [
+        {
+          "name": "Aktivite Logları",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/logs?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "logs"],
+              "query": [
+                { "key": "email", "value": "", "description": "E-posta filtresi (case-insensitive)", "disabled": true },
+                { "key": "startDate", "value": "2026-06-01", "description": "YYYY-MM-DD", "disabled": true },
+                { "key": "endDate", "value": "2026-06-30", "description": "YYYY-MM-DD", "disabled": true },
+                { "key": "startTime", "value": "00:00", "description": "HH:MM", "disabled": true },
+                { "key": "endTime", "value": "23:59", "description": "HH:MM", "disabled": true },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" }
+              ]
+            },
+            "description": "35 farklı aksiyon tipi loglanır (LOGIN, REVIEW_CREATE, RESERVATION_CREATE vb.). Tarih/saat ve e-posta ile filtrelenebilir."
+          }
+        }
+      ]
+    }
+
+  ]
+}
