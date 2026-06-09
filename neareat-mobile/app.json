@@ -8,7 +8,7 @@
     "userInterfaceStyle": "dark",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#14101C"
+      "backgroundColor": "#100C16"
     },
     "scheme": "neareat",
     "ios": {
@@ -26,7 +26,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#14101C"
+        "backgroundColor": "#100C16"
       },
       "package": "com.eatlas.mobile",
       "versionCode": 29,

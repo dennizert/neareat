@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { signInWithGoogle, loginWithEmail } from '../../services/auth';
 import { useAuthStore } from '../../store/authStore';
@@ -11,6 +12,11 @@ import { MOCK_MODE } from '../../config';
 import { MOCK_USER } from '../../mocks/data';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import EatlasLogo from '../../components/EatlasLogo';
+import EatlasMark from '../../components/EatlasMark';
+import AppIcon from '../../components/AppIcon';
+import AuthInput from '../../components/auth/AuthInput';
+import GlowButton from '../../components/auth/GlowButton';
 
 type AuthTab = 'email' | 'google';
 
@@ -19,12 +25,12 @@ export default function LoginScreen() {
   const { setPendingUser, setUser, setSubscription, setRestaurantStatus } = useAuthStore();
   const { initApp } = useAppInit();
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [tab, setTab] = useState<AuthTab>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleEmailLogin() {
@@ -92,95 +98,94 @@ export default function LoginScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <Text style={styles.logo}>🍽️</Text>
+      {/* Köşe markası — sol üst */}
+      <View style={[styles.cornerLogo, { top: Math.max(insets.top, 12) + 4 }]} pointerEvents="none">
+        <EatlasLogo size={20} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: Math.max(insets.top, 12) + 56 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero */}
+        <EatlasMark size={78} style={styles.mark} />
         <Text style={styles.title}>Hoş geldin</Text>
         <Text style={styles.subtitle}>Favorilerini kaydet, yorum yap, kişiselleştirilmiş deneyim yaşa.</Text>
 
-        {/* Tab switcher */}
-        <View style={styles.tabs}>
-          <TouchableOpacity
-            style={[styles.tab, tab === 'email' && styles.tabActive]}
-            onPress={() => setTab('email')}
-          >
-            <Text style={[styles.tabText, tab === 'email' && styles.tabTextActive]}>E-posta</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, tab === 'google' && styles.tabActive]}
-            onPress={() => setTab('google')}
-          >
-            <Text style={[styles.tabText, tab === 'google' && styles.tabTextActive]}>Google</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Kart */}
+        <View style={styles.card}>
+          {/* Tab switcher */}
+          <View style={styles.tabs}>
+            <TouchableOpacity
+              style={[styles.tab, tab === 'email' && styles.tabActive]}
+              onPress={() => setTab('email')}
+            >
+              <Text style={[styles.tabText, tab === 'email' && styles.tabTextActive]}>E-posta</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, tab === 'google' && styles.tabActive]}
+              onPress={() => setTab('google')}
+            >
+              <Text style={[styles.tabText, tab === 'google' && styles.tabTextActive]}>Google</Text>
+            </TouchableOpacity>
+          </View>
 
-        {tab === 'email' ? (
-          <View style={styles.form}>
-            <Text style={styles.label}>E-posta</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="ornek@email.com"
-              placeholderTextColor={C.textMuted}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Text style={styles.label}>Şifre</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={styles.passwordInput}
+          {tab === 'email' ? (
+            <View style={styles.form}>
+              <AuthInput
+                icon="email"
+                label="E-posta"
+                placeholder="ornek@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <AuthInput
+                icon="lock"
+                label="Şifre"
                 placeholder="En az 6 karakter"
-                placeholderTextColor={C.textMuted}
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry={!showPassword}
+                isPassword
                 autoCapitalize="none"
               />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(v => !v)}>
-                <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+
+              <TouchableOpacity style={styles.forgotRow} onPress={() => navigation.navigate('ForgotPassword')}>
+                <Text style={styles.forgotText}>Şifremi Unuttum</Text>
+              </TouchableOpacity>
+
+              <GlowButton label="Giriş Yap" onPress={handleEmailLogin} loading={loading} style={styles.cta} />
+
+              <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Register')}>
+                <Text style={styles.linkText}>Hesabın yok mu? <Text style={styles.linkBold}>Kayıt Ol</Text></Text>
               </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={[styles.primaryBtn, loading && styles.btnDisabled]}
-              onPress={handleEmailLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryBtnText}>Giriş Yap</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.forgotRow} onPress={() => navigation.navigate('ForgotPassword')}>
-              <Text style={styles.forgotText}>Şifremi Unuttum</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.linkText}>Hesabın yok mu? <Text style={styles.linkBold}>Kayıt Ol</Text></Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.form}>
-            <Text style={styles.googleHint}>Google hesabınla hızlıca giriş yap.</Text>
-            <TouchableOpacity
-              style={[styles.googleBtn, loading && styles.btnDisabled]}
-              onPress={handleGoogleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={C.textPrimary} />
-              ) : (
-                <Text style={styles.googleBtnText}>
-                  {MOCK_MODE ? '🧪 Test Kullanıcısı ile Giriş' : 'Google ile Giriş Yap'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+          ) : (
+            <View style={styles.form}>
+              <Text style={styles.googleHint}>Google hesabınla hızlıca giriş yap.</Text>
+              <TouchableOpacity
+                style={[styles.googleBtn, loading && styles.btnDisabled]}
+                onPress={handleGoogleLogin}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                {loading ? (
+                  <ActivityIndicator color={C.textPrimary} />
+                ) : (
+                  <>
+                    <AppIcon name={MOCK_MODE ? 'flash' : 'google'} size={18} color={C.textPrimary} />
+                    <Text style={styles.googleBtnText}>
+                      {MOCK_MODE ? 'Test Kullanıcısı ile Giriş' : 'Google ile Giriş Yap'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         {/* Restaurant register link */}
         <View style={styles.restaurantLinkRow}>
@@ -200,44 +205,50 @@ export default function LoginScreen() {
 
 function makeStyles(C: Colors) {
   return StyleSheet.create({
-    flex: { flex: 1, backgroundColor: C.surface },
-    container: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 28 },
-    logo: { fontSize: 64, marginBottom: 16 },
-    title: { fontSize: 28, fontWeight: '800', color: C.textPrimary, marginBottom: 8, textAlign: 'center' },
-    subtitle: { fontSize: 15, color: C.textTertiary, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+    flex: { flex: 1, backgroundColor: C.background },
+    cornerLogo: { position: 'absolute', left: 24, zIndex: 10 },
+    container: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 36 },
 
-    tabs: { flexDirection: 'row', backgroundColor: C.inputBg, borderRadius: 10, padding: 3, marginBottom: 24, width: '100%' },
-    tab: { flex: 1, paddingVertical: 9, borderRadius: 8, alignItems: 'center' },
-    tabActive: { backgroundColor: C.surface, shadowColor: C.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 2 },
+    mark: { marginBottom: 22 },
+    title: { fontSize: 30, fontWeight: '800', color: C.textPrimary, marginBottom: 8, textAlign: 'center', letterSpacing: -0.3 },
+    subtitle: { fontSize: 15, color: C.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 28, paddingHorizontal: 8 },
+
+    // Derinlikli kart
+    card: {
+      width: '100%', backgroundColor: C.surface, borderRadius: 22, padding: 20,
+      borderWidth: 1, borderColor: C.border,
+      shadowColor: C.shadow, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.10, shadowRadius: 24, elevation: 4,
+    },
+
+    tabs: { flexDirection: 'row', backgroundColor: C.inputBg, borderRadius: 12, padding: 4, marginBottom: 20 },
+    tab: { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+    tabActive: { backgroundColor: C.surface, shadowColor: C.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.10, shadowRadius: 3, elevation: 2 },
     tabText: { fontSize: 14, fontWeight: '500', color: C.textTertiary },
     tabTextActive: { color: C.textPrimary, fontWeight: '700' },
 
     form: { width: '100%' },
-    label: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6, marginTop: 14 },
-    input: { backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary },
-    passwordRow: { flexDirection: 'row', backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 10, alignItems: 'center' },
-    passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary },
-    eyeBtn: { paddingHorizontal: 12, paddingVertical: 12 },
-    eyeText: { fontSize: 16 },
 
-    primaryBtn: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 22 },
+    forgotRow: { alignSelf: 'flex-end', marginTop: 12 },
+    forgotText: { fontSize: 13, color: C.primaryText, fontWeight: '600' },
+
+    cta: { marginTop: 18 },
     btnDisabled: { opacity: 0.6 },
-    primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 
-    forgotRow: { alignItems: 'flex-end', marginTop: 10 },
-    forgotText: { fontSize: 13, color: C.primary, fontWeight: '600' },
-
-    linkRow: { alignItems: 'center', marginTop: 16 },
+    linkRow: { alignItems: 'center', marginTop: 18 },
     linkText: { fontSize: 14, color: C.textTertiary },
-    linkBold: { color: C.primary, fontWeight: '700' },
+    linkBold: { color: C.primaryText, fontWeight: '700' },
 
-    googleHint: { fontSize: 14, color: C.textTertiary, textAlign: 'center', marginBottom: 20, marginTop: 8 },
-    googleBtn: { backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
+    googleHint: { fontSize: 14, color: C.textSecondary, textAlign: 'center', marginBottom: 20, marginTop: 8 },
+    googleBtn: {
+      flexDirection: 'row', gap: 10, backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.border,
+      borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center',
+    },
     googleBtnText: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
 
-    mockBadge: { marginTop: 24, fontSize: 11, color: C.textMuted, backgroundColor: C.inputBg, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
-    restaurantLinkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24, flexWrap: 'wrap', justifyContent: 'center' },
+    restaurantLinkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 28, flexWrap: 'wrap', justifyContent: 'center' },
     restaurantLinkLabel: { fontSize: 13, color: C.textMuted },
-    restaurantLink: { fontSize: 13, color: C.primary, fontWeight: '700' },
+    restaurantLink: { fontSize: 13, color: C.primaryText, fontWeight: '700' },
+
+    mockBadge: { marginTop: 22, fontSize: 11, color: C.textMuted, backgroundColor: C.inputBg, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, overflow: 'hidden' },
   });
 }

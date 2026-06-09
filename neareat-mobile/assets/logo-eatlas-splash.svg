@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="gHorz" gradientUnits="userSpaceOnUse" x1="300" y1="512" x2="720" y2="512">
+      <stop offset="0" stop-color="#FF5A3C"/>
+      <stop offset="0.55" stop-color="#FF7A34"/>
+      <stop offset="1" stop-color="#FFB627"/>
+    </linearGradient>
+  </defs>
+  <!-- Gradient "E" monogramı -->
+  <g fill="url(#gHorz)">
+    <rect x="422" y="300" width="58" height="240" rx="24"/>
+    <rect x="422" y="300" width="180" height="56" rx="24"/>
+    <rect x="422" y="392" width="150" height="54" rx="24"/>
+    <rect x="422" y="484" width="180" height="56" rx="24"/>
+  </g>
+  <!-- Eatlas wordmark -->
+  <text x="512" y="650" text-anchor="middle" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+        font-size="104" font-weight="800" letter-spacing="1" fill="url(#gHorz)">Eatlas</text>
+</svg>

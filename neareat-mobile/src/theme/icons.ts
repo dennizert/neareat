@@ -57,6 +57,10 @@ export const ICONS = {
   info: 'information-circle-outline',
   warning: 'warning-outline',
   clock: 'time-outline',
+  lock: 'lock-closed-outline',
+  eye: 'eye-outline',
+  eyeOff: 'eye-off-outline',
+  google: 'logo-google',
 } satisfies Record<string, IoniconName>;
 
 export type IconName = keyof typeof ICONS;

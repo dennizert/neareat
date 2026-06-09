@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet,
+  Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { registerWithEmail } from '../../services/auth';
 import { useAuthStore } from '../../store/authStore';
@@ -11,21 +12,28 @@ import { MOCK_USER } from '../../mocks/data';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import PrivacyPolicyModal from '../../components/PrivacyPolicyModal';
+import EatlasLogo from '../../components/EatlasLogo';
+import EatlasMark from '../../components/EatlasMark';
+import AppIcon from '../../components/AppIcon';
+import AuthInput from '../../components/auth/AuthInput';
+import GlowButton from '../../components/auth/GlowButton';
 
 export default function RegisterScreen() {
   const navigation = useNavigation<any>();
   const { setPendingUser } = useAuthStore();
   const { C } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [policyVisible, setPolicyVisible] = useState(false);
   const [policyTab, setPolicyTab] = useState<'privacy' | 'kvkk'>('privacy');
+
+  const mismatch = confirmPassword.length > 0 && confirmPassword !== password;
 
   async function handleRegister() {
     const trimmedName = displayName.trim();
@@ -66,75 +74,71 @@ export default function RegisterScreen() {
     }
   }
 
+  const topPad = Math.max(insets.top, 12);
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← Geri</Text>
+      {/* Köşe: geri (sol) + wordmark (sağ) */}
+      <View style={[styles.topBar, { top: topPad + 2 }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
+          <AppIcon name="back" size={22} color={C.textPrimary} />
+          <Text style={styles.backText}>Geri</Text>
         </TouchableOpacity>
+        <EatlasLogo size={18} />
+      </View>
 
+      <ScrollView
+        contentContainerStyle={[styles.container, { paddingTop: topPad + 60 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <EatlasMark size={66} style={styles.mark} />
         <Text style={styles.title}>Hesap Oluştur</Text>
         <Text style={styles.subtitle}>Eatlas'a katıl, restoranları keşfet.</Text>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Ad Soyad</Text>
-          <TextInput
-            style={styles.input}
+        <View style={styles.card}>
+          <AuthInput
+            icon="profile"
+            label="Ad Soyad"
             placeholder="Adınız Soyadınız"
-            placeholderTextColor={C.textMuted}
             value={displayName}
             onChangeText={setDisplayName}
             autoCapitalize="words"
             autoCorrect={false}
+            containerStyle={styles.firstField}
           />
-
-          <Text style={styles.label}>E-posta</Text>
-          <TextInput
-            style={styles.input}
+          <AuthInput
+            icon="email"
+            label="E-posta"
             placeholder="ornek@email.com"
-            placeholderTextColor={C.textMuted}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
           />
-
-          <Text style={styles.label}>Şifre</Text>
-          <View style={styles.passwordRow}>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="En az 6 karakter"
-              placeholderTextColor={C.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(v => !v)}>
-              <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.label}>Şifre Tekrar</Text>
-          <TextInput
-            style={[
-              styles.input,
-              confirmPassword.length > 0 && confirmPassword !== password && styles.inputError,
-            ]}
-            placeholder="Şifrenizi tekrar girin"
-            placeholderTextColor={C.textMuted}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry={!showPassword}
+          <AuthInput
+            icon="lock"
+            label="Şifre"
+            placeholder="En az 6 karakter"
+            value={password}
+            onChangeText={setPassword}
+            isPassword
             autoCapitalize="none"
           />
-          {confirmPassword.length > 0 && confirmPassword !== password && (
-            <Text style={styles.errorText}>Şifreler eşleşmiyor</Text>
-          )}
+          <AuthInput
+            icon="lock"
+            label="Şifre Tekrar"
+            placeholder="Şifrenizi tekrar girin"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            isPassword
+            autoCapitalize="none"
+            error={mismatch ? 'Şifreler eşleşmiyor' : null}
+          />
 
           <View style={styles.privacyNotice}>
             <Text style={styles.privacyText}>
@@ -156,17 +160,7 @@ export default function RegisterScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
-            onPress={handleRegister}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryBtnText}>Kayıt Ol</Text>
-            )}
-          </TouchableOpacity>
+          <GlowButton label="Kayıt Ol" onPress={handleRegister} loading={loading} style={styles.cta} />
 
           <TouchableOpacity style={styles.linkRow} onPress={() => navigation.goBack()}>
             <Text style={styles.linkText}>Zaten hesabın var mı? <Text style={styles.linkBold}>Giriş Yap</Text></Text>
@@ -185,36 +179,36 @@ export default function RegisterScreen() {
 
 function makeStyles(C: Colors) {
   return StyleSheet.create({
-    flex: { flex: 1, backgroundColor: C.surface },
-    container: { flexGrow: 1, padding: 28, paddingTop: 60 },
-    backBtn: { marginBottom: 24 },
-    backText: { fontSize: 15, color: C.primary, fontWeight: '600' },
-    title: { fontSize: 28, fontWeight: '800', color: C.textPrimary, marginBottom: 8 },
-    subtitle: { fontSize: 15, color: C.textTertiary, lineHeight: 22, marginBottom: 28 },
+    flex: { flex: 1, backgroundColor: C.background },
+    topBar: {
+      position: 'absolute', left: 20, right: 20, zIndex: 10,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    },
+    backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    backText: { fontSize: 15, color: C.textPrimary, fontWeight: '600' },
 
-    form: { width: '100%' },
-    label: { fontSize: 13, fontWeight: '600', color: C.textSecondary, marginBottom: 6, marginTop: 14 },
-    input: { backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary },
-    inputError: { borderColor: C.error },
-    errorText: { fontSize: 12, color: C.error, marginTop: 4 },
-    passwordRow: { flexDirection: 'row', backgroundColor: C.background, borderWidth: 1, borderColor: C.border, borderRadius: 10, alignItems: 'center' },
-    passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.textPrimary },
-    eyeBtn: { paddingHorizontal: 12, paddingVertical: 12 },
-    eyeText: { fontSize: 16 },
+    container: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 24, paddingBottom: 36 },
+    mark: { marginBottom: 18 },
+    title: { fontSize: 28, fontWeight: '800', color: C.textPrimary, marginBottom: 8, textAlign: 'center', letterSpacing: -0.3 },
+    subtitle: { fontSize: 15, color: C.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+
+    card: {
+      width: '100%', backgroundColor: C.surface, borderRadius: 22, padding: 20,
+      borderWidth: 1, borderColor: C.border,
+      shadowColor: C.shadow, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.10, shadowRadius: 24, elevation: 4,
+    },
+    firstField: { marginTop: 0 },
 
     privacyNotice: {
-      backgroundColor: C.background, borderRadius: 10, padding: 12,
-      marginTop: 20, borderWidth: 1, borderColor: C.border,
+      backgroundColor: C.background, borderRadius: 12, padding: 12,
+      marginTop: 18, borderWidth: 1, borderColor: C.border,
     },
     privacyText: { fontSize: 12, color: C.textTertiary, lineHeight: 18, textAlign: 'center' },
-    privacyLink: { color: C.primary, fontWeight: '600', textDecorationLine: 'underline' },
+    privacyLink: { color: C.primaryText, fontWeight: '600', textDecorationLine: 'underline' },
 
-    primaryBtn: { backgroundColor: C.primary, borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 14 },
-    btnDisabled: { opacity: 0.6 },
-    primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-
-    linkRow: { alignItems: 'center', marginTop: 16 },
+    cta: { marginTop: 16 },
+    linkRow: { alignItems: 'center', marginTop: 18 },
     linkText: { fontSize: 14, color: C.textTertiary },
-    linkBold: { color: C.primary, fontWeight: '700' },
+    linkBold: { color: C.primaryText, fontWeight: '700' },
   });
 }
