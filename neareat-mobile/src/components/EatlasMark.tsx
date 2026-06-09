@@ -70,3 +70,38 @@ const styles = StyleSheet.create({
   maskText: { color: '#000' },
   spacer: { opacity: 0 },
 });
+
+interface EInlineProps {
+  /** Harf yüksekliği (px). Varsayılan 13. */
+  size?: number;
+  style?: ViewStyle;
+}
+
+/**
+ * Sadece gradient "E" harfi — tile arka planı yok.
+ * "Eatlas Ortağı" rozeti gibi satır içi kullanımlar için.
+ */
+export function EatlasEInline({ size = 13, style }: EInlineProps) {
+  const w = Math.ceil(size * 0.8);
+  const textStyle = {
+    fontSize: size,
+    lineHeight: size,
+    fontWeight: '900' as const,
+    includeFontPadding: false,
+  };
+  return (
+    <MaskedView
+      style={[{ width: w, height: size }, style]}
+      maskElement={<Text style={[textStyle, { color: '#000' }]}>E</Text>}
+    >
+      <LinearGradient
+        colors={EATLAS_COLORS}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={{ width: w, height: size }}
+      >
+        <Text style={[textStyle, { opacity: 0 }]}>E</Text>
+      </LinearGradient>
+    </MaskedView>
+  );
+}

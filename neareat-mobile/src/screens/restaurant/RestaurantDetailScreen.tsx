@@ -23,6 +23,7 @@ import StarRating from '../../components/StarRating';
 import PhotoGallery from '../../components/PhotoGallery';
 import ProductPhotosSection from '../../components/ProductPhotosSection';
 import AppIcon from '../../components/AppIcon';
+import { EatlasEInline } from '../../components/EatlasMark';
 import type { IconName } from '../../theme/icons';
 import Skeleton from '../../components/Skeleton';
 import { useToast } from '../../hooks/useToast';
@@ -449,7 +450,7 @@ export default function RestaurantDetailScreen() {
               )}
               {detail.isRegistered && (
                 <View style={styles.registeredTag}>
-                  <AppIcon name="verified" size={12} color={C.primary} />
+                  <EatlasEInline size={12} />
                   <Text style={styles.registeredTagText}>Eatlas Ortağı</Text>
                 </View>
               )}
