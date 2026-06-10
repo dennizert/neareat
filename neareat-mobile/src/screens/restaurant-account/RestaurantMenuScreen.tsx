@@ -6,12 +6,14 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { getMyRestaurantProfile, uploadMenuItem, deleteMenuItem } from '../../services/restaurantAccount';
 import type { RestaurantMenuItemMeta } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
 export default function RestaurantMenuScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [items, setItems] = useState<RestaurantMenuItemMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +91,7 @@ export default function RestaurantMenuScreen() {
           data={items}
           keyExtractor={i => i.id}
           numColumns={2}
-          contentContainerStyle={styles.grid}
+          contentContainerStyle={[styles.grid, { paddingBottom: bottom + 16 }]}
           columnWrapperStyle={{ gap: 10 }}
           renderItem={({ item }) => (
             <View style={styles.gridItem}>

@@ -13,6 +13,7 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useActivityFeedStore } from '../../store/activityFeedStore';
@@ -40,6 +41,7 @@ export default function ActivityFeedScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const {
     events,
@@ -124,7 +126,7 @@ export default function ActivityFeedScreen() {
   return (
     <FlatList
       style={styles.container}
-      contentContainerStyle={events.length === 0 ? styles.emptyContainer : styles.listContent}
+      contentContainerStyle={events.length === 0 ? styles.emptyContainer : [styles.listContent, { paddingBottom: bottom + 16 }]}
       data={events}
       keyExtractor={(e) => e.id}
       renderItem={renderItem}

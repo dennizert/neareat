@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   FlatList, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../theme';
@@ -17,6 +18,7 @@ export default function CreateMealGroupScreen() {
   const { user } = useAuthStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [name, setName] = useState('');
   const [query, setQuery] = useState('');
@@ -132,7 +134,7 @@ export default function CreateMealGroupScreen() {
               </TouchableOpacity>
             );
           }}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
         />
       )}
 

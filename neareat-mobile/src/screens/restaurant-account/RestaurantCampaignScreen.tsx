@@ -15,6 +15,7 @@ import {
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sendCampaign, CampaignLimitError } from '../../services/restaurantAccount';
 import type { CampaignAudience } from '../../services/restaurantAccount';
 import { useTheme } from '../../theme';
@@ -33,6 +34,7 @@ export default function RestaurantCampaignScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [message, setMessage] = useState('');
   const [audience, setAudience] = useState<CampaignAudience>('all');
@@ -75,7 +77,7 @@ export default function RestaurantCampaignScreen() {
   }, [message, audience, navigation]);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingBottom: bottom + 16 }]}>
       <Text style={styles.title}>⚡ Anlık Kampanya</Text>
       <Text style={styles.subtitle}>
         Restoranını favorileyen veya rezervasyon yapan kullanıcılara anlık bir bildirim gönder.

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   ActivityIndicator, Alert, Switch,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMyRestaurantProfile, updateHours } from '../../services/restaurantAccount';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
@@ -28,6 +29,7 @@ const TIME_OPTIONS = [
 export default function RestaurantHoursScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [hours, setHours] = useState<Record<string, { open: string; close: string; closed: boolean }>>(DEFAULT_HOURS);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function RestaurantHoursScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: bottom + 16 }]}>
         <Text style={styles.hint}>Her gün için açılış/kapanış saatini ayarlayın veya o günü kapalı işaretleyin.</Text>
 
         {DAYS.map(({ key, label }) => {

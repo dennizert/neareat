@@ -5,6 +5,7 @@ import {
   Image, Alert,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
 import { useMessageStore } from '../../store/messageStore';
 import { getMessages, sendMessage } from '../../services/messages';
@@ -34,6 +35,7 @@ export default function ConversationScreen() {
   const { markConversationRead, updateConversationAfterSend } = useMessageStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,7 +146,7 @@ export default function ConversationScreen() {
         }
       />
 
-      <View style={styles.inputBar}>
+      <View style={[styles.inputBar, { paddingBottom: bottom + 8 }]}>
         <TextInput
           style={styles.input}
           value={text}

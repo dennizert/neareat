@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { getMyRestaurantReviews, replyToReview, deleteReply } from '../../services/restaurantAccount';
 import type { AppReview } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -15,6 +16,7 @@ function StarRow({ rating, styles }: { rating: number; styles: ReturnType<typeof
 export default function RestaurantReviewsScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [reviews, setReviews] = useState<AppReview[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,7 @@ export default function RestaurantReviewsScreen() {
       <FlatList
         data={reviews}
         keyExtractor={r => r.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>💬</Text>

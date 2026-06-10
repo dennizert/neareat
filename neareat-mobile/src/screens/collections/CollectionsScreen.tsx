@@ -21,6 +21,7 @@ export default function CollectionsScreen() {
   const { isPremium } = useAuthStore();
   const { myCollections, sharedWithMe, setMyCollections, setSharedWithMe, addCollection, removeCollection } = useCollectionStore();
   const insets = useSafeAreaInsets();
+  const { bottom } = insets;
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
@@ -206,7 +207,7 @@ export default function CollectionsScreen() {
           data={myCollections}
           keyExtractor={(c) => c.id}
           renderItem={renderMyCollection}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -225,7 +226,7 @@ export default function CollectionsScreen() {
           data={sharedWithMe}
           keyExtractor={(s) => s.shareId}
           renderItem={renderSharedCollection}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
           ListEmptyComponent={
             <View style={styles.empty}>

@@ -6,6 +6,7 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getRestaurantDetail, approveRestaurant, rejectRestaurant, getTaxCertificate } from '../../services/admin';
 import type { AdminRestaurantSummary } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -15,6 +16,7 @@ export default function AdminRestaurantDetailScreen() {
   const { restaurantId } = route.params as { restaurantId: string };
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [restaurant, setRestaurant] = useState<(AdminRestaurantSummary & { hasTaxCertificate: boolean }) | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,7 @@ export default function AdminRestaurantDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: bottom + 16 }]}>
         {/* Status banner */}
         <View style={[styles.statusBanner, { backgroundColor: statusColor[restaurant.status] + '22' }]}>
           <Text style={[styles.statusBannerText, { color: statusColor[restaurant.status] }]}>

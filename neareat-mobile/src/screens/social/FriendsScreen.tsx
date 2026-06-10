@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, Alert, Image, Modal,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useFriendStore } from '../../store/friendStore';
 import { useUserProfileStore } from '../../store/userProfileStore';
@@ -22,6 +23,7 @@ export default function FriendsScreen() {
   const { addStarEvent } = useUserProfileStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [searchQuery, setSearchQuery] = useState('');
@@ -305,7 +307,7 @@ export default function FriendsScreen() {
             </>
           )}
           ListEmptyComponent={<EmptyState text="Henüz arkadaşın yok. Kullanıcı ara ve eklemeye başla!" C={C} />}
-          contentContainerStyle={friends.length === 0 ? { flex: 1 } : undefined}
+          contentContainerStyle={friends.length === 0 ? { flex: 1 } : { paddingBottom: bottom + 16 }}
         />
       )}
 
@@ -315,7 +317,7 @@ export default function FriendsScreen() {
           keyExtractor={i => i.id}
           renderItem={renderRequestItem}
           ListEmptyComponent={<EmptyState text="Bekleyen arkadaşlık isteği yok." C={C} />}
-          contentContainerStyle={pendingRequests.length === 0 ? { flex: 1 } : undefined}
+          contentContainerStyle={pendingRequests.length === 0 ? { flex: 1 } : { paddingBottom: bottom + 16 }}
         />
       )}
 
@@ -329,7 +331,7 @@ export default function FriendsScreen() {
               ? <EmptyState text="Kullanıcı bulunamadı." C={C} />
               : <EmptyState text="Arama yapmak için isim girin." C={C} />
           }
-          contentContainerStyle={searchResults.length === 0 ? { flex: 1 } : undefined}
+          contentContainerStyle={searchResults.length === 0 ? { flex: 1 } : { paddingBottom: bottom + 16 }}
         />
       )}
     </View>

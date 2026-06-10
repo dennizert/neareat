@@ -13,6 +13,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { getRestaurantAnalytics, getWeeklyReport } from '../../services/restaurantAccount';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import type { RestaurantAnalytics, WeeklyReport } from '../../types';
@@ -28,6 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function RestaurantAnalyticsScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [analytics, setAnalytics] = useState<RestaurantAnalytics | null>(null);
   const [report, setReport] = useState<WeeklyReport | null>(null);
@@ -87,7 +89,7 @@ export default function RestaurantAnalyticsScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: bottom + 16 }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
     >
       {/* AI haftalık rapor */}

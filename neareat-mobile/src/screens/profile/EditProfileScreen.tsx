@@ -8,6 +8,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { updateMyProfile } from '../../services/social';
 import { COUNTRIES, type Country } from '../../data/countriesAndCities';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -43,6 +44,7 @@ export default function EditProfileScreen() {
 
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   useEffect(() => {
     if (profile) {
@@ -116,7 +118,7 @@ export default function EditProfileScreen() {
     : COUNTRIES;
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: bottom + 16 }} keyboardShouldPersistTaps="handled">
 
       {/* Profil Fotoğrafı */}
       <View style={styles.avatarSection}>
@@ -239,8 +241,6 @@ export default function EditProfileScreen() {
       >
         {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Kaydet</Text>}
       </TouchableOpacity>
-
-      <View style={{ height: 40 }} />
 
       {/* Ülke Seçim Modalı */}
       <Modal visible={showCountryModal} transparent animationType="slide" onRequestClose={() => setShowCountryModal(false)}>

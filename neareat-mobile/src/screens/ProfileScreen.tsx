@@ -73,6 +73,7 @@ export default function ProfileScreen() {
 
   const { C } = useTheme();
   const insets = useSafeAreaInsets();
+  const { bottom } = insets;
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   async function loadAll() {
@@ -160,6 +161,7 @@ export default function ProfileScreen() {
   return (
     <ScrollView
       style={styles.container}
+      contentContainerStyle={{ paddingBottom: bottom + 16 }}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={C.primary} />}
     >
@@ -379,7 +381,6 @@ export default function ProfileScreen() {
         <ActionRow label="Hesabı Sil" onPress={handleDeleteAccount} danger styles={styles} />
       </View>
 
-      <View style={{ height: 32 }} />
     </ScrollView>
   );
 }

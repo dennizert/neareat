@@ -4,6 +4,7 @@ import {
   Share, Alert, TextInput, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { getMyReferralCode, applyReferralCode, type ReferralCodeInfo } from '../../services/referral';
@@ -11,6 +12,7 @@ import { getMyReferralCode, applyReferralCode, type ReferralCodeInfo } from '../
 export default function ReferralScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [info, setInfo] = useState<ReferralCodeInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,7 +65,7 @@ export default function ReferralScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 16 }]} keyboardShouldPersistTaps="handled">
 
         {/* Kodunu Paylaş */}
         <View style={styles.card}>

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, Alert, Image, Modal,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getCollection, removeFromCollection, shareCollection, unshareCollection, type CollectionSortBy } from '../../services/collections';
 import { useFriendStore } from '../../store/friendStore';
@@ -17,6 +18,7 @@ export default function CollectionDetailScreen() {
   const { collectionId } = route.params as { collectionId: string; title?: string };
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [collection, setCollection] = useState<Collection | null>(null);
   const [loading, setLoading] = useState(true);
@@ -209,7 +211,7 @@ export default function CollectionDetailScreen() {
         data={collection.items ?? []}
         keyExtractor={(i) => i.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🍽️</Text>
