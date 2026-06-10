@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eatlas — Hesap Silme</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #FAFAF9; color: #1A1A18;
+      min-height: 100vh; padding: 40px 20px;
+    }
+    .container { max-width: 640px; margin: 0 auto; }
+    .logo {
+      font-size: 28px; font-weight: 900; letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #E8614C, #F5A623);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 32px;
+    }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 12px; }
+    p  { font-size: 15px; line-height: 1.7; color: #444; margin-bottom: 16px; }
+    .card {
+      background: #fff; border-radius: 16px; padding: 28px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 24px;
+    }
+    .card h2 { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+    ol, ul { padding-left: 20px; }
+    li { font-size: 15px; line-height: 1.8; color: #444; }
+    .warning {
+      background: #FFF4F2; border-left: 4px solid #E8614C;
+      border-radius: 8px; padding: 14px 16px; margin-bottom: 24px;
+      font-size: 14px; color: #C0392B; line-height: 1.6;
+    }
+    .email-btn {
+      display: inline-block; background: #E8614C; color: #fff;
+      font-size: 15px; font-weight: 700; padding: 14px 28px;
+      border-radius: 12px; text-decoration: none; margin-top: 8px;
+    }
+    .email-btn:hover { background: #d0503b; }
+    footer { margin-top: 40px; font-size: 13px; color: #999; text-align: center; }
+    footer a { color: #E8614C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">Eatlas</div>
+
+    <h1>Hesap Silme</h1>
+    <p>
+      Eatlas hesabınızı ve hesabınıza ait tüm verileri kalıcı olarak silmek için
+      aşağıdaki yöntemlerden birini kullanabilirsiniz.
+    </p>
+
+    <div class="warning">
+      ⚠️ Hesap silme işlemi geri alınamaz. Silinen veriler kurtarılamaz.
+    </div>
+
+    <!-- Yöntem 1: Uygulama içi -->
+    <div class="card">
+      <h2>Yöntem 1 — Uygulama İçinden (Önerilen)</h2>
+      <ol>
+        <li>Eatlas uygulamasını açın</li>
+        <li>Alt menüden <strong>Profil</strong> sekmesine gidin</li>
+        <li>Sayfanın altına kaydırın</li>
+        <li><strong>"Hesabı Sil"</strong> seçeneğine dokunun</li>
+        <li>Onay mesajını okuyun ve <strong>"Evet, Sil"</strong> butonuna dokunun</li>
+      </ol>
+      <p style="margin-top:12px; font-size:14px; color:#888;">
+        Hesabınız ve tüm verileriniz (favoriler, yorumlar, rezervasyonlar, mesajlar) anında silinir.
+      </p>
+    </div>
+
+    <!-- Yöntem 2: E-posta ile -->
+    <div class="card">
+      <h2>Yöntem 2 — E-posta ile Talep</h2>
+      <p>
+        Uygulamaya erişiminiz yoksa veya yardıma ihtiyaç duyarsanız
+        aşağıdaki adrese e-posta gönderin:
+      </p>
+      <a class="email-btn" href="mailto:denniz.ertekin@gmail.com?subject=Hesap%20Silme%20Talebi&body=Hesab%C4%B1m%C4%B1%20silmek%20istiyorum.%0AKayıtlı%20e-posta%20adresim%3A%20">
+        denniz.ertekin@gmail.com
+      </a>
+      <p style="margin-top:16px; font-size:14px; color:#888;">
+        E-postanızda hesabınıza kayıtlı e-posta adresini belirtin.
+        Talepler en geç <strong>30 gün</strong> içinde işleme alınır.
+      </p>
+    </div>
+
+    <!-- Silinen veriler -->
+    <div class="card">
+      <h2>Silinen Veriler</h2>
+      <ul>
+        <li>Profil bilgileri (ad, fotoğraf, biyografi)</li>
+        <li>Favoriler ve koleksiyonlar</li>
+        <li>Yorumlar ve değerlendirmeler</li>
+        <li>Rezervasyonlar</li>
+        <li>Mesajlar ve arkadaşlık bağlantıları</li>
+        <li>AI öneri geçmişi</li>
+        <li>Aktif abonelik (iptal edilir, iade yapılmaz)</li>
+      </ul>
+    </div>
+
+    <p style="font-size:14px; color:#888;">
+      Daha fazla bilgi için
+      <a href="privacy-policy.html" style="color:#E8614C;">Gizlilik Politikamızı</a> inceleyebilirsiniz.
+    </p>
+
+    <footer>
+      &copy; 2026 Eatlas &nbsp;·&nbsp;
+      <a href="privacy-policy.html">Gizlilik Politikası</a>
+    </footer>
+  </div>
+</body>
+</html>
