@@ -2,7 +2,7 @@ const prisma = require('../utils/prisma');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { containsOffensiveContent } = require('../utils/contentFilter');
 
-const FREE_COLLECTION_LIMIT = 0; // Free kullanıcılar koleksiyon oluşturamaz
+const FREE_COLLECTION_LIMIT = 1; // Free kullanıcılar en fazla 1 koleksiyon oluşturabilir
 
 // ─── Koleksiyon Listesi ───────────────────────────────────────────────────────
 
@@ -124,10 +124,13 @@ async function createCollection(req, res, next) {
   try {
     const premium = await isPremiumUser(req.user.id);
     if (!premium) {
-      return res.status(403).json({
-        error: 'Koleksiyon oluşturmak Premium üyelik gerektirir.',
-        code: 'PREMIUM_REQUIRED',
-      });
+      const count = await prisma.collection.count({ where: { userId: req.user.id } });
+      if (count >= FREE_COLLECTION_LIMIT) {
+        return res.status(403).json({
+          error: 'Ücretsiz üyelikte en fazla 1 liste oluşturabilirsin. Sınırsız liste için Premium\'a geç.',
+          code: 'PREMIUM_REQUIRED',
+        });
+      }
     }
 
     const { name, description, isPublic = false } = req.body;

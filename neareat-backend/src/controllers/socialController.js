@@ -5,7 +5,7 @@ const { createNotification, createNotificationsForUsers } = require('../services
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
 const { getCachedSuggestions, computeSuggestionsForUser, invalidateSuggestions } = require('../services/friendSuggestionService');
 
-const FREE_DAILY_REC_LIMIT = 2;
+const FREE_DAILY_REC_LIMIT = 1;
 
 // Sosyal aktivite akışı (S4-5)
 const FEED_DEFAULT_LIMIT = 20;
@@ -296,7 +296,7 @@ async function sendRecommendation(req, res, next) {
 
     if (!placeId || !placeName) return res.status(400).json({ error: 'placeId ve placeName gerekli.' });
 
-    // Günlük öneri limiti — ücretsiz kullanıcılar günde max 2 öneri gönderebilir
+    // Günlük öneri limiti — ücretsiz kullanıcılar günde max 1 öneri gönderebilir
     const premium = await isPremiumUser(req.user.id);
     if (!premium) {
       const today = new Date();

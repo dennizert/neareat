@@ -340,13 +340,29 @@ describe('POST /api/collections', () => {
     expect(res.body.shareCount).toBe(0);
   });
 
-  it('returns 403 PREMIUM_REQUIRED for a free user', async () => {
+  it('returns 201 for a free user creating their FIRST collection', async () => {
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
+    mockPrisma.collection.count.mockResolvedValue(0); // henüz koleksiyonu yok
+    const created = makeCollection({ id: 'col-free-1', name: 'İlk Listem', description: null });
+    mockPrisma.collection.create.mockResolvedValue(created);
 
     const res = await request(app)
       .post('/api/collections')
       .set('Authorization', `Bearer ${testToken}`)
-      .send({ name: 'Free Collection' });
+      .send({ name: 'İlk Listem' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.name).toBe('İlk Listem');
+  });
+
+  it('returns 403 PREMIUM_REQUIRED for a free user creating a SECOND collection', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+    mockPrisma.collection.count.mockResolvedValue(1); // zaten 1 koleksiyonu var
+
+    const res = await request(app)
+      .post('/api/collections')
+      .set('Authorization', `Bearer ${testToken}`)
+      .send({ name: 'İkinci Liste' });
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('PREMIUM_REQUIRED');

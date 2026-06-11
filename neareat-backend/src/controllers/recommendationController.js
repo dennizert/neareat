@@ -19,7 +19,7 @@ const { recommend, recommendStream, recommendForRoute } = require('../services/r
 const { analyzeRestaurantPhoto } = require('../services/photoAnalysis');
 const { cacheGet, cacheSet } = require('../services/redis');
 
-const FREE_DAILY_LIMIT = 3;
+const FREE_DAILY_LIMIT = 1;
 const FREE_DAILY_PHOTO_ANALYSIS_LIMIT = 3;
 const FEEDBACK_DAILY_LIMIT = 50;
 const MAX_COMMENT_LENGTH = 500;
@@ -83,7 +83,7 @@ async function getDinnerTonight(req, res, next) {
         return res.status(429).json({
           error: 'LIMIT_EXCEEDED',
           message:
-            'Günlük 3 AI öneri hakkın doldu. Premium\'a geçerek limitsiz öneri al.',
+            'Günlük 1 AI öneri hakkın doldu. Premium\'a geçerek limitsiz öneri al.',
           upgrade: true,
           remaining: 0,
           resetAt: getNextIstanbulMidnightUtc().toISOString(),
@@ -200,7 +200,7 @@ async function getDinnerTonightStream(req, res, next) {
         sseWrite(res, {
           type: 'error',
           code: 'LIMIT_EXCEEDED',
-          message: 'Günlük 3 AI öneri hakkın doldu. Premium\'a geçerek limitsiz öneri al.',
+          message: 'Günlük 1 AI öneri hakkın doldu. Premium\'a geçerek limitsiz öneri al.',
           upgrade: true,
           resetAt: getNextIstanbulMidnightUtc().toISOString(),
         });
@@ -352,7 +352,7 @@ async function postFeedback(req, res, next) {
  * POST /api/recommendations/route-tonight
  * body: { originLat, originLng, destLat, destLng, mood? }
  * Rota üzerindeki en iyi 1-3 restoranı önerir.
- * Aynı günlük sayacı /dinner-tonight ile paylaşır (free: 3/gün).
+ * Aynı günlük sayacı /dinner-tonight ile paylaşır (free: 1/gün).
  */
 async function getRouteTonightRecommendation(req, res, next) {
   try {
@@ -392,7 +392,7 @@ async function getRouteTonightRecommendation(req, res, next) {
       if (used >= FREE_DAILY_LIMIT) {
         return res.status(429).json({
           error: 'LIMIT_EXCEEDED',
-          message: 'Günlük 3 AI öneri hakkın doldu. Premium\'a geçerek limitsiz öneri al.',
+          message: 'Günlük 1 AI öneri hakkın doldu. Premium\'a geçerek limitsiz öneri al.',
           upgrade: true,
           remaining: 0,
           resetAt: getNextIstanbulMidnightUtc().toISOString(),

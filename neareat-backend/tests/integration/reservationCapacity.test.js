@@ -4,6 +4,7 @@ jest.mock('../../src/utils/prisma', () => ({
   restaurantProfile: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
   reservation: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn() },
   user: { findUnique: jest.fn() },
+  subscription: { findUnique: jest.fn() },
   starEvent: { create: jest.fn() },
   notification: { create: jest.fn() },
   $transaction: jest.fn(),
@@ -66,6 +67,11 @@ beforeEach(() => {
   prisma.reservation.findFirst.mockResolvedValue(null);
   prisma.reservation.count.mockResolvedValue(0);
   prisma.reservation.create.mockResolvedValue(createdReservation);
+  // Kapasite testleri premium kullanıcıyla çalışır (ömür-boyu 1 rezervasyon limiti atlanır,
+  // yalnızca kapasite kontrolü test edilir). Free-tier limiti ayrı describe'da test edilir.
+  prisma.subscription.findUnique.mockResolvedValue({
+    id: 'sub-1', userId: 'u-1', status: 'active', expiresAt: new Date('2030-01-01'),
+  });
 });
 
 describe('POST /api/reservations — kapasite kontrolü', () => {
@@ -101,6 +107,32 @@ describe('POST /api/reservations — kapasite kontrolü', () => {
   it('auth yoksa 401', async () => {
     const res = await request(app).post('/api/reservations').send(validBody);
     expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /api/reservations — free tier ömür-boyu 1 rezervasyon limiti', () => {
+  beforeEach(() => {
+    // Free kullanıcı (aktif abonelik yok)
+    prisma.subscription.findUnique.mockResolvedValue(null);
+  });
+
+  it('ilk rezervasyon (geçmişte 0) → 201', async () => {
+    prisma.reservation.count.mockResolvedValue(0);
+    const res = await request(app)
+      .post('/api/reservations')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validBody);
+    expect(res.status).toBe(201);
+  });
+
+  it('ikinci rezervasyon (geçmişte 1) → 403 PREMIUM_REQUIRED', async () => {
+    prisma.reservation.count.mockResolvedValue(1);
+    const res = await request(app)
+      .post('/api/reservations')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validBody);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('PREMIUM_REQUIRED');
   });
 });
 

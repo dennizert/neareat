@@ -12,6 +12,12 @@ const mockPrisma = {
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 
+// Premium kontrolü mock'lu — kampanya artık premium gerektiriyor (varsayılan: premium).
+const mockIsPremiumUser = jest.fn();
+jest.mock('../../../src/utils/premiumCheck', () => ({
+  isPremiumUser: (...args) => mockIsPremiumUser(...args),
+}));
+
 const mockCreateForUsers = jest.fn().mockResolvedValue(undefined);
 jest.mock('../../../src/services/notificationService', () => ({
   createNotificationsForUsers: mockCreateForUsers,
@@ -45,9 +51,19 @@ beforeEach(() => {
   mockPrisma.favorite.findMany.mockResolvedValue([]);
   mockPrisma.reservation.findMany.mockResolvedValue([]);
   mockCreateForUsers.mockResolvedValue(undefined);
+  mockIsPremiumUser.mockResolvedValue(true); // varsayılan: premium restoran
 });
 
 describe('sendCampaign', () => {
+  it('premium olmayan restoran → 403 PREMIUM_REQUIRED', async () => {
+    mockIsPremiumUser.mockResolvedValue(false);
+    const res = mockRes();
+    await sendCampaign({ user: OWNER, body: { message: 'Bugün %20 indirim!' } }, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'PREMIUM_REQUIRED' }));
+    expect(mockPrisma.restaurantProfile.findUnique).not.toHaveBeenCalled();
+  });
+
   it('kısa mesaj → 400', async () => {
     const res = mockRes();
     await sendCampaign({ user: OWNER, body: { message: 'hi' } }, res, jest.fn());

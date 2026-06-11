@@ -1,4 +1,5 @@
 const prisma = require('../utils/prisma');
+const { isPremiumUser } = require('../utils/premiumCheck');
 const { awardStars, deductStars, RESERVATION_NO_SHOW_PENALTY } = require('../utils/stars');
 const { createNotification } = require('../services/notificationService');
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
@@ -58,6 +59,19 @@ async function createReservation(req, res, next) {
 
     const validationError = validateReservationInput({ date, time, occasion, specialRequests });
     if (validationError) return res.status(400).json({ error: validationError });
+
+    // Premium kısıtı: ücretsiz üyeler ömür boyu yalnızca 1 rezervasyon yapabilir.
+    // (Geçmiş/iptal dahil tüm rezervasyonlar sayılır.) Premium → sınırsız.
+    const premium = await isPremiumUser(req.user.id);
+    if (!premium) {
+      const totalReservations = await prisma.reservation.count({ where: { userId: req.user.id } });
+      if (totalReservations >= 1) {
+        return res.status(403).json({
+          error: 'Ücretsiz üyelikte yalnızca 1 rezervasyon yapabilirsin. Sınırsız rezervasyon için Premium\'a geç.',
+          code: 'PREMIUM_REQUIRED',
+        });
+      }
+    }
 
     // Restoranın rezervasyona açık ve onaylı olduğunu kontrol et
     const restaurant = await prisma.restaurantProfile.findFirst({
