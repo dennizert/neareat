@@ -2,7 +2,7 @@
   "expo": {
     "name": "Eatlas",
     "slug": "neareat",
-    "version": "2.0.1",
+    "version": "2.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -30,7 +30,7 @@
         "backgroundColor": "#100C16"
       },
       "package": "com.eatlas.mobile",
-      "versionCode": 29,
+      "versionCode": 33,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
