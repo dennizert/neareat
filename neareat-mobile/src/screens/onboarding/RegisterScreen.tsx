@@ -47,8 +47,8 @@ export default function RegisterScreen() {
       Alert.alert('Hata', 'İsim en az 2 karakter olmalı.');
       return;
     }
-    if (password.length < 6) {
-      Alert.alert('Hata', 'Şifre en az 6 karakter olmalı.');
+    if (password.length < 8) {
+      Alert.alert('Hata', 'Şifre en az 8 karakter olmalı.');
       return;
     }
     if (password !== confirmPassword) {
@@ -123,7 +123,7 @@ export default function RegisterScreen() {
           <AuthInput
             icon="lock"
             label="Şifre"
-            placeholder="En az 6 karakter"
+            placeholder="En az 8 karakter"
             value={password}
             onChangeText={setPassword}
             isPassword
