@@ -91,8 +91,8 @@ android {
         applicationId 'com.eatlas.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 35
-        versionName "2.0.7"
+        versionCode 36
+        versionName "2.0.8"
     }
     signingConfigs {
         debug {
