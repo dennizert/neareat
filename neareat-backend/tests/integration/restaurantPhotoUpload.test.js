@@ -5,6 +5,7 @@
 jest.mock('../../src/utils/prisma', () => ({
   restaurantProfile: { findUnique: jest.fn() },
   user: { findUnique: jest.fn() },
+  subscription: { findUnique: jest.fn() },
 }));
 
 jest.mock('../../src/services/s3', () => ({
@@ -57,6 +58,10 @@ beforeEach(() => {
   s3.isS3Configured.mockReturnValue(true);
   prisma.user.findUnique.mockResolvedValue({ id: 'owner-1', role: 'RESTAURANT', isSuspended: false });
   prisma.restaurantProfile.findUnique.mockResolvedValue({ id: 'r-1' });
+  // Varsayılan: premium restoran (ürün fotoğrafı presigned URL'i premium gerektirir)
+  prisma.subscription.findUnique.mockResolvedValue({
+    id: 'sub-1', userId: 'owner-1', status: 'active', expiresAt: new Date('2030-01-01'),
+  });
 });
 
 describe('POST /api/restaurant-account/photos/upload-url (S10-2)', () => {
@@ -106,6 +111,17 @@ describe('POST /api/restaurant-account/photos/upload-url (S10-2)', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ kind: 'restaurant', contentType: 'image/jpeg' });
     expect(res.status).toBe(503);
+  });
+
+  it('premium olmayan restoran PRODUCT için presigned URL isterse → 403', async () => {
+    prisma.subscription.findUnique.mockResolvedValue(null); // free restoran
+    const res = await request(app)
+      .post(URL)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ kind: 'product', contentType: 'image/jpeg' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('PREMIUM_REQUIRED');
+    expect(s3.createUploadUrl).not.toHaveBeenCalled();
   });
 
   it('restoran olmayan kullanıcı → 403', async () => {

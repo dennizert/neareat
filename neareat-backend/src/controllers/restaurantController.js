@@ -327,7 +327,9 @@ async function getDetails(req, res, next) {
       openingHours: place.opening_hours,
       location: place.geometry?.location,
       photos: [...ownerRestaurantPhotos, ...googlePhotos],
-      productPhotos,
+      // Ürün fotoğrafları yalnızca premium kullanıcılara görünür (free tier kısıtı).
+      productPhotos: premium ? productPhotos : [],
+      hasProductPhotos: productPhotos.length > 0,
       googleReviews: place.reviews || [],
       popularTimes: null,
       // Restaurant profile extras

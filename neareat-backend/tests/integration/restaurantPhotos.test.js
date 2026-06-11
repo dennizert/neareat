@@ -13,6 +13,7 @@ jest.mock('../../src/utils/prisma', () => ({
     delete: jest.fn(),
   },
   user: { findUnique: jest.fn() },
+  subscription: { findUnique: jest.fn() },
 }));
 
 jest.mock('../../src/services/s3', () => ({
@@ -62,6 +63,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   prisma.user.findUnique.mockResolvedValue({ id: 'owner-1', role: 'RESTAURANT', isSuspended: false });
   prisma.restaurantProfile.findUnique.mockResolvedValue({ id: 'r-1' });
+  // Varsayılan: premium restoran (ürün fotoğrafı yükleme premium gerektirir)
+  prisma.subscription.findUnique.mockResolvedValue({
+    id: 'sub-1', userId: 'owner-1', status: 'active', expiresAt: new Date('2030-01-01'),
+  });
   s3.isS3Configured.mockReturnValue(true);
   s3.keyFromUrl.mockReturnValue('restaurants/r-1/restaurant/uuid.jpg');
   s3.getObjectSize.mockResolvedValue(123456);
@@ -103,6 +108,30 @@ describe('POST /api/restaurant-account/photos (S10-3)', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ kind: 'LOGO', url: 'https://cdn.example/x.jpg' });
     expect(res.status).toBe(400);
+  });
+
+  it('premium olmayan restoran PRODUCT yüklerse → 403 PREMIUM_REQUIRED', async () => {
+    prisma.subscription.findUnique.mockResolvedValue(null); // free restoran
+    const res = await request(app)
+      .post(BASE)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ kind: 'PRODUCT', url: 'https://cdn.example/x.jpg' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('PREMIUM_REQUIRED');
+    expect(prisma.restaurantPhoto.create).not.toHaveBeenCalled();
+  });
+
+  it('premium olmayan restoran RESTAURANT (mekan) fotosu yükleyebilir → 201', async () => {
+    prisma.subscription.findUnique.mockResolvedValue(null); // free restoran
+    prisma.restaurantPhoto.count.mockResolvedValue(0);
+    prisma.restaurantPhoto.create.mockResolvedValue({
+      id: 'p-2', kind: 'RESTAURANT', url: 'https://cdn.example/a.jpg', sortOrder: 0, createdAt: new Date(),
+    });
+    const res = await request(app)
+      .post(BASE)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ kind: 'RESTAURANT', url: 'https://cdn.example/a.jpg' });
+    expect(res.status).toBe(201);
   });
 
   it('bizim bucket dışından URL → 400 (F2)', async () => {

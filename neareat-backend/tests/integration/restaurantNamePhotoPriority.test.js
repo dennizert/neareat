@@ -131,7 +131,11 @@ describe('GET /api/restaurants/:placeId — detay isim & foto sırası (S10-4)',
     reviews: [],
   };
 
-  it('sahibin RESTAURANT fotoları önce, Google sonra; productPhotos döner; name=displayName', async () => {
+  it('sahibin RESTAURANT fotoları önce, Google sonra; productPhotos döner (premium); name=displayName', async () => {
+    // productPhotos yalnızca premium kullanıcılara döner
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      id: 'sub-1', userId, status: 'active', expiresAt: new Date('2030-01-01'),
+    });
     mockGetDetails.mockResolvedValue(detailPlace);
     mockPrisma.restaurantProfile.findFirst.mockResolvedValue({
       id: 'r-1', displayName: 'Mavera Restaurant', status: 'APPROVED', menuItems: [],
@@ -155,6 +159,28 @@ describe('GET /api/restaurants/:placeId — detay isim & foto sırası (S10-4)',
       'https://google.example/gref2',
     ]);
     expect(res.body.productPhotos).toEqual(['https://cdn.example/p1.jpg']);
+  });
+
+  it('free kullanıcı → productPhotos gizli ([]) ama hasProductPhotos=true', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue(null); // free
+    mockGetDetails.mockResolvedValue(detailPlace);
+    mockPrisma.restaurantProfile.findFirst.mockResolvedValue({
+      id: 'r-1', displayName: 'Mavera Restaurant', status: 'APPROVED', menuItems: [],
+      photos: [
+        { kind: 'RESTAURANT', url: 'https://cdn.example/r1.jpg', sortOrder: 0 },
+        { kind: 'PRODUCT', url: 'https://cdn.example/p1.jpg', sortOrder: 0 },
+      ],
+    });
+
+    const res = await request(app)
+      .get('/api/restaurants/p1')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.productPhotos).toEqual([]);
+    expect(res.body.hasProductPhotos).toBe(true);
+    // Mekan (RESTAURANT) fotoları free'ye de görünür
+    expect(res.body.photos).toContain('https://cdn.example/r1.jpg');
   });
 
   it('profil yok → photos tamamen Google, productPhotos boş, name=Google adı', async () => {
