@@ -12,6 +12,7 @@ import type { RootStackParamList, MainTabParamList } from '../types';
 import { useThemeStore } from '../store/themeStore';
 import { lightColors, darkColors } from '../theme';
 
+import { navigationRef } from './navigationRef';
 import OnboardingNavigator from './OnboardingNavigator';
 import HomeScreen from '../screens/home/HomeScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
@@ -159,8 +160,6 @@ function MainTabs() {
     </Tab.Navigator>
   );
 }
-
-const navigationRef = React.createRef<any>();
 
 function parseDeepLinkToken(url: string, path: string): string | null {
   if (!url.includes(path)) return null;
@@ -326,6 +325,11 @@ export default function Navigation() {
                   name="Notifications"
                   component={NotificationsScreen}
                   options={{ ...H, title: 'Bildirimler' }}
+                />
+                <Stack.Screen
+                  name="Paywall"
+                  component={PaywallScreen}
+                  options={{ presentation: 'modal', headerShown: false }}
                 />
               </>
             ) : (

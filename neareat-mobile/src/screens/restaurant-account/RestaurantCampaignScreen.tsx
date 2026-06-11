@@ -65,7 +65,7 @@ export default function RestaurantCampaignScreen() {
             } catch (err) {
               if (err instanceof CampaignLimitError) {
                 Alert.alert('Günlük limit', err.message);
-              } else if (handleRestaurantPremiumError(err, 'Kampanya göndermek Premium üyelik gerektirir.')) {
+              } else if (handleRestaurantPremiumError(err, { message: 'Kampanya göndermek Premium üyelik gerektirir.' })) {
                 // premium popup gösterildi
               } else {
                 Alert.alert('Hata', 'Kampanya gönderilemedi. Tekrar dene.');
