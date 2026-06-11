@@ -103,7 +103,7 @@ export default function RestaurantInfoScreen() {
       toast.show('Restoran bilgilerin güncellendi', 'success');
       navigation.goBack();
     } catch (err: any) {
-      if (handleRestaurantPremiumError(err, 'Rezervasyon kabul etmek Premium üyelik gerektirir.')) return;
+      if (handleRestaurantPremiumError(err, { trigger: 'reservations', message: 'Rezervasyon kabul etmek Premium üyelik gerektirir.' })) return;
       Alert.alert('Hata', err.userMessage ?? err.response?.data?.error ?? 'Kaydedilemedi.');
     } finally {
       setSaving(false);
@@ -297,7 +297,7 @@ function PhotoGallerySection({
     } catch (err: any) {
       if (err instanceof PhotoStorageUnavailableError) {
         Alert.alert('Fotoğraf Yükleme', err.message);
-      } else if (handleRestaurantPremiumError(err, 'Ürün fotoğrafı yüklemek Premium üyelik gerektirir.')) {
+      } else if (handleRestaurantPremiumError(err, { trigger: 'product_photos', message: 'Ürün fotoğrafı yüklemek Premium üyelik gerektirir.' })) {
         // premium popup gösterildi
       } else {
         Alert.alert('Hata', err.userMessage ?? err.response?.data?.error ?? 'Fotoğraf yüklenemedi. Lütfen tekrar deneyin.');

@@ -12,30 +12,49 @@ import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
 // Google Play Console → Monetization → Subscriptions'da tanımlanacak Product ID'ler.
-// Bu değerler Play Console'daki Subscription ID'leriyle BİREBİR aynı olmalı.
+// Rol başına TEK aylık ürün. Bu değerler Play Console'daki Subscription ID'leriyle
+// BİREBİR aynı olmalı.
 const SKUS = {
-  monthly: 'premium_monthly',
-  yearly: 'premium_yearly',
+  user: 'user_premium',          // 79,90 ₺ / ay
+  restaurant: 'restaurant_premium', // 699,90 ₺ / ay
 };
 
-// Açıklayıcı özellik listesi — her biri başlık + tek satır açıklama
-const FEATURES: { icon: string; title: string; desc: string }[] = [
+// Play Store erişilemiyorsa (ürün henüz oluşturulmadı / emülatör) gösterilecek fiyat.
+const FALLBACK_PRICE = {
+  user: '79,90 ₺',
+  restaurant: '699,90 ₺',
+};
+
+type Feature = { icon: string; title: string; desc: string };
+
+const USER_FEATURES: Feature[] = [
   { icon: '♾️', title: 'Limitsiz AI öneri', desc: 'Günlük hak sınırı olmadan dilediğin kadar "ne yesem?" sor' },
   { icon: '🧠', title: 'Daha güçlü AI modeli', desc: 'İnce zevkleri ve niş tercihleri daha iyi yakalayan gelişmiş model' },
   { icon: '👥', title: 'Arkadaş sinyalleri', desc: 'Arkadaşlarının (onay verdiyse) tat tercihleri önerilerine katılır' },
   { icon: '📍', title: 'Geniş keşif alanı', desc: '5 km yerine 25 km çevrendeki restoranları keşfet' },
-  { icon: '❤️', title: 'Sınırsız favori', desc: 'İstediğin kadar restoranı favorilerine kaydet' },
-  { icon: '🏆', title: '2x Yıldız', desc: 'Her aksiyonda iki kat yıldız — ödüllere daha hızlı ulaş' },
+  { icon: '❤️', title: 'Sınırsız favori & liste', desc: 'İstediğin kadar restoranı favorile, sınırsız liste oluştur' },
+  { icon: '📅', title: 'Sınırsız rezervasyon', desc: 'Dilediğin kadar restorana rezervasyon yap' },
+];
+
+const RESTAURANT_FEATURES: Feature[] = [
+  { icon: '📅', title: 'Rezervasyon kabulü', desc: 'Müşterilerinden uygulama üzerinden online rezervasyon al' },
+  { icon: '⚡', title: 'Anlık indirim & kampanya', desc: 'Favori ve geçmiş müşterilerine anlık bildirimli kampanya gönder' },
+  { icon: '🍽️', title: 'Ürün fotoğraf galerisi', desc: 'Menü ve ürün fotoğraflarını kullanıcılara göster' },
+  { icon: '📈', title: 'Daha fazla görünürlük', desc: 'Öne çıkan içeriklerle daha çok müşteriye ulaş' },
 ];
 
 export default function PaywallScreen() {
   const navigation = useNavigation<any>();
-  const { subscription, setSubscription, isPremium } = useAuthStore();
+  const { subscription, setSubscription, isPremium, user } = useAuthStore();
   const { C } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
-  const [selected, setSelected] = useState<'yearly' | 'monthly'>('yearly');
+  const isRestaurant = user?.role === 'RESTAURANT';
+  const sku = isRestaurant ? SKUS.restaurant : SKUS.user;
+  const fallbackPrice = isRestaurant ? FALLBACK_PRICE.restaurant : FALLBACK_PRICE.user;
+  const features = isRestaurant ? RESTAURANT_FEATURES : USER_FEATURES;
+
   const [purchasing, setPurchasing] = useState(false);
 
   // Deneme daha önce kullanıldıysa (herhangi bir abonelik kaydı varsa) backend yeni
@@ -77,8 +96,8 @@ export default function PaywallScreen() {
   useEffect(() => {
     if (!connected) return;
 
-    requestProducts({ skus: Object.values(SKUS), type: 'subs' }).catch(() => {
-      // Play Store erişilemiyor (emülatör / yapılandırılmamış) — fiyatlar "—" kalır
+    requestProducts({ skus: [sku], type: 'subs' }).catch(() => {
+      // Play Store erişilemiyor (emülatör / yapılandırılmamış) — fiyat fallback'e düşer
     });
 
     // Tamamlanmamış satın almaları kurtar: ödendi ama doğrulama tamamlanmadıysa
@@ -102,30 +121,11 @@ export default function PaywallScreen() {
     }).catch(() => {
       // getAvailablePurchases desteklenmiyorsa (emülatör) sessizce geç
     });
-  }, [connected, requestProducts, finishTransaction, setSubscription]);
+  }, [connected, requestProducts, finishTransaction, setSubscription, sku]);
 
-  const iapAvailable = subscriptions.length > 0;
-
-  const getProduct = useCallback(
-    (plan: 'monthly' | 'yearly') => subscriptions.find((s) => s.id === SKUS[plan]),
-    [subscriptions],
-  );
-
-  function priceLabel(plan: 'monthly' | 'yearly') {
-    const p = getProduct(plan);
-    const suffix = plan === 'yearly' ? '/ yıl' : '/ ay';
-    if (!p?.displayPrice) return `—  ${suffix}`;
-    return `${p.displayPrice} ${suffix}`;
-  }
-
-  // Yıllık planın aylık eşdeğeri (fiyat sayısal olarak geldiyse)
-  function yearlyMonthlyEquivalent(): string | null {
-    const p: any = getProduct('yearly');
-    if (!p || typeof p.price !== 'number' || !p.price) return null;
-    const perMonth = p.price / 12;
-    const cur = p.currency || '';
-    return `≈ ${perMonth.toFixed(0)} ${cur}/ay`;
-  }
+  const product = subscriptions.find((s) => s.id === sku);
+  const iapAvailable = !!product;
+  const priceText = product?.displayPrice ? product.displayPrice : fallbackPrice;
 
   async function handleTrial() {
     try {
@@ -141,13 +141,11 @@ export default function PaywallScreen() {
     }
   }
 
-  async function startPurchase(plan: 'monthly' | 'yearly') {
+  const startPurchase = useCallback(async () => {
     if (Platform.OS !== 'android') {
       Alert.alert('Yakında', 'iOS için App Store entegrasyonu yakında geliyor.');
       return;
     }
-    const sku = SKUS[plan];
-    const product = getProduct(plan);
     if (!product) {
       Alert.alert('Yakında', 'Ödeme sistemi yakında aktifleşecek. Şimdilik ücretsiz denemeyi kullanabilirsin.');
       return;
@@ -167,12 +165,12 @@ export default function PaywallScreen() {
     } catch {
       setPurchasing(false);
     }
-  }
+  }, [product, sku, requestPurchase]);
 
   // Ana butona basınca: Play hazırsa satın al; değilse deneme (kullanılabilirse)
   function handlePrimary() {
     if (iapAvailable) {
-      startPurchase(selected);
+      startPurchase();
     } else if (canTrial) {
       handleTrial();
     }
@@ -200,13 +198,12 @@ export default function PaywallScreen() {
   const primaryLabel = purchasing
     ? null
     : iapAvailable
-      ? `✨ ${selected === 'yearly' ? 'Yıllık' : 'Aylık'} Premium'a Geç`
+      ? '✨ Premium\'a Geç'
       : canTrial
         ? '7 Gün Ücretsiz Dene'
         : 'Ödeme yakında aktifleşecek';
 
   const primaryDisabled = purchasing || (!iapAvailable && !canTrial);
-  const monthlyEq = yearlyMonthlyEquivalent();
 
   return (
     <View style={styles.container}>
@@ -216,14 +213,16 @@ export default function PaywallScreen() {
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24 }]} showsVerticalScrollIndicator={false}>
         <Text style={styles.heroEmoji}>👑</Text>
-        <Text style={styles.title}>Premium</Text>
+        <Text style={styles.title}>{isRestaurant ? 'İşletme Premium' : 'Premium'}</Text>
         <Text style={styles.subtitle}>
-          Eatlas'tan en iyi şekilde yararlan — sınırsız AI önerisi, daha geniş keşif ve daha fazlası.
+          {isRestaurant
+            ? 'Restoranını öne çıkar — rezervasyon, anlık kampanya, ürün galerisi ve daha fazlası.'
+            : 'Eatlas\'tan en iyi şekilde yararlan — sınırsız AI önerisi, daha geniş keşif ve daha fazlası.'}
         </Text>
 
         {/* Özellikler — başlık + açıklama */}
         <View style={styles.featureList}>
-          {FEATURES.map((f) => (
+          {features.map((f) => (
             <View key={f.title} style={styles.featureRow}>
               <Text style={styles.featureIcon}>{f.icon}</Text>
               <View style={styles.featureBody}>
@@ -234,39 +233,14 @@ export default function PaywallScreen() {
           ))}
         </View>
 
-        {/* Plan seçimi */}
-        <Text style={styles.sectionLabel}>Planını seç</Text>
-        <View style={styles.planRow}>
-          {/* Yıllık */}
-          <TouchableOpacity
-            style={[styles.planCard, selected === 'yearly' && styles.planCardActive]}
-            onPress={() => setSelected('yearly')}
-            activeOpacity={0.85}
-          >
-            <View style={styles.popularBadge}>
-              <Text style={styles.popularText}>En Popüler · %35 tasarruf</Text>
-            </View>
-            <View style={styles.planHeaderRow}>
-              <Text style={styles.planName}>Yıllık</Text>
-              {selected === 'yearly' && <Text style={styles.checkMark}>✓</Text>}
-            </View>
-            <Text style={styles.planPrice}>{priceLabel('yearly')}</Text>
-            {monthlyEq && <Text style={styles.planSub}>{monthlyEq}</Text>}
-          </TouchableOpacity>
-
-          {/* Aylık */}
-          <TouchableOpacity
-            style={[styles.planCard, selected === 'monthly' && styles.planCardActive]}
-            onPress={() => setSelected('monthly')}
-            activeOpacity={0.85}
-          >
-            <View style={styles.planHeaderRow}>
-              <Text style={styles.planName}>Aylık</Text>
-              {selected === 'monthly' && <Text style={styles.checkMark}>✓</Text>}
-            </View>
-            <Text style={styles.planPrice}>{priceLabel('monthly')}</Text>
-            <Text style={styles.planSub}>Esnek, aylık yenilenir</Text>
-          </TouchableOpacity>
+        {/* Tek aylık plan kartı */}
+        <View style={styles.planCard}>
+          <View style={styles.planHeaderRow}>
+            <Text style={styles.planName}>Aylık Premium</Text>
+            <Text style={styles.checkMark}>✓</Text>
+          </View>
+          <Text style={styles.planPrice}>{priceText} <Text style={styles.planPriceSuffix}>/ ay</Text></Text>
+          <Text style={styles.planSub}>İstediğin zaman iptal edebilirsin</Text>
         </View>
 
         {/* Ana CTA */}
@@ -318,24 +292,16 @@ function makeStyles(C: Colors) {
     featureTitle: { fontSize: 15, fontWeight: '700', color: C.textPrimary, marginBottom: 2 },
     featureDesc: { fontSize: 13, color: C.textTertiary, lineHeight: 18 },
 
-    sectionLabel: { fontSize: 13, fontWeight: '700', color: C.textSecondary, marginBottom: 10 },
-    planRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
     planCard: {
-      flex: 1, borderRadius: 16, borderWidth: 2,
-      borderColor: C.border, padding: 16, paddingTop: 18, minHeight: 110, justifyContent: 'flex-end',
+      borderRadius: 16, borderWidth: 2, borderColor: C.primary,
+      backgroundColor: C.primaryLighter, padding: 18, marginBottom: 20,
     },
-    planCardActive: { borderColor: C.primary, backgroundColor: C.primaryLighter },
-    popularBadge: {
-      position: 'absolute', top: -10, left: 12, right: 12,
-      backgroundColor: C.primary, borderRadius: 8,
-      paddingHorizontal: 6, paddingVertical: 3, alignItems: 'center',
-    },
-    popularText: { color: '#fff', fontSize: 9, fontWeight: '800' },
     planHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     planName: { fontSize: 16, fontWeight: '800', color: C.textPrimary },
     checkMark: { fontSize: 14, fontWeight: '900', color: C.primary },
-    planPrice: { fontSize: 14, color: C.textSecondary, marginTop: 4, fontWeight: '600' },
-    planSub: { fontSize: 11, color: C.success, marginTop: 2 },
+    planPrice: { fontSize: 24, color: C.textPrimary, marginTop: 6, fontWeight: '800' },
+    planPriceSuffix: { fontSize: 14, color: C.textSecondary, fontWeight: '600' },
+    planSub: { fontSize: 12, color: C.textTertiary, marginTop: 4 },
 
     primaryBtn: {
       backgroundColor: C.primary, borderRadius: 14,

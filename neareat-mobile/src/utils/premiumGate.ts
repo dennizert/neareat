@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import { navigate } from '../navigation/navigationRef';
 
 // Paywall ekranının kabul ettiği tetikleyici bağlamlar. Backend free-tier limiti
 // dolduğunda (403 PREMIUM_REQUIRED) hangi bağlamdan gelindiğini Paywall'a iletir.
@@ -36,16 +37,23 @@ export function handleUserPremiumError(
 }
 
 /**
- * Restoran kullanıcı akışı: Paywall ekranı restoran stack'inde kayıtlı olmadığından
- * bilgilendirici bir popup gösterir (gerçek restoran satın-alma akışı ayrı sprintte).
+ * Restoran kullanıcı akışı: bilgilendirici bir popup gösterir ve "Premium'a Geç"
+ * ile role-aware Paywall ekranına (restaurant_premium) yönlendirir. Restoran
+ * ekranları navigation prop'u taşımayabildiğinden global navigationRef kullanılır.
  * @returns hata ele alındıysa true.
  */
-export function handleRestaurantPremiumError(err: any, fallbackMessage?: string): boolean {
+export function handleRestaurantPremiumError(
+  err: any,
+  opts?: { trigger?: PaywallTrigger; message?: string },
+): boolean {
   if (!isPremiumRequired(err)) return false;
   Alert.alert(
     'Premium Gerekli',
-    err?.response?.data?.error || fallbackMessage || 'Bu özellik Premium üyelik gerektirir.',
-    [{ text: 'Tamam' }],
+    err?.response?.data?.error || opts?.message || 'Bu özellik Premium üyelik gerektirir.',
+    [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Premium\'a Geç', onPress: () => navigate('Paywall', { trigger: opts?.trigger ?? 'reservations' }) },
+    ],
   );
   return true;
 }

@@ -77,7 +77,7 @@ export default function RestaurantDiscountScreen() {
       setProfile(updated);
       Alert.alert('Aktif!', `%${pct} anlık indirim ${duration < 60 ? duration + ' dk' : duration / 60 + ' saat'} için başlatıldı.`);
     } catch (err: any) {
-      if (handleRestaurantPremiumError(err, 'Anlık indirim tanımlamak Premium üyelik gerektirir.')) return;
+      if (handleRestaurantPremiumError(err, { message: 'Anlık indirim tanımlamak Premium üyelik gerektirir.' })) return;
       Alert.alert('Hata', err.response?.data?.error ?? 'Aktif edilemedi.');
     } finally {
       setSaving(false);
