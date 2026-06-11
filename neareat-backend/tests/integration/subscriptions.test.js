@@ -29,8 +29,12 @@ const mockPrisma = {
 };
 
 jest.mock('../../src/utils/prisma', () => mockPrisma);
+const mockCacheStore = {};
 jest.mock('../../src/services/redis', () => ({
   getRedis: () => ({ ping: jest.fn().mockResolvedValue('PONG'), quit: jest.fn() }),
+  cacheGet: jest.fn(async (key) => (key in mockCacheStore ? mockCacheStore[key] : null)),
+  cacheSet: jest.fn(async (key, value) => { mockCacheStore[key] = value; }),
+  cacheDel: jest.fn(async (key) => { delete mockCacheStore[key]; }),
 }));
 jest.mock('../../src/services/firebase', () => ({ verifyFirebaseToken: jest.fn() }));
 jest.mock('../../src/services/emailService', () => ({ sendEmail: jest.fn() }));
@@ -327,5 +331,63 @@ describe('POST /webhooks/google-play', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.received).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RTDN teşhisi — GET /webhooks/google-play/last
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('RTDN teşhisi: /webhooks/google-play/last', () => {
+  function encodedMessage(payload) {
+    return { message: { data: Buffer.from(JSON.stringify(payload)).toString('base64'), messageId: '1' } };
+  }
+
+  beforeEach(() => {
+    for (const k of Object.keys(mockCacheStore)) delete mockCacheStore[k];
+  });
+
+  it('hiç bildirim yokken last=null döner', async () => {
+    const res = await request(app).get('/webhooks/google-play/last');
+    expect(res.status).toBe(200);
+    expect(res.body.last).toBeNull();
+  });
+
+  it('test bildirimi alınınca last type=test olarak kaydedilir', async () => {
+    await request(app)
+      .post('/webhooks/google-play')
+      .send(encodedMessage({ packageName: 'com.eatlas.mobile', testNotification: { version: '1.0' } }));
+
+    const res = await request(app).get('/webhooks/google-play/last');
+    expect(res.status).toBe(200);
+    expect(res.body.last).toMatchObject({ type: 'test', packageName: 'com.eatlas.mobile', count: 1 });
+    expect(typeof res.body.last.at).toBe('string');
+  });
+
+  it('abonelik bildirimi type=subscription:N olarak kaydeder + sayacı artırır', async () => {
+    mockSubscriptionsGet.mockResolvedValue({ data: { expiryTimeMillis: String(Date.now() + 86400_000) } });
+    mockPrisma.subscription.findFirst.mockResolvedValue({ id: randomId(), storeTransactionId: 't' });
+    mockPrisma.subscription.update.mockResolvedValue({});
+
+    await request(app)
+      .post('/webhooks/google-play')
+      .send(encodedMessage({ packageName: 'com.eatlas.mobile', testNotification: { version: '1.0' } }));
+    await request(app)
+      .post('/webhooks/google-play')
+      .send(encodedMessage({ packageName: 'com.eatlas.mobile', subscriptionNotification: { notificationType: 2, purchaseToken: 't', subscriptionId: 'user_premium' } }));
+
+    const res = await request(app).get('/webhooks/google-play/last');
+    expect(res.body.last).toMatchObject({ type: 'subscription:2', count: 2 });
+  });
+
+  it('hassas veri sızdırmaz (token/userId yok)', async () => {
+    await request(app)
+      .post('/webhooks/google-play')
+      .send(encodedMessage({ packageName: 'com.eatlas.mobile', subscriptionNotification: { notificationType: 3, purchaseToken: 'secret-token', subscriptionId: 'user_premium' } }));
+
+    const res = await request(app).get('/webhooks/google-play/last');
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain('secret-token');
+    expect(res.body.last.purchaseToken).toBeUndefined();
   });
 });
