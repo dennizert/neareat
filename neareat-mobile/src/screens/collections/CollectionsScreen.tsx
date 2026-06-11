@@ -13,6 +13,7 @@ import {
 } from '../../services/collections';
 import NotificationBell from '../../components/NotificationBell';
 import type { Collection, SharedCollection } from '../../types';
+import { handleUserPremiumError } from '../../utils/premiumGate';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -61,7 +62,8 @@ export default function CollectionsScreen() {
   }
 
   function handleCreatePress() {
-    if (!premium) {
+    // Ücretsiz üyeler 1 liste oluşturabilir; ikinciden itibaren paywall.
+    if (!premium && myCollections.length >= 1) {
       navigation.navigate('Paywall', { trigger: 'collections' });
       return;
     }
@@ -86,6 +88,8 @@ export default function CollectionsScreen() {
       addCollection(col);
       setCreateModalVisible(false);
     } catch (err: any) {
+      setCreateModalVisible(false);
+      if (handleUserPremiumError(err, navigation, 'collections')) return;
       Alert.alert('Hata', err.response?.data?.error ?? 'Oluşturulamadı.');
     } finally {
       setCreating(false);

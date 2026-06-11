@@ -12,6 +12,7 @@ import {
   listRestaurantPhotos, deleteRestaurantPhoto, PhotoStorageUnavailableError,
 } from '../../services/restaurantAccount';
 import type { RestaurantPhoto, RestaurantPhotoKind } from '../../types';
+import { handleRestaurantPremiumError } from '../../utils/premiumGate';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../../hooks/useToast';
 import { useTheme } from '../../theme';
@@ -102,6 +103,7 @@ export default function RestaurantInfoScreen() {
       toast.show('Restoran bilgilerin güncellendi', 'success');
       navigation.goBack();
     } catch (err: any) {
+      if (handleRestaurantPremiumError(err, 'Rezervasyon kabul etmek Premium üyelik gerektirir.')) return;
       Alert.alert('Hata', err.userMessage ?? err.response?.data?.error ?? 'Kaydedilemedi.');
     } finally {
       setSaving(false);
@@ -295,6 +297,8 @@ function PhotoGallerySection({
     } catch (err: any) {
       if (err instanceof PhotoStorageUnavailableError) {
         Alert.alert('Fotoğraf Yükleme', err.message);
+      } else if (handleRestaurantPremiumError(err, 'Ürün fotoğrafı yüklemek Premium üyelik gerektirir.')) {
+        // premium popup gösterildi
       } else {
         Alert.alert('Hata', err.userMessage ?? err.response?.data?.error ?? 'Fotoğraf yüklenemedi. Lütfen tekrar deneyin.');
       }

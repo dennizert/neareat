@@ -112,8 +112,10 @@ export interface RestaurantDetail extends Restaurant {
     periods?: OpeningHoursPeriod[];
   } | null;
   photos: string[];
-  /** Sahibin yüklediği ürün fotoğrafları (S10) — detayda ayrı galeri. */
+  /** Sahibin yüklediği ürün fotoğrafları (S10) — detayda ayrı galeri. Free tier'da boş döner. */
   productPhotos?: string[];
+  /** Ürün fotoğrafı var mı? (free tier'da productPhotos boş gelir; paywall teaser için.) */
+  hasProductPhotos?: boolean;
   googleReviews: GoogleReview[];
   popularTimes: PopularTimes | null;
   reservationUrl?: string | null;
@@ -712,7 +714,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Main: undefined;
   RestaurantDetail: { placeId: string };
-  Paywall: { trigger: 'favorites' | 'reviews' | 'popular_times' | 'onboarding' | 'collections' };
+  Paywall: { trigger: 'favorites' | 'reviews' | 'popular_times' | 'onboarding' | 'collections' | 'reservations' | 'recommendations' | 'product_photos' };
   EditProfile: undefined;
   Friends: undefined;
   ActivityFeed: undefined;

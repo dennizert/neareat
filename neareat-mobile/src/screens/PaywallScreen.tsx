@@ -20,7 +20,7 @@ const SKUS = {
 
 // Açıklayıcı özellik listesi — her biri başlık + tek satır açıklama
 const FEATURES: { icon: string; title: string; desc: string }[] = [
-  { icon: '♾️', title: 'Limitsiz AI öneri', desc: 'Günlük 3 hak sınırı olmadan dilediğin kadar "ne yesem?" sor' },
+  { icon: '♾️', title: 'Limitsiz AI öneri', desc: 'Günlük hak sınırı olmadan dilediğin kadar "ne yesem?" sor' },
   { icon: '🧠', title: 'Daha güçlü AI modeli', desc: 'İnce zevkleri ve niş tercihleri daha iyi yakalayan gelişmiş model' },
   { icon: '👥', title: 'Arkadaş sinyalleri', desc: 'Arkadaşlarının (onay verdiyse) tat tercihleri önerilerine katılır' },
   { icon: '📍', title: 'Geniş keşif alanı', desc: '5 km yerine 25 km çevrendeki restoranları keşfet' },
