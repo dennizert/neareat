@@ -11,8 +11,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { getRestaurantAnalytics, getWeeklyReport } from '../../services/restaurantAccount';
+import { isPremiumRequired } from '../../utils/premiumGate';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
@@ -28,6 +31,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function RestaurantAnalyticsScreen() {
   const { C } = useTheme();
+  const navigation = useNavigation<any>();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const { bottom } = useSafeAreaInsets();
 
@@ -36,6 +40,7 @@ export default function RestaurantAnalyticsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [premiumLocked, setPremiumLocked] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -43,6 +48,9 @@ export default function RestaurantAnalyticsScreen() {
     const [aRes, rRes] = await Promise.allSettled([getRestaurantAnalytics(), getWeeklyReport()]);
     if (aRes.status === 'fulfilled') {
       setAnalytics(aRes.value);
+      setPremiumLocked(false);
+    } else if (isPremiumRequired(aRes.reason)) {
+      setPremiumLocked(true);
     } else {
       setError('Analitik veriler yüklenemedi.');
     }
@@ -67,6 +75,25 @@ export default function RestaurantAnalyticsScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={C.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (premiumLocked) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyEmoji}>📊</Text>
+        <Text style={styles.lockTitle}>Premium'a Özel</Text>
+        <Text style={styles.emptyText}>
+          Analitik paneli ve haftalık işletme raporu yalnızca İşletme Premium üyelerine açıktır.
+        </Text>
+        <TouchableOpacity
+          style={styles.upgradeBtn}
+          onPress={() => navigation.navigate('Paywall', { trigger: 'reservations' })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.upgradeBtnText}>Premium'a Geç</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -190,6 +217,12 @@ function makeStyles(C: Colors) {
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
     emptyEmoji: { fontSize: 44, marginBottom: 12 },
     emptyText: { fontSize: 14, color: C.textMuted, textAlign: 'center' },
+    lockTitle: { fontSize: 18, fontWeight: '800', color: C.textPrimary, marginBottom: 8 },
+    upgradeBtn: {
+      marginTop: 20, backgroundColor: C.primary, borderRadius: 12,
+      paddingVertical: 13, paddingHorizontal: 32, minWidth: 180, alignItems: 'center',
+    },
+    upgradeBtnText: { color: C.primaryOn ?? '#fff', fontSize: 15, fontWeight: '700' },
 
     reportCard: {
       backgroundColor: C.surfaceAlt,
