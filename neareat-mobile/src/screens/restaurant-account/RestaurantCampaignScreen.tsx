@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sendCampaign, CampaignLimitError } from '../../services/restaurantAccount';
 import type { CampaignAudience } from '../../services/restaurantAccount';
+import { handleRestaurantPremiumError } from '../../utils/premiumGate';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -64,6 +65,8 @@ export default function RestaurantCampaignScreen() {
             } catch (err) {
               if (err instanceof CampaignLimitError) {
                 Alert.alert('Günlük limit', err.message);
+              } else if (handleRestaurantPremiumError(err, 'Kampanya göndermek Premium üyelik gerektirir.')) {
+                // premium popup gösterildi
               } else {
                 Alert.alert('Hata', 'Kampanya gönderilemedi. Tekrar dene.');
               }

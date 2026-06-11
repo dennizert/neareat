@@ -632,8 +632,18 @@ export default function RestaurantDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Ürün Fotoğrafları — sahibin yüklediği PRODUCT galerisi (S10-6) */}
-          <ProductPhotosSection photos={detail.productPhotos ?? []} onPressPhoto={setSelectedMenuImage} />
+          {/* Ürün Fotoğrafları — sahibin yüklediği PRODUCT galerisi (S10-6).
+              Free tier'da backend boş döner + hasProductPhotos=true → kilitli teaser. */}
+          {!isPremium() && detail.hasProductPhotos ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Ürün Fotoğrafları</Text>
+              <TouchableOpacity style={styles.blurSection} onPress={() => navigation.navigate('Paywall', { trigger: 'product_photos' })}>
+                <Text style={styles.blurText}>🍽️ Ürün fotoğraflarını gör · Premium</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <ProductPhotosSection photos={detail.productPhotos ?? []} onPressPhoto={setSelectedMenuImage} />
+          )}
 
           {/* Menu section — premium only */}
           {detail.hasMenu && (

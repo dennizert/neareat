@@ -9,6 +9,7 @@ import { useFriendStore } from '../../store/friendStore';
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { useRecommendationStore } from '../../store/recommendationStore';
 import { sendRecommendation, getFriends } from '../../services/social';
+import { handleUserPremiumError } from '../../utils/premiumGate';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import type { Friend } from '../../types';
 import StarRating from '../../components/StarRating';
@@ -77,8 +78,9 @@ export default function SendRecommendationScreen() {
           : `${selectedFriends.size} arkadaşına gönderildi.`,
         [{ text: 'Harika!', onPress: () => navigation.goBack() }],
       );
-    } catch {
-      Alert.alert('Hata', 'Öneri gönderilemedi.');
+    } catch (err: any) {
+      if (handleUserPremiumError(err, navigation, 'recommendations')) return;
+      Alert.alert('Hata', err?.response?.data?.error ?? 'Öneri gönderilemedi.');
     } finally {
       setSending(false);
     }
