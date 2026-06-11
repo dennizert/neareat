@@ -462,6 +462,13 @@ async function getMyReviews(req, res, next) {
  */
 async function getAnalytics(req, res, next) {
   try {
+    // Premium kısıtı: analitik paneli yalnızca premium restoranlara açık.
+    if (!(await isPremiumUser(req.user.id))) {
+      return res.status(403).json({
+        error: 'Analitik paneli Premium üyelik gerektirir.',
+        code: 'PREMIUM_REQUIRED',
+      });
+    }
     const profile = await prisma.restaurantProfile.findUnique({
       where: { userId: req.user.id },
       select: { id: true, placeId: true },
@@ -494,6 +501,13 @@ async function getAnalytics(req, res, next) {
  */
 async function getWeeklyReport(req, res, next) {
   try {
+    // Premium kısıtı: işletme raporu yalnızca premium restoranlara açık.
+    if (!(await isPremiumUser(req.user.id))) {
+      return res.status(403).json({
+        error: 'İşletme raporu Premium üyelik gerektirir.',
+        code: 'PREMIUM_REQUIRED',
+      });
+    }
     const profile = await prisma.restaurantProfile.findUnique({
       where: { userId: req.user.id },
       select: { id: true, placeId: true },
