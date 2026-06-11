@@ -146,7 +146,7 @@ export default function LoginScreen() {
               <AuthInput
                 icon="lock"
                 label="Şifre"
-                placeholder="En az 6 karakter"
+                placeholder="Şifreniz"
                 value={password}
                 onChangeText={setPassword}
                 isPassword
