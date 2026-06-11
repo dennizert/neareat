@@ -1,6 +1,13 @@
-# NearEat
+# Eatlas
 
-Yakınındaki restoranları keşfetmeni, arkadaşlarınla paylaşmanı ve restoran sahiplerinin işletmelerini yönetmesini sağlayan React Native mobil uygulama.
+> Mobil-öncelikli restoran keşif platformu. Yapay zekâ destekli kişisel öneriler, sosyal keşif, rezervasyon ve işletmeler için B2B araçlar.
+
+**Eatlas**, çevrendeki en iyi restoranları keşfetmeni, yapay zekânın sana "ne yiyeceğini" önermesini, arkadaşlarınla paylaşmanı, liste yapıp rezervasyon almanı ve restoran sahiplerinin işletmelerini yönetmesini sağlar.
+
+> **Markalama:** Ürün kullanıcıya **Eatlas** olarak sunulur (Android paketi `com.eatlas.mobile`). Repo, dizinler ve teknik tanımlayıcılar geçmişten gelen `NearEat`/`neareat` adını korur — yalnızca kullanıcıya dönük marka Eatlas'tır.
+
+**Production URL:** `https://railway-up-production-6cdc.up.railway.app` · **Sağlık:** `/health`
+**Platform:** Android (AAB ile Google Play kapalı testte) · **Güncel sürüm:** 2.0.8 (versionCode 36)
 
 ---
 
@@ -10,29 +17,31 @@ Yakınındaki restoranları keşfetmeni, arkadaşlarınla paylaşmanı ve restor
 - [Teknoloji Stack](#teknoloji-stack)
 - [Proje Yapısı](#proje-yapısı)
 - [Özellikler](#özellikler)
+- [Üyelik & Premium](#üyelik--premium)
+- [Uygulama İçi Satın Alma (IAP)](#uygulama-içi-satın-alma-iap)
+- [E-posta Entegrasyonu](#e-posta-entegrasyonu)
 - [Kurulum](#kurulum)
 - [Ortam Değişkenleri](#ortam-değişkenleri)
-- [Veritabanı](#veritabanı)
-- [API Dokümantasyonu](#api-dokümantasyonu)
+- [API Özeti](#api-özeti)
 - [Mobil Uygulama](#mobil-uygulama)
-- [Admin Paneli](#admin-paneli)
+- [Test](#test)
 - [Deploy](#deploy)
-  - [Production Deploy Guide (Railway)](#production-deploy-guide-railway)
+- [Build (Android / iOS)](#build-android--ios)
 - [Güvenlik](#güvenlik)
 
 ---
 
 ## Genel Bakış
 
-NearEat üç farklı kullanıcı tipi için ayrı deneyimler sunar:
+Üç kullanıcı rolü, üç ayrı deneyim:
 
-| Kullanıcı Tipi | Açıklama |
+| Rol | Açıklama |
 |---|---|
-| **Normal Kullanıcı** | Restoran keşfeder, favori ekler, yorum yazar, arkadaşlarıyla paylaşır |
-| **Restoran Sahibi** | İşletme profilini yönetir, indirim tanımlar, yorumlara cevap verir |
-| **Admin** | Restoran başvurularını onaylar, kullanıcı şikayetlerini yönetir, platform istatistiklerini izler |
+| **Normal Kullanıcı** | Restoran keşfeder, AI önerisi alır, favori/liste yapar, arkadaşlarıyla sosyalleşir, rezervasyon yapar |
+| **Restoran Sahibi (B2B)** | İşletme profilini yönetir, online rezervasyon alır, kampanya & anlık indirim tanımlar, analitik görür |
+| **Admin** | Restoran başvurularını onaylar, kullanıcı/şikayet yönetir, platform istatistik & loglarını izler |
 
-**Production URL:** `https://railway-up-production-6cdc.up.railway.app`
+Tüm kullanıcıya dönük arayüz **Türkçe**'dir.
 
 ---
 
@@ -43,682 +52,356 @@ NearEat üç farklı kullanıcı tipi için ayrı deneyimler sunar:
 |---|---|
 | Runtime | Node.js 18+ |
 | Framework | Express.js |
-| ORM | Prisma v5 |
+| ORM | Prisma |
 | Veritabanı | PostgreSQL 17 |
 | Cache | Redis (ioredis) |
-| Auth | Firebase Admin (Google OAuth) + bcryptjs/jsonwebtoken (email) |
-| Deploy | Railway |
+| Auth | Firebase Admin (Google OAuth) + bcryptjs/JWT (email) |
+| Yapay Zekâ | Anthropic Claude (Haiku 4.5 / Sonnet 4.6, SSE streaming) |
+| E-posta | Resend |
+| Ödeme | Google Play Billing (googleapis / androidpublisher) |
+| Depolama | AWS S3 (restoran/ürün fotoğrafları) |
+| Deploy | Railway (push-to-deploy) |
 
 ### Mobil (`neareat-mobile/`)
 | Katman | Teknoloji |
 |---|---|
-| Framework | Expo ~52 (Bare Workflow) |
-| Platform | React Native 0.76.3 |
+| Framework | Expo ~52 (bare workflow) |
+| Platform | React Native 0.76 |
+| Dil | TypeScript |
 | State | Zustand |
-| Navigation | React Navigation v6 |
+| Navigation | React Navigation (native-stack + bottom-tabs) |
 | HTTP | Axios |
-| Maps | react-native-maps 1.18.0 |
-| Secure Storage | expo-secure-store |
-| Build | Gradle (Android), EAS CLI (iOS) |
-| Bundle ID | `com.neareat.app` |
+| Harita | react-native-maps |
+| IAP | expo-iap |
+| Güvenli depolama | expo-secure-store |
+| Paket adı | `com.eatlas.mobile` |
 
 ---
 
 ## Proje Yapısı
 
 ```
-firstproject/
-├── neareat-backend/          # Node.js API sunucusu
+firstproject/                    # monorepo (repo adı: neareat)
+├── neareat-backend/             # Node.js API
 │   ├── prisma/
-│   │   ├── schema.prisma     # Veritabanı şeması
-│   │   ├── migrations/       # Sıralı SQL migration'ları
-│   │   └── seed.js           # Admin hesabı seed
+│   │   ├── schema.prisma        # Tek doğruluk kaynağı (DB modelleri)
+│   │   ├── migrations/          # Sıralı, commit'li migration'lar
+│   │   └── seed*.js             # seed / seed-users / seed-social-test
 │   └── src/
-│       ├── app.js            # Express uygulama giriş noktası
-│       ├── controllers/      # İş mantığı (12 dosya)
-│       ├── routes/           # Route tanımları (12 dosya)
-│       ├── middleware/       # auth, roles, errorHandler, requirePremium
-│       ├── services/         # Firebase, GooglePlaces, Redis, bildirim
-│       └── utils/            # jwt, prisma, stars, haversine, contentFilter
+│       ├── app.js               # Express giriş + middleware zinciri + webhook/landing route'ları
+│       ├── controllers/         # Domain başına iş mantığı
+│       ├── routes/              # HTTP → controller eşlemesi
+│       ├── middleware/          # auth, roles, requirePremium, sanitize, rate-limit, securityLogger, requestId
+│       ├── services/            # googlePlaces, firebase, redis, resend (email), anthropic, googleapis (IAP), s3
+│       ├── jobs/                # Cron: reservationReminders, smartNotifications, feedbackAggregator, friendSuggestions
+│       └── utils/               # prisma, jwt, tokenHash, premiumCheck, contentFilter, appLinkPage, haversine ...
 │
-├── neareat-mobile/           # React Native / Expo uygulaması
-│   ├── src/
-│   │   ├── navigation/       # Stack + Tab navigasyon
-│   │   ├── screens/          # 30+ ekran (onboarding, home, social, admin...)
-│   │   ├── components/       # RestaurantCard, NotificationBell, StarRating...
-│   │   ├── services/         # API istemcileri (axios)
-│   │   ├── store/            # Zustand store'ları
-│   │   ├── types/            # TypeScript arayüzleri
-│   │   └── config.ts         # MOCK_MODE, API URL
-│   └── android/              # Android native kodu
+├── neareat-mobile/              # React Native / Expo
+│   └── src/
+│       ├── navigation/          # rol bazlı stack + tab + global navigationRef
+│       ├── screens/             # 40+ ekran (onboarding / user / restaurant / admin)
+│       ├── components/          # AppHeader, EatlasLogo, AppIcon, Toast, Skeleton ...
+│       ├── services/            # API istemcileri (axios)
+│       ├── store/               # Zustand store'ları
+│       ├── utils/               # premiumGate, notificationTarget, appRating, haptics ...
+│       └── config.ts            # MOCK_MODE, API_URL
 │
-└── gen_icon.py               # Uygulama ikonu üretici (Python/Pillow)
+└── docs / *.md                  # Ürün/planlama dokümanları
 ```
 
 ---
 
 ## Özellikler
 
-### Normal Kullanıcı
+### Keşif & Arama
+- GPS konumuna göre yakındaki restoranlar (Google Places), liste/harita görünümü
+- Serbest metin / isim araması (`/places/search`, 25 km opsiyonel bias, Redis cache)
+- Mutfak etiketleriyle filtre (13 etiket: Pizza, Kebap, Sushi …), "Açık" filtresi
+- Tazelik sinyalleri: "kapanmaya yakın" (≤60 dk sarı / ≤30 dk kırmızı), "yeni açıldı"
+- Restoran detayı: çift puan (Google + uygulama-içi **Eatlas** puanı), çalışma saatleri, duyuru, indirimler, foto galerileri, menü (premium)
 
-#### Restoran Keşfi
-- GPS konumuna göre yakındaki restoranları listele (Google Places API)
-- Harita görünümü (özel yemek pin marker'ı)
-- Mutfak tipi filtresi, mesafe & puan sıralaması
-- "Kapanmak Üzere" uyarıları (≤60 dk sarı, ≤30 dk kırmızı)
-- Restoran detay: menü (premium), çalışma saatleri, duyurular, indirimler
+### Yapay Zekâ Önerileri
+"Bu akşam ne yesem?" — Claude tabanlı kişisel öneri motoru (SSE streaming).
+- Aday üretimi (Google Places + Redis) → prompt cache-optimize → Claude → halüsinasyon filtresi → loglama
+- **Konuşmasal iyileştirme** (`refinement`: "daha ucuz/yakın/sessiz"), oturum bağlamı Redis'te
+- **Yolda öneri** (rota üzerinde en iyi 1-3 restoran), **fotoğraf analizi** (Vision)
+- 👍/👎 geri bildirim → haftalık cron ile kişisel mutfak tercihlerine dönüşüp prompt'a enjekte edilir
+- Tier: Free → Haiku, **günde 1 öneri**; Premium → Sonnet, **sınırsız** + arkadaş tat sinyalleri
 
-#### Favori & Koleksiyonlar
-- Favori ekleme (ücretsiz: 3 limit, premium: sınırsız)
-- Koleksiyon oluşturma ve arkadaşlarla paylaşma
-- Paylaşılan koleksiyonları arkadaş profilinde görme
+### Sosyal
+- Arkadaş ekleme/önerisi (gece 03:00 cron ile uyumluluk skorlu öneriler, Redis cache)
+- Aktivite akışı, restoran önerme, liderlik tablosu (yıldız)
+- **Yemek grupları** (arkadaşlarla mekan oylama), **check-in**, **yemek günlüğü**, **referans/davet**
+- Birebir mesajlaşma (cursor sayfalama, okundu işareti, okunmamış badge)
 
-#### Sosyal Özellikler
-- Kullanıcı arama ve arkadaş ekleme (opsiyonel not ile)
-- Arkadaş öneri algoritması (konum + ortak favoriler + ortak mutfak puanı)
-- Restoran önerisi gönderme
-- Liderlik tablosu (yıldız sayısına göre top 5 + kendi sıralaması)
+### Rezervasyon
+- Kullanıcı rezervasyon oluşturur/düzenler; kapasite kontrolü; durum akışı (PENDING/CONFIRMED…)
+- Saatlik cron 24 saatten eski `PENDING` rezervasyonlar için restoran + kullanıcıya hatırlatma
 
-#### Mesajlaşma
-- Arkadaşlar arası birebir mesajlaşma
-- Okunmamış mesaj sayısı (alt navigasyon badge'i)
-- Cursor-based sayfalama (eski mesajlar yüklenebilir)
-- Okundu işareti (✓ gönderildi / ✓✓ okundu)
+### Favori & Listeler
+- Favori ekleme, özel liste (koleksiyon) oluşturma + arkadaşlarla paylaşma
 
-#### Gamification
-- Yorum yazma, öneri gönderme, favori ekleme → yıldız kazanma
-- Yıldız seviyesi: Yeni Keşifçi → Usta Lezzetçi (6 seviye)
-- Seviye atlamada bildirim
-- Yıldız bazlı restoran indirimleri
+### Bildirimler
+- Uygulama içi panel + push; tipler: FRIEND_REQUEST, INSTANT_DISCOUNT, LEVEL_UP, RECOMMENDATION, REVIEW_REPLY, FRIEND_SUGGESTION, RESERVATION_*, WEEKLY_DIGEST …
+- Bildirim dokunuşları `utils/notificationTarget.ts` ile derin-link
 
-#### Bildirimler
-- Uygulama içi bildirim paneli (zil ikonu + kırmızı badge)
-- Bildirim tipleri: FRIEND_REQUEST, INSTANT_DISCOUNT, LEVEL_UP, RECOMMENDATION, REVIEW_REPLY, FRIEND_SUGGESTION, REPORT_RESOLVED
+### Gamification
+- Yorum/öneri/favori → yıldız; 6 seviye; seviye atlama bildirimi; yıldız bazlı restoran indirimleri
 
-#### AI Yemek Önerisi (Sprint-1 v1)
+### Restoran Sahibi (B2B)
+- 5 adımlı kayıt + admin onayı; profil, görünen ad, alternatif telefon
+- Çalışma saatleri, menü yükleme, **foto galerileri** (mekan + ürün, S3)
+- Yıldız indirim programı + **anlık indirim** (premium) + **kampanya** push (premium, günde 1)
+- **Analitik panel** + **AI haftalık işletme raporu** (premium)
+- Yorumlara cevap, online **rezervasyon kabulü** (premium)
 
-"Bu akşam ne yesem?" — Claude API ile çalışan kişisel sommelier.
-
-- **HomeScreen CTA** → "🤖 Bu akşam ne yesem?" banner → RecommendationScreen
-- 6 mood seçeneği (hızlı / şık / romantik / aile / sağlıklı / bütçeli) — opsiyonel
-- Kullanıcının yorum geçmişi + favorileri + yıldız etkinlikleri **profil özeti**ne dönüşür, Claude'a context olarak gider
-- 1-3 kişisel restoran önerisi + her biri için 2-3 cümle "Neden bu?" gerekçesi
-- Restoran detay sayfasına derin link
-
-**Mimari özeti:**
-```
-candidateService (Google Places + Redis cache) → max 20 aday
-   ↓
-promptBuilder (cache-optimize: system + profile + variable)
-   ↓
-Claude API (Haiku free / Sonnet premium) — prompt caching aktif
-   ↓
-parse + halüsinasyon filtresi + AiRecommendationLog
-   ↓
-{ recommendations, noteToUser, tier, remainingToday, resetAt }
-```
-
-**Tier'lar:**
-
-| Tier | Model | Limit | Arkadaş verisi |
-|---|---|---|---|
-| **Free** | Claude Haiku 4.5 | Günde 3 öneri | Hayır |
-| **Premium** | Claude Sonnet 4.6 | Limitsiz | Opt-in (Profile toggle) |
-
-Free limit doldurulduğunda **PremiumUpsellScreen** otomatik açılır — kalan süre countdown'u + premium avantajları.
-
-**Prompt caching:** System prompt + user profile summary 5dk ephemeral cache'lenir (Anthropic). ~%52 maliyet tasarrufu ardışık çağrılarda.
-
-**Endpoint:** `POST /api/recommendations/dinner-tonight` body `{ lat, lng, mood? }`
-
----
-
-### Restoran Sahibi
-
-| Özellik | Açıklama |
-|---|---|
-| **Kayıt** | 5 adım: hesap → işletme bilgileri → vergi levhası → restoran seç → onay bekle |
-| **Dashboard** | Toplam yorum, favori, öneri, ortalama puan istatistikleri |
-| **Çalışma Saatleri** | 7 gün bağımsız saat aralıkları + günlük override |
-| **Menü** | Görsel yükleme (max 10 görsel, base64, 5MB limit) |
-| **İndirim** | Yıldız programı (seviyeye göre %) + anlık indirim (süreli) |
-| **Duyuru** | Kısa metin duyurusu (kullanıcılara kart üzerinde görünür) |
-| **Yorum Cevaplama** | Kullanıcı yorumlarına cevap yaz (max 500 karakter) |
-
----
+### Admin
+- Restoran onay/red, kullanıcı yönetimi (askıya alma), şikayet yönetimi, aktivite logları, cron tetikleme
 
 ### İçerik Moderasyonu
+`utils/contentFilter.js` — TR/EN uygunsuz içerik tespiti (leetspeak + Türkçe ek/varyant normalizasyonu). Yorum, yorum güncelleme, restoran cevabı, koleksiyon adı vb. noktalarda uygulanır.
 
-Backend'de `contentFilter.js` utility'si:
-- Türkçe ve İngilizce uygunsuz kelimeler/ifadeler tespiti
-- Leetspeak ve Türkçe karakter varyantlarını normalize eder
-- Kök kelime + Türkçe ek kombinasyonlarını yakalar
-- **Uygulama noktaları:** yorum oluşturma, yorum güncelleme, restoran cevabı
+---
 
-Uygunsuz içerik reddedilir ve veritabanına kaydedilmez.
+## Üyelik & Premium
+
+Ücretsiz sürüm tam işlevseldir; Premium **limitleri kaldırır** ve gelişmiş özellikler açar. Tüm kısıtlar backend'de `utils/premiumCheck.isPremiumUser()` ile uygulanır ve limit dolunca `403 { code: 'PREMIUM_REQUIRED' }` döner; mobil bunu yakalayıp rol-duyarlı **Paywall**'a yönlendirir (`utils/premiumGate.ts`).
+
+### Normal Kullanıcı — Ücretsiz vs Premium
+| Özellik | Ücretsiz | Premium |
+|--------|:--------:|:-------:|
+| AI yemek önerisi | Günde 1 | Sınırsız |
+| Arkadaşa/herkese restoran önerme | Günde 1 | Sınırsız |
+| Favori | En fazla 5 | Sınırsız |
+| Liste (koleksiyon) | 1 | Sınırsız |
+| Rezervasyon | 1 (ömür boyu) | Sınırsız |
+| Menü & ürün fotoğrafları | — | ✓ |
+| Keşif yarıçapı | 5 km | 25 km |
+| AI modeli | Standart (Haiku) | Gelişmiş (Sonnet) + arkadaş sinyalleri |
+
+### Restoran — Ücretsiz vs Premium
+| Özellik | Ücretsiz | Premium |
+|--------|:--------:|:-------:|
+| Profil · menü · mekan fotoğrafları | ✓ | ✓ |
+| Online rezervasyon kabulü | — | ✓ |
+| Ürün fotoğraf galerisi | — | ✓ |
+| Anlık indirim · kampanya | — | ✓ |
+| Analitik panel · haftalık rapor | — | ✓ |
+
+### Fiyatlar (aylık, Google Play; 7 gün ücretsiz deneme)
+| Ürün ID | Kime | Ücret |
+|--------|------|-------|
+| `user_premium` | Bireysel kullanıcı | **79,90 ₺ / ay** |
+| `restaurant_premium` | Restoran | **699,90 ₺ / ay** |
+
+---
+
+## Uygulama İçi Satın Alma (IAP)
+
+Google Play Billing (abonelik). Mobil `expo-iap` ile satın alır, backend doğrular.
+
+- **Doğrulama:** `POST /api/subscriptions/verify/android` — `purchaseToken`'ı `androidpublisher.purchases.subscriptions.get` ile doğrular, aboneliği upsert eder. Env yoksa 503 (graceful).
+- **RTDN (gerçek zamanlı bildirim):** `POST /webhooks/google-play` — Pub/Sub push; abonelik durumu değişimlerini (yenileme/iptal/iptal/son) işler, her zaman 200 döner (retry loop önlemi).
+- **Teşhis:** `GET /webhooks/google-play/last` — son alınan RTDN bildiriminin özeti (hassas veri yok); kurulum doğrulaması için.
+- **Env:** `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `GOOGLE_PLAY_PACKAGE_NAME=com.eatlas.mobile`.
+
+> Cloud altyapısı (Service Account + RTDN topic) ve adım adım kurulum için: `KAPALI_TEST_VE_IAP_REHBERI.md`.
+
+---
+
+## E-posta Entegrasyonu
+
+**Resend** ile işlemsel e-postalar (`services/emailService.js`): doğrulama, şifre sıfırlama, hoş geldin. Eatlas markalı şablonlar (coral→amber), gönderici domain **`eatlastr.com`**.
+
+- E-posta linkleri (`/verify-email`, `/reset-password`) çıplak `neareat://` redirect yerine markalı **landing sayfası** döner (`utils/appLinkPage.js`): deep-link'i otomatik dener + "Uygulamada Aç" + Play Store fallback (Gmail in-app tarayıcı engellerini aşmak için).
+- Token'lar DB'de HMAC ile hash'lenir (`utils/tokenHash.js`); `forgot-password` e-posta enumerasyon koruması.
+
+> Domain/DNS + Railway adımları: `EMAIL_KURULUM.md`.
 
 ---
 
 ## Kurulum
 
 ### Gereksinimler
-
-- Node.js 18+
-- PostgreSQL 17
-- Redis 7+
-- Android Studio (Android build için)
-- Python 3.13+ (ikon üretimi için)
+Node.js 18+ · PostgreSQL 17 · Redis 7+ · Android Studio (Android build için)
 
 ### Backend
-
 ```bash
 cd neareat-backend
 npm install
-
-# .env dosyasını oluştur (örnek için .env.example'a bak)
-cp .env.example .env
-
-# Veritabanı migration'larını uygula
+cp .env.example .env          # değerleri doldur
 npx prisma migrate deploy
-
-# Opsiyonel: Admin seed
-node prisma/seed.js
-
-# Geliştirme sunucusu
-node src/app.js
+node prisma/seed.js           # opsiyonel: admin seed
+npm run dev                   # nodemon (port 3000)
 ```
 
 ### Mobil
-
 ```bash
 cd neareat-mobile
 npm install
-
-# Android geliştirme
-npx expo run:android
-
-# Metro bundler
-npx expo start
+npm run android               # expo run:android (emülatör/cihaz)
+npm start                     # Metro / Expo dev server
 ```
 
 ---
 
 ## Ortam Değişkenleri
 
-Backend için `.env` dosyası oluştur:
+Backend `.env` (tam liste için `.env.example`):
 
 ```env
-DATABASE_URL=postgresql://postgres:SIFRE@localhost:5432/neareat_db
-JWT_SECRET=guclu-rastgele-secret-buraya
+# Sunucu / DB / Cache
+DATABASE_URL=postgresql://USER:PASS@HOST:5432/neareat_db
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=guclu-rastgele-secret
+TOKEN_HASH_SECRET=ayri-uzun-rastgele-secret   # e-posta/şifre token HMAC; yoksa JWT_SECRET'e düşer
 
-# Google Places API
-GOOGLE_PLACES_API_KEY=AIza...
-
-# Firebase Admin SDK
-FIREBASE_PROJECT_ID=proje-id
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@proje-id.iam.gserviceaccount.com
+# Firebase Admin (Google OAuth doğrulama)
+FIREBASE_PROJECT_ID=...
+FIREBASE_CLIENT_EMAIL=...
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_WEB_CLIENT_ID=...apps.googleusercontent.com   # mobil ile birebir aynı
 
-# Uygulama ayarları
+# Harici servisler
+GOOGLE_PLACES_API_KEY=...
+ANTHROPIC_API_KEY=sk-ant-api03-...
+RESEND_API_KEY=re_...
+EMAIL_FROM=Eatlas <noreply@eatlastr.com>
+APP_BASE_URL=https://railway-up-production-6cdc.up.railway.app
+
+# Google Play IAP
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+GOOGLE_PLAY_PACKAGE_NAME=com.eatlas.mobile
+
+# AWS S3 (restoran/ürün fotoğrafları)
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=eu-central-1
+AWS_S3_BUCKET=eatlas-restaurant-photos
+
+# Güvenlik / limitler
+ADMIN_SEED_SECRET=...
+ALLOWED_ORIGINS=https://yourdomain.com
 FREE_RADIUS_KM=5
 PREMIUM_RADIUS_KM=25
 FREE_FAVORITES_LIMIT=5
 TRIAL_DAYS=7
-REDIS_NEARBY_TTL=3600
-REDIS_PLACE_DETAILS_TTL=86400
-
-# Redis
-REDIS_URL=redis://localhost:6379
 ```
 
-> **Not:** Production'da `DATABASE_URL` ve `REDIS_URL` Railway servis referanslarıyla otomatik enjekte edilir.
+> Production'da `DATABASE_URL` / `REDIS_URL` Railway referans syntax'ı (`${{Postgres.DATABASE_URL}}`) ile enjekte edilir.
 
 ---
 
-## Veritabanı
+## API Özeti
 
-### Prisma Migration Sırası
+Tam liste için route dosyalarına bakın (`src/routes/`). Öne çıkanlar:
 
-| Migration | İçerik |
+| Alan | Örnek uçlar |
 |---|---|
-| `20260506072613_add_social_features` | Arkadaş, öneri, yıldız, ödül tabloları |
-| `20260506114507_add_email_auth` | Email auth alanları |
-| `20260510011750_add_collections` | Koleksiyon + koleksiyon öğesi |
-| `20260510014608_add_restaurant_accounts` | UserRole enum, RestaurantProfile, ReviewReply |
-| `20260510024504_add_last_login_at` | User.lastLoginAt |
-| `20260510174701_add_notifications` | Notification tablosu |
-| `20260511120000_add_messages_and_reports` | Message, UserReport + FriendRequest.note |
-| `20260511140000_add_reservations` | Rezervasyon sistemi |
-| `20260512000000_ensure_messages_reports` | FK idempotent fix |
-| `20260518000000_add_user_logs` | UserLog aktivite tablosu |
-| `20260519100000_add_email_verification` | Email doğrulama |
-| `20260519100000_add_meal_groups` | Meal group özelliği |
-| `20260520120000_add_ai_recommender_schema` | AiRecommendationLog (Sprint-1) |
-| `20260521000000_add_recommendation_feedback` | RecommendationFeedback — 👍/👎 (Sprint-2) |
+| **Auth** | `POST /api/auth/register` · `/login/email` · `/login` (Google) · `GET /me` · `DELETE /account` · `POST /verify-email` · `/resend-verification` · `/forgot-password` · `/reset-password` |
+| **Keşif** | `GET /api/restaurants/nearby` · `/restaurants/:placeId` · `GET /api/places/search` · `/api/search-history` |
+| **AI** | `POST /api/recommendations/dinner-tonight` (+ stream) · `/route` · `/photo-analyze` · feedback uçları |
+| **Sosyal** | `/api/social/*` (friends, feed, leaderboard, friend-suggestions, recommendations) · `/api/meal-groups/*` · `/api/checkin` · `/api/diary` · `/api/referral` |
+| **Mesaj** | `/api/messages/*` |
+| **Liste/Favori** | `/api/collections/*` · `/api/favorites` |
+| **Rezervasyon** | `/api/reservations/*` |
+| **Abonelik** | `POST /api/subscriptions/verify/android` · `/trial` · `GET /api/subscriptions` |
+| **Restoran B2B** | `/api/restaurant-account/*` (hours, menu, photos, discount, campaign, analytics, report, info, reviews) |
+| **Admin** | `/api/admin/*` (stats, restaurants approve/reject, users, reports, logs, jobs) |
+| **Webhook** | `POST /webhooks/google-play` · `GET /webhooks/google-play/last` |
+| **E-posta landing** | `GET /verify-email` · `/reset-password` |
 
-### Ana Tablolar
-
-```
-User               — kullanıcılar (USER / RESTAURANT / ADMIN)
-RestaurantProfile  — restoran profilleri (PENDING / APPROVED / REJECTED)
-RestaurantMenu     — base64 menü görselleri
-Review             — kullanıcı yorumları
-ReviewReply        — restoran cevapları
-Favorite           — favoriler
-Collection         — koleksiyonlar
-CollectionItem     — koleksiyon restoranları
-FriendRequest      — arkadaşlık istekleri (+ opsiyonel not)
-Recommendation     — restoran önerileri
-StarEvent          — yıldız kazanma olayları
-Notification       — uygulama içi bildirimler
-Message            — arkadaşlar arası mesajlar
-UserReport         — kullanıcı şikayetleri
-```
-
----
-
-## API Dokümantasyonu
-
-### Auth
-
-| Method | Endpoint | Açıklama |
-|---|---|---|
-| POST | `/api/auth/register` | Email ile kayıt |
-| POST | `/api/auth/login/email` | Email ile giriş |
-| POST | `/api/auth/login` | Firebase (Google) ile giriş |
-| GET | `/api/auth/me` | Oturum bilgileri |
-| DELETE | `/api/auth/account` | Hesap silme |
-
-### Restoranlar
-
-| Method | Endpoint | Açıklama |
-|---|---|---|
-| GET | `/api/restaurants/nearby` | Yakındaki restoranlar (lat, lng, radius) |
-| GET | `/api/restaurants/:id` | Restoran detayı |
-
-### Yorumlar
-
-| Method | Endpoint | Açıklama |
-|---|---|---|
-| GET | `/api/reviews/:placeId` | Yorumları listele |
-| POST | `/api/reviews` | Yorum oluştur / güncelle |
-| PUT | `/api/reviews/:reviewId` | Yorum düzenle |
-| DELETE | `/api/reviews/:reviewId` | Yorum sil |
-
-### Sosyal
-
-| Method | Endpoint | Açıklama |
-|---|---|---|
-| GET | `/api/social/friends` | Arkadaş listesi |
-| POST | `/api/social/friends/requests` | Arkadaşlık isteği gönder (note opsiyonel) |
-| GET | `/api/social/friends/requests/pending` | Bekleyen istekler |
-| POST | `/api/social/friends/requests/:id/accept` | İsteği kabul et |
-| DELETE | `/api/social/friends/requests/:id` | İsteği reddet |
-| DELETE | `/api/social/friends/:friendId` | Arkadaşlıktan çıkar |
-| GET | `/api/social/leaderboard` | Yıldız liderlik tablosu |
-| GET | `/api/social/friend-suggestions` | Arkadaş önerileri |
-| POST | `/api/social/users/:userId/report` | Kullanıcı şikayet et |
-
-### Mesajlar
-
-| Method | Endpoint | Açıklama |
-|---|---|---|
-| GET | `/api/messages/conversations` | Konuşma listesi |
-| GET | `/api/messages/unread-count` | Okunmamış mesaj sayısı |
-| GET | `/api/messages/:userId` | Belirli kullanıcı ile mesajlar |
-| POST | `/api/messages/:userId` | Mesaj gönder |
-
-### Koleksiyonlar
-
-| Method | Endpoint | Açıklama |
-|---|---|---|
-| GET | `/api/collections` | Kendi koleksiyonlarım |
-| POST | `/api/collections` | Koleksiyon oluştur |
-| PUT | `/api/collections/:id` | Koleksiyon düzenle |
-| DELETE | `/api/collections/:id` | Koleksiyon sil |
-| POST | `/api/collections/:id/items` | Restoran ekle |
-| DELETE | `/api/collections/:id/items/:itemId` | Restoran çıkar |
-| POST | `/api/collections/:id/share` | Arkadaşlarla paylaş |
-| GET | `/api/collections/shared-by/:userId` | Arkadaşın paylaştıkları |
-
-### Restoran Hesabı
-
-| Method | Endpoint | Açıklama |
-|---|---|---|
-| POST | `/api/restaurant-account/register` | Restoran kaydı |
-| GET | `/api/restaurant-account/me` | Profil bilgileri |
-| PUT | `/api/restaurant-account/hours` | Çalışma saatleri |
-| POST | `/api/restaurant-account/menu` | Menü görseli yükle |
-| DELETE | `/api/restaurant-account/menu/:itemId` | Menü görseli sil |
-| POST | `/api/restaurant-account/reviews/:reviewId/reply` | Yoruma cevap ver |
-| DELETE | `/api/restaurant-account/reviews/:reviewId/reply` | Cevabı sil |
-| PUT | `/api/restaurant-account/discount` | İndirim ayarları |
-| POST | `/api/restaurant-account/instant-discount/activate` | Anlık indirim aktifleştir |
-| DELETE | `/api/restaurant-account/instant-discount` | Anlık indirim kapat |
-| PUT | `/api/restaurant-account/announcement` | Duyuru güncelle |
-| PUT | `/api/restaurant-account/info` | İletişim bilgileri |
-| GET | `/api/restaurant-account/stats` | İstatistikler |
-
-### Admin
-
-| Method | Endpoint | Açıklama |
-|---|---|---|
-| POST | `/api/admin/login` | Admin girişi |
-| GET | `/api/admin/stats` | Platform istatistikleri |
-| GET | `/api/admin/restaurants` | Restoran listesi (status filtresi) |
-| PUT | `/api/admin/restaurants/:id/approve` | Onayla |
-| PUT | `/api/admin/restaurants/:id/reject` | Reddet |
-| GET | `/api/admin/users` | Kullanıcı listesi |
-| PUT | `/api/admin/users/:id/suspend` | Hesabı askıya al |
-| DELETE | `/api/admin/reviews/:id` | Yorumu sil |
-| GET | `/api/admin/reports` | Şikayet listesi |
-| PUT | `/api/admin/reports/:id` | Şikayet işlemi (suspend/warn/dismiss) |
+İstek akışı: `requestId → helmet/CORS → morgan → rate-limit → body-parse → sanitize → routes → auth → roles → controller → service → Prisma/Redis/dış API → errorHandler`.
 
 ---
 
 ## Mobil Uygulama
 
-### Ekranlar
+Rol bazlı kök stack'ler. **Normal kullanıcı**: alt 5 sekme — **Keşfet · Favoriler · Listeler · Mesajlar · Profil** + stack ekranları (detay, sosyal, AI öneri, rota öneri, rezervasyon, yemek grupları, ödüller, Paywall…). **Restoran** ve **Admin** kendi stack'lerini render eder.
 
-#### Normal Kullanıcı Akışı
-```
-Onboarding
-├── LocationPermissionScreen   — konum izni
-├── LoginScreen                — Google + Email tabs
-└── RegisterScreen             — email kayıt
+- Ortak `AppHeader` (sol `EatlasLogo` gradient, rol-özel orta, sağ aksiyonlar), `AppIcon`/`Toast`/`Skeleton`/`EmptyState` paylaşımlı UI.
+- Derin link: `neareat://` (e-posta doğrulama/şifre sıfırlama); global `navigation/navigationRef.ts` ile prop'suz yönlendirme.
 
-Ana Navigasyon (5 Tab)
-├── Keşfet (HomeScreen)        — restoran listesi + harita
-├── Favoriler (FavoritesScreen)
-├── Listeler (CollectionsScreen)
-├── Mesajlar (MessagesScreen)  — okunmamış badge
-└── Profil (ProfileScreen)
-
-Stack Ekranlar
-├── RestaurantDetailScreen
-├── FriendsScreen / FriendProfileScreen
-├── FriendSuggestionsScreen
-├── ConversationScreen         — chat
-├── RewardsScreen              — yıldızlar + liderlik
-├── CollectionDetailScreen
-└── NotificationsScreen
-```
-
-#### Restoran Sahibi Akışı
-```
-RestaurantRegisterScreen       — 5 adım kayıt
-RestaurantPendingScreen        — onay bekleme
-RestaurantDashboardScreen
-├── RestaurantHoursScreen
-├── RestaurantMenuScreen
-├── RestaurantDiscountScreen
-├── RestaurantReviewsScreen
-└── RestaurantInfoScreen
-```
-
-#### Admin Akışı
-```
-AdminDashboardScreen
-├── Sekmeler: Bekleyenler / Onaylılar / Reddedilenler / Şikayetler / İstatistikler
-└── AdminRestaurantDetailScreen
-```
-
-### Zustand Store'ları
-
-| Store | İçerik |
-|---|---|
-| `authStore` | user, subscription, restaurantStatus, token |
-| `favoriteStore` | favoriler listesi |
-| `friendStore` | arkadaşlar, öneri listesi |
-| `notificationStore` | bildirimler, okunmamış sayısı |
-| `messageStore` | konuşmalar, okunmamış mesaj sayısı |
-| `collectionStore` | koleksiyonlar |
-| `restaurantStore` | yakın restoranlar, filtreler |
-| `userProfileStore` | profil, yıldız, ödüller |
+Başlıca Zustand store'ları: `authStore` (oturum+rol+subscription), `restaurantStore`, `aiRecommendationStore`, `messageStore`, `collectionStore`, `favoriteStore`, `themeStore`.
 
 ---
 
-## Admin Paneli
+## Test
 
-Production'daki admin hesabı `.env` dosyasındaki `ADMIN_EMAIL` ve `ADMIN_PASSWORD` değişkenleri ile yönetilir.
+```bash
+# Backend
+cd neareat-backend && npm test            # Jest (~1000 test)
+npm test -- tests/integration/subscriptions.test.js
 
-Admin oluşturmak için: `POST /api/admin/seed`
+# Mobil
+cd neareat-mobile && npm test             # Jest (store + util + ekran testleri)
+```
 
-> **Not:** Admin kimlik bilgilerini asla kaynak kodda saklamayın. `.env` dosyasını kullanın.
+> Backend testleri Firebase/Resend/Anthropic'i mock'lar. Bilinen 4 pre-existing kırık suite (recommendations*/candidateService/recommendationService — mock borcu) üretim kodunu etkilemez.
 
 ---
 
 ## Deploy
 
-### Production Deploy Guide (Railway)
+Railway'e `git push origin master` ile otomatik deploy. Backend service **Root Directory = `neareat-backend`** olmalı (monorepo).
 
-> Bu guide 2026-05-20 production deploy'undan çıkan 7 gerçek sorun üzerine inşa edildi.
-> Yeni bir geliştirici bu adımları izleyerek 5-10 dakikada deploy yapabilir.
-
----
-
-#### 1. İlk Kurulum — 3 Servis Oluştur
-
-Railway dashboard → **New Project** → Empty project:
-
-| Servis | Nasıl eklenir | Notlar |
-|---|---|---|
-| **Postgres** | + New → Database → PostgreSQL | Stock template; volume otomatik oluşur |
-| **Redis** | + New → Database → Redis | Stock template; volume otomatik oluşur |
-| **Backend** | + New → GitHub Repo → neareat | GitHub bağlantısı gerekli |
-
-**⚠️ KRİTİK — Backend service oluşturulduktan sonra:**
-
-```
-Backend Service → Settings → Build → Root Directory = neareat-backend
-```
-
-Bu ayar yapılmazsa Railpack "could not determine how to build" hatası verir
-çünkü monorepo kökünde `neareat-backend/`, `neareat-mobile/`, `docs/` var.
-
----
-
-#### 2. Env Variables
-
-Backend service → Variables tab → her birini ekle:
-
-| Değişken | Değer |
-|---|---|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (reference — statik URL değil!) |
-| `REDIS_URL` | `${{Redis.REDIS_URL}}` (reference) |
-| `JWT_SECRET` | Güçlü rastgele string (production'a özel, lokal'den farklı) |
-| `ANTHROPIC_API_KEY` | `sk-ant-api03-...` |
-| `GOOGLE_PLACES_API_KEY` | `AIza...` |
-| `RESEND_API_KEY` | Resend dashboard'dan |
-| `FIREBASE_PROJECT_ID` | Firebase console'dan |
-| `FIREBASE_CLIENT_EMAIL` | Firebase Admin SDK |
-| `FIREBASE_PRIVATE_KEY` | `"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"` (tırnak içinde) |
-| `ADMIN_SEED_SECRET` | Admin seed endpoint koruma şifresi |
-| `ALLOWED_ORIGINS` | Virgülle ayrılmış izinli origin'ler |
-| `IYZICO_API_KEY` | iyzico merchant API key |
-| `IYZICO_SECRET_KEY` | iyzico merchant secret |
-
-> `DATABASE_URL` ve `REDIS_URL` için **reference syntax** (`${{ServiceName.VAR}}`) kullan.
-> Statik connection string yapıştırırsan service restart veya IP değişiminde kopar.
-
----
-
-#### 3. Migration Sırası ve Start Script
-
-Migration'lar her deploy'da otomatik çalışır — `package.json`:
-
+`npm start` migration'ları otomatik uygular:
 ```json
-"start": "prisma migrate resolve --rolled-back 20260511120000_add_messages_and_reports 2>/dev/null; prisma migrate deploy && node src/app.js"
+"start": "prisma migrate resolve --rolled-back <isim> 2>/dev/null; prisma migrate deploy && node src/app.js"
 ```
 
-- `resolve --rolled-back` → P3009 (failed migration kaydı) oluşursa otomatik temizler
-- `2>/dev/null` → "already not failed" cosmetic stderr'i bastırır
-- `&& node` → migrate fail ederse server start olmaz, hızlı fail
-
-**İlk deploy'dan sonra admin seed:**
-
+İlk deploy sonrası admin seed:
 ```bash
 curl -X POST https://<url>/api/admin/seed \
   -H "Content-Type: application/json" \
   -d '{"secret":"<ADMIN_SEED_SECRET>","email":"...","password":"..."}'
 ```
 
----
-
-#### 4. Rutin Deploy (Sonraki Güncellemeler)
-
+Sağlık:
 ```bash
-# master'a push → Railway otomatik deploy eder (GitHub bağlantısı varsa)
-git push origin master
-
-# Manuel deploy gerekirce (Railway CLI):
-railway login
-cd neareat-backend
-railway up --service "railway up" --detach
-# ⚠️ railway up SADECE backend service için — Postgres/Redis'e asla!
-```
-
----
-
-#### 5. Yaşanan 7 Sorun ve Çözümleri
-
-##### Problem 1 — `railway up` ile Postgres bozuldu
-**Belirti:** PG container "Crashed Building" loop, build failed.  
-**Sebep:** `railway up` komutu Postgres service'i üzerinde çalıştırıldı — stock image yerine kodu deploy etmeye çalıştı.  
-**Çözüm:** PG service'i sil (volume dahil) → + New Database → PostgreSQL  
-**Kural:** `railway up` SADECE backend service. Postgres/Redis için dashboard → "Restart Deployment".
-
-##### Problem 2 — P3018: FK constraint hatası
-**Belirti:** `migrate deploy` "column reporter_id referenced in foreign key constraint does not exist"  
-**Sebep:** `messages_and_reports` migration'ında copy-paste hatası — yanlış tabloya FK eklendi.  
-**Çözüm:** Migration SQL düzeltildi + idempotent `IF NOT EXISTS` / `DO $...$ IF NOT EXISTS` bloklarına geçildi.
-
-##### Problem 3 — P3009: Failed migration kaydı
-**Belirti:** "found failed migrations in target database, new migrations will not be applied"  
-**Sebep:** Önceki başarısız deploy `_prisma_migrations` tablosunda kayıt bıraktı.  
-**Çözüm A (otomatik):** Start script'teki `resolve --rolled-back` ile halledilir.  
-**Çözüm B (manuel):**
-```sql
-DELETE FROM _prisma_migrations WHERE migration_name = '<isim>';
-```
-**Çözüm C (nükleer — partial schema varsa):**
-```sql
-DROP SCHEMA public CASCADE;
-CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO postgres;
-GRANT ALL ON SCHEMA public TO public;
-```
-Ardından backend redeploy → tüm migration'lar baştan temiz uygulanır.
-
-##### Problem 4 — Railway plan quota dolu
-**Belirti:** Servisler "online" görünür ama dış HTTP istekler 502; dashboard'da "Access Limited" banner.  
-**Sebep:** Free trial / hobby plan limit aşıldı.  
-**Çözüm:** Railway dashboard → Billing → Upgrade (en az Hobby plan).
-
-##### Problem 5 — Build cache eski migration tutuyor
-**Belirti:** Hotfix push edildi ama deploy log eski migration imzasıyla fail ediyor.  
-**Sebep:** Docker layer cache eski dosyaları tuttu.  
-**Çözüm:**
-```bash
-git commit --allow-empty -m "chore: cache bust" && git push origin master
-```
-
-##### Problem 6 — Railpack monorepo'da root dir bilmiyor ⚠️ KRİTİK
-**Belirti:** Build fail: "Railpack could not determine how to build the app"  
-**Sebep:** Railpack monorepo kökünde hangi alt klasörü build edeceğini otomatik algılamıyor.  
-**Çözüm:** Backend service → Settings → **Root Directory = `neareat-backend`**  
-**Not:** Yeni service oluştururken bu ayar ilk yapılacak şeydir.
-
-##### Problem 7 — Schema'da partial state
-**Belirti:** Yeni PG'de de aynı FK hatası — `IF NOT EXISTS` skip ediyor ama beklenen tablo zaten eksik.  
-**Sebep:** Birden fazla başarısız deploy girişimi kısmi DDL bıraktı.  
-**Çözüm:** Problem 3 Çözüm C (DROP SCHEMA + tam yeniden uygulama).
-
----
-
-#### 6. Troubleshooting Hızlı Referans
-
-| Belirti | Kontrol et | Çözüm |
-|---|---|---|
-| `502 Bad Gateway` | Backend service → Deployments → log | Crash sebebine göre yukarıdaki problemler |
-| "Railpack could not determine" | Backend → Settings → Root Directory | `neareat-backend` yaz |
-| "P3009 failed migration" | `_prisma_migrations` tablosu | Problem 3 çözümleri |
-| "P1001 can't reach database server" | `DATABASE_URL` değeri | `${{Postgres.DATABASE_URL}}` reference syntax? |
-| Servisler online ama `502` | Dashboard → Billing | Plan quota; upgrade gerekiyor |
-| Migration pass ama eski değişiklikler görünmüyor | Build log tarihi | Boş commit ile cache bust |
-| `ANTHROPIC_API_KEY` missing | Variables tab | Env var ekle, redeploy |
-
----
-
-#### 7. Health Check
-
-```bash
-# Temel sağlık
 curl https://railway-up-production-6cdc.up.railway.app/health
-# Beklenen: {"status":"ok","db":true,"redis":true,"uptime":N}
-
-# Auth endpoint yanıt veriyor mu?
-curl -X POST https://railway-up-production-6cdc.up.railway.app/api/auth/login/email \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"wrong"}' 
-# Beklenen: 401 (endpoint çalışıyor)
-
-# AI öneri endpoint (JWT gerekiyor — 401 beklenen, 502 değil)
-curl -X POST https://railway-up-production-6cdc.up.railway.app/api/recommendations/dinner-tonight \
-  -H "Content-Type: application/json" \
-  -d '{"lat":41.04,"lng":28.98}'
-# Beklenen: {"error":"Yetkisiz erişim"} (401) — çalışıyor
+# {"status":"ok","db":true,"redis":true,"uptime":N}
 ```
+
+> Railway kurulumu, yaşanan 7 deploy sorunu ve çözümleri için git geçmişi ve `docs/` notlarına bakın.
 
 ---
 
-### Android APK Build
+## Build (Android / iOS)
 
-### Android APK Build
-
+### Android (AAB / APK)
 ```powershell
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+$env:JAVA_HOME  = "C:\Program Files\Android\Android Studio\jbr"
 $env:ANDROID_HOME = "C:\Users\KULLANICI\AppData\Local\Android\Sdk"
 Set-Location "neareat-mobile\android"
 
-# Debug APK
-.\gradlew.bat assembleDebug --no-daemon
-
-# Release APK (imzalı, direkt kurulum)
-.\gradlew.bat assembleRelease --no-daemon
-
-# Release AAB (Google Play)
-.\gradlew.bat bundleRelease --no-daemon
+.\gradlew.bat bundleRelease   --no-daemon   # Release AAB (Google Play)
+.\gradlew.bat assembleRelease --no-daemon   # Release APK (direkt kurulum)
+.\gradlew.bat assembleDebug   --no-daemon   # Debug APK
 ```
+Çıktı (AAB): `app/build/outputs/bundle/release/app-release.aab`.
 
-> **Keystore:** `neareat-mobile/android/app/neareat-upload.keystore` — kaybolursa Play Store güncellemesi yapılamaz, yedekle.
+İmzalama `gradle.properties`'teki **upload keystore** ile yapılır (`neareat-upload.keystore`, alias `neareat`).
+Play, yüklenen AAB'yi **Play App Signing** ile yeniden imzalar — Firebase'e 3 SHA-1 kayıtlı (debug + upload + Play App Signing).
 
-### iOS (EAS Cloud Build)
+> ⚠️ **Keystore'u yedekle:** `neareat-mobile/android/app/neareat-upload.keystore` (`.gitignore`'da). Kaybolursa Play Store güncellemesi yapılamaz.
 
-```bash
-npm install -g eas-cli
-eas login
-eas build --platform ios --profile production
-eas submit --platform ios   # TestFlight'a gönder
-```
+### iOS
+Henüz yayında değil (bundle id `com.neareat.app`, EAS cloud build ile planlı).
 
 ---
 
 ## Güvenlik
 
-- **JWT** ile oturum yönetimi (Android Keystore / iOS Keychain via expo-secure-store)
-- **Firebase Admin SDK** ile Google OAuth doğrulama
-- **bcryptjs** ile şifre hash'leme (salt rounds: 10)
-- **Rate limiting:** auth 20 req/15 dk, api 120 req/1 dk
-- **CORS:** whitelist tabanlı (native mobile istekler için Origin-less izin)
-- **Trust proxy:** Railway reverse proxy için `app.set('trust proxy', 1)`
-- **Sanitize:** API response'lardan `passwordHash` temizlenir
-- **Askıya alma:** `isSuspended=true` kullanıcılar tüm işlem endpoint'lerinde reddedilir
-- **İçerik filtresi:** Yorum ve restoran cevaplarında uygunsuz içerik önleme
-- **Mesaj/şikayet:** Yalnızca ACCEPTED arkadaşlar mesajlaşabilir; 24h şikayet spam önleme
+- **JWT** oturum (mobilde expo-secure-store / Keystore-Keychain), **Firebase Admin** ile Google OAuth doğrulama, **bcryptjs** (rounds 10)
+- **Rate limiting:** auth 20/15 dk; api 120/dk (userId bazlı); AI/Vision uçlarına ek dakikalık limit
+- **Premium gate'leri** ve **rol kontrolü** (`requirePremium`, `roles`), `sanitizeUser` ile `passwordHash` sızıntı önleme
+- **İçerik filtresi**, **trust proxy** (Railway), CORS whitelist (origin'siz native istekler için izin)
+- **Askıya alma:** `isSuspended` kullanıcılar işlem uçlarında reddedilir; mesaj yalnızca ACCEPTED arkadaşlar; şikayet spam koruması
+- E-posta token'ları **HMAC-hash**'li; webhook'lar paket adı doğrular ve hassas veri ifşa etmez
 
 ---
 
 ## Lisans
 
-Bu proje özel bir çalışmadır. Tüm haklar saklıdır.
+Özel çalışma. Tüm hakları saklıdır.
