@@ -12,6 +12,7 @@ import {
   listRestaurantPhotos, deleteRestaurantPhoto, PhotoStorageUnavailableError,
 } from '../../services/restaurantAccount';
 import type { RestaurantPhoto, RestaurantPhotoKind } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../../hooks/useToast';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
@@ -24,6 +25,7 @@ export default function RestaurantInfoScreen() {
   const toast = useToast();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -112,7 +114,7 @@ export default function RestaurantInfoScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.body}
+        contentContainerStyle={[styles.body, { paddingBottom: bottom + 16 }]}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.sectionLabel}>Restoran Bilgileri</Text>

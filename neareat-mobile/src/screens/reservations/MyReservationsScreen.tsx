@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getMyReservations, cancelReservation } from '../../services/reservations';
 import type { Reservation } from '../../types';
@@ -24,6 +25,7 @@ export default function MyReservationsScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -117,7 +119,7 @@ export default function MyReservationsScreen() {
         data={reservations}
         keyExtractor={r => r.id}
         renderItem={renderItem}
-        contentContainerStyle={reservations.length === 0 ? styles.empty : { padding: 16 }}
+        contentContainerStyle={reservations.length === 0 ? styles.empty : { padding: 16, paddingBottom: bottom + 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
         ListEmptyComponent={
           <View style={styles.emptyContent}>

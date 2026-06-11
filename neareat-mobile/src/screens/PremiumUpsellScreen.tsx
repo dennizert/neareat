@@ -17,6 +17,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 
@@ -50,6 +51,7 @@ export default function PremiumUpsellScreen() {
   const route = useRoute<PremiumUpsellRouteProp>();
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const resetAt = route.params?.resetAt;
   const countdown = useResetCountdown(resetAt);
@@ -57,7 +59,7 @@ export default function PremiumUpsellScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 16 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero icon */}

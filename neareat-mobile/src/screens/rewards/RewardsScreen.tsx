@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { getRewards, getStarEvents, getNextMilestone, getLeaderboard } from '../../services/social';
 import type { Reward, StarEvent, Leaderboard } from '../../types';
@@ -19,6 +20,7 @@ export default function RewardsScreen() {
   const { profile, starEvents, setProfile } = useUserProfileStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [rewards, setRewards] = useState<(Reward & { isUnlocked: boolean })[]>([]);
   const [events, setEvents] = useState<StarEvent[]>([]);
@@ -51,7 +53,7 @@ export default function RewardsScreen() {
   const starsToNext = nextMilestone - starCount;
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom + 16 }}>
       <View style={styles.heroCard}>
         <Text style={styles.heroIcon}>{profile?.badgeIcon ?? '🌱'}</Text>
         <Text style={styles.heroLevel}>Seviye {profile?.level}</Text>
@@ -176,7 +178,6 @@ export default function RewardsScreen() {
         )}
       </View>
 
-      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }

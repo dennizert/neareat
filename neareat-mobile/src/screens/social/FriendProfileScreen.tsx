@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   Image, ActivityIndicator, Alert, Modal, TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import {
   getUserProfile, getFriendRecommendations,
@@ -36,6 +37,7 @@ export default function FriendProfileScreen() {
   const [reportReason, setReportReason] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
 
+  const { bottom } = useSafeAreaInsets();
   const existingFriend = friends.find(f => f.profile.id === userId);
   const isFriend = !!existingFriend;
 
@@ -143,7 +145,7 @@ export default function FriendProfileScreen() {
 
   return (
     <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom + 16 }}>
         <View style={styles.header}>
           {profile.photoUrl ? (
             <Image source={{ uri: profile.photoUrl }} style={styles.avatar} />
@@ -288,7 +290,6 @@ export default function FriendProfileScreen() {
           )}
         </View>
 
-        <View style={{ height: 40 }} />
       </ScrollView>
 
       {/* Şikayet Modal */}

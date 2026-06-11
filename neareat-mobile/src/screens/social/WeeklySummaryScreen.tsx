@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   Image, RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { getReceivedRecommendations } from '../../services/social';
 import type { Recommendation } from '../../types';
@@ -30,6 +31,7 @@ export default function WeeklySummaryScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,7 +171,7 @@ export default function WeeklySummaryScreen() {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         ListHeaderComponent={renderHeader}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />}
         ListEmptyComponent={
           <EmptyState

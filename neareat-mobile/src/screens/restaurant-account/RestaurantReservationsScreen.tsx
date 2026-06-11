@@ -5,6 +5,7 @@ import {
   Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getRestaurantReservations,
   updateReservationStatus,
@@ -43,6 +44,7 @@ export default function RestaurantReservationsScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [selectedTab, setSelectedTab] = useState<TabKey>(undefined);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -254,7 +256,7 @@ export default function RestaurantReservationsScreen() {
                 data={[...reservations].sort((a, b) => a.time.localeCompare(b.time))}
                 keyExtractor={r => r.id}
                 renderItem={renderTodayItem}
-                contentContainerStyle={reservations.length === 0 ? styles.empty : { paddingHorizontal: 16, paddingVertical: 8 }}
+                contentContainerStyle={reservations.length === 0 ? styles.empty : { paddingHorizontal: 16, paddingVertical: 8, paddingBottom: bottom + 16 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
                 ListEmptyComponent={
                   <View style={styles.emptyContent}>
@@ -270,7 +272,7 @@ export default function RestaurantReservationsScreen() {
               data={reservations}
               keyExtractor={r => r.id}
               renderItem={renderItem}
-              contentContainerStyle={reservations.length === 0 ? styles.empty : { padding: 16 }}
+              contentContainerStyle={reservations.length === 0 ? styles.empty : { padding: 16, paddingBottom: bottom + 16 }}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
               ListEmptyComponent={
                 <View style={styles.emptyContent}>

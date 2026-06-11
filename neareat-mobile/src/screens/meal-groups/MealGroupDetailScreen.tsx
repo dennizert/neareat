@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Alert, RefreshControl, TextInput,
   Modal, FlatList, Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -150,6 +151,7 @@ export default function MealGroupDetailScreen() {
   const { user } = useAuthStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [group, setGroup] = useState<MealGroup | null>(null);
   const [loading, setLoading] = useState(true);
@@ -360,6 +362,7 @@ export default function MealGroupDetailScreen() {
     <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: bottom + 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={C.primary} />}
       >
         {/* Üyeler */}

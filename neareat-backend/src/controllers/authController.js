@@ -6,7 +6,7 @@ const { verifyGoogleIdToken } = require('../services/googleAuth');
 const { signToken } = require('../utils/jwt');
 const { hashToken } = require('../utils/tokenHash');
 const { logRequest } = require('../services/logService');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
+const { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } = require('../services/emailService');
 const s3 = require('../services/s3');
 
 function sanitizeUser(user) {
@@ -59,6 +59,9 @@ async function login(req, res, next) {
             lastLoginAt: new Date(),
           },
         });
+        // Google hesapları zaten doğrulu — kayıt anında hoş geldin maili gönder.
+        sendWelcomeEmail(user.email, user.displayName)
+          .catch(e => console.error('[EMAIL] Hoş geldin gönderilemedi:', e.message));
       }
     } else {
       user = await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
@@ -223,6 +226,10 @@ async function verifyEmail(req, res, next) {
         emailVerificationExpiry: null,
       },
     });
+
+    // Doğrulama tamamlandı — hoş geldin maili (fire-and-forget).
+    sendWelcomeEmail(user.email, user.displayName)
+      .catch(e => console.error('[EMAIL] Hoş geldin gönderilemedi:', e.message));
 
     res.json({ message: 'E-posta başarıyla doğrulandı' });
   } catch (err) {

@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator, RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useNotificationStore } from '../store/notificationStore';
 import { notificationTarget } from '../utils/notificationTarget';
@@ -35,6 +36,7 @@ export default function NotificationsScreen() {
   const { notifications, loading, hasMore, unreadCount, fetchNotifications, loadMore, markRead, markAllRead, fetchUnreadCount } = useNotificationStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   useEffect(() => {
     fetchNotifications(1);
@@ -61,6 +63,7 @@ export default function NotificationsScreen() {
       <FlatList
         data={notifications}
         keyExtractor={n => n.id}
+        contentContainerStyle={{ paddingBottom: bottom + 16 }}
         refreshControl={<RefreshControl refreshing={loading && notifications.length === 0} onRefresh={onRefresh} tintColor={C.primary} />}
         renderItem={({ item }) => (
           <TouchableOpacity

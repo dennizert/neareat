@@ -19,6 +19,7 @@ export default function FavoritesScreen() {
   const navigation = useNavigation<any>();
   const { favorites, setFavorites } = useFavoriteStore();
   const insets = useSafeAreaInsets();
+  const { bottom } = insets;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -115,7 +116,7 @@ export default function FavoritesScreen() {
               />
             );
           }}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
         />
       )}
     </View>

@@ -7,6 +7,7 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator,
   RefreshControl, Alert, Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
   listDiaryEntries, getDiaryStats, deleteDiaryEntry,
@@ -34,6 +35,7 @@ export default function DiaryScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [stats, setStats] = useState<DiaryStats | null>(null);
@@ -81,7 +83,7 @@ export default function DiaryScreen() {
   return (
     <FlatList
       style={styles.container}
-      contentContainerStyle={entries.length === 0 ? styles.emptyContainer : styles.list}
+      contentContainerStyle={entries.length === 0 ? styles.emptyContainer : [styles.list, { paddingBottom: bottom + 16 }]}
       data={entries}
       keyExtractor={(e) => e.id}
       refreshControl={

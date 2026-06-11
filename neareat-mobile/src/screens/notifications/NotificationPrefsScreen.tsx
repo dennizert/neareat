@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, Switch, ScrollView,
   ActivityIndicator, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import type { NotificationType } from '../../types';
@@ -38,6 +39,7 @@ const SECTIONS = [
 export default function NotificationPrefsScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [prefs, setPrefs] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ export default function NotificationPrefsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 16 }]}>
       {saving && (
         <View style={styles.savingBar}>
           <ActivityIndicator size="small" color={C.primary} />

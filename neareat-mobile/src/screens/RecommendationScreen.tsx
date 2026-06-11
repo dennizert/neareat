@@ -16,6 +16,7 @@ import {
   Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAiRecommendationStore } from '../store/aiRecommendationStore';
 import { getCurrentLocation } from '../services/location';
 import RecommendationCard from '../components/RecommendationCard';
@@ -29,6 +30,7 @@ export default function RecommendationScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const {
     loading,
@@ -96,7 +98,7 @@ export default function RecommendationScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: bottom + 16 }]}
       refreshControl={
         <RefreshControl refreshing={locating} onRefresh={handleFetch} tintColor={C.ai} />
       }

@@ -8,6 +8,7 @@ import {
   activateInstantDiscount, deactivateInstantDiscount,
 } from '../../services/restaurantAccount';
 import type { RestaurantProfile } from '../../types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -28,6 +29,7 @@ const DURATION_OPTIONS = [
 export default function RestaurantDiscountScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,7 +101,7 @@ export default function RestaurantDiscountScreen() {
   const instantActive = profile?.discountActiveUntil && new Date(profile.discountActiveUntil) > now;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.body}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.body, { paddingBottom: bottom + 16 }]}>
 
       {/* Yıldız Programı */}
       <View style={styles.card}>

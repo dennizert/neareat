@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getFriendSuggestions } from '../../services/social';
 import { sendFriendRequest } from '../../services/social';
 import type { FriendSuggestion } from '../../types';
@@ -15,6 +16,7 @@ const MAX_SCORE = 373;
 export default function FriendSuggestionsScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,7 @@ export default function FriendSuggestionsScreen() {
       style={styles.container}
       data={suggestions}
       keyExtractor={item => item.userId}
-      contentContainerStyle={styles.list}
+      contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
       renderItem={({ item }) => {
         const pct = item.matchPercent ?? Math.min(Math.round((item.matchScore / MAX_SCORE) * 100), 100);
         const sent = sentRequests.has(item.userId);

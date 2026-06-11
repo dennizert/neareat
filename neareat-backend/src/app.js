@@ -14,6 +14,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const { renderAppLinkPage } = require('./utils/appLinkPage');
 
 const authRoutes = require('./routes/auth');
 const restaurantRoutes = require('./routes/restaurants');
@@ -156,18 +157,28 @@ app.use('/api/place-requests', placeRequestRoutes);
 // Google Cloud Pub/Sub push — JWT auth yok, Google imzasıyla korunur
 app.use('/webhooks', webhookRoutes);
 
-// Email linklerinden gelen deep link yönlendirmeleri
-// Email istemcileri neareat:// şemasını bloke eder; HTTPS link → deep link
+// Email linklerinden gelen deep link yönlendirmeleri.
+// Email istemcileri (özellikle Gmail in-app tarayıcı) çıplak neareat:// redirect'ini
+// bloke edebiliyor; bunun yerine markalı bir ara sayfa: deep link'i otomatik dener,
+// "Uygulamada Aç" butonu sunar ve uygulama yoksa Play Store'a düşürür.
 app.get('/verify-email', (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).send('Token eksik');
-  res.redirect(`neareat://verify-email?token=${encodeURIComponent(token)}`);
+  res.set('Content-Type', 'text/html; charset=utf-8').send(renderAppLinkPage({
+    deepLink: `neareat://verify-email?token=${encodeURIComponent(token)}`,
+    title: 'E-postanı doğrula',
+    message: 'Hesabını doğrulamak için Eatlas uygulamasını açıyoruz.',
+  }));
 });
 
 app.get('/reset-password', (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).send('Token eksik');
-  res.redirect(`neareat://reset-password?token=${encodeURIComponent(token)}`);
+  res.set('Content-Type', 'text/html; charset=utf-8').send(renderAppLinkPage({
+    deepLink: `neareat://reset-password?token=${encodeURIComponent(token)}`,
+    title: 'Şifreni sıfırla',
+    message: 'Yeni şifreni belirlemek için Eatlas uygulamasını açıyoruz.',
+  }));
 });
 
 app.use(errorHandler);

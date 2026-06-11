@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, ScrollView, TouchableOpacity,
   StyleSheet, Image, ActivityIndicator, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useFriendStore } from '../../store/friendStore';
 import { useUserProfileStore } from '../../store/userProfileStore';
@@ -26,6 +27,7 @@ export default function SendRecommendationScreen() {
   const { addMyRecommendation } = useRecommendationStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const [message, setMessage] = useState('');
   const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set());
@@ -83,7 +85,7 @@ export default function SendRecommendationScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: bottom + 16 }}>
       <View style={styles.restaurantCard}>
         {photoUrl ? (
           <Image source={{ uri: photoUrl }} style={styles.photo} />
@@ -176,7 +178,6 @@ export default function SendRecommendationScreen() {
         )}
       </TouchableOpacity>
 
-      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }

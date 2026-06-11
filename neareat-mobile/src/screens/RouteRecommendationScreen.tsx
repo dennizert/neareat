@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAiRecommendationStore } from '../store/aiRecommendationStore';
 import PlaceSearchInput from '../components/PlaceSearchInput';
 import RecommendationCard from '../components/RecommendationCard';
@@ -43,6 +44,7 @@ export default function RouteRecommendationScreen() {
   const navigation = useNavigation<any>();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  const { bottom } = useSafeAreaInsets();
 
   const {
     routeRecommendations,
@@ -135,7 +137,7 @@ export default function RouteRecommendationScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingBottom: bottom + 16 }]}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Yolda ne yesem?</Text>
