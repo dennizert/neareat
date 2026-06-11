@@ -1,6 +1,40 @@
 const prisma = require('../utils/prisma');
 const { isAlwaysPremiumEmail, isActivePremium } = require('../utils/premiumCheck');
+const { cacheGet, cacheSet } = require('../services/redis');
 const TRIAL_DAYS = parseInt(process.env.TRIAL_DAYS || '7');
+
+// RTDN teşhisi: gelen her bildirimin özetini (token/kullanıcı YOK) Redis'e yazar.
+// GET /webhooks/google-play/last ile son bildirimi okumak için (kurulum doğrulaması).
+async function recordRtdnReceipt(notification) {
+  try {
+    const {
+      packageName, subscriptionNotification, testNotification,
+      voidedPurchaseNotification, oneTimeProductNotification,
+    } = notification || {};
+    let type = 'unknown';
+    if (testNotification) type = 'test';
+    else if (subscriptionNotification) type = `subscription:${subscriptionNotification.notificationType}`;
+    else if (voidedPurchaseNotification) type = 'voided';
+    else if (oneTimeProductNotification) type = 'oneTimeProduct';
+
+    const prev = await cacheGet('rtdn:last');
+    await cacheSet('rtdn:last', {
+      at: new Date().toISOString(),
+      type,
+      packageName: packageName || null,
+      count: ((prev && prev.count) || 0) + 1,
+    }, 30 * 24 * 60 * 60);
+  } catch {
+    // Teşhis amaçlı — webhook akışını asla bozma.
+  }
+}
+
+// GET /webhooks/google-play/last — son alınan RTDN bildiriminin özeti.
+// Hassas veri içermez (satın alma token'ı / kullanıcı yok); kurulum doğrulaması için açık.
+async function getLastRtdn(req, res) {
+  const last = await cacheGet('rtdn:last');
+  res.json({ last: last || null });
+}
 
 async function getSubscription(req, res, next) {
   try {
@@ -177,6 +211,9 @@ async function handleGooglePlayRTDN(req, res) {
 
     const { packageName, subscriptionNotification } = notification;
 
+    // Teşhis: gelen her bildirimi (test dahil) kaydet — fire-and-forget.
+    recordRtdnReceipt(notification).catch(() => {});
+
     const expectedPackage = process.env.GOOGLE_PLAY_PACKAGE_NAME;
     if (expectedPackage && packageName !== expectedPackage) {
       return res.status(200).json({ received: true });
@@ -259,4 +296,5 @@ module.exports = {
   verifyAndroidPurchase,
   verifyAppStorePurchase,
   handleGooglePlayRTDN,
+  getLastRtdn,
 };
