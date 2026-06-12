@@ -187,6 +187,10 @@ app.use(errorHandler);
 // (ve cron'lar test ortamında schedule olmasın diye) listen + shutdown'ı test modunda atla.
 // supertest, request(app) ile kendi geçici portunu açtığı için listen'a ihtiyaç duymaz.
 if (process.env.NODE_ENV !== 'test') {
+  // Fail-closed env doğrulaması (S12-2): yanlış yapılandırılmış üretim örneği
+  // başlamamalı (örn. eksik TOKEN_HASH_SECRET → taklit edilebilir token'lar).
+  require('./config/validateEnv').assertEnvOrExit();
+
   const PORT = process.env.PORT || 3000;
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`NearEat API → http://0.0.0.0:${PORT}  (ağdan: http://192.168.1.117:${PORT})`);
