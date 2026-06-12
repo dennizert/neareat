@@ -10,10 +10,12 @@ if (!admin.apps.length) {
   });
 }
 
+// Firebase Admin Auth örneği (hesap silmede Firebase kullanıcısını temizlemek için kullanılır).
 function getAuth() {
   return admin.auth();
 }
 
+// Firebase Cloud Messaging örneği (mobil push bildirimleri göndermek için).
 function getMessaging() {
   return admin.messaging();
 }

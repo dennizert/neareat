@@ -1,5 +1,8 @@
-const R = 6371;
+const R = 6371; // Dünya yarıçapı (km)
 
+// İki koordinat arası kuş uçuşu mesafeyi km cinsinden hesaplar (Haversine formülü).
+// Restoran keşfinde "yakınımdaki" sıralaması ve mesafe rozetleri için kullanılır;
+// harici bir mesafe API'sine gerek kalmadan hızlı/ücretsiz mesafe verir.
 function haversineKm(lat1, lng1, lat2, lng2) {
   const toRad = (deg) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);

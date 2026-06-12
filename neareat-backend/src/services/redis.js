@@ -2,6 +2,9 @@ const Redis = require('ioredis');
 
 let client;
 
+// Tekil (singleton) ioredis bağlantısını döndürür; ilk çağrıda lazy oluşturur.
+// Railway private domain IPv6-only olduğu ve Redis erişilemez olduğunda uygulamanın
+// çökmemesi gerektiği için bağlantı ayarları buna göre (family:0, sınırlı retry) yapılır.
 function getRedis() {
   if (!client) {
     client = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -20,6 +23,8 @@ function getRedis() {
   return client;
 }
 
+// Cache'ten JSON değer okur. Redis hatası/erişilemezliği uygulamayı bozmamalı:
+// her durumda null döner (cache-miss gibi davranır → çağıran kaynağı yeniden hesaplar).
 async function cacheGet(key) {
   try {
     const data = await getRedis().get(key);
@@ -29,6 +34,7 @@ async function cacheGet(key) {
   }
 }
 
+// Değeri TTL ile cache'e yazar. Redis yoksa sessizce geçer (fail-open) — cache opsiyoneldir.
 async function cacheSet(key, value, ttlSeconds) {
   try {
     await getRedis().set(key, JSON.stringify(value), 'EX', ttlSeconds);
@@ -37,6 +43,7 @@ async function cacheSet(key, value, ttlSeconds) {
   }
 }
 
+// Cache anahtarını siler (örn. başarılı admin login sonrası fail sayacını sıfırlama).
 async function cacheDel(key) {
   try {
     await getRedis().del(key);

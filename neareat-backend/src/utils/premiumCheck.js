@@ -12,11 +12,14 @@ function getAlwaysPremiumEmails() {
     .filter(Boolean);
 }
 
+// E-posta allowlist'te mi? (saf kontrol; doğrulama şartı çağıranlarda uygulanır.)
 function isAlwaysPremiumEmail(email) {
   if (!email) return false;
   return getAlwaysPremiumEmails().includes(String(email).trim().toLowerCase());
 }
 
+// Bir abonelik kaydının ŞU AN geçerli premium olup olmadığını söyler (durum active/trial
+// VE bitiş tarihi gelecekte). DB sorgusu yapmaz → sync ve her yerde yeniden kullanılabilir.
 function isActivePremium(subscription) {
   return (
     !!subscription &&
@@ -25,6 +28,9 @@ function isActivePremium(subscription) {
   );
 }
 
+// Bir kullanıcının premium olup olmadığına dair TEK YETKİLİ karar noktası. Tüm free-tier
+// limit kontrolleri (AI öneri, favori, koleksiyon, rezervasyon vb.) bunu çağırır. Önce
+// aktif abonelik, yoksa doğrulanmış allowlist e-postası kontrol edilir.
 async function isPremiumUser(userId) {
   const sub = await prisma.subscription.findUnique({ where: { userId } });
   if (isActivePremium(sub)) return true;

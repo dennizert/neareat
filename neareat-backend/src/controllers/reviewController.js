@@ -3,11 +3,14 @@ const { awardStars } = require('../utils/stars');
 const { containsOffensiveContent } = require('../utils/contentFilter');
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
 
+// Yorumun var olduğunu VE çağıran kullanıcıya ait olduğunu doğrular (yoksa null).
+// update/delete'te IDOR'u önlemek için ortak kontrol — başkasının yorumu düzenlenemez.
 async function verifyReviewOwnership(reviewId, userId) {
   const review = await prisma.review.findUnique({ where: { id: reviewId } });
   return (!review || review.userId !== userId) ? null : review;
 }
 
+// Bir mekanın tüm yorumlarını (yazar + restoran yanıtı dahil) en yeni önce döner.
 async function getReviews(req, res, next) {
   try {
     const { placeId } = req.params;
@@ -30,6 +33,9 @@ async function getReviews(req, res, next) {
   }
 }
 
+// Yorum oluşturur/günceller (kullanıcı+mekan başına tek yorum → upsert). İçerik filtresinden
+// geçirir (küfür/hakaret reddi). Yalnızca İLK yorumda yıldız ödülü + sosyal aktivite olayı
+// üretir (güncellemede tekrar ödül/spam yok).
 async function createReview(req, res, next) {
   try {
     const { placeId, rating, body, placeName } = req.body;
@@ -82,6 +88,7 @@ async function createReview(req, res, next) {
   }
 }
 
+// Kullanıcının kendi yorumunu günceller (sahiplik + içerik filtresi kontrolüyle).
 async function updateReview(req, res, next) {
   try {
     const { reviewId } = req.params;
@@ -104,6 +111,7 @@ async function updateReview(req, res, next) {
   }
 }
 
+// Kullanıcının kendi yorumunu siler (sahiplik kontrolüyle). Admin silmesi ayrı uçta.
 async function deleteReview(req, res, next) {
   try {
     const { reviewId } = req.params;

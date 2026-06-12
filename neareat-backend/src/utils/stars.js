@@ -17,6 +17,10 @@ const STAR_AMOUNTS = {
 
 const RESERVATION_NO_SHOW_PENALTY = 10;
 
+// Gamification çekirdeği: bir aksiyon (yorum, rezervasyon, referral vb.) için kullanıcıya
+// yıldız ekler. Tek transaction'da StarEvent kaydı + starCount artışı yapar; ardından
+// level-up, kilometre taşı ve yeni açılan ödül bildirimlerini tetikler. Premium 2x gibi
+// çarpanlar `multiplier` ile uygulanır. Kullanıcı sadakatini ödül sistemine bağlayan ana giriş noktası.
 async function awardStars(userId, type, description, referenceId = null, multiplier = 1) {
   const baseAmount = STAR_AMOUNTS[type];
   if (!baseAmount) throw new Error(`Unknown star event type: ${type}`);
@@ -85,6 +89,8 @@ async function awardStars(userId, type, description, referenceId = null, multipl
   return { event, newStarCount, newRewards };
 }
 
+// Toplam yıldız sayısını kullanıcı seviyesine + rozete çevirir (5 kademe, eşikler sabit).
+// Hem level-up tespitinde (awardStars) hem profil/rozet gösteriminde kullanılır.
 function getLevel(stars) {
   if (stars >= 100) return { level: 5, badge: 'Gastronomi Efsanesi', badgeIcon: '👑' };
   if (stars >= 50)  return { level: 4, badge: 'NearEat Elçisi',       badgeIcon: '⭐' };
@@ -96,6 +102,8 @@ function getLevel(stars) {
 // Sistem tanımlı yıldız seviyesi → indirim oranı tablosu (restoran değiştiremez)
 const STAR_LEVEL_DISCOUNTS = { 1: 0, 2: 10, 3: 15, 4: 20, 5: 25 };
 
+// Yıldız düşürür (örn. rezervasyona gelmeme/no-show cezası). starCount 0'ın altına inmez;
+// negatif amount'lu bir StarEvent ile iz bırakır (denetlenebilirlik için).
 async function deductStars(userId, amount, description, referenceId = null) {
   const currentUser = await prisma.user.findUnique({ where: { id: userId }, select: { starCount: true } });
   const newCount = Math.max(0, currentUser.starCount - amount);

@@ -3,6 +3,10 @@ const { verifyToken } = require('../utils/jwt');
 const prisma = require('../utils/prisma');
 const { logSecurityEvent, EVENTS } = require('./securityLogger');
 
+// Korumalı route'ların kimlik doğrulama middleware'i. Bearer token'ı önce custom JWT
+// (email/şifre) olarak, başarısızsa Google idToken olarak dener — iki auth stratejisi de
+// aynı uçları kullanabilsin diye. Askıya alınmış (isSuspended) hesapları 403 ile keser ve
+// req.user'ı doldurur. Başarısız denemeleri güvenlik loguna yazar.
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

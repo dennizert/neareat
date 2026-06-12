@@ -38,6 +38,9 @@ async function getLastRtdn(req, res) {
   res.json({ last: last || null });
 }
 
+// Kullanıcının abonelik durumunu döner. RTDN gecikirse süresi geçmiş "active" kaydı
+// expired'a düzeltir (güvenlik ağı) ve doğrulanmış allowlist hesaplarına sentetik premium
+// abonelik döndürür (mobil UI premium göstersin diye).
 async function getSubscription(req, res, next) {
   try {
     let subscription = await prisma.subscription.findUnique({
@@ -72,6 +75,8 @@ async function getSubscription(req, res, next) {
   }
 }
 
+// Ücretsiz deneme aboneliği başlatır (TRIAL_DAYS gün). Kullanıcının daha önce herhangi bir
+// aboneliği varsa reddeder → deneme yalnızca bir kez kullanılabilir.
 async function startTrial(req, res, next) {
   try {
     const existing = await prisma.subscription.findUnique({ where: { userId: req.user.id } });
@@ -318,6 +323,8 @@ async function handleGooglePlayRTDN(req, res) {
   return res.status(200).json({ received: true });
 }
 
+// RTDN yardımcısı: Google Play'den aboneliğin GÜNCEL durumunu çekip DB'yi senkronize eder
+// (yenileme/geri kazanım bildirimlerinde). Token'la eşleşen abonelik yoksa sessizce çıkar.
 async function _refreshFromPlay(purchaseToken, subscriptionId) {
   const serviceAccountJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
   const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME;
@@ -352,6 +359,8 @@ async function _refreshFromPlay(purchaseToken, subscriptionId) {
   });
 }
 
+// RTDN yardımcısı: token'la eşleşen aboneliğin durumunu doğrudan ayarlar (iptal/expired/revoked
+// bildirimlerinde — Play'e ekstra sorgu atmadan).
 async function _setSubscriptionStatus(purchaseToken, status) {
   const subscription = await prisma.subscription.findFirst({
     where: { storeTransactionId: purchaseToken },

@@ -5,6 +5,9 @@ const { logActivity, ACTIVITY_TYPES } = require('../services/logService');
 // Ücretsiz favori limiti env'den okunur (.env.example: FREE_FAVORITES_LIMIT). Varsayılan 5.
 const FREE_FAVORITES_LIMIT = parseInt(process.env.FREE_FAVORITES_LIMIT, 10) || 5;
 
+// Kullanıcının favorilerini listeler; kayıtlı (APPROVED) restoranların görünen adıyla
+// zenginleştirir (kart "displayName || placeName" gösterir). Restoran kendi adını
+// güncellediğinde favori kartı da güncel görünsün diye.
 async function listFavorites(req, res, next) {
   try {
     const favorites = await prisma.favorite.findMany({
@@ -32,6 +35,9 @@ async function listFavorites(req, res, next) {
   }
 }
 
+// Favori ekler. Free kullanıcıda limiti (FREE_FAVORITES_LIMIT) zorlar → aşılırsa 403
+// PREMIUM_REQUIRED. upsert ile çift eklemeyi engeller; yalnızca İLK eklemede sosyal
+// aktivite olayı yazar (tekrar eklemede spam üretmez).
 async function addFavorite(req, res, next) {
   try {
     const { placeId, placeName, placeAddress, placeLat, placeLng, placePhone, placePhotoUrl, placeRating } = req.body;
@@ -75,6 +81,7 @@ async function addFavorite(req, res, next) {
   }
 }
 
+// Favoriden çıkarır (placeId ile, yalnızca kendi kaydı). Yoksa hata değil — idempotent.
 async function removeFavorite(req, res, next) {
   try {
     const { placeId } = req.params;
