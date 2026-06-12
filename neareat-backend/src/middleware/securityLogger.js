@@ -1,5 +1,6 @@
-// Güvenlik olaylarını yapılandırılmış formatta loglar.
-// İleride Datadog / Sentry / Slack entegrasyonu buraya eklenir.
+// Güvenlik olaylarını yapılandırılmış formatta loglar + (S14-B3) Sentry'ye iletir.
+
+const { captureSecurityEvent } = require('../services/sentry');
 
 const EVENTS = {
   AUTH_FAILED: 'AUTH_FAILED',
@@ -20,6 +21,7 @@ function logSecurityEvent(event, details = {}) {
     ...details,
   };
   console.warn('[SECURITY]', JSON.stringify(entry));
+  captureSecurityEvent(event, details); // DSN yoksa no-op
 }
 
 module.exports = { logSecurityEvent, EVENTS };

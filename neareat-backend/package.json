@@ -20,6 +20,7 @@
     "@aws-sdk/client-s3": "^3.1067.0",
     "@aws-sdk/s3-request-presigner": "^3.1067.0",
     "@prisma/client": "^6.19.3",
+    "@sentry/node": "^8.55.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
