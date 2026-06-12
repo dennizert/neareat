@@ -6,6 +6,7 @@ const EVENTS = {
   SUSPENDED_ACCESS: 'SUSPENDED_ACCESS',
   SEED_BLOCKED: 'SEED_BLOCKED',
   RATE_LIMIT_HIT: 'RATE_LIMIT_HIT',
+  IAP_REJECTED: 'IAP_REJECTED',
 };
 
 function logSecurityEvent(event, details = {}) {

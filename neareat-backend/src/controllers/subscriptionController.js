@@ -1,6 +1,7 @@
 const prisma = require('../utils/prisma');
 const { isAlwaysPremiumEmail, isActivePremium } = require('../utils/premiumCheck');
 const { cacheGet, cacheSet } = require('../services/redis');
+const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
 const TRIAL_DAYS = parseInt(process.env.TRIAL_DAYS || '7');
 
 // RTDN teşhisi: gelen her bildirimin özetini (token/kullanıcı YOK) Redis'e yazar.
@@ -158,37 +159,42 @@ async function verifyAndroidPurchase(req, res, next) {
   }
 }
 
-// iOS App Store doğrulama — gelecek sprintte eklenecek.
-// Şimdilik client'ın gönderdiği expiresAt'e güveniyor (geçici).
-async function verifyAppStorePurchase(req, res, next) {
-  try {
-    const { transactionId, planType, expiresAt } = req.body;
-    if (!transactionId || !planType || !expiresAt) {
-      return res.status(400).json({ error: 'transactionId, planType, expiresAt gerekli' });
-    }
-
-    const subscription = await prisma.subscription.upsert({
-      where: { userId: req.user.id },
-      update: {
-        planType,
-        status: 'active',
-        expiresAt: new Date(expiresAt),
-        storeTransactionId: transactionId,
-      },
-      create: {
-        userId: req.user.id,
-        planType,
-        status: 'active',
-        startedAt: new Date(),
-        expiresAt: new Date(expiresAt),
-        storeTransactionId: transactionId,
-      },
-    });
-
-    res.json(subscription);
-  } catch (err) {
-    next(err);
+// iOS App Store doğrulama.
+//
+// GÜVENLİK (S12-1): Bu uç ASLA istemcinin gönderdiği expiresAt/planType/transactionId'ye
+// güvenerek premium aktifleştirmez — aksi halde herhangi bir kullanıcı sahte bir bitiş
+// tarihi göndererek kendine ömür boyu premium verebilirdi (kritik yetki yükseltme).
+//
+// Gerçek doğrulama (Apple App Store Server API ile StoreKit 2 JWS imza doğrulaması)
+// iOS lansman task'ında implemente edilecek. O zamana kadar uç FAIL-CLOSED:
+//   - IOS_IAP_ENABLED !== 'true'  → 503, DB'ye yazma yok.
+//   - IOS_IAP_ENABLED === 'true'  → 501 (doğrulama henüz implemente edilmedi), DB'ye yazma yok.
+async function verifyAppStorePurchase(req, res) {
+  const { transactionId, planType, expiresAt } = req.body || {};
+  if (!transactionId || !planType || !expiresAt) {
+    return res.status(400).json({ error: 'transactionId, planType, expiresAt gerekli' });
   }
+
+  logSecurityEvent(EVENTS.IAP_REJECTED, {
+    userId: req.user.id,
+    ip: req.ip,
+    path: req.path,
+    requestId: req.id,
+    reason: 'appstore_client_trust_disabled',
+  });
+
+  if (process.env.IOS_IAP_ENABLED !== 'true') {
+    return res.status(503).json({
+      error: 'IOS_IAP_NOT_CONFIGURED',
+      message: 'iOS satın alma doğrulaması henüz aktif değil.',
+    });
+  }
+
+  // Env açık olsa bile sunucu-taraflı imza doğrulaması hazır olana kadar premium AÇMA.
+  return res.status(501).json({
+    error: 'IOS_IAP_VERIFICATION_NOT_IMPLEMENTED',
+    message: 'iOS satın alma doğrulaması henüz tamamlanmadı.',
+  });
 }
 
 // ─── Google Play Real-time Developer Notifications (RTDN) ────────────────────
