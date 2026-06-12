@@ -25,6 +25,7 @@ const mockPrisma = {
     upsert: jest.fn(),
     create: jest.fn(),
   },
+  purchaseEvent: { create: jest.fn().mockResolvedValue({}) }, // S14-B4 ledger
   $queryRaw: jest.fn().mockResolvedValue([{ 1: 1 }]),
 };
 
@@ -650,5 +651,67 @@ describe('RTDN teşhisi: /webhooks/google-play/last', () => {
     const body = JSON.stringify(res.body);
     expect(body).not.toContain('secret-token');
     expect(res.body.last.purchaseToken).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S14-B4: IAP purchase ledger (append-only PurchaseEvent)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('S14-B4: purchase ledger', () => {
+  const purchaseToken = 'gpa.ledger-token';
+  const productId = 'premium_yearly';
+  const futureExpiry = String(Date.now() + 30 * 86400_000);
+
+  it('geçerli android satın alma → ledger verified yazar (token hash, ham değil)', async () => {
+    mockSubscriptionsGet.mockResolvedValue({ data: { expiryTimeMillis: futureExpiry } });
+    mockPrisma.subscription.findFirst.mockResolvedValue(null);
+    mockPrisma.subscription.upsert.mockResolvedValue({ id: randomId(), userId, status: 'active' });
+
+    await request(app)
+      .post('/api/subscriptions/verify/android')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ purchaseToken, productId });
+
+    expect(mockPrisma.purchaseEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ source: 'android', status: 'verified', userId }),
+      }),
+    );
+    const data = mockPrisma.purchaseEvent.create.mock.calls.at(-1)[0].data;
+    expect(data.tokenHash).toBeTruthy();
+    expect(data.tokenHash).not.toBe(purchaseToken); // ham token saklanmaz
+  });
+
+  it('token reuse reddi → ledger reuse_rejected yazar', async () => {
+    mockSubscriptionsGet.mockResolvedValue({ data: { expiryTimeMillis: futureExpiry } });
+    mockPrisma.subscription.findFirst.mockResolvedValue({ id: randomId(), userId: 'baska', storeTransactionId: purchaseToken });
+
+    await request(app)
+      .post('/api/subscriptions/verify/android')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ purchaseToken, productId });
+
+    expect(mockPrisma.purchaseEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'reuse_rejected' }) }),
+    );
+  });
+
+  it('RTDN EXPIRED (13) → ledger expired yazar', async () => {
+    const sub = { id: randomId(), storeTransactionId: purchaseToken };
+    mockPrisma.subscription.findFirst.mockResolvedValue(sub);
+    mockPrisma.subscription.update.mockResolvedValue({ ...sub, status: 'expired' });
+    const payload = {
+      packageName: 'com.eatlas.mobile',
+      subscriptionNotification: { notificationType: 13, purchaseToken, subscriptionId: productId },
+    };
+
+    await request(app)
+      .post('/webhooks/google-play')
+      .send({ message: { data: Buffer.from(JSON.stringify(payload)).toString('base64'), messageId: '1' } });
+
+    expect(mockPrisma.purchaseEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ source: 'rtdn', status: 'expired' }) }),
+    );
   });
 });
