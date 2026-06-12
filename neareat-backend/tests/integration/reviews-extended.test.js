@@ -95,6 +95,55 @@ beforeEach(() => {
   mockPrisma.userReward.create.mockResolvedValue({});
 });
 
+// ─── S13-3: e-posta doğrulaması şartı (ENFORCE_EMAIL_VERIFICATION) ─────────────
+
+describe('POST /api/reviews — e-posta doğrulaması şartı', () => {
+  afterEach(() => { delete process.env.ENFORCE_EMAIL_VERIFICATION; });
+
+  it('flag açık + doğrulanmamış kullanıcı → 403 EMAIL_NOT_VERIFIED', async () => {
+    process.env.ENFORCE_EMAIL_VERIFICATION = 'true';
+    // user1 default emailVerified=false
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${token1}`)
+      .send({ placeId: 'p1', rating: 5, body: 'Harika yer' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('EMAIL_NOT_VERIFIED');
+    expect(mockPrisma.review.upsert).not.toHaveBeenCalled();
+  });
+
+  it('flag açık + doğrulanmış kullanıcı → 201', async () => {
+    process.env.ENFORCE_EMAIL_VERIFICATION = 'true';
+    const verified = createTestUser({ id: 'verified-user', emailVerified: true });
+    const vToken = createTestToken(verified.id);
+    mockPrisma.user.findUnique.mockImplementation(({ where }) =>
+      Promise.resolve(where.id === verified.id ? verified : null));
+    mockPrisma.review.findUnique.mockResolvedValue(null);
+    mockPrisma.review.upsert.mockResolvedValue({ id: 'rv-new', userId: verified.id, placeId: 'p1', rating: 5, body: 'Harika yer' });
+
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${vToken}`)
+      .send({ placeId: 'p1', rating: 5, body: 'Harika yer' });
+
+    expect(res.status).toBe(201);
+    expect(mockPrisma.review.upsert).toHaveBeenCalled();
+  });
+
+  it('flag kapalı (default) + doğrulanmamış kullanıcı → 201 (no-op)', async () => {
+    mockPrisma.review.findUnique.mockResolvedValue(null);
+    mockPrisma.review.upsert.mockResolvedValue({ id: 'rv-x', userId: user1.id, placeId: 'p1', rating: 4, body: 'Güzel' });
+
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${token1}`)
+      .send({ placeId: 'p1', rating: 4, body: 'Güzel' });
+
+    expect(res.status).toBe(201);
+  });
+});
+
 // ─── PUT /api/reviews/:reviewId ───────────────────────────────────────────────
 
 describe('PUT /api/reviews/:reviewId', () => {

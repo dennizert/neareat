@@ -82,6 +82,10 @@ export function getApiErrorMessage(error: any): string {
   if (error?.response) {
     const status = error.response.status;
     if (status >= 500) return 'Sunucuda bir sorun oluştu. Lütfen biraz sonra tekrar dene.';
+    // E-posta doğrulaması gerektiren işlemler (S13-3) için net yönlendirme
+    if (error.response.data?.code === 'EMAIL_NOT_VERIFIED') {
+      return 'Bu işlem için önce e-posta adresini doğrulaman gerekiyor. Profilinden doğrulama e-postasını tekrar gönderebilirsin.';
+    }
     // 4xx — sunucunun verdiği Türkçe mesajı tercih et
     return error.response.data?.error || 'Bir şeyler ters gitti. Lütfen tekrar dene.';
   }
