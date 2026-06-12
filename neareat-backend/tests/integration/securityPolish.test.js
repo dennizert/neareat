@@ -101,3 +101,35 @@ describe('forgot-password enumerasyon koruması (S11-11)', () => {
     expect(sendPasswordResetEmail).not.toHaveBeenCalled();
   });
 });
+
+describe('S14-B1: e-posta-başına gönderim throttle', () => {
+  const { cacheGet } = require('../../src/services/redis');
+  const { sendVerificationEmail } = require('../../src/services/emailService');
+
+  it('limit altında → sıfırlama e-postası gönderilir (200)', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({ id: 'e-1', email: 'e@x.com', authProvider: 'email', displayName: 'E' });
+    prisma.user.update.mockResolvedValue({});
+    const res = await request(app).post('/api/auth/forgot-password').send({ email: 'e@x.com' });
+    expect(res.status).toBe(200);
+    expect(sendPasswordResetEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('limit aşımında → aynı generic 200 ama e-posta gönderilmez (enumerasyon sızmaz)', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({ id: 'e-1', email: 'e@x.com', authProvider: 'email', displayName: 'E' });
+    cacheGet.mockResolvedValueOnce(3); // EMAIL_SEND_MAX
+    const res = await request(app).post('/api/auth/forgot-password').send({ email: 'e@x.com' });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/kayıtlıysa/i);
+    expect(sendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  it('resend-verification limit aşımında → 429, e-posta gönderilmez', async () => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', role: 'USER', isSuspended: false, emailVerified: false, email: 'e@x.com', displayName: 'E' });
+    cacheGet.mockResolvedValueOnce(3);
+    const res = await request(app)
+      .post('/api/auth/resend-verification')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(429);
+    expect(sendVerificationEmail).not.toHaveBeenCalled();
+  });
+});
