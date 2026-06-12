@@ -7,7 +7,24 @@ const { signToken } = require('../utils/jwt');
 const { hashToken } = require('../utils/tokenHash');
 const { logRequest } = require('../services/logService');
 const { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } = require('../services/emailService');
+const { cacheGet, cacheSet } = require('../services/redis');
 const s3 = require('../services/s3');
+
+// E-posta-başına gönderim throttle'ı (S14-B1): mail-bomb + Resend kota tüketimini sınırlar.
+// IP-bazlı authLimiter'ın üstüne, ADRES bazlı bir tavan koyar (IP rotasyonuna karşı).
+const EMAIL_SEND_MAX = parseInt(process.env.EMAIL_SEND_MAX_PER_HOUR || '3', 10);
+const EMAIL_SEND_WINDOW_SEC = 60 * 60;
+
+// Bu e-posta+aksiyon için saatlik gönderim limitine ulaşıldıysa true döner (ve mail
+// gönderilmemeli). Ulaşılmadıysa sayacı artırıp false döner. Redis erişilemezse fail-open
+// (false) — kullanılabilirlik korunur, IP limiti yine devrede.
+async function isEmailSendThrottled(action, email) {
+  const key = `email-throttle:${action}:${String(email).toLowerCase()}`;
+  const count = Number(await cacheGet(key).catch(() => 0)) || 0;
+  if (count >= EMAIL_SEND_MAX) return true;
+  await cacheSet(key, count + 1, EMAIL_SEND_WINDOW_SEC).catch(() => {});
+  return false;
+}
 
 // User nesnesinden istemciye GÖNDERİLMEMESİ gereken alanları (şifre hash'i, token'lar) ve
 // ayrı uçtan dönen profil alanlarını çıkarır. Tüm auth yanıtları bu filtreden geçer —
@@ -264,6 +281,11 @@ async function resendVerification(req, res, next) {
       return res.status(400).json({ error: 'E-posta zaten doğrulanmış' });
     }
 
+    // S14-B1: aynı adrese çok sık doğrulama maili göndermeyi engelle.
+    if (await isEmailSendThrottled('verify', user.email)) {
+      return res.status(429).json({ error: 'Çok fazla doğrulama e-postası talebi. Lütfen biraz sonra tekrar dene.' });
+    }
+
     const rawVerificationToken = uuidv4();
     const emailVerificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -294,6 +316,12 @@ async function forgotPassword(req, res, next) {
     // E-posta enumerasyonunu önle (S11-11): kayıtlı değil VEYA Google hesabı →
     // aynı generic yanıt, e-posta gönderme. Hesabın varlığını/türünü sızdırma.
     if (!user || user.authProvider !== 'email') {
+      return res.json(GENERIC_MSG);
+    }
+
+    // S14-B1: aynı adrese çok sık sıfırlama maili göndermeyi engelle. Throttle aşımında da
+    // AYNI generic yanıtı dön (enumerasyon/throttle durumunu sızdırma).
+    if (await isEmailSendThrottled('pwreset', email)) {
       return res.json(GENERIC_MSG);
     }
 
