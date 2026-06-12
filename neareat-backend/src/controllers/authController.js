@@ -102,20 +102,12 @@ async function login(req, res, next) {
 // (DB'de hash'li saklanır, e-postada ham gönderilir) ve hemen oturum JWT'si döner.
 async function register(req, res, next) {
   try {
+    // Input validasyonu validate(registerSchema) middleware'inde yapılır (S14-B2):
+    // email burada zaten trim+lowercase, displayName trim edilmiş, password 8-128 doğrulanmış.
     const { email, password, displayName } = req.body;
+    const trimmedName = displayName;
 
-    if (!email || !password || !displayName) {
-      return res.status(400).json({ error: 'email, password ve displayName zorunlu' });
-    }
-    if (password.length < 8 || password.length > 128) {
-      return res.status(400).json({ error: 'Şifre 8-128 karakter arasında olmalı' });
-    }
-    const trimmedName = displayName.trim();
-    if (trimmedName.length < 2) {
-      return res.status(400).json({ error: 'İsim en az 2 karakter olmalı' });
-    }
-
-    const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return res.status(409).json({ error: 'Bu e-posta zaten kayıtlı' });
     }
@@ -154,13 +146,10 @@ const DUMMY_HASH = '$2a$10$X/KGqsN7fZa.LFpuN8VqreONKkfOX.jZTqf4RBm7J6FS2EeL9Ge8G
 // enumerasyonunu engeller.
 async function loginEmail(req, res, next) {
   try {
+    // Validasyon validate(loginEmailSchema) middleware'inde (S14-B2); email trim+lowercase gelir.
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'email ve password zorunlu' });
-    }
-
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    const user = await prisma.user.findUnique({ where: { email } });
 
     const hashToCompare = user?.passwordHash ?? DUMMY_HASH;
     const valid = await bcrypt.compare(password, hashToCompare);

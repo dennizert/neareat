@@ -38,13 +38,8 @@ async function getReviews(req, res, next) {
 // üretir (güncellemede tekrar ödül/spam yok).
 async function createReview(req, res, next) {
   try {
+    // placeId/rating(1-5)/body validasyonu validate(reviewCreateSchema) middleware'inde (S14-B2).
     const { placeId, rating, body, placeName } = req.body;
-    if (!placeId || !rating || !body) {
-      return res.status(400).json({ error: 'placeId, rating, body required' });
-    }
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'rating must be 1-5' });
-    }
     if (containsOffensiveContent(body)) {
       return res.status(400).json({ error: 'Yorumunuz uygunsuz içerik (hakaret, argo veya küfür) içerdiği için gönderilemedi. Lütfen saygılı bir dil kullanın.' });
     }
