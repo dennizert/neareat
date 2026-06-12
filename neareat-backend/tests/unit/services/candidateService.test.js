@@ -13,6 +13,8 @@ const mockPrisma = {
   recommendation: { findMany: jest.fn() },
   friendRequest: { findMany: jest.fn().mockResolvedValue([]) },
   collectionItem: { findMany: jest.fn().mockResolvedValue([]) },
+  // candidateService kayıtlı restoran enrichment'ı (isRegistered) için sorgular
+  restaurantProfile: { findMany: jest.fn().mockResolvedValue([]) },
 };
 jest.mock('../../../src/utils/prisma', () => mockPrisma);
 

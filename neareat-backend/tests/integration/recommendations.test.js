@@ -38,6 +38,8 @@ const mockPrisma = {
   feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
   searchHistory: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), deleteMany: jest.fn() },
   friendRequest: { findMany: jest.fn() },
+  collectionItem: { findMany: jest.fn().mockResolvedValue([]) },
+  restaurantProfile: { findMany: jest.fn().mockResolvedValue([]) },
   userLog: { create: jest.fn() },
   notification: { create: jest.fn() },
   $queryRaw: jest.fn(),
@@ -255,7 +257,8 @@ describe('POST /api/recommendations/dinner-tonight — auth + validation', () =>
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('POST /api/recommendations/dinner-tonight — free tier rate limit', () => {
-  it('returns 200 with remainingToday=2 on first call', async () => {
+  // Free limit artık 1/gün (FREE_DAILY_LIMIT=1): ilk çağrı tek hakkı kullanır → remainingToday=0.
+  it('returns 200 with remainingToday=0 on first call (free limit 1/gün)', async () => {
     mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
 
     const res = await request(app)
@@ -265,21 +268,23 @@ describe('POST /api/recommendations/dinner-tonight — free tier rate limit', ()
 
     expect(res.status).toBe(200);
     expect(res.body.tier).toBe('free');
-    expect(res.body.remainingToday).toBe(2);
+    expect(res.body.remainingToday).toBe(0);
     expect(res.body.recommendations).toHaveLength(2);
     expect(res.body.resetAt).toBeDefined();
   });
 
-  it('returns 200 with remainingToday=1 when 2 calls already made', async () => {
-    mockPrisma.aiRecommendationLog.count.mockResolvedValue(2);
+  // Sınır: 1 hak zaten kullanıldıysa (count=1) ikinci deneme 429.
+  it('returns 429 LIMIT_EXCEEDED when free user already used 1 today (limit boundary)', async () => {
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(1);
 
     const res = await request(app)
       .post('/api/recommendations/dinner-tonight')
       .set('Authorization', `Bearer ${userToken}`)
       .send({ lat: 41.04, lng: 28.98 });
 
-    expect(res.status).toBe(200);
-    expect(res.body.remainingToday).toBe(0);
+    expect(res.status).toBe(429);
+    expect(res.body.error).toBe('LIMIT_EXCEEDED');
+    expect(res.body.remaining).toBe(0);
   });
 
   it('returns 429 LIMIT_EXCEEDED when free user already used 3 today', async () => {
