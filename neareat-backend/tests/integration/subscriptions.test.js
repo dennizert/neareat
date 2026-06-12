@@ -71,6 +71,11 @@ const userId = randomId();
 const token = createTestToken(userId);
 const user = createTestUser({ id: userId });
 
+// Admin teşhis ucu (S13-2) için admin kullanıcı + token.
+const adminId = randomId();
+const adminToken = createTestToken(adminId);
+const adminUser = createTestUser({ id: adminId, role: 'ADMIN' });
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockPrisma.user.findUnique.mockResolvedValue(user);
@@ -578,10 +583,27 @@ describe('RTDN teşhisi: /webhooks/google-play/last', () => {
 
   beforeEach(() => {
     for (const k of Object.keys(mockCacheStore)) delete mockCacheStore[k];
+    // Teşhis ucu admin auth arkasında (S13-2) — auth middleware admin'i bulsun.
+    mockPrisma.user.findUnique.mockResolvedValue(adminUser);
+  });
+
+  it('auth olmadan 401 döner (S13-2)', async () => {
+    const res = await request(app).get('/webhooks/google-play/last');
+    expect(res.status).toBe(401);
+  });
+
+  it('normal kullanıcı token\'ı ile 403 döner (S13-2)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(user); // role: USER
+    const res = await request(app)
+      .get('/webhooks/google-play/last')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(403);
   });
 
   it('hiç bildirim yokken last=null döner', async () => {
-    const res = await request(app).get('/webhooks/google-play/last');
+    const res = await request(app)
+      .get('/webhooks/google-play/last')
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.last).toBeNull();
   });
@@ -591,7 +613,9 @@ describe('RTDN teşhisi: /webhooks/google-play/last', () => {
       .post('/webhooks/google-play')
       .send(encodedMessage({ packageName: 'com.eatlas.mobile', testNotification: { version: '1.0' } }));
 
-    const res = await request(app).get('/webhooks/google-play/last');
+    const res = await request(app)
+      .get('/webhooks/google-play/last')
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.last).toMatchObject({ type: 'test', packageName: 'com.eatlas.mobile', count: 1 });
     expect(typeof res.body.last.at).toBe('string');
@@ -609,7 +633,9 @@ describe('RTDN teşhisi: /webhooks/google-play/last', () => {
       .post('/webhooks/google-play')
       .send(encodedMessage({ packageName: 'com.eatlas.mobile', subscriptionNotification: { notificationType: 2, purchaseToken: 't', subscriptionId: 'user_premium' } }));
 
-    const res = await request(app).get('/webhooks/google-play/last');
+    const res = await request(app)
+      .get('/webhooks/google-play/last')
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(res.body.last).toMatchObject({ type: 'subscription:2', count: 2 });
   });
 
@@ -618,7 +644,9 @@ describe('RTDN teşhisi: /webhooks/google-play/last', () => {
       .post('/webhooks/google-play')
       .send(encodedMessage({ packageName: 'com.eatlas.mobile', subscriptionNotification: { notificationType: 3, purchaseToken: 'secret-token', subscriptionId: 'user_premium' } }));
 
-    const res = await request(app).get('/webhooks/google-play/last');
+    const res = await request(app)
+      .get('/webhooks/google-play/last')
+      .set('Authorization', `Bearer ${adminToken}`);
     const body = JSON.stringify(res.body);
     expect(body).not.toContain('secret-token');
     expect(res.body.last.purchaseToken).toBeUndefined();
