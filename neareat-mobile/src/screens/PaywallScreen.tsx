@@ -158,14 +158,17 @@ export default function PaywallScreen() {
       await requestPurchase({
         type: 'subs',
         request: {
-          android: { skus: [sku], subscriptionOffers: offers },
+          // obfuscatedAccountIdAndroid: satın almayı bu hesaba bağlar (S12-3).
+          // Backend, Google'dan dönen obfuscatedExternalAccountId'yi userId ile
+          // eşleştirerek token paylaşımını/yeniden kullanımını reddeder.
+          android: { skus: [sku], subscriptionOffers: offers, obfuscatedAccountIdAndroid: user?.id },
           ios: { sku },
         },
       });
     } catch {
       setPurchasing(false);
     }
-  }, [product, sku, requestPurchase]);
+  }, [product, sku, requestPurchase, user?.id]);
 
   // Ana butona basınca: Play hazırsa satın al; değilse deneme (kullanılabilirse)
   function handlePrimary() {

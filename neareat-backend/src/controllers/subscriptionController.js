@@ -133,6 +133,41 @@ async function verifyAndroidPurchase(req, res, next) {
       return res.status(400).json({ error: 'Satın alma geçersiz veya süresi dolmuş' });
     }
 
+    // S12-3: Token bir hesaba bağlanır — yeniden kullanımı/paylaşımı engelle.
+    // (a) Token başka bir kullanıcının aboneliğine bağlıysa reddet.
+    const existingForToken = await prisma.subscription.findFirst({
+      where: { storeTransactionId: purchaseToken },
+    });
+    if (existingForToken && existingForToken.userId !== req.user.id) {
+      logSecurityEvent(EVENTS.IAP_REJECTED, {
+        userId: req.user.id,
+        ip: req.ip,
+        path: req.path,
+        requestId: req.id,
+        reason: 'purchase_token_reuse',
+      });
+      return res.status(409).json({
+        error: 'PURCHASE_TOKEN_ALREADY_USED',
+        message: 'Bu satın alma başka bir hesapta kullanılmış.',
+      });
+    }
+    // (b) Satın alma Google tarafında bir hesaba bağlandıysa (obfuscatedExternalAccountId),
+    //     istek sahibiyle eşleşmeli. Eşleşmezse paylaşılmış token demektir.
+    if (purchase.obfuscatedExternalAccountId &&
+        purchase.obfuscatedExternalAccountId !== req.user.id) {
+      logSecurityEvent(EVENTS.IAP_REJECTED, {
+        userId: req.user.id,
+        ip: req.ip,
+        path: req.path,
+        requestId: req.id,
+        reason: 'purchase_account_mismatch',
+      });
+      return res.status(409).json({
+        error: 'PURCHASE_ACCOUNT_MISMATCH',
+        message: 'Bu satın alma farklı bir hesaba ait.',
+      });
+    }
+
     const planType = productId.includes('yearly') ? 'yearly' : 'monthly';
 
     const subscription = await prisma.subscription.upsert({
@@ -152,6 +187,20 @@ async function verifyAndroidPurchase(req, res, next) {
         storeTransactionId: purchaseToken,
       },
     });
+
+    // S12-3: Google, doğrulanmış aboneliği ~3 günde otomatik iade etmesin diye
+    // acknowledge et (best-effort — hata doğrulamayı bozmaz).
+    if (purchase.acknowledgementState === 0) {
+      try {
+        await androidpublisher.purchases.subscriptions.acknowledge({
+          packageName,
+          subscriptionId: productId,
+          token: purchaseToken,
+        });
+      } catch (ackErr) {
+        console.error('[IAP] acknowledge başarısız:', ackErr.message);
+      }
+    }
 
     res.json(subscription);
   } catch (err) {

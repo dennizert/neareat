@@ -39,14 +39,16 @@ jest.mock('../../src/services/redis', () => ({
 jest.mock('../../src/services/firebase', () => ({ verifyFirebaseToken: jest.fn() }));
 jest.mock('../../src/services/emailService', () => ({ sendEmail: jest.fn() }));
 
-// googleapis mock — kontrol edilebilir subscriptions.get factory
+// googleapis mock — kontrol edilebilir subscriptions.get + acknowledge factory
 const mockSubscriptionsGet = jest.fn();
+const mockSubscriptionsAck = jest.fn().mockResolvedValue({});
 jest.mock('googleapis', () => {
   const GoogleAuth = jest.fn().mockImplementation(() => ({}));
   const androidpublisher = jest.fn().mockReturnValue({
     purchases: {
       subscriptions: {
         get: mockSubscriptionsGet,
+        acknowledge: mockSubscriptionsAck,
       },
     },
   });
@@ -219,6 +221,80 @@ describe('POST /api/subscriptions/verify/android', () => {
 
     expect(res.status).toBe(503);
     process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON = orig;
+  });
+
+  // ─── S12-3: token yeniden kullanımı / hesap bağlama ───
+  it('token başka bir hesaba bağlıysa 409 döner ve aboneliğe dokunmaz', async () => {
+    mockSubscriptionsGet.mockResolvedValue({ data: { expiryTimeMillis: futureExpiry } });
+    mockPrisma.subscription.findFirst.mockResolvedValue({
+      id: randomId(), userId: 'baska-kullanici', storeTransactionId: purchaseToken,
+    });
+
+    const res = await request(app)
+      .post('/api/subscriptions/verify/android')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ purchaseToken, productId });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('PURCHASE_TOKEN_ALREADY_USED');
+    expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+  });
+
+  it('token zaten aynı kullanıcıya bağlıysa idempotent çalışır (200)', async () => {
+    mockSubscriptionsGet.mockResolvedValue({ data: { expiryTimeMillis: futureExpiry } });
+    mockPrisma.subscription.findFirst.mockResolvedValue({
+      id: randomId(), userId, storeTransactionId: purchaseToken,
+    });
+    mockPrisma.subscription.upsert.mockResolvedValue({
+      id: randomId(), userId, planType: 'yearly', status: 'active',
+      expiresAt: new Date(parseInt(futureExpiry)), storeTransactionId: purchaseToken,
+    });
+
+    const res = await request(app)
+      .post('/api/subscriptions/verify/android')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ purchaseToken, productId });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.subscription.upsert).toHaveBeenCalled();
+  });
+
+  it('obfuscatedExternalAccountId istek sahibiyle eşleşmezse 409 döner', async () => {
+    mockSubscriptionsGet.mockResolvedValue({
+      data: { expiryTimeMillis: futureExpiry, obfuscatedExternalAccountId: 'baska-userid' },
+    });
+    mockPrisma.subscription.findFirst.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post('/api/subscriptions/verify/android')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ purchaseToken, productId });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('PURCHASE_ACCOUNT_MISMATCH');
+    expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+  });
+
+  it('acknowledgementState=0 ise acknowledge çağrılır; acknowledge hatası 200\'ü bozmaz', async () => {
+    mockSubscriptionsGet.mockResolvedValue({
+      data: { expiryTimeMillis: futureExpiry, acknowledgementState: 0 },
+    });
+    mockPrisma.subscription.findFirst.mockResolvedValue(null);
+    mockPrisma.subscription.upsert.mockResolvedValue({
+      id: randomId(), userId, planType: 'yearly', status: 'active',
+      expiresAt: new Date(parseInt(futureExpiry)), storeTransactionId: purchaseToken,
+    });
+    mockSubscriptionsAck.mockRejectedValueOnce(new Error('ack failed'));
+
+    const res = await request(app)
+      .post('/api/subscriptions/verify/android')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ purchaseToken, productId });
+
+    expect(res.status).toBe(200);
+    expect(mockSubscriptionsAck).toHaveBeenCalledWith(
+      expect.objectContaining({ token: purchaseToken }),
+    );
   });
 });
 
