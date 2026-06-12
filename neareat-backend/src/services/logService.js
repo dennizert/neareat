@@ -9,6 +9,8 @@ const ACTIVITY_TYPES = Object.freeze({
   CHECKIN: 'CHECKIN', // Sprint-7 #91
 });
 
+// Kullanıcı aksiyonunu UserLog tablosuna yazar (admin denetim/aktivite ekranı için).
+// Fire-and-forget çağrılır; asıl iş akışını bloklamamak/bozmamak için hatayı yutar.
 async function logRequest({ req, page, action, details }) {
   try {
     const user = req?.user;

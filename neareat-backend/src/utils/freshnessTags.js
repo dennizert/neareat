@@ -17,6 +17,7 @@ const NEW_PLACE_MIN_RATING = 3.0;
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
+// "HH:MM" biçimini gün-içi dakikaya çevirir (override saatleri bu formatta girilir).
 function parseClock(s) {
   if (typeof s !== 'string') return null;
   const [h, m] = s.split(':').map(Number);
@@ -24,6 +25,7 @@ function parseClock(s) {
   return h * 60 + m;
 }
 
+// Google `periods` formatındaki "HHMM" (örn. "0930") değerini gün-içi dakikaya çevirir.
 function parseHHMM(s) {
   if (typeof s !== 'string' || s.length < 4) return null;
   const h = Number(s.slice(0, 2));

@@ -16,6 +16,7 @@ const SESSION_TTL = 30 * 60; // saniye (30 dk)
 const MAX_REFINEMENTS = 10; // güvenlik: sınırsız büyümeyi engelle
 const sessionKey = (id) => `rec-session:${id}`;
 
+// Yeni bir öneri-iyileştirme oturumu için benzersiz id üretir (SSE akışıyla istemciye döner).
 function newSessionId() {
   return crypto.randomUUID();
 }
@@ -39,6 +40,7 @@ async function saveSession(sessionId, data) {
   await cacheSet(sessionKey(sessionId), data, SESSION_TTL);
 }
 
+// Oturum bağlamını siler (öneri akışı tamamlanınca/iptal edilince Redis'i erken boşaltmak için).
 async function clearSession(sessionId) {
   if (sessionId) await cacheDel(sessionKey(sessionId));
 }

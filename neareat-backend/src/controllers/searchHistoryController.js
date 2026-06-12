@@ -28,6 +28,7 @@ function logSearchHistory(userId, query, type = 'free_text') {
     .catch((err) => console.warn('[searchHistory] log failed:', err.message));
 }
 
+// Kullanıcının son aramalarını döner (en yeni önce, üst sınır MAX_HISTORY_RETURNED).
 async function getMySearchHistory(req, res, next) {
   try {
     const items = await prisma.searchHistory.findMany({
@@ -42,6 +43,7 @@ async function getMySearchHistory(req, res, next) {
   }
 }
 
+// KVKK: kullanıcının TÜM arama geçmişini siler (profil → "geçmişi temizle").
 async function clearMySearchHistory(req, res, next) {
   try {
     const { count } = await prisma.searchHistory.deleteMany({
@@ -53,6 +55,8 @@ async function clearMySearchHistory(req, res, next) {
   }
 }
 
+// Tek bir arama kaydını siler. Sahip kontrolü deleteMany'nin where'inde (id + userId) yapılır,
+// böylece başkasının kaydı silinemez (IDOR koruması).
 async function deleteOneFromHistory(req, res, next) {
   try {
     const { id } = req.params;

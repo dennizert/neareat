@@ -9,6 +9,9 @@ const { logRequest } = require('../services/logService');
 const { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } = require('../services/emailService');
 const s3 = require('../services/s3');
 
+// User nesnesinden istemciye GÖNDERİLMEMESİ gereken alanları (şifre hash'i, token'lar) ve
+// ayrı uçtan dönen profil alanlarını çıkarır. Tüm auth yanıtları bu filtreden geçer —
+// hassas veri sızıntısına karşı tek savunma noktası.
 function sanitizeUser(user) {
   const {
     passwordHash, bio, city, favoriteCuisines, isPublic, starCount,
@@ -20,6 +23,9 @@ function sanitizeUser(user) {
   return safe;
 }
 
+// Google ile giriş/kayıt. Mobilden gelen Google OAuth idToken'ı doğrular; googleId ile
+// kullanıcı bulur, yoksa aynı e-postalı hesaba bağlar (account linking) ya da yeni oluşturur.
+// Google hesapları doğrulanmış sayıldığından emailVerified=true atanır.
 async function login(req, res, next) {
   try {
     const { idToken } = req.body;
@@ -75,6 +81,8 @@ async function login(req, res, next) {
   }
 }
 
+// E-posta/şifre ile kayıt. Şifreyi bcrypt'le hash'ler, e-posta doğrulama token'ı üretir
+// (DB'de hash'li saklanır, e-postada ham gönderilir) ve hemen oturum JWT'si döner.
 async function register(req, res, next) {
   try {
     const { email, password, displayName } = req.body;
@@ -124,6 +132,9 @@ async function register(req, res, next) {
 // Timing-safe dummy hash — user bulunamasa bile bcrypt süresi normalize edilir
 const DUMMY_HASH = '$2a$10$X/KGqsN7fZa.LFpuN8VqreONKkfOX.jZTqf4RBm7J6FS2EeL9Ge8G';
 
+// E-posta/şifre ile giriş. Kullanıcı bulunamasa bile sabit bir dummy hash ile bcrypt.compare
+// çalıştırır (timing-safe): yanıt süresinden hesabın var olup olmadığı anlaşılamaz → kullanıcı
+// enumerasyonunu engeller.
 async function loginEmail(req, res, next) {
   try {
     const { email, password } = req.body;
@@ -159,6 +170,8 @@ async function loginEmail(req, res, next) {
   }
 }
 
+// Oturum açmış kullanıcının kendi profilini + abonelik (+ restoransa profil) bilgisini döner.
+// Mobil uygulama açılışında oturumu geri yüklemek (session restore) için çağrılır.
 async function getMe(req, res) {
   const [subscription, restaurantProfile] = await Promise.all([
     prisma.subscription.findUnique({ where: { userId: req.user.id } }),
@@ -172,6 +185,8 @@ async function getMe(req, res) {
   res.json({ user: sanitizeUser(req.user), subscription, restaurantProfile });
 }
 
+// KVKK/hesap silme. DB satırları cascade ile silinir; ek olarak restoran galeri fotolarının
+// S3 nesnelerini (orphan kalmasın diye) ve varsa Firebase kullanıcısını temizler.
 async function deleteAccount(req, res, next) {
   try {
     // F6 — restoran ise galeri fotolarının S3 nesnelerini best-effort temizle (orphan önleme).
@@ -202,6 +217,8 @@ async function deleteAccount(req, res, next) {
   }
 }
 
+// E-posta doğrulama. Gelen ham token hash'lenip DB'deki (hash'li, süreli) token ile eşleştirilir;
+// geçerliyse emailVerified=true yapılır ve token tüketilir (tek kullanımlık).
 async function verifyEmail(req, res, next) {
   try {
     const { token } = req.body;
@@ -237,6 +254,8 @@ async function verifyEmail(req, res, next) {
   }
 }
 
+// Doğrulama e-postasını yeniden gönderir (kullanıcı ilk maili kaçırırsa). Yeni token üretip
+// eskisini geçersiz kılar.
 async function resendVerification(req, res, next) {
   try {
     const user = req.user;
@@ -262,6 +281,8 @@ async function resendVerification(req, res, next) {
   }
 }
 
+// Şifre sıfırlama talebi. Hesabın varlığını/türünü sızdırmamak için her durumda AYNI generic
+// yanıtı döner (e-posta enumerasyonunu önler); yalnızca gerçekten email-provider hesabına mail atar.
 async function forgotPassword(req, res, next) {
   try {
     const { email } = req.body;
@@ -293,6 +314,8 @@ async function forgotPassword(req, res, next) {
   }
 }
 
+// Şifre sıfırlamayı tamamlar. Ham token hash'lenip DB'deki süreli token ile eşleştirilir;
+// geçerliyse yeni şifre bcrypt'le hash'lenir ve token tüketilir.
 async function resetPassword(req, res, next) {
   try {
     const { token, password } = req.body;

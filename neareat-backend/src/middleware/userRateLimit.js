@@ -6,6 +6,9 @@ const { logSecurityEvent, EVENTS } = require('./securityLogger');
 const WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS = 60;
 
+// Kullanıcı-başına (userId) dakikalık istek limiti. Redis'te kayan pencere sayacı tutar.
+// IP bazlı global limitin üstüne, tek IP'den çok hesapla suistimali sınırlar. Redis
+// erişilemezse fail-open (servisi engelleme) — limit, kullanılabilirlikten önce gelmez.
 module.exports = async function userRateLimit(req, res, next) {
   if (!req.user?.id) return next();
 
