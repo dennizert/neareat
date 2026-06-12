@@ -31,7 +31,7 @@ beforeEach(() => {
 // Ekran, mount'ta async veri çeker (getReceivedRecommendations) ve giriş animasyonu
 // çalıştırır. Yavaş CI runner'larında ilk testin soğuk başlangıcı findBy'ın varsayılan
 // 1000ms timeout'unu aşabildiğinden cömert bir timeout veriyoruz (deterministiklik).
-const FIND_OPTS = { timeout: 5000 } as const;
+const FIND_OPTS = { timeout: 10000 } as const;
 
 describe('WeeklySummaryScreen', () => {
   it('alınan tavsiyeleri render eder', async () => {
@@ -57,6 +57,6 @@ describe('WeeklySummaryScreen', () => {
   it('hiç tavsiye yoksa boş durum gösterir', async () => {
     mockGetReceived.mockResolvedValue([]);
     render(<WeeklySummaryScreen />);
-    await waitFor(() => expect(screen.getByText('Henüz tavsiye almadın')).toBeTruthy(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByText('Henüz tavsiye almadın')).toBeTruthy(), { timeout: 10000 });
   });
 });
