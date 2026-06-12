@@ -223,6 +223,63 @@ describe('POST /api/subscriptions/verify/android', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/subscriptions/verify/appstore  (S12-1: fail-closed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('POST /api/subscriptions/verify/appstore', () => {
+  const body = { transactionId: 'tx_1', planType: 'yearly', expiresAt: '2099-12-31T00:00:00.000Z' };
+
+  afterEach(() => { delete process.env.IOS_IAP_ENABLED; });
+
+  it('iOS IAP kapalıyken 503 döner ve aboneliğe DOKUNMAZ (client expiresAt\'e güvenmez)', async () => {
+    delete process.env.IOS_IAP_ENABLED;
+
+    const res = await request(app)
+      .post('/api/subscriptions/verify/appstore')
+      .set('Authorization', `Bearer ${token}`)
+      .send(body);
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('IOS_IAP_NOT_CONFIGURED');
+    expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.subscription.create).not.toHaveBeenCalled();
+    expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+  });
+
+  it('iOS IAP açık olsa bile (doğrulama yok) 501 döner ve premium AÇMAZ', async () => {
+    process.env.IOS_IAP_ENABLED = 'true';
+
+    const res = await request(app)
+      .post('/api/subscriptions/verify/appstore')
+      .set('Authorization', `Bearer ${token}`)
+      .send(body);
+
+    expect(res.status).toBe(501);
+    expect(res.body.error).toBe('IOS_IAP_VERIFICATION_NOT_IMPLEMENTED');
+    expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.subscription.create).not.toHaveBeenCalled();
+  });
+
+  it('eksik alanlarla 400 döner', async () => {
+    const res = await request(app)
+      .post('/api/subscriptions/verify/appstore')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ transactionId: 'tx_1' });
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+  });
+
+  it('auth olmadan 401 döner', async () => {
+    const res = await request(app)
+      .post('/api/subscriptions/verify/appstore')
+      .send(body);
+
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /webhooks/google-play (RTDN)
 // ─────────────────────────────────────────────────────────────────────────────
 
