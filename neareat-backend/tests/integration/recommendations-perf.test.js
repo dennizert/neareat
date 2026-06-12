@@ -45,6 +45,8 @@ const mockPrisma = {
   feedbackPreference: { findUnique: jest.fn().mockResolvedValue(null) },
   searchHistory: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), deleteMany: jest.fn() },
   friendRequest: { findMany: jest.fn() },
+  collectionItem: { findMany: jest.fn().mockResolvedValue([]) },
+  restaurantProfile: { findMany: jest.fn().mockResolvedValue([]) },
   userLog: { create: jest.fn() },
   notification: { create: jest.fn() },
   $queryRaw: jest.fn(),
