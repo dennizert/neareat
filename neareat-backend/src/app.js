@@ -111,7 +111,18 @@ const apiLimiter = rateLimit({
   message: { error: 'Çok fazla istek gönderildi, lütfen bekleyin' },
 });
 
+// Admin login için ekstra sıkı IP-bazlı limit (brute-force koruması, S12-6).
+// Tek admin hesabı olduğundan düşük eşik yeterli; hesap bazlı kilit controller'da.
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 dakika
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Çok fazla giriş denemesi, 15 dakika sonra tekrar deneyin' },
+});
+
 app.use('/api/auth', authLimiter);
+app.use('/api/admin/login', adminLoginLimiter);
 app.use('/api', apiLimiter);
 
 // Auth endpoint'leri küçük body, profil/fotoğraf yüklemeleri büyük olabilir

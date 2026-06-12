@@ -220,6 +220,49 @@ describe('POST /api/admin/login', () => {
 
     expect(res.status).toBe(401);
   });
+
+  // ─── S12-6: brute-force koruması (hesap kilidi) ───
+  const redisMock = require('../../src/services/redis');
+
+  it('eşik aşıldığında 429 döner ve prisma sorgulanmaz (hesap kilidi)', async () => {
+    redisMock.cacheGet.mockResolvedValueOnce(5); // ADMIN_LOGIN_MAX_FAILS
+
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ email: testAdminUser.email, password: 'whatever' });
+
+    expect(res.status).toBe(429);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('başarısız girişte başarısızlık sayacı kaydedilir (cacheSet)', async () => {
+    const passwordHash = await bcrypt.hash('correct-password', 4);
+    mockPrisma.user.findUnique.mockResolvedValueOnce({ ...testAdminUser, passwordHash });
+
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ email: testAdminUser.email, password: 'wrong-password' });
+
+    expect(res.status).toBe(401);
+    expect(redisMock.cacheSet).toHaveBeenCalledWith(
+      expect.stringContaining('admin-login-fail:'),
+      1,
+      expect.any(Number),
+    );
+  });
+
+  it('başarılı girişte sayaç sıfırlanır (cacheDel)', async () => {
+    const plainPassword = 'admin-password-123';
+    const passwordHash = await bcrypt.hash(plainPassword, 4);
+    mockPrisma.user.findUnique.mockResolvedValueOnce({ ...testAdminUser, passwordHash });
+
+    const res = await request(app)
+      .post('/api/admin/login')
+      .send({ email: testAdminUser.email, password: plainPassword });
+
+    expect(res.status).toBe(200);
+    expect(redisMock.cacheDel).toHaveBeenCalledWith(expect.stringContaining('admin-login-fail:'));
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

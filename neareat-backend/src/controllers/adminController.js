@@ -4,6 +4,29 @@ const { signToken } = require('../utils/jwt');
 const { logRequest } = require('../services/logService');
 const { runFriendSuggestionsJob } = require('../jobs/friendSuggestions');
 const { runNotificationCleanup } = require('../jobs/notificationCleanup');
+const { cacheGet, cacheSet, cacheDel } = require('../services/redis');
+const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
+
+// Admin login brute-force koruması (S12-6): IP+e-posta başına başarısız deneme
+// sayacı. Eşik aşılınca o IP+e-posta geçici kilitlenir. IP'yi de anahtara katarak
+// saldırganın farklı IP'den gerçek admini global kilitlemesi önlenir.
+const ADMIN_LOGIN_MAX_FAILS = 5;
+const ADMIN_LOGIN_LOCK_SECONDS = 15 * 60;
+
+function adminFailKey(ip, email) {
+  return `admin-login-fail:${ip}:${String(email).toLowerCase()}`;
+}
+
+async function registerAdminFail(key, currentFails, req) {
+  // Redis hatası girişi tamamen bloke etmemeli (fail-open sayaç).
+  await cacheSet(key, currentFails + 1, ADMIN_LOGIN_LOCK_SECONDS).catch(() => {});
+  logSecurityEvent(EVENTS.AUTH_FAILED, {
+    ip: req.ip,
+    requestId: req.id,
+    reason: 'admin_login_failed',
+    count: currentFails + 1,
+  });
+}
 
 const PROFILE_SUMMARY = {
   id: true, businessName: true, ownerName: true, taxNumber: true,
@@ -21,14 +44,33 @@ async function adminLogin(req, res, next) {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'email ve password gerekli' });
 
+    const key = adminFailKey(req.ip, email);
+    const fails = Number(await cacheGet(key).catch(() => 0)) || 0;
+    if (fails >= ADMIN_LOGIN_MAX_FAILS) {
+      logSecurityEvent(EVENTS.ADMIN_LOGIN_LOCKED, {
+        ip: req.ip,
+        requestId: req.id,
+        email: String(email).toLowerCase(),
+      });
+      return res.status(429).json({
+        error: 'Çok fazla başarısız giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin.',
+      });
+    }
+
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (!user || user.role !== 'ADMIN' || !user.passwordHash) {
+      await registerAdminFail(key, fails, req);
       return res.status(401).json({ error: 'Geçersiz kimlik bilgileri' });
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.status(401).json({ error: 'Geçersiz kimlik bilgileri' });
+    if (!valid) {
+      await registerAdminFail(key, fails, req);
+      return res.status(401).json({ error: 'Geçersiz kimlik bilgileri' });
+    }
 
+    // Başarılı giriş → başarısızlık sayacını sıfırla.
+    await cacheDel(key).catch(() => {});
     const token = signToken(user.id);
     res.json({ token, user: { id: user.id, email: user.email, role: user.role, displayName: user.displayName } });
   } catch (err) {
