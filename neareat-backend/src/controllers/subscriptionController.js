@@ -2,6 +2,7 @@ const prisma = require('../utils/prisma');
 const { isAlwaysPremiumEmail, isActivePremium } = require('../utils/premiumCheck');
 const { cacheGet, cacheSet } = require('../services/redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
+const { verifyPubSubPush } = require('../services/pubsubAuth');
 const TRIAL_DAYS = parseInt(process.env.TRIAL_DAYS || '7');
 
 // RTDN teşhisi: gelen her bildirimin özetini (token/kullanıcı YOK) Redis'e yazar.
@@ -254,6 +255,22 @@ async function verifyAppStorePurchase(req, res) {
 
 async function handleGooglePlayRTDN(req, res) {
   try {
+    // S12-4: Pub/Sub authenticated push doğrulaması. Yapılandırıldığında yalnızca
+    // Google imzalı bildirimler işlenir; sahte istekler reddedilir (sahte iptal / DoS engeli).
+    const auth = await verifyPubSubPush(req);
+    if (!auth.ok) {
+      logSecurityEvent(EVENTS.AUTH_FAILED, {
+        ip: req.ip,
+        path: req.path,
+        requestId: req.id,
+        reason: `pubsub_${auth.reason}`,
+      });
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (!auth.enforced) {
+      console.warn('[RTDN][warn] GOOGLE_PUBSUB_AUDIENCE tanımlı değil — webhook doğrulanmıyor (üretimde ayarlayın).');
+    }
+
     const message = req.body?.message;
     if (!message?.data) return res.status(200).json({ received: true });
 

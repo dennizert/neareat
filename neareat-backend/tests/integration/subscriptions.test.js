@@ -39,6 +39,12 @@ jest.mock('../../src/services/redis', () => ({
 jest.mock('../../src/services/firebase', () => ({ verifyFirebaseToken: jest.fn() }));
 jest.mock('../../src/services/emailService', () => ({ sendEmail: jest.fn() }));
 
+// google-auth-library mock — Pub/Sub OIDC doğrulaması (S12-4) için kontrol edilebilir verifyIdToken.
+const mockVerifyIdToken = jest.fn();
+jest.mock('google-auth-library', () => ({
+  OAuth2Client: jest.fn().mockImplementation(() => ({ verifyIdToken: mockVerifyIdToken })),
+}));
+
 // googleapis mock — kontrol edilebilir subscriptions.get + acknowledge factory
 const mockSubscriptionsGet = jest.fn();
 const mockSubscriptionsAck = jest.fn().mockResolvedValue({});
@@ -464,6 +470,100 @@ describe('POST /webhooks/google-play', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.received).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S12-4: RTDN webhook Pub/Sub OIDC doğrulaması
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('POST /webhooks/google-play — Pub/Sub OIDC doğrulaması', () => {
+  function encodedMessage(payload) {
+    return { message: { data: Buffer.from(JSON.stringify(payload)).toString('base64'), messageId: '1' } };
+  }
+  const purchaseToken = 'gpa.rtdn-secure';
+  const renewedPayload = {
+    packageName: 'com.eatlas.mobile',
+    subscriptionNotification: { notificationType: 2, purchaseToken, subscriptionId: 'premium_yearly' },
+  };
+
+  afterEach(() => {
+    delete process.env.GOOGLE_PUBSUB_AUDIENCE;
+    delete process.env.GOOGLE_PUBSUB_SA_EMAIL;
+  });
+
+  it('audience set + Authorization header yok → 401, bildirim işlenmez', async () => {
+    process.env.GOOGLE_PUBSUB_AUDIENCE = 'https://api.example.com/webhooks/google-play';
+
+    const res = await request(app)
+      .post('/webhooks/google-play')
+      .send(encodedMessage(renewedPayload));
+
+    expect(res.status).toBe(401);
+    expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+    expect(mockVerifyIdToken).not.toHaveBeenCalled();
+  });
+
+  it('audience set + geçersiz token (verifyIdToken throw) → 401, işlenmez', async () => {
+    process.env.GOOGLE_PUBSUB_AUDIENCE = 'https://api.example.com/webhooks/google-play';
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('invalid signature'));
+
+    const res = await request(app)
+      .post('/webhooks/google-play')
+      .set('Authorization', 'Bearer fake-token')
+      .send(encodedMessage(renewedPayload));
+
+    expect(res.status).toBe(401);
+    expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+  });
+
+  it('audience set + SA email beklenir ama payload farklı → 401', async () => {
+    process.env.GOOGLE_PUBSUB_AUDIENCE = 'https://api.example.com/webhooks/google-play';
+    process.env.GOOGLE_PUBSUB_SA_EMAIL = 'pusher@proj.iam.gserviceaccount.com';
+    mockVerifyIdToken.mockResolvedValueOnce({
+      getPayload: () => ({ email: 'someone-else@evil.com', email_verified: true }),
+    });
+
+    const res = await request(app)
+      .post('/webhooks/google-play')
+      .set('Authorization', 'Bearer t')
+      .send(encodedMessage(renewedPayload));
+
+    expect(res.status).toBe(401);
+    expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+  });
+
+  it('audience set + geçerli token (+ doğru SA email) → 200, bildirim işlenir', async () => {
+    process.env.GOOGLE_PUBSUB_AUDIENCE = 'https://api.example.com/webhooks/google-play';
+    process.env.GOOGLE_PUBSUB_SA_EMAIL = 'pusher@proj.iam.gserviceaccount.com';
+    mockVerifyIdToken.mockResolvedValueOnce({
+      getPayload: () => ({ email: 'pusher@proj.iam.gserviceaccount.com', email_verified: true }),
+    });
+    mockSubscriptionsGet.mockResolvedValue({ data: { expiryTimeMillis: String(Date.now() + 86400_000) } });
+    mockPrisma.subscription.findFirst.mockResolvedValue({ id: randomId(), storeTransactionId: purchaseToken });
+    mockPrisma.subscription.update.mockResolvedValue({});
+
+    const res = await request(app)
+      .post('/webhooks/google-play')
+      .set('Authorization', 'Bearer valid')
+      .send(encodedMessage(renewedPayload));
+
+    expect(res.status).toBe(200);
+    expect(res.body.received).toBe(true);
+    expect(mockPrisma.subscription.update).toHaveBeenCalled();
+  });
+
+  it('audience set DEĞİL → mevcut davranış korunur (200, doğrulama atlanır)', async () => {
+    mockSubscriptionsGet.mockResolvedValue({ data: { expiryTimeMillis: String(Date.now() + 86400_000) } });
+    mockPrisma.subscription.findFirst.mockResolvedValue({ id: randomId(), storeTransactionId: purchaseToken });
+    mockPrisma.subscription.update.mockResolvedValue({});
+
+    const res = await request(app)
+      .post('/webhooks/google-play')
+      .send(encodedMessage(renewedPayload));
+
+    expect(res.status).toBe(200);
+    expect(mockVerifyIdToken).not.toHaveBeenCalled();
   });
 });
 
