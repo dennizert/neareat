@@ -16,8 +16,15 @@ const {
 const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 const pastDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+// S13-4: sabit fallback kaldırıldı; allowlist artık yalnızca env'den okunur (lazy).
+const ORIG_ALLOWLIST = process.env.ALWAYS_PREMIUM_EMAILS;
 beforeEach(() => {
   jest.clearAllMocks();
+  process.env.ALWAYS_PREMIUM_EMAILS = 'denniz.ertekin@gmail.com';
+});
+afterAll(() => {
+  if (ORIG_ALLOWLIST === undefined) delete process.env.ALWAYS_PREMIUM_EMAILS;
+  else process.env.ALWAYS_PREMIUM_EMAILS = ORIG_ALLOWLIST;
 });
 
 describe('isActivePremium', () => {
@@ -59,7 +66,7 @@ describe('isActivePremium', () => {
 });
 
 describe('isAlwaysPremiumEmail', () => {
-  it('denniz.ertekin@gmail.com için true (varsayılan allowlist)', () => {
+  it('env\'deki e-posta için true', () => {
     expect(isAlwaysPremiumEmail('denniz.ertekin@gmail.com')).toBe(true);
   });
 
@@ -75,6 +82,11 @@ describe('isAlwaysPremiumEmail', () => {
     expect(isAlwaysPremiumEmail('')).toBe(false);
     expect(isAlwaysPremiumEmail(null)).toBe(false);
   });
+
+  it('S13-4: env boşsa sabit fallback YOK → false', () => {
+    delete process.env.ALWAYS_PREMIUM_EMAILS;
+    expect(isAlwaysPremiumEmail('denniz.ertekin@gmail.com')).toBe(false);
+  });
 });
 
 describe('isPremiumUser', () => {
@@ -87,23 +99,30 @@ describe('isPremiumUser', () => {
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
   });
 
-  it('aktif abonelik yok + allowlist e-posta → true', async () => {
+  it('aktif abonelik yok + allowlist e-posta + doğrulanmış → true', async () => {
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
-    mockPrisma.user.findUnique.mockResolvedValue({ email: 'denniz.ertekin@gmail.com' });
+    mockPrisma.user.findUnique.mockResolvedValue({ email: 'denniz.ertekin@gmail.com', emailVerified: true });
 
     expect(await isPremiumUser('u1')).toBe(true);
   });
 
-  it('aktif abonelik yok + allowlist DIŞI e-posta → false', async () => {
+  it('S13-4: allowlist e-posta ama emailVerified=false → false', async () => {
     mockPrisma.subscription.findUnique.mockResolvedValue(null);
-    mockPrisma.user.findUnique.mockResolvedValue({ email: 'free@user.com' });
+    mockPrisma.user.findUnique.mockResolvedValue({ email: 'denniz.ertekin@gmail.com', emailVerified: false });
 
     expect(await isPremiumUser('u1')).toBe(false);
   });
 
-  it('süresi dolmuş abonelik + allowlist e-posta → yine true (override)', async () => {
+  it('aktif abonelik yok + allowlist DIŞI e-posta → false', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findUnique.mockResolvedValue({ email: 'free@user.com', emailVerified: true });
+
+    expect(await isPremiumUser('u1')).toBe(false);
+  });
+
+  it('süresi dolmuş abonelik + allowlist e-posta + doğrulanmış → yine true (override)', async () => {
     mockPrisma.subscription.findUnique.mockResolvedValue({ status: 'active', expiresAt: pastDate });
-    mockPrisma.user.findUnique.mockResolvedValue({ email: 'denniz.ertekin@gmail.com' });
+    mockPrisma.user.findUnique.mockResolvedValue({ email: 'denniz.ertekin@gmail.com', emailVerified: true });
 
     expect(await isPremiumUser('u1')).toBe(true);
   });

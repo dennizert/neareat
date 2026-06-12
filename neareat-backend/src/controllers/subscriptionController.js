@@ -54,7 +54,8 @@ async function getSubscription(req, res, next) {
 
     // Allowlist override — aktif aboneliği olmayan "her zaman premium" hesaplar için
     // sentetik premium abonelik döndür (mobil UI premium gösterir).
-    if (!isActivePremium(subscription) && isAlwaysPremiumEmail(req.user.email)) {
+    // S13-4: yalnızca doğrulanmış (emailVerified) hesaplar için.
+    if (!isActivePremium(subscription) && req.user.emailVerified && isAlwaysPremiumEmail(req.user.email)) {
       return res.json({
         id: 'always-premium',
         userId: req.user.id,
