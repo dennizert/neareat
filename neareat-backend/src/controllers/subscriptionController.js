@@ -3,6 +3,7 @@ const { isAlwaysPremiumEmail, isActivePremium } = require('../utils/premiumCheck
 const { cacheGet, cacheSet } = require('../services/redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
 const { verifyPubSubPush } = require('../services/pubsubAuth');
+const { recordPurchaseEvent } = require('../services/purchaseLedger');
 const TRIAL_DAYS = parseInt(process.env.TRIAL_DAYS || '7');
 
 // RTDN teşhisi: gelen her bildirimin özetini (token/kullanıcı YOK) Redis'e yazar.
@@ -153,6 +154,7 @@ async function verifyAndroidPurchase(req, res, next) {
         requestId: req.id,
         reason: 'purchase_token_reuse',
       });
+      recordPurchaseEvent({ userId: req.user.id, source: 'android', type: 'verify', productId, purchaseToken, status: 'reuse_rejected' });
       return res.status(409).json({
         error: 'PURCHASE_TOKEN_ALREADY_USED',
         message: 'Bu satın alma başka bir hesapta kullanılmış.',
@@ -169,6 +171,7 @@ async function verifyAndroidPurchase(req, res, next) {
         requestId: req.id,
         reason: 'purchase_account_mismatch',
       });
+      recordPurchaseEvent({ userId: req.user.id, source: 'android', type: 'verify', productId, purchaseToken, status: 'account_mismatch' });
       return res.status(409).json({
         error: 'PURCHASE_ACCOUNT_MISMATCH',
         message: 'Bu satın alma farklı bir hesaba ait.',
@@ -194,6 +197,8 @@ async function verifyAndroidPurchase(req, res, next) {
         storeTransactionId: purchaseToken,
       },
     });
+
+    recordPurchaseEvent({ userId: req.user.id, source: 'android', type: 'verify', productId, purchaseToken, status: 'verified' });
 
     // S12-3: Google, doğrulanmış aboneliği ~3 günde otomatik iade etmesin diye
     // acknowledge et (best-effort — hata doğrulamayı bozmaz).
@@ -238,6 +243,7 @@ async function verifyAppStorePurchase(req, res) {
     requestId: req.id,
     reason: 'appstore_client_trust_disabled',
   });
+  recordPurchaseEvent({ userId: req.user.id, source: 'appstore', type: 'verify', status: 'blocked' });
 
   if (process.env.IOS_IAP_ENABLED !== 'true') {
     return res.status(503).json({
@@ -300,6 +306,15 @@ async function handleGooglePlayRTDN(req, res) {
     if (!subscriptionNotification) return res.status(200).json({ received: true });
 
     const { notificationType, purchaseToken, subscriptionId } = subscriptionNotification;
+
+    // S14-B4: RTDN olayını ledger'a yaz (append-only denetim).
+    recordPurchaseEvent({
+      source: 'rtdn',
+      type: String(notificationType),
+      productId: subscriptionId,
+      purchaseToken,
+      status: notificationType === 3 ? 'cancelled' : [12, 13].includes(notificationType) ? 'expired' : 'refreshed',
+    });
 
     // 1=RECOVERED 2=RENEWED 4=PURCHASED 7=RESTARTED → Google Play'den güncel durum çek
     if ([1, 2, 4, 7].includes(notificationType)) {

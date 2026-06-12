@@ -102,6 +102,25 @@ model Subscription {
   @@map("subscriptions")
 }
 
+// S14-B4: Append-only IAP satın alma defteri (denetim/suistimal/muhasebe/destek).
+// Her doğrulama (android/appstore) ve RTDN olayı bir satır yazar; başarı + reddedilen.
+// Token ham değil HASH'li (sızıntı riski). User FK YOK — RTDN'de userId olmayabilir.
+model PurchaseEvent {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  source     String   // 'android' | 'appstore' | 'rtdn'
+  type       String   // olay/bildirim türü (örn. 'verify', notificationType)
+  productId  String?  @map("product_id")
+  tokenHash  String?  @map("token_hash")
+  status     String   // 'verified' | 'reuse_rejected' | 'account_mismatch' | 'blocked' | 'renewed' | 'expired' | 'cancelled' ...
+  rawPayload Json?    @map("raw_payload")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("purchase_events")
+}
+
 model Favorite {
   id            String   @id @default(uuid())
   userId        String   @map("user_id")
