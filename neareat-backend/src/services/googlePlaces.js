@@ -1,11 +1,30 @@
 const https = require('https');
 const { cacheGet, cacheSet } = require('./redis');
+const { recordExternalCall } = require('./metrics'); // S16-4 — Google harcama metriği
 
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
-const NEARBY_TTL = parseInt(process.env.REDIS_NEARBY_TTL || '3600');
+// S16-4 — cache TTL/tile env ile ayarlanabilir; maliyet/güncellik dengesi. Nearby
+// TTL varsayılanı 1sa→2sa'ya çıkarıldı (yoğun bölgede isabet artar; freshness sinyalleri
+// minutesUntilClose/isNewlyOpened her istekte taze hesaplanır). Tile ondalığı 3=~110m.
+const NEARBY_TTL = parseInt(process.env.REDIS_NEARBY_TTL || '7200');
+const NEARBY_TILE_DECIMALS = parseInt(process.env.NEARBY_TILE_DECIMALS || '3', 10);
 const DETAILS_TTL = parseInt(process.env.REDIS_PLACE_DETAILS_TTL || '86400');
 const TEXT_SEARCH_TTL = parseInt(process.env.REDIS_TEXT_SEARCH_TTL || '1800');
 const TEXT_SEARCH_BIAS_METERS = 25000;
+
+// S16-4 — Google Places SKU başına yaklaşık $ (faturalandırma kademe-bağımlı; kaba
+// tahmin, S16-2 metriği + googleDailyUsd alarmı için). Gerçek fatura Google Cloud'da.
+const GOOGLE_COST = Object.freeze({
+  nearby: 0.032,    // Nearby Search
+  text: 0.032,      // Text Search
+  details: 0.017,   // Place Details
+  directions: 0.005,// Directions
+});
+
+// Gerçek (cache-miss) Google çağrısını metriğe yazar. Metrik asla akışı bozmamalı.
+function recordGoogleCall(sku) {
+  try { recordExternalCall('google', GOOGLE_COST[sku] || 0); } catch { /* ignore */ }
+}
 
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
@@ -37,8 +56,8 @@ function fetchJson(url) {
  * dolduruyor; ekstra sayfalara değmez. Tek API çağrısı yapılır, 2sn beklemeler kalkar.
  */
 async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant') {
-  // Cache anahtarı v4 — eski 3-sayfalı (nearby3) veriyle çakışmaması için bump.
-  const cacheKey = `nearby4:${lat.toFixed(3)}:${lng.toFixed(3)}:${type}`;
+  // Cache anahtarı v4; tile ondalığı env ile ayarlanabilir (S16-4).
+  const cacheKey = `nearby4:${lat.toFixed(NEARBY_TILE_DECIMALS)}:${lng.toFixed(NEARBY_TILE_DECIMALS)}:${type}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -47,6 +66,7 @@ async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant')
     `?location=${lat},${lng}&rankby=distance&type=${type}&language=tr&key=${API_KEY}`;
 
   const data = await fetchJson(baseUrl);
+  recordGoogleCall('nearby'); // S16-4 — gerçek (cache-miss) çağrı maliyeti
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     throw new Error(`Google Places Nearby Search error: ${data.status}`);
   }
@@ -67,7 +87,7 @@ async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant')
  * Cache key: `nearbyFast:{lat3}:{lng3}:{type}` (liste cache'iyle çakışmaz)
  */
 async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
-  const cacheKey = `nearbyFast:${lat.toFixed(3)}:${lng.toFixed(3)}:${type}`;
+  const cacheKey = `nearbyFast:${lat.toFixed(NEARBY_TILE_DECIMALS)}:${lng.toFixed(NEARBY_TILE_DECIMALS)}:${type}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -76,6 +96,7 @@ async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
     `?location=${lat},${lng}&rankby=distance&type=${type}&language=tr&key=${API_KEY}`;
 
   const data = await fetchJson(url);
+  recordGoogleCall('nearby'); // S16-4
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     throw new Error(`Google Places Nearby Search error: ${data.status}`);
   }
@@ -117,6 +138,7 @@ async function searchPlacesByText(query, lat, lng) {
   }
 
   const data = await fetchJson(url);
+  recordGoogleCall('text'); // S16-4
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     throw new Error(`Google Places Text Search error: ${data.status}`);
   }
@@ -171,6 +193,7 @@ async function getRouteWaypoints(originLat, originLng, destLat, destLng) {
     `&mode=driving&language=tr&key=${API_KEY}`;
 
   const data = await fetchJson(url);
+  recordGoogleCall('directions'); // S16-4
 
   if (data.status !== 'OK' || !data.routes?.length) {
     return null;
@@ -251,6 +274,7 @@ async function getPlaceDetails(placeId) {
     `?place_id=${placeId}&fields=${fields}&language=tr&key=${API_KEY}`;
 
   const data = await fetchJson(url);
+  recordGoogleCall('details'); // S16-4
   if (data.status !== 'OK') {
     throw new Error(`Google Places Details error: ${data.status}`);
   }

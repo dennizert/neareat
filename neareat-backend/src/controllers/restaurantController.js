@@ -19,6 +19,13 @@ const LIST_LIMIT = 60;               // toplam liste boyutu
 // 800px'e göre ~%85 daha az byte indirir. Detay ekranı büyük foto kullanmaya devam eder.
 const LIST_THUMB_WIDTH = 200;
 
+// S16-4 — Keşfet `type=all` için Google Places tip listesi (env ile ayarlanabilir).
+// Varsayılan 3 tip (eski 5'ten): `bakery` zaten isim filtresiyle (firin/bakery) elenip
+// boşa maliyet üretiyordu; `meal_delivery` büyük ölçüde `restaurant` ile örtüşüyor.
+// Kalan restaurant+cafe+meal_takeaway kapsamı korur, Google çağrısını 5→3 (~%40) düşürür.
+const NEARBY_ALL_TYPES = (process.env.NEARBY_ALL_TYPES || 'restaurant,cafe,meal_takeaway')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+
 /**
  * Sıralama için birleşik skor:
  *   - Rating (0..5): %45 ağırlık — yemek kalitesi öncelik
@@ -116,16 +123,13 @@ async function getNearby(req, res, next) {
 
     let rawPlaces;
     if (placeType === 'all') {
-      // 5 tip paralel çek, rankby=distance ile (AVM içi ve düşük puanlı yerler dahil)
-      const [restaurants, cafes, takeaways, deliveries, bakeries] = await Promise.all([
-        getNearbyRestaurants(userLat, userLng, radiusMeters, 'restaurant'),
-        getNearbyRestaurants(userLat, userLng, radiusMeters, 'cafe'),
-        getNearbyRestaurants(userLat, userLng, radiusMeters, 'meal_takeaway'),
-        getNearbyRestaurants(userLat, userLng, radiusMeters, 'meal_delivery'),
-        getNearbyRestaurants(userLat, userLng, radiusMeters, 'bakery'),
-      ]);
+      // S16-4 — env-ayarlı tip listesini paralel çek (rankby=distance, AVM içi/düşük
+      // puanlı yerler dahil), placeId'ye göre dedup et. Eski 5 sabit tip → 3 (maliyet ↓).
+      const perType = await Promise.all(
+        NEARBY_ALL_TYPES.map((t) => getNearbyRestaurants(userLat, userLng, radiusMeters, t)),
+      );
       const seen = new Set();
-      rawPlaces = [...restaurants, ...cafes, ...takeaways, ...deliveries, ...bakeries].filter((p) => {
+      rawPlaces = perType.flat().filter((p) => {
         if (seen.has(p.place_id)) return false;
         seen.add(p.place_id);
         return true;

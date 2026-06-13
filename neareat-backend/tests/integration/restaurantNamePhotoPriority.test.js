@@ -121,6 +121,21 @@ describe('GET /api/restaurants/nearby — isim & foto önceliği (S10-4)', () =>
     expect(row.name).toBe('Mavera Gıda');
     expect(row.photoUrl).toBe('https://google.example/gref1');
   });
+
+  it('S16-4 — type=all yalnızca 3 tip çeker (eski 5 yerine), dedup eder', async () => {
+    mockGetNearby.mockResolvedValue([]); // her tip boş
+    mockPrisma.restaurantProfile.findMany.mockResolvedValue([]);
+
+    const res = await request(app)
+      .get('/api/restaurants/nearby?lat=41.012&lng=28.974&type=all')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    // S16-4 — varsayılan NEARBY_ALL_TYPES = restaurant,cafe,meal_takeaway (3 çağrı)
+    expect(mockGetNearby).toHaveBeenCalledTimes(3);
+    const types = mockGetNearby.mock.calls.map((c) => c[3]);
+    expect(types).toEqual(['restaurant', 'cafe', 'meal_takeaway']);
+  });
 });
 
 describe('GET /api/restaurants/:placeId — detay isim & foto sırası (S10-4)', () => {
