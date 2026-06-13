@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
@@ -8,6 +8,7 @@ import { createReservation } from '../../services/reservations';
 import { handleUserPremiumError } from '../../utils/premiumGate';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 
 const OCCASIONS = ['', 'Doğum Günü', 'Yıl Dönümü', 'İş Yemeği', 'Arkadaş Buluşması', 'Aile Yemeği', 'Diğer'];
 
@@ -47,6 +48,11 @@ export default function MakeReservationScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
+  // S14-M5: rezervasyon akışına giriş (huni başlangıcı) ölç.
+  useEffect(() => {
+    trackEvent(ANALYTICS_EVENTS.RESERVATION_STARTED, { placeId });
+  }, [placeId]);
+
   const days = getNextDays(30);
   const [selectedDate, setSelectedDate] = useState(days[0]);
   const [selectedTime, setSelectedTime] = useState('');
@@ -73,6 +79,7 @@ export default function MakeReservationScreen() {
         occasion: occasion || undefined,
         specialRequests: specialRequests.trim() || undefined,
       });
+      trackEvent(ANALYTICS_EVENTS.RESERVATION_COMPLETED, { placeId, guestCount: guests }); // S14-M5 funnel
       Alert.alert(
         '✅ Rezervasyon Talebiniz Alındı',
         'Restoran onayladığında bildirim alacaksınız. (+10 yıldız kazandınız!)',

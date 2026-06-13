@@ -99,6 +99,8 @@ tests/
 
 > **Typed API layer (S14-M2):** service functions are typed against shared interfaces in `src/types` (e.g. `PublicUser`, `RawRecommendation`) rather than `any`. When adding/consuming an endpoint, add/extend a type there and annotate the service return; keep `tsc --noEmit` clean.
 >
+> **Analytics (S14-M5):** funnel events go through `trackEvent(name, props)` (`services/analytics.ts`) using the `ANALYTICS_EVENTS` names. Provider-agnostic: a real sink is attached via `setAnalyticsSink` (none by default → full no-op, so dev/test/SDK-less builds are unaffected). PII keys (email/phone/token/…) are stripped before send. Instrumented: paywall shown, restaurant detail open, reservation started/completed, AI recommendation requested.
+>
 > **List performance (S14-M4):** spread the shared `listPerf` props (`theme/listPerf.ts` — `removeClippedSubviews` on Android, `initialNumToRender`/`maxToRenderPerBatch`/`windowSize`) into heavy `FlatList`s, keep `keyExtractor` stable, and `React.memo` row cards (e.g. `RestaurantCard`). Applied to Favorites/Conversation/Collections.
 >
 > **Crash reporting (S14-M3):** `services/sentry.ts` wraps `@sentry/react-native`, env-gated by `app.json → extra.sentryDsn` (no-op when empty, so dev/test/DSN-less builds are unaffected). `initSentry()` runs at App startup, `wrapWithSentry(App)` adds the Sentry error boundary, and `ErrorBoundary.componentDidCatch` forwards to `captureException`; password/token fields are scrubbed in `beforeSend`. To activate: set `sentryDsn` and rebuild the native app (the `@sentry/react-native` Expo config plugin is already in `app.json`).

@@ -33,6 +33,7 @@ import { formatDistance } from '../../utils/haversine';
 import NotificationBell from '../../components/NotificationBell';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
 
 const PRICE_MAP: Record<number, string> = { 1: '₺', 2: '₺₺', 3: '₺₺₺', 4: '₺₺₺₺' };
 
@@ -97,6 +98,7 @@ export default function RestaurantDetailScreen() {
   const favorited = isFavorite(placeId);
 
   useEffect(() => {
+    trackEvent(ANALYTICS_EVENTS.RESTAURANT_DETAIL_OPEN, { placeId }); // S14-M5 funnel
     const task = InteractionManager.runAfterInteractions(() => {
       (async () => {
         try {
