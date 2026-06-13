@@ -15,6 +15,10 @@ const HIGH_RATING_THRESHOLD = 4.5;   // ilk 15 sırada bu eşiğin altı yer alm
 const TOP_BUCKET_SIZE = 15;          // ilk N sıra "high-rated only"
 const LIST_LIMIT = 60;               // toplam liste boyutu
 
+// S15-P3 — liste kartı küçük (104px slot); 200px thumbnail retina'da bile keskin ve
+// 800px'e göre ~%85 daha az byte indirir. Detay ekranı büyük foto kullanmaya devam eder.
+const LIST_THUMB_WIDTH = 200;
+
 /**
  * Sıralama için birleşik skor:
  *   - Rating (0..5): %45 ağırlık — yemek kalitesi öncelik
@@ -77,7 +81,8 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
     isOpenNow,
     location: place.geometry?.location,
     distanceKm,
-    photoUrl: ownerPhotoUrl || (place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference) : null),
+    // S15-P3 — liste kartı için küçük thumbnail (detay ekranı büyük foto kullanır).
+    photoUrl: ownerPhotoUrl || (place.photos?.[0] ? getPhotoUrl(place.photos[0].photo_reference, LIST_THUMB_WIDTH) : null),
     cuisineTags: deriveCuisineTags(place),
     minutesUntilClose: isOpenNow === true ? minutesUntilClose : null,
     isNewlyOpened,
