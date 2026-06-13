@@ -6,7 +6,7 @@
  * okunmamış sayacı ve kullanıcı raporlama fonksiyonlarını içerir.
  */
 import api from './api';
-import type { Message, Conversation } from '../types';
+import type { Message, Conversation, PublicUser } from '../types';
 
 /**
  * Kullanıcının tüm konuşmalarını getirir.
@@ -30,7 +30,7 @@ export async function getConversations(): Promise<Conversation[]> {
 export async function getMessages(
   userId: string,
   cursor?: string,
-): Promise<{ messages: Message[]; otherUser: any; hasMore: boolean; nextCursor: string | null }> {
+): Promise<{ messages: Message[]; otherUser: PublicUser | null; hasMore: boolean; nextCursor: string | null }> {
   const params: Record<string, string> = { limit: '30' };
   if (cursor) params.cursor = cursor;
   const res = await api.get(`/messages/${userId}`, { params });

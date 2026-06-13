@@ -352,11 +352,26 @@ export interface FriendRequest {
 export interface Recommendation {
   id: string;
   fromUserId: string;
-  fromProfile: UserProfile;
+  fromProfile: UserProfile | null; // gönderen profili bazı ham kayıtlarda gelmeyebilir (S14-M2)
   toUserId: string | null;
   restaurant: Restaurant;
   message: string;
   createdAt: string;
+}
+
+// Backend'in ham recommendation satırı (mapRec ile UI Recommendation'a çevrilir, S14-M2).
+export interface RawRecommendation {
+  id: string;
+  fromUserId: string;
+  fromProfile?: UserProfile | null;
+  toUserId: string | null;
+  message?: string | null;
+  createdAt: string;
+  placeId: string;
+  placeName: string;
+  placeRating?: number | null;
+  placeTypes?: string[];
+  placePhotoUrl?: string | null;
 }
 
 // ─── Sosyal Aktivite Akışı (S4-6) ─────────────────────────────────────────────
@@ -504,9 +519,16 @@ export interface Message {
   createdAt: string;
 }
 
+// Mesaj/konuşma listelerinde dönen minimal genel kullanıcı bilgisi (S14-M2).
+export interface PublicUser {
+  id: string;
+  displayName: string;
+  photoUrl: string | null;
+}
+
 export interface Conversation {
   userId: string;
-  profile: { id: string; displayName: string; photoUrl: string | null };
+  profile: PublicUser;
   lastMessage: { content: string; createdAt: string; isRead: boolean; isMine: boolean };
   unreadCount: number;
 }

@@ -7,7 +7,7 @@ import {
   MOCK_STAR_EVENTS,
   MOCK_REWARDS,
 } from '../mocks/data';
-import type { UserProfile, Friend, FriendRequest, Recommendation, StarEvent, Reward, Restaurant, Leaderboard, FriendSuggestion, ActivityFeedResponse } from '../types';
+import type { UserProfile, Friend, FriendRequest, Recommendation, RawRecommendation, StarEvent, Reward, Restaurant, Leaderboard, FriendSuggestion, ActivityFeedResponse } from '../types';
 import api from './api';
 
 let sessionProfile = { ...MOCK_USER_PROFILES[0] };
@@ -237,7 +237,7 @@ export async function sendRecommendation(
   return res.data;
 }
 
-function mapRec(r: any): Recommendation {
+export function mapRec(r: RawRecommendation): Recommendation {
   return {
     id: r.id,
     fromUserId: r.fromUserId,

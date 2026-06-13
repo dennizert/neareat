@@ -159,6 +159,22 @@ interface SseStreamCallbacks {
   onError: (event: { code?: string; message?: string; upgrade?: boolean; resetAt?: string }) => void;
 }
 
+// Backend SSE akışından gelen tek bir olay (S14-M2). Alanlar event.type'a göre dolar.
+interface StreamEvent {
+  type?: 'card' | 'note' | 'done' | 'error';
+  recommendation?: AiRecommendation;
+  noteToUser?: string;
+  tier?: string;
+  model?: string;
+  remainingToday?: number | null;
+  resetAt?: string | null;
+  latencyMs?: number;
+  sessionId?: string | null;
+  code?: string;
+  message?: string;
+  upgrade?: boolean;
+}
+
 /** Streaming çağrısına eklenebilen opsiyonel refinement bağlamı */
 interface StreamOptions {
   /** Önceki akıştan dönen oturum kimliği — refinement isteğinde gönderilir */
@@ -272,18 +288,18 @@ export async function streamDinnerRecommendation(
         const line = part.trim();
         if (!line.startsWith('data: ')) continue;
         try {
-          const event = JSON.parse(line.slice(6)) as any;
+          const event = JSON.parse(line.slice(6)) as StreamEvent;
           switch (event.type) {
             case 'card':
-              callbacks.onCard(event.recommendation);
+              if (event.recommendation) callbacks.onCard(event.recommendation);
               break;
             case 'note':
               if (event.noteToUser) callbacks.onNote(event.noteToUser);
               break;
             case 'done':
               callbacks.onDone({
-                tier: event.tier,
-                model: event.model,
+                tier: event.tier ?? '',
+                model: event.model ?? '',
                 remainingToday: event.remainingToday ?? null,
                 resetAt: event.resetAt ?? null,
                 latencyMs: event.latencyMs ?? 0,
@@ -291,7 +307,12 @@ export async function streamDinnerRecommendation(
               });
               break;
             case 'error':
-              callbacks.onError(event);
+              callbacks.onError({
+                code: event.code,
+                message: event.message,
+                upgrade: event.upgrade,
+                resetAt: event.resetAt ?? undefined,
+              });
               break;
           }
         } catch {
