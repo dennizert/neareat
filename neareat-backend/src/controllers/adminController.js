@@ -6,6 +6,7 @@ const { runFriendSuggestionsJob } = require('../jobs/friendSuggestions');
 const { runNotificationCleanup } = require('../jobs/notificationCleanup');
 const { cacheGet, cacheSet, cacheDel } = require('../services/redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
+const { snapshot, evaluateAlarms } = require('../services/metrics'); // S16-2
 
 // Admin login brute-force koruması (S12-6): IP+e-posta başına başarısız deneme
 // sayacı. Eşik aşılınca o IP+e-posta geçici kilitlenir. IP'yi de anahtara katarak
@@ -433,6 +434,26 @@ async function triggerNotificationCleanup(req, res, next) {
   }
 }
 
+// GET /api/admin/metrics — S16-2 gözlemlenebilirlik anlık görüntüsü.
+// İstek p50/p95/p99 + status dağılımı + Redis isabet + event-loop lag + dış-API
+// harcaması + (canlıda) DB aktif bağlantı sayısı. Yalnızca admin.
+async function getMetrics(req, res, next) {
+  try {
+    const snap = snapshot();
+    // DB havuz göstergesi — admin endpoint'inde anlık sorgu (istek başına değil).
+    let dbActiveConnections = null;
+    try {
+      const rows = await prisma.$queryRaw`SELECT count(*)::int AS active FROM pg_stat_activity WHERE datname = current_database()`;
+      dbActiveConnections = Array.isArray(rows) && rows[0] ? Number(rows[0].active) : null;
+    } catch {
+      dbActiveConnections = null; // pg_stat_activity erişilemezse sessiz geç
+    }
+    res.json({ ...snap, db: { activeConnections: dbActiveConnections }, alarms: evaluateAlarms(snap) });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   adminLogin, getPendingRestaurants, getRestaurantDetail, getTaxCertificate,
   approveRestaurant, rejectRestaurant, getPlatformStats,
@@ -440,4 +461,5 @@ module.exports = {
   deleteReview, getFlaggedReviews, seedAdmin,
   getReports, handleReport,
   triggerFriendSuggestions, triggerNotificationCleanup,
+  getMetrics,
 };

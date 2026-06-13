@@ -44,6 +44,9 @@ const webhookRoutes = require('./routes/webhooks');
 const errorHandler = require('./middleware/errorHandler');
 const requestId = require('./middleware/requestId');
 const sanitize = require('./middleware/sanitize');
+const metricsMiddleware = require('./middleware/metrics');
+const { snapshot, evaluateAlarms } = require('./services/metrics');
+const { logSecurityEvent, EVENTS } = require('./middleware/securityLogger');
 const { scheduleReservationReminders } = require('./jobs/reservationReminders');
 const { scheduleSmartNotifications } = require('./jobs/smartNotifications');
 const { scheduleFeedbackAggregation } = require('./jobs/feedbackAggregator');
@@ -57,6 +60,9 @@ app.set('trust proxy', 1);
 
 // ─── İstek izleme — tüm diğer middleware'lerden önce ────────────────────────
 app.use(requestId);
+
+// ─── Metrik toplama (S16-2) — tüm pipeline'ı kapsasın diye en başta ─────────
+app.use(metricsMiddleware);
 
 // ─── Güvenlik başlıkları ─────────────────────────────────────────────────────
 app.use(helmet({
@@ -222,6 +228,19 @@ if (process.env.NODE_ENV !== 'test') {
   // üretebilir. Proxy idle timeout'undan biraz yüksek tutulur.
   server.keepAliveTimeout = 61_000;
   server.headersTimeout = 65_000;
+
+  // Metrik alarm taraması (S16-2): periyodik olarak eşik aşımlarını securityLogger
+  // (→ Sentry, DSN varsa) üzerinden raporlar. unref() → süreç kapanışını engellemez.
+  const ALARM_INTERVAL_MS = parseInt(process.env.METRICS_ALARM_INTERVAL_MS || '60000', 10);
+  if (ALARM_INTERVAL_MS > 0) {
+    setInterval(() => {
+      try {
+        for (const breach of evaluateAlarms(snapshot())) {
+          logSecurityEvent(EVENTS.METRICS_ALARM, breach);
+        }
+      } catch { /* metrik alarmı uygulamayı asla bozmamalı */ }
+    }, ALARM_INTERVAL_MS).unref();
+  }
 
   // Graceful shutdown — açık bağlantıları düzgün kapat
   function gracefulShutdown(signal) {
