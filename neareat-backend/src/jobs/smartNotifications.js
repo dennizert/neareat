@@ -5,12 +5,36 @@ const { cacheGet, cacheSet } = require('../services/redis');
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
+// Türkiye yerel "şimdi"si (UTC+3, DST yok). Tüm gün/saat hesapları bunun üstünden yapılır.
 function getTurkeyNow() {
   return new Date(Date.now() + 3 * 60 * 60 * 1000);
 }
 
+// Türkiye yerel tarihi (YYYY-MM-DD) — günlük idempotency anahtarları için.
 function todayTR() {
   return getTurkeyNow().toISOString().split('T')[0];
+}
+
+// "Kapanışa kalan dakika" çekirdeği (saf): bir günün açılış saatlerinden kapanışa kalan
+// dakikayı verir; kapalı/eksik veride null. (Test edilebilirlik için çıkarıldı, S14-B7.)
+function closingSoonDiff(hoursForDay, currentMinutes) {
+  if (!hoursForDay || hoursForDay.closed || !hoursForDay.close) return null;
+  const [closeH, closeM] = String(hoursForDay.close).split(':').map(Number);
+  if (Number.isNaN(closeH) || Number.isNaN(closeM)) return null;
+  return (closeH * 60 + closeM) - currentMinutes;
+}
+
+const CLOSING_WINDOW_MIN = 30;
+const CLOSING_WINDOW_MAX = 75;
+// Restoran "yakında kapanıyor" penceresinde mi? (kapanışa 30-75 dk kala bildirim atılır)
+function isInClosingWindow(diff) {
+  return diff != null && diff >= CLOSING_WINDOW_MIN && diff <= CLOSING_WINDOW_MAX;
+}
+
+// Bir ankette henüz oy vermemiş ACCEPTED üyeleri verir (saf). Oy hatırlatması bunlara gider.
+function selectUnvotedMembers(poll) {
+  const votedIds = new Set(poll.options.flatMap((o) => o.votes.map((v) => v.userId)));
+  return poll.group.members.filter((m) => !votedIds.has(m.userId));
 }
 
 // ─── 1. Favori restoran kapanıyor ─────────────────────────────────────────────
@@ -30,14 +54,8 @@ async function runFavoriteClosingSoon() {
 
     let sent = 0;
     for (const rest of restaurants) {
-      const hours = rest.openingHours?.[dayName];
-      if (!hours || hours.closed || !hours.close) continue;
-
-      const [closeH, closeM] = hours.close.split(':').map(Number);
-      const closeMinutes = closeH * 60 + closeM;
-      const diff = closeMinutes - currentMinutes;
-
-      if (diff < 30 || diff > 75) continue;
+      const diff = closingSoonDiff(rest.openingHours?.[dayName], currentMinutes);
+      if (!isInClosingWindow(diff)) continue;
 
       const displayName = rest.placeName || rest.businessName;
       const favUsers = await prisma.favorite.findMany({
@@ -95,8 +113,7 @@ async function runPollVoteReminder() {
 
     let sent = 0;
     for (const poll of openPolls) {
-      const votedIds = new Set(poll.options.flatMap(o => o.votes.map(v => v.userId)));
-      const unvoted = poll.group.members.filter(m => !votedIds.has(m.userId));
+      const unvoted = selectUnvotedMembers(poll);
 
       for (const member of unvoted) {
         const key = `notif:poll_reminder:${member.userId}:${poll.id}`;
@@ -219,4 +236,14 @@ function scheduleSmartNotifications() {
   console.log('[SmartNotif] Akıllı bildirim zamanlamaları aktif (4 cron).');
 }
 
-module.exports = { scheduleSmartNotifications };
+module.exports = {
+  scheduleSmartNotifications,
+  // S14-B7 test edilebilir çekirdek
+  getTurkeyNow,
+  todayTR,
+  closingSoonDiff,
+  isInClosingWindow,
+  selectUnvotedMembers,
+  runFavoriteClosingSoon,
+  runPollVoteReminder,
+};
