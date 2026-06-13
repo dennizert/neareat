@@ -18,6 +18,7 @@ import AppHeader from '../../components/AppHeader';
 import EmailVerificationBanner from '../../components/EmailVerificationBanner';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { shouldShowSkeleton, isListStale } from '../../utils/listCache';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -29,6 +30,7 @@ export default function HomeScreen() {
     searchQuery, searchResults, searchLoading, searchError,
     setSearchQuery, performSearch, clearSearch,
     searchHistory, loadSearchHistory, deleteSearchHistoryItem,
+    lastCoords, lastFetchedAt, _hasHydrated, recordNearbyFetch,
   } = useRestaurantStore();
 
   const [searchFocused, setSearchFocused] = useState(false);
@@ -55,20 +57,34 @@ export default function HomeScreen() {
       // Always fetch 'all' so every category tab works client-side
       const { results } = await fetchNearby(coords.lat, coords.lng, 'all');
       setRestaurants(results);
+      recordNearbyFetch(coords);          // S15-P2 — koordinat + zaman damgasını persist et
       lastFetchRef.current = Date.now();
     } catch (err: any) {
       setError(err.message || 'Restoranlar yüklenemedi');
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setError, setRestaurants]);
+  }, [setLoading, setError, setRestaurants, recordNearbyFetch]);
 
-  useEffect(() => { loadAll(true); }, []);
+  // S15-P2 — Stale-while-revalidate: persist hidrasyonu bitince önbellekteki konumu
+  // ref'lere tohumla (GPS'i tekrar bekleme) ve arka planda tazele. Önbellekteki liste
+  // zaten anında render edilir; skeleton yalnızca hiç cache yokken görünür.
+  useEffect(() => {
+    if (!_hasHydrated) return;
+    if (lastCoords && !coordsRef.current) {
+      coordsRef.current = lastCoords;
+      setUserCoords(lastCoords);
+    }
+    if (lastFetchedAt) lastFetchRef.current = lastFetchedAt;
+    // Konum önbellekten geldiyse onu kullan (loadAll(false)); yoksa GPS oku.
+    loadAll(!coordsRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_hasHydrated]);
 
-  // Refetch when screen gains focus if data is older than 30 seconds
+  // Refetch when screen gains focus if data is stale (>30s) — bayatsa arka planda tazele
   useFocusEffect(
     useCallback(() => {
-      if (Date.now() - lastFetchRef.current > 30000 && coordsRef.current) {
+      if (isListStale(lastFetchRef.current, Date.now()) && coordsRef.current) {
         loadAll(false);
       }
     }, [loadAll])
@@ -303,7 +319,7 @@ export default function HomeScreen() {
       ) : (
         <>
           <SortFilterBar />
-          {loading && displayedRestaurants.length === 0 && <RestaurantListSkeleton />}
+          {shouldShowSkeleton({ hasHydrated: _hasHydrated, loading, itemCount: displayedRestaurants.length }) && <RestaurantListSkeleton />}
           {error && <Text style={styles.errorText}>{error}</Text>}
           {!error && (loading ? displayedRestaurants.length > 0 : true) && (
             <FlatList

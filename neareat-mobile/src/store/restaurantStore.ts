@@ -23,6 +23,9 @@ import {
   type SearchHistoryItem,
 } from '../services/searchHistory';
 
+/** Konum çifti — son başarılı çekimin koordinatı (hidrasyonda yeniden kullanılır) */
+interface Coords { lat: number; lng: number; }
+
 interface RestaurantState {
   restaurants: Restaurant[];
   loading: boolean;
@@ -32,6 +35,12 @@ interface RestaurantState {
   viewMode: 'list' | 'map';
   selectedCategory: string;
   selectedCuisineTag: string | null;
+
+  // S15-P2 — stale-while-revalidate için son çekim metası (persist edilir)
+  lastCoords: Coords | null;
+  lastFetchedAt: number | null;
+  /** AsyncStorage hidrasyonu tamamlandı mı (skeleton kararı için) */
+  _hasHydrated: boolean;
 
   // Sprint-6 #83 — serbest metin araması
   searchQuery: string;
@@ -44,6 +53,10 @@ interface RestaurantState {
   searchHistoryLoading: boolean;
 
   setRestaurants: (restaurants: Restaurant[]) => void;
+  /** S15-P2 — başarılı nearby çekimini ve koordinatını damgalar (persist edilir) */
+  recordNearbyFetch: (coords: Coords) => void;
+  /** S15-P2 — persist hidrasyonu bittiğinde true'ya çekilir */
+  setHasHydrated: (v: boolean) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setSortBy: (sort: SortOption) => void;
@@ -79,6 +92,10 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
   selectedCategory: 'all',
   selectedCuisineTag: null,
 
+  lastCoords: null,
+  lastFetchedAt: null,
+  _hasHydrated: false,
+
   searchQuery: '',
   searchResults: [],
   searchLoading: false,
@@ -89,6 +106,10 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
 
   /** Backend'den gelen restoran listesini store'a yazar */
   setRestaurants:      (restaurants)    => set({ restaurants }),
+  /** Başarılı nearby çekiminden sonra koordinat + zaman damgasını kaydeder (S15-P2) */
+  recordNearbyFetch:   (coords)         => set({ lastCoords: coords, lastFetchedAt: Date.now() }),
+  /** Persist hidrasyonu tamamlandığını işaretler (S15-P2) */
+  setHasHydrated:      (v)              => set({ _hasHydrated: v }),
   /** Yükleniyor durumunu günceller (loading spinner kontrolü) */
   setLoading:          (loading)        => set({ loading }),
   /** Hata mesajını günceller */
@@ -204,13 +225,20 @@ export const useRestaurantStore = create<RestaurantState>()(persist((set, get) =
 }), {
   name: 'neareat-restaurant-filters',
   storage: createJSONStorage(() => AsyncStorage),
-  // Yalnızca kullanıcı tercihlerini kalıcı tut — runtime state (restaurants,
-  // searchResults, loading vb.) restart sonrası yeniden yüklenmeli.
+  // Kullanıcı tercihleri + S15-P2 ile son nearby listesi (stale-while-revalidate)
+  // kalıcı tutulur. Arama runtime state'i (searchResults/searchQuery/loading) ve
+  // searchHistory restart sonrası yeniden yüklenir — persist edilmez.
   partialize: (state) => ({
     filters: state.filters,
     sortBy: state.sortBy,
     selectedCategory: state.selectedCategory,
     selectedCuisineTag: state.selectedCuisineTag,
     viewMode: state.viewMode,
+    // S15-P2 — tekrar açılışta anında gösterilecek son liste + çekim metası
+    restaurants: state.restaurants,
+    lastCoords: state.lastCoords,
+    lastFetchedAt: state.lastFetchedAt,
   }),
+  // Hidrasyon bitince işaretle — HomeScreen skeleton/tazeleme kararı buna bakar.
+  onRehydrateStorage: () => (state) => { state?.setHasHydrated(true); },
 }));
