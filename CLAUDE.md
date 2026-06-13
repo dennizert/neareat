@@ -124,7 +124,7 @@ Three distinct screen sets loaded conditionally by role:
 
 **Reusable UI (S11):** `AppIcon` (central `theme/icons.ts` semantic map), `Toast` + `useToast`, `Skeleton`/`SkeletonCard`, `EmptyState`, `ErrorState`, `utils/haptics`. Prefer these over ad-hoc `Alert`/spinners/emoji icons.
 
-**Keşfet (Home):** no category tabs (cuisine-tag chips only); free-text search; an "Açık" open-now filter (label stays "Açık", state shown by the radio dot). Favorited places show a heart badge on the card.
+**Keşfet (Home):** no category tabs (cuisine-tag chips only); free-text search; an "Açık" open-now filter (label stays "Açık", state shown by the radio dot). Favorited places show a heart badge on the card. A dismissable `EmailVerificationBanner` (S14-M1) shows under the header for unverified email accounts (`shouldShowVerifyBanner` in `utils/emailVerification.ts`; Google users never see it) with a "resend verification" action — this is the UX that lets backend `ENFORCE_EMAIL_VERIFICATION` be turned on.
 
 **Restaurant detail (`RestaurantDetailScreen`):** dual rating — Google + **Eatlas** (in-app review average + count, computed client-side in `utils/appRating.ts`, no backend); collapsible working hours; one compact row of round action icons (Konum=teal, Öner=coral, rest neutral) + an "Ekle" (+) menu → Favorilere/Günlüğe/Listeye Ekle; a colored Check-in pill by the name; a "Favorilerinde" tag when favorited. **Rating is given only via the review form** (the old standalone quick-rating widget was removed).
 
