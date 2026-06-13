@@ -57,15 +57,32 @@ describe('aiRateLimit', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('redis hatasında fail open (next)', async () => {
+  it('redis hatasında ilk istekler fallback limiti altında geçer (next)', async () => {
     getRedis.mockReturnValue({
       incr: jest.fn().mockRejectedValue(new Error('redis down')),
       pexpire: jest.fn(),
     });
 
-    await aiRateLimit({ user: { id: 'u1' } }, res, next);
+    await aiRateLimit({ user: { id: 'u-fo-1' } }, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(res.status).not.toHaveBeenCalledWith(429);
+  });
+
+  it('S14-B5: redis hatasında fallback limiti aşılınca 429 (fail-closed, maliyet koruması)', async () => {
+    getRedis.mockReturnValue({
+      incr: jest.fn().mockRejectedValue(new Error('redis down')),
+      pexpire: jest.fn(),
+    });
+    const req = { user: { id: 'u-fb-1' }, ip: '1.2.3.4', path: '/recommendations' };
+
+    // FALLBACK_MAX=3 → ilk 3 geçer, 4. istek 429
+    for (let i = 0; i < 3; i++) await aiRateLimit(req, makeRes(), jest.fn());
+    const res4 = makeRes();
+    const next4 = jest.fn();
+    await aiRateLimit(req, res4, next4);
+
+    expect(res4.status).toHaveBeenCalledWith(429);
+    expect(next4).not.toHaveBeenCalled();
   });
 });

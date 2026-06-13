@@ -60,7 +60,7 @@ requestId → helmet/CORS → morgan → rate-limit → body-parse → sanitize
 ```
 
 - **Auth:** Dual strategy — `email + bcrypt + JWT` OR `Firebase Google OAuth`. Both produce the same JWT; `middleware/auth.js` validates it on protected routes.
-- **Rate limiting:** `authRateLimit` (20 req/15 min) on auth routes; `userRateLimit` (120 req/min, keyed by userId post-auth) on API routes.
+- **Rate limiting:** `authRateLimit` (20 req/15 min) on auth routes; `userRateLimit` (120 req/min, keyed by userId post-auth) on API routes. Expensive Anthropic endpoints add `aiRateLimit` (Redis, `AI_RATE_LIMIT_PER_MIN`) — and (S14-B5) when Redis is unavailable it is **fail-closed**: a low in-memory fallback (`AI_RATE_LIMIT_FALLBACK_PER_MIN`, default 3) caps spend instead of failing open.
 - **Caching:** Redis caches Google Places nearby queries (keys include lat/lng/radius/type). Also caches premium friend social signals (`social-signals:{userId}`, 15 min) to avoid recomputing on every AI call.
 - **AI recommendations:** `services/recommendationService.js` calls Anthropic Claude via SSE streaming. `recommendationController.js` forwards the stream to the client with 15s keepalive pings to avoid Railway proxy timeouts.
 - **Conversational refinement:** The streaming endpoint accepts `sessionId` + `refinement` ("daha ucuz/yakın/sessiz"). Session context (previously-suggested placeIds + refinement history) is kept in Redis (`rec-session:{id}`, 30 min) so previously-suggested places are excluded on follow-ups. See `services/recommendationSession.js`.

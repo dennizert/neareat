@@ -20,7 +20,7 @@ jest.mock('../../src/services/firebase', () => ({
 
 const mockCacheStore = new Map();
 jest.mock('../../src/services/redis', () => ({
-  getRedis: () => ({ get: jest.fn(), set: jest.fn(), del: jest.fn(), ping: jest.fn().mockResolvedValue('PONG') }),
+  getRedis: () => ({ get: jest.fn(), set: jest.fn(), del: jest.fn(), ping: jest.fn().mockResolvedValue('PONG'), incr: jest.fn().mockResolvedValue(1), pexpire: jest.fn() }),
   cacheGet: jest.fn((k) => Promise.resolve(mockCacheStore.get(k))),
   cacheSet: jest.fn((k, v) => { mockCacheStore.set(k, v); return Promise.resolve(); }),
   cacheDel: jest.fn((k) => { mockCacheStore.delete(k); return Promise.resolve(); }),
