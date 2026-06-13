@@ -238,22 +238,28 @@ describe('POST /api/recommendations/dinner-tonight — latency benchmark', () =>
   }, 60_000);
 
   it('audit log is fire-and-forget — endpoint returns before DB write resolves', async () => {
-    // Audit log mock'u 1 saniye gecikme ekliyor
+    // Deterministik (duvar-saati eşiği YOK → CPU rekabetinde flake yok): audit yazımı
+    // kasıtlı yavaş (3sn) ve resolve olunca işaretlenir. Endpoint audit'i await ETSEYDİ
+    // yanıt ancak auditResolved=true iken gelirdi; fire-and-forget ise yanıt audit hâlâ
+    // beklemedeyken döner. 3sn marj, baz çizgi (~250ms) yük altında şişse bile güvenli.
+    let auditResolved = false;
+    let auditTimer;
     mockPrisma.aiRecommendationLog.create.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({ id: 'slow-log' }), 1000))
+      () => new Promise((resolve) => {
+        auditTimer = setTimeout(() => { auditResolved = true; resolve({ id: 'slow-log' }); }, 3000);
+      })
     );
 
-    const t0 = Date.now();
     const res = await request(app)
       .post('/api/recommendations/dinner-tonight')
       .set('Authorization', `Bearer ${userToken}`)
       .send({ lat: 41.04, lng: 28.98 });
-    const elapsed = Date.now() - t0;
 
     expect(res.status).toBe(200);
-    // Fire-and-forget ise endpoint LLM gecikmesi (~250ms) civarında dönmeli,
-    // audit log'un 1000ms'i eklenmemeli. Generous threshold: <800ms.
-    expect(elapsed).toBeLessThan(800);
+    // Yanıt geldiğinde audit yazımı HENÜZ resolve olmamış olmalı (await edilmedi).
+    expect(auditResolved).toBe(false);
+
+    clearTimeout(auditTimer); // açık handle bırakma (resolve olmayan promise zararsız → GC)
   }, 10_000);
 
   it('audit log write failure does not break the response', async () => {
