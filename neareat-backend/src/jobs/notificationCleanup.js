@@ -10,6 +10,7 @@
 
 const cron = require('node-cron');
 const prisma = require('../utils/prisma');
+const { withCronLock } = require('../services/cronLock');
 
 const RETENTION_DAYS = 90;
 
@@ -32,7 +33,7 @@ async function runNotificationCleanup() {
 
 function scheduleNotificationCleanup() {
   // Pazar 02:00 Istanbul = 23:00 UTC Cumartesi
-  cron.schedule('0 23 * * 6', runNotificationCleanup, { timezone: 'UTC' });
+  cron.schedule('0 23 * * 6', () => withCronLock('notificationCleanup', runNotificationCleanup), { timezone: 'UTC' });
   console.log('[notificationCleanup] Haftalık temizlik planlandı (Pazar 02:00 Istanbul)');
 }
 

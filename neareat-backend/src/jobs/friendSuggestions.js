@@ -9,6 +9,7 @@
 
 const cron = require('node-cron');
 const { computeAllSuggestions } = require('../services/friendSuggestionService');
+const { withCronLock } = require('../services/cronLock');
 
 async function runFriendSuggestionsJob() {
   const start = Date.now();
@@ -24,7 +25,7 @@ async function runFriendSuggestionsJob() {
 
 function scheduleFriendSuggestions() {
   // Her gece 03:00 — Türkiye saati
-  cron.schedule('0 3 * * *', runFriendSuggestionsJob, { timezone: 'Europe/Istanbul' });
+  cron.schedule('0 3 * * *', () => withCronLock('friendSuggestions', runFriendSuggestionsJob), { timezone: 'Europe/Istanbul' });
 }
 
 module.exports = { scheduleFriendSuggestions, runFriendSuggestionsJob };

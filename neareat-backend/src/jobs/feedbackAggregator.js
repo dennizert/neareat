@@ -9,6 +9,7 @@
 
 const cron = require('node-cron');
 const prisma = require('../utils/prisma');
+const { withCronLock } = require('../services/cronLock');
 
 // Mutfak sinyali taşımayan, genel Google place type'ları — aggregate'te ele.
 const GENERIC_TYPES = new Set([
@@ -103,7 +104,7 @@ async function runFeedbackAggregation() {
 
 function scheduleFeedbackAggregation() {
   // Her Pazartesi 05:00 UTC (haftalık digest ve inactivity reminder ile çakışmaz)
-  cron.schedule('0 5 * * 1', runFeedbackAggregation, { timezone: 'UTC' });
+  cron.schedule('0 5 * * 1', () => withCronLock('feedbackAggregation', runFeedbackAggregation), { timezone: 'UTC' });
 }
 
 module.exports = {
