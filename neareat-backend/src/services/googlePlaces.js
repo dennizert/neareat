@@ -23,10 +23,22 @@ function fetchJson(url) {
   });
 }
 
+/**
+ * Keşfet listesi için yakındaki yerleri çeker (S15-P1).
+ *
+ * rankby=distance: mesafeye göre sırala, AVM içi ve düşük puanlı yerleri kaçırma.
+ * radius parametresi rankby=distance ile kullanılamaz — yarıçap filtresi controller'da
+ * haversine ile uygulanır (radiusMeters yalnızca imza uyumu için tutulur).
+ *
+ * Neden tek sayfa (S15-P1): Google'ın next_page_token kuralı sayfalar arasında 2'şer
+ * saniye zorunlu bekleme gerektiriyordu; `type=all` listesi 5 tipi paralel çekerken bu
+ * beklemeler soğuk yüklemeyi ~4-5sn'ye çıkarıyordu. Liste zaten 60 ile sınırlı
+ * (LIST_LIMIT) ve 5 tip × ~20 ilk-sayfa sonucu dedup sonrası bu sınırı fazlasıyla
+ * dolduruyor; ekstra sayfalara değmez. Tek API çağrısı yapılır, 2sn beklemeler kalkar.
+ */
 async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant') {
-  // rankby=distance: mesafeye göre sırala, AVM içi ve düşük puanlı yerleri kaçırma
-  // radius parametresi rankby=distance ile kullanılamaz — filtreleme controller'da yapılır
-  const cacheKey = `nearby3:${lat.toFixed(3)}:${lng.toFixed(3)}:${type}`;
+  // Cache anahtarı v4 — eski 3-sayfalı (nearby3) veriyle çakışmaması için bump.
+  const cacheKey = `nearby4:${lat.toFixed(3)}:${lng.toFixed(3)}:${type}`;
   const cached = await cacheGet(cacheKey);
   if (cached) return cached;
 
@@ -39,32 +51,8 @@ async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant')
     throw new Error(`Google Places Nearby Search error: ${data.status}`);
   }
 
-  let results = data.results || [];
-
-  // Sayfa 2 — Google next_page_token için 2 saniyelik bekleme zorunlu
-  if (data.next_page_token) {
-    await new Promise(r => setTimeout(r, 2000));
-    const page2 = await fetchJson(
-      `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
-      `?pagetoken=${data.next_page_token}&key=${API_KEY}`
-    );
-    if (page2.status === 'OK') {
-      results = [...results, ...(page2.results || [])];
-
-      // Sayfa 3
-      if (page2.next_page_token) {
-        await new Promise(r => setTimeout(r, 2000));
-        const page3 = await fetchJson(
-          `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
-          `?pagetoken=${page2.next_page_token}&key=${API_KEY}`
-        );
-        if (page3.status === 'OK') {
-          results = [...results, ...(page3.results || [])];
-        }
-      }
-    }
-  }
-
+  // Yalnızca ilk sayfa — next_page_token ve 2sn beklemeleri kasıtlı olarak atlanır.
+  const results = data.results || [];
   await cacheSet(cacheKey, results, NEARBY_TTL);
   return results;
 }
@@ -72,14 +60,11 @@ async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant')
 /**
  * Fast mode — tek sayfa, pagination delay'i yok (Sprint-2 Task #1).
  *
- * `getNearbyRestaurants` 3 sayfa çekiyor (max 60 sonuç, 2× 2sn delay = +4sn).
- * AI öneri için max 20 aday yeterli, ekstra sayfalara değmez. Bu fonksiyon
- * tek API çağrısı yapar (max 20 sonuç) ve cache pattern korur.
+ * AI öneri / grup akışı için max ~20 aday yeterli; tek API çağrısı yapar ve ayrı
+ * cache anahtarı kullanır. (S15-P1'den beri `getNearbyRestaurants` de tek sayfa;
+ * bu fonksiyon farklı cache anahtarı + AI akışına özel kullanım için ayrı tutulur.)
  *
- * Mevcut `getNearbyRestaurants` /api/restaurants/nearby endpoint'i için
- * (60 sonuç gerektiriyor) kalır — dokunulmamış.
- *
- * Cache key: `nearbyFast:{lat3}:{lng3}:{type}` (paralel data ile çakışmaz)
+ * Cache key: `nearbyFast:{lat3}:{lng3}:{type}` (liste cache'iyle çakışmaz)
  */
 async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
   const cacheKey = `nearbyFast:${lat.toFixed(3)}:${lng.toFixed(3)}:${type}`;
