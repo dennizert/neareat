@@ -7,7 +7,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "prisma migrate resolve --rolled-back 20260511120000_add_messages_and_reports 2>/dev/null; prisma migrate deploy && node src/app.js",
+    "start": "node prisma/deploy.js && node src/app.js",
     "dev": "nodemon src/app.js",
     "test": "jest --forceExit --detectOpenHandles",
     "postinstall": "prisma generate",

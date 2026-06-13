@@ -3,8 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Runtime bağlantısı (S16-7): PgBouncer kullanılırsa pooler endpoint'i + ?pgbouncer=true.
+  url       = env("DATABASE_URL")
+  // Migration/introspection doğrudan DB'ye gider (pooler transaction-mode bazı DDL'leri
+  // desteklemez). PgBouncer yoksa DIRECT_URL = DATABASE_URL olur (start komutunda
+  // varsayılan) → mevcut davranış korunur.
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Core ────────────────────────────────────────────────────────────────────
