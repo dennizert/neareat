@@ -98,6 +98,8 @@ tests/
 ### Mobile state management
 
 > **Typed API layer (S14-M2):** service functions are typed against shared interfaces in `src/types` (e.g. `PublicUser`, `RawRecommendation`) rather than `any`. When adding/consuming an endpoint, add/extend a type there and annotate the service return; keep `tsc --noEmit` clean.
+>
+> **Crash reporting (S14-M3):** `services/sentry.ts` wraps `@sentry/react-native`, env-gated by `app.json → extra.sentryDsn` (no-op when empty, so dev/test/DSN-less builds are unaffected). `initSentry()` runs at App startup, `wrapWithSentry(App)` adds the Sentry error boundary, and `ErrorBoundary.componentDidCatch` forwards to `captureException`; password/token fields are scrubbed in `beforeSend`. To activate: set `sentryDsn` and rebuild the native app (the `@sentry/react-native` Expo config plugin is already in `app.json`).
 
 Each domain has a Zustand store in `src/store/`. Pattern:
 

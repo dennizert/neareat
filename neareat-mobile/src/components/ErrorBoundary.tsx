@@ -14,6 +14,7 @@
  */
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { captureException } from '../services/sentry';
 
 interface Props {
   children: React.ReactNode;
@@ -32,10 +33,11 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // Geliştirmede konsola yaz; üretimde sessiz (ileride hata raporlamaya bağlanabilir)
+    // Geliştirmede konsola yaz; her durumda Sentry'ye gönder (S14-M3; DSN yoksa no-op).
     if (__DEV__) {
       console.error('[ErrorBoundary] yakalanan hata:', error, info?.componentStack);
     }
+    captureException(error);
   }
 
   handleReset = () => {
