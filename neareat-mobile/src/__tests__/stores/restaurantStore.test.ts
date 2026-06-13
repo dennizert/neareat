@@ -41,6 +41,9 @@ const INITIAL_STATE = {
   searchError: null,
   searchHistory: [] as historyService.SearchHistoryItem[],
   searchHistoryLoading: false,
+  lastCoords: null,
+  lastFetchedAt: null,
+  _hasHydrated: false,
 };
 
 const sampleRestaurant: Restaurant = {
@@ -111,9 +114,9 @@ describe('restaurantStore — search', () => {
     expect(s.searchLoading).toBe(false);
   });
 
-  it('filtre / sort / kategori AsyncStorage\'a yazılır, runtime state hariç (#84)', async () => {
+  it('filtre / sort / kategori + son liste AsyncStorage\'a yazılır, arama runtime hariç (#84, S15-P2)', async () => {
     useRestaurantStore.setState({
-      restaurants: [sampleRestaurant],            // runtime — persist edilmemeli
+      restaurants: [sampleRestaurant],            // S15-P2 — artık persist edilir (stale-while-revalidate)
       searchResults: [sampleRestaurant],          // runtime — persist edilmemeli
     });
     useRestaurantStore.getState().setSortBy('rating');
@@ -128,8 +131,17 @@ describe('restaurantStore — search', () => {
     expect(parsed.state.sortBy).toBe('rating');
     expect(parsed.state.filters.openNow).toBe(true);
     expect(parsed.state.selectedCategory).toBe('cafe');
-    expect(parsed.state.restaurants).toBeUndefined();
+    // S15-P2 — son liste persist edilir; arama sonuçları hâlâ runtime
+    expect(parsed.state.restaurants).toHaveLength(1);
     expect(parsed.state.searchResults).toBeUndefined();
+  });
+
+  it('recordNearbyFetch koordinat + zaman damgasını yazar (S15-P2)', () => {
+    const before = Date.now();
+    useRestaurantStore.getState().recordNearbyFetch({ lat: 41.01, lng: 28.97 });
+    const s = useRestaurantStore.getState();
+    expect(s.lastCoords).toEqual({ lat: 41.01, lng: 28.97 });
+    expect(s.lastFetchedAt).toBeGreaterThanOrEqual(before);
   });
 
   describe('search history (S6-7)', () => {
