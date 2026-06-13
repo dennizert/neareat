@@ -363,3 +363,43 @@ describe('POST /api/messages/:userId — extended validation', () => {
     expect(res.status).toBe(400);
   });
 });
+
+// ─── S14-B6: GET /api/reviews/:placeId cursor pagination ──────────────────────
+
+describe('GET /api/reviews/:placeId — sayfalama (S14-B6)', () => {
+  function mkReviews(n) {
+    return Array.from({ length: n }, (_, i) => ({
+      id: `rev-${i}`, placeId: 'p1', rating: 5, body: `yorum ${i}`,
+      createdAt: new Date(Date.now() - i * 1000), user: { displayName: 'U', photoUrl: null }, reply: null,
+    }));
+  }
+
+  it('parametresiz → geriye uyumlu DÜZ DİZİ döner', async () => {
+    mockPrisma.review.findMany.mockResolvedValue(mkReviews(2));
+    const res = await request(app).get('/api/reviews/p1').set('Authorization', `Bearer ${token1}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body).toHaveLength(2);
+  });
+
+  it('?limit=2 → { reviews, hasMore, nextCursor } ve hasMore=true', async () => {
+    // limit+1=3 satır döndür → hasMore true, son sayfa öğesi rev-1
+    mockPrisma.review.findMany.mockResolvedValue(mkReviews(3));
+    const res = await request(app).get('/api/reviews/p1?limit=2').set('Authorization', `Bearer ${token1}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(false);
+    expect(res.body.reviews).toHaveLength(2);
+    expect(res.body.hasMore).toBe(true);
+    expect(res.body.nextCursor).toBe('rev-1');
+  });
+
+  it('?cursor=X → prisma cursor+skip ile çağrılır', async () => {
+    mockPrisma.review.findMany.mockResolvedValue(mkReviews(1));
+    const res = await request(app).get('/api/reviews/p1?cursor=rev-5&limit=10').set('Authorization', `Bearer ${token1}`);
+    expect(res.status).toBe(200);
+    expect(res.body.hasMore).toBe(false);
+    expect(mockPrisma.review.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ cursor: { id: 'rev-5' }, skip: 1, take: 11 }),
+    );
+  });
+});

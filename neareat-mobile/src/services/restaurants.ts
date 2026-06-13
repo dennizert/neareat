@@ -124,8 +124,10 @@ export async function fetchAppReviews(placeId: string): Promise<AppReview[]> {
   if (MOCK_MODE) {
     return sessionReviews.filter((r) => r.placeId === placeId);
   }
-  const { data } = await api.get(`/reviews/${placeId}`);
-  return data;
+  // S14-B6: backend artık sayfalı; limit geçince { reviews, hasMore, nextCursor } döner.
+  // Eski düz-dizi yanıtıyla da uyumlu kalmak için her iki şekli de destekle.
+  const { data } = await api.get(`/reviews/${placeId}`, { params: { limit: 100 } });
+  return Array.isArray(data) ? data : (data?.reviews ?? []);
 }
 
 /** createReview fonksiyonunun dönüş tipi */
