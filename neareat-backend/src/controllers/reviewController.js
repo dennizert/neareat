@@ -10,11 +10,23 @@ async function verifyReviewOwnership(reviewId, userId) {
   return (!review || review.userId !== userId) ? null : review;
 }
 
-// Bir mekanın tüm yorumlarını (yazar + restoran yanıtı dahil) en yeni önce döner.
+// Bir mekanın yorumlarını (yazar + restoran yanıtı dahil) en yeni önce döner.
+// S14-B6: cursor-bazlı sayfalama. Popüler mekanlarda tüm yorumları tek seferde dönmek
+// yanıtı şişirir; `?limit=&cursor=` ile sayfalanır.
+//   - Sayfalama parametresi YOKSA: geriye uyumlu DÜZ DİZİ döner (eski mobil sözleşmesi),
+//     varsayılan limitle sınırlı.
+//   - `limit`/`cursor` VARSA: { reviews, hasMore, nextCursor } döner.
+const REVIEWS_DEFAULT_LIMIT = 50;
+const REVIEWS_MAX_LIMIT = 100;
+
 async function getReviews(req, res, next) {
   try {
     const { placeId } = req.params;
-    const reviews = await prisma.review.findMany({
+    const paginated = req.query.limit != null || req.query.cursor != null;
+    const limit = Math.min(parseInt(req.query.limit ?? String(REVIEWS_DEFAULT_LIMIT), 10) || REVIEWS_DEFAULT_LIMIT, REVIEWS_MAX_LIMIT);
+    const cursor = req.query.cursor;
+
+    const rows = await prisma.review.findMany({
       where: { placeId },
       include: {
         user: { select: { displayName: true, photoUrl: true } },
@@ -26,8 +38,19 @@ async function getReviews(req, res, next) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: limit + 1, // hasMore tespiti için bir fazla çek
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
-    res.json(reviews);
+
+    const hasMore = rows.length > limit;
+    const reviews = hasMore ? rows.slice(0, limit) : rows;
+
+    if (!paginated) return res.json(reviews); // geriye uyumlu düz dizi
+    res.json({
+      reviews,
+      hasMore,
+      nextCursor: hasMore ? reviews[reviews.length - 1].id : null,
+    });
   } catch (err) {
     next(err);
   }
