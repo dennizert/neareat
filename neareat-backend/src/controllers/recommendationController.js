@@ -22,6 +22,15 @@ const { cacheGet, cacheSet } = require('../services/redis');
 const FREE_DAILY_LIMIT = 1;
 const FREE_DAILY_PHOTO_ANALYSIS_LIMIT = 3;
 const FEEDBACK_DAILY_LIMIT = 50;
+
+// S16-3 — Premium "sınırsız" AI önerisine maliyet/suistimal freni: günlük tavan.
+// 30/gün normal kullanım için pratikte sınırsızdır; yalnızca uç (bot/stres) tüketimi
+// keser. 0 → tavan kapalı (gerçekten sınırsız). Free zaten FREE_DAILY_LIMIT ile sınırlı.
+const PREMIUM_AI_DAILY_CAP = parseInt(process.env.PREMIUM_AI_DAILY_CAP || '30', 10);
+
+// S16-3 — Kısa süreli öneri yanıt cache'i TTL'i (sn). Aynı kullanıcı + ~1km konum +
+// konuşma-bağlamsız (session/refinement yok) tekrar istekte Claude'a HİÇ gidilmez.
+const AI_REC_CACHE_TTL = parseInt(process.env.AI_REC_CACHE_TTL || '120', 10);
 const MAX_COMMENT_LENGTH = 500;
 const MAX_REFINEMENT_LENGTH = 300;
 
@@ -60,6 +69,25 @@ async function countTodayCalls(userId) {
   });
 }
 
+/**
+ * S16-3 — Premium kullanıcı günlük tavanı aştı mı? (0 → tavan kapalı.)
+ * Tavan iç maliyet/suistimal frenidir; istemciye remaining olarak sızdırılmaz
+ * (premium yanıt şekli null kalır), yalnızca aşımda 429 üretilir.
+ */
+async function premiumCapExceeded(userId) {
+  if (PREMIUM_AI_DAILY_CAP <= 0) return false;
+  const used = await countTodayCalls(userId);
+  return used >= PREMIUM_AI_DAILY_CAP;
+}
+
+/**
+ * S16-3 — Öneri yanıt cache anahtarı. Yalnızca konuşma-bağlamsız (session/refinement
+ * yok) taze istekler cache'lenir; ~1km tile (2 ondalık) + kullanıcı.
+ */
+function recCacheKey(userId, lat, lng) {
+  return `rec-cache:${userId}:${lat.toFixed(2)}:${lng.toFixed(2)}`;
+}
+
 async function getDinnerTonight(req, res, next) {
   try {
     const { lat, lng } = req.body || {};
@@ -76,6 +104,21 @@ async function getDinnerTonight(req, res, next) {
     const isPremium = await isPremiumUser(req.user.id);
     let remaining = null;
 
+    // S16-3 — Yanıt cache: aynı kullanıcı + ~1km konumda kısa TTL içinde tekrar
+    // istekte Claude'a HİÇ gitme (maliyet + hız). Limit gate'ten önce kontrol edilir
+    // ki günlük hakkını kullanmış kullanıcı da cache'lenmiş öneriyi tekrar görebilsin.
+    const cacheKey = recCacheKey(req.user.id, lat, lng);
+    const cachedRec = await cacheGet(cacheKey);
+    if (cachedRec) {
+      const usedNow = isPremium ? 0 : await countTodayCalls(req.user.id);
+      return res.json({
+        ...cachedRec,
+        cached: true,
+        remainingToday: isPremium ? null : Math.max(0, FREE_DAILY_LIMIT - usedNow),
+        resetAt: isPremium ? null : getNextIstanbulMidnightUtc().toISOString(),
+      });
+    }
+
     if (!isPremium) {
       const used = await countTodayCalls(req.user.id);
       remaining = Math.max(0, FREE_DAILY_LIMIT - used);
@@ -89,6 +132,13 @@ async function getDinnerTonight(req, res, next) {
           resetAt: getNextIstanbulMidnightUtc().toISOString(),
         });
       }
+    } else if (await premiumCapExceeded(req.user.id)) {
+      // S16-3 — premium günlük tavan (maliyet/suistimal freni)
+      return res.status(429).json({
+        error: 'AI_DAILY_LIMIT',
+        message: 'Günlük AI öneri limitine ulaştın, yarın tekrar dene.',
+        resetAt: getNextIstanbulMidnightUtc().toISOString(),
+      });
     }
 
     // LLM çağrısı
@@ -132,11 +182,18 @@ async function getDinnerTonight(req, res, next) {
       },
     }));
 
-    return res.json({
+    // S16-3 — başarılı öneriyi kısa TTL ile cache'le (fire-and-forget). Volatile
+    // alanlar (remaining/resetAt/latency) cache dışı; hit'te tazece eklenir.
+    const cachePayload = {
       recommendations,
       noteToUser: result.noteToUser,
       tier: result.tier,
       model: result.model,
+    };
+    cacheSet(cacheKey, cachePayload, AI_REC_CACHE_TTL).catch(() => {});
+
+    return res.json({
+      ...cachePayload,
       remainingToday: isPremium ? null : remaining,
       resetAt: isPremium ? null : getNextIstanbulMidnightUtc().toISOString(),
       latencyMs: result.latencyMs,
@@ -193,6 +250,33 @@ async function getDinnerTonightStream(req, res, next) {
     const isPremium = await isPremiumUser(req.user.id);
     let remaining = null;
 
+    // S16-3 — Yanıt cache (yalnızca konuşma-bağlamsız taze istek: session+refinement
+    // yok). Hit'te Claude'a gitmeden kartları replay edip bitir. Limit gate'inden ÖNCE
+    // kontrol edilir ki günlük hakkını kullanmış kullanıcı da kısa TTL içinde aynı
+    // öneriyi maliyetsiz tekrar görebilsin.
+    const cacheable = !sessionId && !trimmedRefinement;
+    const cacheKey = cacheable ? recCacheKey(req.user.id, lat, lng) : null;
+    if (cacheKey) {
+      const cachedRec = await cacheGet(cacheKey);
+      if (cachedRec?.cards?.length) {
+        const usedNow = isPremium ? 0 : await countTodayCalls(req.user.id);
+        for (const recommendation of cachedRec.cards) sseWrite(res, { type: 'card', recommendation });
+        if (cachedRec.noteToUser) sseWrite(res, { type: 'note', noteToUser: cachedRec.noteToUser });
+        sseWrite(res, {
+          type: 'done',
+          sessionId: null,
+          tier: cachedRec.tier,
+          model: cachedRec.model,
+          remainingToday: isPremium ? null : Math.max(0, FREE_DAILY_LIMIT - usedNow),
+          resetAt: isPremium ? null : getNextIstanbulMidnightUtc().toISOString(),
+          latencyMs: 0,
+          cached: true,
+        });
+        res.end();
+        return;
+      }
+    }
+
     if (!isPremium) {
       const used = await countTodayCalls(req.user.id);
       remaining = Math.max(0, FREE_DAILY_LIMIT - used);
@@ -207,6 +291,16 @@ async function getDinnerTonightStream(req, res, next) {
         res.end();
         return;
       }
+    } else if (await premiumCapExceeded(req.user.id)) {
+      // S16-3 — premium günlük tavan (maliyet/suistimal freni)
+      sseWrite(res, {
+        type: 'error',
+        code: 'AI_DAILY_LIMIT',
+        message: 'Günlük AI öneri limitine ulaştın, yarın tekrar dene.',
+        resetAt: getNextIstanbulMidnightUtc().toISOString(),
+      });
+      res.end();
+      return;
     }
 
     // Proxy idle-timeout'u önlemek için her 8 sn bir SSE comment satırı gönder.
@@ -222,6 +316,10 @@ async function getDinnerTonightStream(req, res, next) {
       if (abortRef.abort) abortRef.abort();
     });
 
+    // S16-3 — yanıt cache için kartları/notu biriktir (yalnızca cacheable istekte yazılır)
+    const collectedCards = [];
+    let collectedNote = null;
+
     const result = await recommendStream({
       userId: req.user.id,
       location: { lat, lng },
@@ -230,14 +328,20 @@ async function getDinnerTonightStream(req, res, next) {
       sessionId: sessionId ?? null,
       refinement: trimmedRefinement,
       onCard: (recommendation) => {
+        collectedCards.push(recommendation);
         sseWrite(res, { type: 'card', recommendation });
       },
       onNote: (noteToUser) => {
+        collectedNote = noteToUser;
         sseWrite(res, { type: 'note', noteToUser });
       },
       onDone: ({ tier, model, latencyMs, sessionId: sid }) => {
         clearInterval(keepAlive);
         if (!isPremium) remaining = Math.max(0, remaining - 1);
+        // S16-3 — başarılı öneriyi kısa TTL ile cache'le (cacheable + kart varsa)
+        if (cacheKey && collectedCards.length) {
+          cacheSet(cacheKey, { cards: collectedCards, noteToUser: collectedNote, tier, model }, AI_REC_CACHE_TTL).catch(() => {});
+        }
         sseWrite(res, {
           type: 'done',
           sessionId: sid,
@@ -398,6 +502,13 @@ async function getRouteTonightRecommendation(req, res, next) {
           resetAt: getNextIstanbulMidnightUtc().toISOString(),
         });
       }
+    } else if (await premiumCapExceeded(req.user.id)) {
+      // S16-3 — premium günlük tavan (maliyet/suistimal freni)
+      return res.status(429).json({
+        error: 'AI_DAILY_LIMIT',
+        message: 'Günlük AI öneri limitine ulaştın, yarın tekrar dene.',
+        resetAt: getNextIstanbulMidnightUtc().toISOString(),
+      });
     }
 
     const result = await recommendForRoute({
