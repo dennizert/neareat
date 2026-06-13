@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const prisma = require('../utils/prisma');
 const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
 const { cacheGet, cacheSet } = require('../services/redis');
+const { withCronLock } = require('../services/cronLock');
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -222,16 +223,16 @@ async function runInactivityReminder() {
 
 function scheduleSmartNotifications() {
   // Favori restoran kapanıyor — saatte bir (UTC)
-  cron.schedule('0 * * * *', runFavoriteClosingSoon, { timezone: 'UTC' });
+  cron.schedule('0 * * * *', () => withCronLock('favoriteClosingSoon', runFavoriteClosingSoon), { timezone: 'UTC' });
 
   // Anket oy hatırlatması — 2 saatte bir
-  cron.schedule('0 */2 * * *', runPollVoteReminder, { timezone: 'UTC' });
+  cron.schedule('0 */2 * * *', () => withCronLock('pollVoteReminder', runPollVoteReminder), { timezone: 'UTC' });
 
   // Haftalık özet — Pazar 10:00 TR = 07:00 UTC
-  cron.schedule('0 7 * * 0', runWeeklyDigest, { timezone: 'UTC' });
+  cron.schedule('0 7 * * 0', () => withCronLock('weeklyDigest', runWeeklyDigest), { timezone: 'UTC' });
 
   // Aktif olmayan kullanıcı — Pazartesi 11:00 TR = 08:00 UTC
-  cron.schedule('0 8 * * 1', runInactivityReminder, { timezone: 'UTC' });
+  cron.schedule('0 8 * * 1', () => withCronLock('inactivityReminder', runInactivityReminder), { timezone: 'UTC' });
 
   console.log('[SmartNotif] Akıllı bildirim zamanlamaları aktif (4 cron).');
 }

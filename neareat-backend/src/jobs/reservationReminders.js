@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const prisma = require('../utils/prisma');
 const { createNotification } = require('../services/notificationService');
+const { withCronLock } = require('../services/cronLock');
 
 function getTurkeyDateString() {
   const now = new Date(Date.now() + 3 * 60 * 60 * 1000);
@@ -74,7 +75,7 @@ async function runPendingReservationEscalation() {
 
 function scheduleReservationReminders() {
   // Her sabah 09:00 Türkiye saatinde (UTC+3 = 06:00 UTC) — günlük hatırlatma
-  cron.schedule('0 6 * * *', async () => {
+  cron.schedule('0 6 * * *', () => withCronLock('reservationDailyReminder', async () => {
     try {
       const today = getTurkeyDateString();
 
@@ -102,10 +103,10 @@ function scheduleReservationReminders() {
     } catch (err) {
       console.error('[CronJob] Rezervasyon hatırlatması hatası:', err.message);
     }
-  }, { timezone: 'UTC' });
+  }), { timezone: 'UTC' });
 
   // Her saat başı — 24h+ PENDING rezervasyon escalation (S5-1)
-  cron.schedule('0 * * * *', runPendingReservationEscalation, { timezone: 'UTC' });
+  cron.schedule('0 * * * *', () => withCronLock('reservationEscalation', runPendingReservationEscalation), { timezone: 'UTC' });
 
   console.log('[CronJob] Rezervasyon hatırlatma + PENDING escalation zamanlaması aktif.');
 }
