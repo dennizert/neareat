@@ -13,6 +13,7 @@
 
 const Anthropic = require('@anthropic-ai/sdk');
 const prisma = require('../utils/prisma');
+const { recordExternalCall } = require('./metrics'); // S16-3 — Anthropic harcama metriği
 const { getCandidates, MAX_CANDIDATES } = require('./candidateService');
 const { getRouteWaypoints, getPlaceDetails, isOpenAtTime } = require('./googlePlaces');
 const { buildUserProfileSummary, buildClaudeRequest } = require('./promptBuilder');
@@ -108,6 +109,9 @@ function logUsage({ userId, model, usage, latencyMs }) {
       `in=${s.inputTokens} out=${s.outputTokens} cached=${s.cachedTokens} ` +
       `latency=${latencyMs}ms cost=$${s.estimatedCostUsd}`
   );
+  // S16-3 — tahmini Anthropic harcamasını gözlemlenebilirlik metriğine yaz (günlük
+  // toplam + eşik alarmı S16-2 evaluateAlarms.aiDailyUsd ile). Metrik asla akışı bozmamalı.
+  try { recordExternalCall('anthropic', s.estimatedCostUsd); } catch { /* ignore */ }
   return s;
 }
 

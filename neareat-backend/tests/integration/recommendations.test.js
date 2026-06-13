@@ -358,9 +358,9 @@ describe('POST /api/recommendations/dinner-tonight — premium tier', () => {
     expect(res.body.resetAt).toBeNull();
   });
 
-  it('is NOT rate-limited even with high usage', async () => {
-    // Premium user'a aynı endpoint'ten 100 kez vurma → her zaman 200
-    mockPrisma.aiRecommendationLog.count.mockResolvedValue(100);
+  it('is NOT subject to the free 1/day limit (under S16-3 cap)', async () => {
+    // Premium free 1/gün limitine tabi değil; S16-3 premium tavanının (30) altında → 200
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(5);
 
     const res = await request(app)
       .post('/api/recommendations/dinner-tonight')
@@ -376,7 +376,7 @@ describe('POST /api/recommendations/dinner-tonight — premium tier', () => {
       status: 'trial',
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
-    mockPrisma.aiRecommendationLog.count.mockResolvedValue(50);
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(5); // S16-3 tavanı altında
 
     const res = await request(app)
       .post('/api/recommendations/dinner-tonight')
@@ -844,13 +844,13 @@ describe('POST /api/recommendations/route-tonight — rate limit (shared counter
     expect(mockAnthropicCreate).not.toHaveBeenCalled();
   });
 
-  it('premium user is not rate limited on route-tonight', async () => {
+  it('premium user is not subject to free limit on route-tonight (under S16-3 cap)', async () => {
     mockPrisma.subscription.findUnique.mockResolvedValue({
       userId: testUser.id,
       status: 'active',
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
-    mockPrisma.aiRecommendationLog.count.mockResolvedValue(100);
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(5); // S16-3 tavanı altında
 
     const res = await request(app)
       .post('/api/recommendations/route-tonight')
@@ -858,5 +858,51 @@ describe('POST /api/recommendations/route-tonight — rate limit (shared counter
       .send({ originLat: 41.04, originLng: 28.98, destLat: 40.99, destLng: 29.02 });
 
     expect(res.status).toBe(200);
+  });
+
+  // ─── S16-3: premium günlük tavan + yanıt cache ────────────────────────────
+  it('premium hits AI_DAILY_LIMIT when daily cap is exceeded', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      userId: testUser.id,
+      status: 'active',
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+    // PREMIUM_AI_DAILY_CAP varsayılan 30; üstünde → 429
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(30);
+
+    const res = await request(app)
+      .post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ lat: 41.04, lng: 28.98 });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error).toBe('AI_DAILY_LIMIT');
+    expect(mockAnthropicCreate).not.toHaveBeenCalled();
+  });
+
+  it('returns cached recommendation without calling Claude (response cache)', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      userId: testUser.id,
+      status: 'active',
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
+    // rec-cache hit → Claude'a gidilmez
+    require('../../src/services/redis').cacheGet.mockResolvedValueOnce({
+      recommendations: [{ placeId: 'cached-1', reason: 'önbellek', restaurant: { name: 'Cached Yer' } }],
+      noteToUser: 'önbellekten',
+      tier: 'premium',
+      model: 'claude-sonnet-4-6',
+    });
+
+    const res = await request(app)
+      .post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ lat: 41.04, lng: 28.98 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.cached).toBe(true);
+    expect(res.body.recommendations[0].placeId).toBe('cached-1');
+    expect(mockAnthropicCreate).not.toHaveBeenCalled();
   });
 });
