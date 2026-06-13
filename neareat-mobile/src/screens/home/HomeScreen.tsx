@@ -15,6 +15,7 @@ import type { Restaurant } from '../../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import NotificationBell from '../../components/NotificationBell';
 import AppHeader from '../../components/AppHeader';
+import EmailVerificationBanner from '../../components/EmailVerificationBanner';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -151,6 +152,9 @@ export default function HomeScreen() {
         )}
         right={<NotificationBell />}
       />
+
+      {/* Doğrulanmamış e-posta uyarı bandı (S14-M1) */}
+      <EmailVerificationBanner />
 
       {/* Arama çubuğu (S6-2) */}
       {viewMode === 'list' && (
