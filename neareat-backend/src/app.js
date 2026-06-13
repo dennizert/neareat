@@ -13,7 +13,9 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const { compressionOptions } = require('./middleware/compressionConfig');
 const { renderAppLinkPage } = require('./utils/appLinkPage');
 
 const authRoutes = require('./routes/auth');
@@ -85,6 +87,9 @@ app.use(cors({
   credentials: true,
   exposedHeaders: ['X-Request-ID', 'X-RateLimit-Limit-User', 'X-RateLimit-Remaining-User'],
 }));
+
+// ─── Yanıt sıkıştırma (S16-1) — gzip; SSE akışları muaf (compressionConfig) ──
+app.use(compression(compressionOptions));
 
 // ─── HTTP loglama (request ID dahil) ────────────────────────────────────────
 morgan.token('id', (req) => req.id);
@@ -211,6 +216,12 @@ if (process.env.NODE_ENV !== 'test') {
     scheduleFriendSuggestions();
     scheduleNotificationCleanup();
   });
+
+  // Keep-alive (S16-1): keepAliveTimeout < headersTimeout olmalı. Aksi halde Node,
+  // reverse proxy (Railway) hâlâ kullanacakken bağlantıyı kapatıp ara sıra 502
+  // üretebilir. Proxy idle timeout'undan biraz yüksek tutulur.
+  server.keepAliveTimeout = 61_000;
+  server.headersTimeout = 65_000;
 
   // Graceful shutdown — açık bağlantıları düzgün kapat
   function gracefulShutdown(signal) {
