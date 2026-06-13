@@ -36,6 +36,7 @@ import type {
   RouteRecommendation,
   RouteRecommendationRequest,
 } from '../types';
+import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
 
 interface AiRecommendationState {
   loading: boolean;
@@ -112,6 +113,7 @@ export const useAiRecommendationStore = create<AiRecommendationState>((set, get)
   ...INITIAL_STATE,
 
   async fetchDinnerRecommendation(lat, lng) {
+    trackEvent(ANALYTICS_EVENTS.AI_RECOMMENDATION_REQUESTED); // S14-M5 funnel
     set({
       loading: true,
       error: null,

@@ -10,6 +10,7 @@ import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
+import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
 
 // Google Play Console → Monetization → Subscriptions'da tanımlanacak Product ID'ler.
 // Rol başına TEK aylık ürün. Bu değerler Play Console'daki Subscription ID'leriyle
@@ -54,6 +55,11 @@ export default function PaywallScreen() {
   const sku = isRestaurant ? SKUS.restaurant : SKUS.user;
   const fallbackPrice = isRestaurant ? FALLBACK_PRICE.restaurant : FALLBACK_PRICE.user;
   const features = isRestaurant ? RESTAURANT_FEATURES : USER_FEATURES;
+
+  // S14-M5: paywall gösterimi (dönüşüm hunisi) ölç.
+  useEffect(() => {
+    trackEvent(ANALYTICS_EVENTS.PAYWALL_SHOWN, { role: isRestaurant ? 'restaurant' : 'user' });
+  }, [isRestaurant]);
 
   const [purchasing, setPurchasing] = useState(false);
 
