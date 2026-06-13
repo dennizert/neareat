@@ -9,6 +9,7 @@ const EVENTS = {
   RATE_LIMIT_HIT: 'RATE_LIMIT_HIT',
   IAP_REJECTED: 'IAP_REJECTED',
   ADMIN_LOGIN_LOCKED: 'ADMIN_LOGIN_LOCKED',
+  METRICS_ALARM: 'METRICS_ALARM',
 };
 
 // Güvenlik olaylarını (başarısız giriş, askıya alınmış erişim, rate-limit, IAP reddi vb.)

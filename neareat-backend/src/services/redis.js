@@ -1,4 +1,5 @@
 const Redis = require('ioredis');
+const { recordRedis } = require('./metrics'); // S16-2 — cache isabet/ıska metriği
 
 let client;
 
@@ -28,7 +29,9 @@ function getRedis() {
 async function cacheGet(key) {
   try {
     const data = await getRedis().get(key);
-    return data ? JSON.parse(data) : null;
+    const hit = data != null;
+    recordRedis(hit); // S16-2 — yalnızca başarılı get'te say (Redis hatası ≠ ıska)
+    return hit ? JSON.parse(data) : null;
   } catch {
     return null;
   }

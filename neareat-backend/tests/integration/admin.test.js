@@ -312,6 +312,45 @@ describe('GET /api/admin/stats', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// GET /api/admin/metrics (S16-2)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('GET /api/admin/metrics', () => {
+  const metrics = require('../../src/services/metrics');
+
+  it('admin → metrik anlık görüntüsü döner (requests/redis/external/db/alarms)', async () => {
+    metrics._reset();
+    metrics.recordRequest(20, 200);
+    metrics.recordRequest(40, 500);
+
+    const res = await request(app)
+      .get('/api/admin/metrics')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.requests).toBeDefined();
+    expect(res.body.requests.status['2xx']).toBeGreaterThanOrEqual(1);
+    expect(res.body.requests.status['5xx']).toBeGreaterThanOrEqual(1);
+    expect(res.body.redis).toBeDefined();
+    expect(res.body).toHaveProperty('external');
+    expect(res.body).toHaveProperty('db'); // $queryRaw mock yok → activeConnections null (graceful)
+    expect(Array.isArray(res.body.alarms)).toBe(true);
+  });
+
+  it('non-admin USER token → 403', async () => {
+    const res = await request(app)
+      .get('/api/admin/metrics')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('token yok → 401', async () => {
+    const res = await request(app).get('/api/admin/metrics');
+    expect(res.status).toBe(401);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // GET /api/admin/restaurants
 // ═══════════════════════════════════════════════════════════════════════════════
 

@@ -9,6 +9,7 @@ const {
   getUsers, suspendUser, unsuspendUser,
   deleteReview, getFlaggedReviews, seedAdmin,
   getReports, handleReport, triggerFriendSuggestions, triggerNotificationCleanup,
+  getMetrics,
 } = require('../controllers/adminController');
 const { listRequests, reviewRequest } = require('../controllers/placeRequestController');
 
@@ -39,6 +40,7 @@ router.post('/login', adminLogin);
 
 // All routes below require admin role
 router.get('/stats', authenticate, requireAdmin, getPlatformStats);
+router.get('/metrics', authenticate, requireAdmin, getMetrics);
 
 // Restaurant approval
 router.get('/restaurants', authenticate, requireAdmin, getPendingRestaurants);
