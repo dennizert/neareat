@@ -3,6 +3,13 @@
 // yalnızca import'un çökmemesi için global stub veriyoruz.
 jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
 
+// @sentry/react-native native modül gerektirir; Jest'te stub'la (S14-M3).
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  captureException: jest.fn(),
+  wrap: (c) => c,
+}));
+
 // AsyncStorage native modülü Jest'te yok; paketin sağladığı resmi mock'u kullan.
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
