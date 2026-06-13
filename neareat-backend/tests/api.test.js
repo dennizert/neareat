@@ -136,6 +136,19 @@ describe('GET /health', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
   });
+
+  it('S16-8 — drain sırasında 503 shutting_down döner (readiness)', async () => {
+    const readiness = require('../src/utils/readiness');
+    mockPrisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+    readiness.setShuttingDown(true);
+    try {
+      const res = await request(app).get('/health');
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('shutting_down');
+    } finally {
+      readiness.setShuttingDown(false); // diğer testleri etkilemesin
+    }
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

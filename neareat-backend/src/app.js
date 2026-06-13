@@ -47,6 +47,7 @@ const sanitize = require('./middleware/sanitize');
 const metricsMiddleware = require('./middleware/metrics');
 const { snapshot, evaluateAlarms } = require('./services/metrics');
 const { logSecurityEvent, EVENTS } = require('./middleware/securityLogger');
+const { isShuttingDown, setShuttingDown } = require('./utils/readiness');
 const { scheduleReservationReminders } = require('./jobs/reservationReminders');
 const { scheduleSmartNotifications } = require('./jobs/smartNotifications');
 const { scheduleFeedbackAggregation } = require('./jobs/feedbackAggregator');
@@ -144,6 +145,10 @@ app.use(express.json({ limit: '5mb' }));
 app.use(sanitize);
 
 app.get('/health', async (_req, res) => {
+  // S16-8 — drain sırasında 503: yük dengeleyici yeni isteği başka replikaya yönlendirsin.
+  if (isShuttingDown()) {
+    return res.status(503).json({ status: 'shutting_down' });
+  }
   try {
     await prisma.$queryRaw`SELECT 1`;
     const redisOk = await getRedis().ping().catch(() => null);
@@ -245,6 +250,8 @@ if (process.env.NODE_ENV !== 'test') {
   // Graceful shutdown — açık bağlantıları düzgün kapat
   function gracefulShutdown(signal) {
     console.log(`${signal} received — shutting down gracefully`);
+    // S16-8 — önce readiness'i kapat: /health 503 döner, LB drain'e geçer.
+    setShuttingDown(true);
     server.close(async () => {
       try {
         await prisma.$disconnect();
