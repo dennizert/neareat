@@ -54,11 +54,12 @@ Railway deployment is triggered automatically on `git push origin master`.
 ### Backend request flow
 
 ```
-requestId → helmet/CORS → morgan → rate-limit → body-parse → sanitize
+requestId → helmet/CORS → compression(gzip) → morgan → rate-limit → body-parse → sanitize
   → routes → auth middleware (JWT or Firebase) → roles check → controller
   → service layer → Prisma/Redis/external APIs → errorHandler
 ```
 
+- **Response compression (S16-1):** `compression` (gzip) middleware runs after helmet/CORS, threshold 1KB. SSE streams (`/api/recommendations/*`, `text/event-stream`) and `x-no-compression` requests are exempt (gzip buffering would delay keepalive pings) — config + pure filter in `middleware/compressionConfig.js`. Server keep-alive tuned (`keepAliveTimeout` 61s < `headersTimeout` 65s) to avoid proxy 502s.
 - **Auth:** Dual strategy — `email + bcrypt + JWT` OR `Firebase Google OAuth`. Both produce the same JWT; `middleware/auth.js` validates it on protected routes.
 - **Rate limiting:** `authRateLimit` (20 req/15 min) on auth routes; `userRateLimit` (120 req/min, keyed by userId post-auth) on API routes. Expensive Anthropic endpoints add `aiRateLimit` (Redis, `AI_RATE_LIMIT_PER_MIN`) — and (S14-B5) when Redis is unavailable it is **fail-closed**: a low in-memory fallback (`AI_RATE_LIMIT_FALLBACK_PER_MIN`, default 3) caps spend instead of failing open.
 - **Caching:** Redis caches Google Places nearby queries (keys include lat/lng/radius/type). Also caches premium friend social signals (`social-signals:{userId}`, 15 min) to avoid recomputing on every AI call.
