@@ -47,6 +47,8 @@ jest.mock('../../src/jobs/feedbackAggregator', () => ({ scheduleFeedbackAggregat
 jest.mock('../../src/jobs/friendSuggestions', () => ({ scheduleFriendSuggestions: jest.fn(), runFriendSuggestionsJob: jest.fn() }));
 
 const app = require('../../src/app');
+// Mock'lanmış getPhotoUrl referansı — S15-P3 boyut argümanı doğrulaması için
+const { getPhotoUrl: mockGetPhotoUrl } = require('../../src/services/googlePlaces');
 
 const userId = '11111111-1111-1111-1111-111111111111';
 const token = createTestToken({ id: userId, email: 'u@test.com', role: 'USER' });
@@ -101,6 +103,8 @@ describe('GET /api/restaurants/nearby — isim & foto önceliği (S10-4)', () =>
     const row = res.body.results.find((r) => r.placeId === 'p1');
     expect(row.name).toBe('Mavera Gıda');
     expect(row.photoUrl).toBe('https://google.example/gref1');
+    // S15-P3 — liste kartı küçük thumbnail (200px) ister
+    expect(mockGetPhotoUrl).toHaveBeenCalledWith('gref1', 200);
   });
 
   it('displayName boş ama profil var → name=Google adı, photoUrl=Google (galeri boş)', async () => {
@@ -195,6 +199,9 @@ describe('GET /api/restaurants/:placeId — detay isim & foto sırası (S10-4)',
     expect(res.body.name).toBe('Mavera Gıda');
     expect(res.body.photos).toEqual(['https://google.example/gref1', 'https://google.example/gref2']);
     expect(res.body.productPhotos).toEqual([]);
+    // S15-P3 — detay ekranı büyük foto kullanır; thumbnail (200px) İSTEMEZ
+    expect(mockGetPhotoUrl).toHaveBeenCalledWith('gref1');
+    expect(mockGetPhotoUrl).not.toHaveBeenCalledWith('gref1', 200);
   });
 
   it('B6 — foto sıralaması sortOrder + createdAt tie-breaker ile sorgulanır', async () => {

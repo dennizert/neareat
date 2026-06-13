@@ -8,6 +8,7 @@ const {
   isExcludedByName,
   normalizeName,
   passesQualityFilter,
+  getPhotoUrl,
 } = require('../../../src/services/googlePlaces');
 
 describe('normalizeName', () => {
@@ -122,6 +123,16 @@ describe('isExcludedByName', () => {
   it('boş isim için false', () => {
     expect(isExcludedByName('')).toBe(false);
     expect(isExcludedByName(null)).toBe(false);
+  });
+});
+
+describe('getPhotoUrl — maxWidth (S15-P3)', () => {
+  it('varsayılan büyük boyut (detay ekranı) → maxwidth=800', () => {
+    expect(getPhotoUrl('REF')).toContain('maxwidth=800');
+    expect(getPhotoUrl('REF')).toContain('photo_reference=REF');
+  });
+  it('liste thumbnail boyutu → maxwidth=200', () => {
+    expect(getPhotoUrl('REF', 200)).toContain('maxwidth=200');
   });
 });
 
