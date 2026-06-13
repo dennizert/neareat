@@ -15,11 +15,15 @@ jest.mock('../../../src/services/redis', () => ({
   cacheSet: jest.fn().mockResolvedValue(undefined),
 }));
 
+// S16-4 — Google harcama metriği mock'u (recordExternalCall doğrulaması için).
+jest.mock('../../../src/services/metrics', () => ({ recordExternalCall: jest.fn() }));
+
 // https.get — sahte yanıt akışı (data + end emit).
 const mockHttpsGet = jest.fn();
 jest.mock('https', () => ({ get: (...args) => mockHttpsGet(...args) }));
 
 const { getNearbyRestaurants } = require('../../../src/services/googlePlaces');
+const { recordExternalCall } = require('../../../src/services/metrics');
 
 /** Tek bir https.get çağrısını JSON gövdesiyle çözen sahte response kurar. */
 function mockHttpsResponseOnce(jsonBody) {
@@ -39,6 +43,7 @@ function mockHttpsResponseOnce(jsonBody) {
 describe('getNearbyRestaurants — tek sayfa (S15-P1)', () => {
   beforeEach(() => {
     mockHttpsGet.mockReset();
+    recordExternalCall.mockClear();
   });
 
   it('next_page_token dönse bile ikinci sayfayı çekmez (tek https çağrısı)', async () => {
@@ -62,5 +67,11 @@ describe('getNearbyRestaurants — tek sayfa (S15-P1)', () => {
     const results = await getNearbyRestaurants(41.0, 29.0, 5000, 'cafe');
     expect(results).toEqual([]);
     expect(mockHttpsGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('gerçek (cache-miss) çağrı Google harcamasını metriğe yazar (S16-4)', async () => {
+    mockHttpsResponseOnce({ status: 'OK', results: [{ place_id: 'a' }] });
+    await getNearbyRestaurants(41.0, 29.0, 5000, 'restaurant');
+    expect(recordExternalCall).toHaveBeenCalledWith('google', expect.any(Number));
   });
 });
