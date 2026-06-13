@@ -21,11 +21,23 @@
 const prisma = require('../utils/prisma');
 const { getLevel } = require('../utils/stars');
 const { getCountryCode } = require('../utils/cityCountry');
-const { cacheGet, cacheSet, cacheDel } = require('./redis');
+const { cacheGet, cacheSet, cacheSetMany, cacheDel } = require('./redis');
 
 // Aday havuzu ve sonuç boyutu sınırları
 const CANDIDATE_POOL_LIMIT = 500;
 const RESULT_LIMIT = 10;
+
+// S16-5 — toplu cron'da viewer'ları parçalara böl: her parça için sinyal+adjacency
+// yüklenip kullanılır, sonra serbest bırakılır (tüm-kullanıcı sinyalini aynı anda
+// belleğe alma → 10k'da OOM önleme). Parça başına tek Redis pipeline yazımı.
+const FRIEND_JOB_CHUNK = parseInt(process.env.FRIEND_JOB_CHUNK || '1000', 10);
+
+/** Diziyi sabit boyutlu parçalara böler. */
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 // Redis: precompute sonuçları (gece 03:00 + admin tetikleme yazar)
 const CACHE_PREFIX = 'friend-suggestions:';
@@ -327,18 +339,27 @@ async function computeAllSuggestions() {
     take: CANDIDATE_POOL_LIMIT,
   });
 
-  const allIds = [...new Set([...viewers.map((v) => v.id), ...publicCandidates.map((c) => c.id)])];
-  const [maps, adj] = await Promise.all([loadSignalMaps(allIds), loadRelationAdjacency(viewers.map((v) => v.id))]);
-
-  const candidateCtxs = publicCandidates.map((c) => toContext(c, maps));
+  // S16-5 — Aday sinyalleri BİR KEZ yüklenir (≤CANDIDATE_POOL_LIMIT); tüm parçalar
+  // paylaşır. Aksi halde her parçada yeniden yüklemek gereksiz DB yükü olurdu.
+  const candidateMaps = await loadSignalMaps(publicCandidates.map((c) => c.id));
+  const candidateCtxs = publicCandidates.map((c) => toContext(c, candidateMaps));
 
   let stored = 0;
-  for (const viewer of viewers) {
-    const viewerCtx = toContext(viewer, maps);
-    const excluded = new Set([viewer.id, ...(adj.get(viewer.id) || [])]);
-    const suggestions = rankForViewer(viewerCtx, candidateCtxs, excluded);
-    await cacheSet(`${CACHE_PREFIX}${viewer.id}`, suggestions, CACHE_TTL_SECONDS);
-    stored++;
+  // Viewer'ları parçalara böl: her parça için viewer sinyal+adjacency yüklenir,
+  // skorlanır, TEK pipeline ile yazılır; parça bitince map'ler GC'ye bırakılır.
+  for (const group of chunkArray(viewers, FRIEND_JOB_CHUNK)) {
+    const ids = group.map((v) => v.id);
+    const [viewerMaps, adj] = await Promise.all([loadSignalMaps(ids), loadRelationAdjacency(ids)]);
+
+    const entries = [];
+    for (const viewer of group) {
+      const viewerCtx = toContext(viewer, viewerMaps);
+      const excluded = new Set([viewer.id, ...(adj.get(viewer.id) || [])]);
+      const suggestions = rankForViewer(viewerCtx, candidateCtxs, excluded);
+      entries.push({ key: `${CACHE_PREFIX}${viewer.id}`, value: suggestions });
+    }
+    await cacheSetMany(entries, CACHE_TTL_SECONDS);
+    stored += entries.length;
   }
 
   return { processed: viewers.length, stored };

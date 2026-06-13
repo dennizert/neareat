@@ -55,4 +55,22 @@ async function cacheDel(key) {
   }
 }
 
-module.exports = { getRedis, cacheGet, cacheSet, cacheDel };
+/**
+ * Çok sayıda değeri TEK pipeline ile yazar (S16-5) — toplu işlerde (friendSuggestions
+ * cron) viewer başına ayrı round-trip yerine. entries: [{ key, value }]. Redis yoksa
+ * fail-open (sessizce geç). 10k sıralı SET → tek pipeline'a indirir.
+ */
+async function cacheSetMany(entries, ttlSeconds) {
+  if (!Array.isArray(entries) || entries.length === 0) return;
+  try {
+    const pipeline = getRedis().pipeline();
+    for (const { key, value } of entries) {
+      pipeline.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+    }
+    await pipeline.exec();
+  } catch {
+    // Redis yoksa cache'siz devam et
+  }
+}
+
+module.exports = { getRedis, cacheGet, cacheSet, cacheSetMany, cacheDel };
