@@ -5,5 +5,9 @@ builder = "NIXPACKS"
 startCommand = "node prisma/deploy.js && node src/app.js"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+# S16-8 — rolling deploy: yeni replika /health 200 dönene kadar trafik eski replikada
+# kalır (kesintisiz). Drain sırasında /health 503 → LB yeni isteği yönlendirmez.
+healthcheckPath = "/health"
+healthcheckTimeout = 30
 
 [environments.production]
