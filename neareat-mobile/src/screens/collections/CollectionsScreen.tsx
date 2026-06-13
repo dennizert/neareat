@@ -16,6 +16,7 @@ import type { Collection, SharedCollection } from '../../types';
 import { handleUserPremiumError } from '../../utils/premiumGate';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { listPerf } from '../../theme/listPerf';
 
 export default function CollectionsScreen() {
   const navigation = useNavigation<any>();
@@ -224,6 +225,7 @@ export default function CollectionsScreen() {
               </Text>
             </View>
           }
+          {...listPerf}
         />
       ) : (
         <FlatList

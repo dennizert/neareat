@@ -14,6 +14,7 @@ import ErrorState from '../components/ErrorState';
 import type { Favorite } from '../types';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
+import { listPerf } from '../theme/listPerf';
 
 export default function FavoritesScreen() {
   const navigation = useNavigation<any>();
@@ -117,6 +118,7 @@ export default function FavoritesScreen() {
             );
           }}
           contentContainerStyle={[styles.list, { paddingBottom: bottom + 16 }]}
+          {...listPerf}
         />
       )}
     </View>

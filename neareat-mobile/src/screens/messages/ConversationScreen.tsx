@@ -12,6 +12,7 @@ import { getMessages, sendMessage } from '../../services/messages';
 import type { Message } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { listPerf } from '../../theme/listPerf';
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -144,6 +145,7 @@ export default function ConversationScreen() {
             <Text style={styles.emptyChatText}>Henüz mesaj yok. İlk mesajı sen gönder!</Text>
           </View>
         }
+        {...listPerf}
       />
 
       <View style={[styles.inputBar, { paddingBottom: bottom + 8 }]}>
