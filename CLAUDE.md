@@ -97,6 +97,8 @@ tests/
 
 ### Mobile state management
 
+> **Typed API layer (S14-M2):** service functions are typed against shared interfaces in `src/types` (e.g. `PublicUser`, `RawRecommendation`) rather than `any`. When adding/consuming an endpoint, add/extend a type there and annotate the service return; keep `tsc --noEmit` clean.
+
 Each domain has a Zustand store in `src/store/`. Pattern:
 
 ```
