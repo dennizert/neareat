@@ -1,14 +1,19 @@
 'use strict';
 
+// Mekan talepleri: kullanıcıların eksik/yeni mekanları sisteme bildirmesi ve
+// adminlerin bu talepleri listeleyip incelemesi (PENDING -> REVIEWED akışı).
+
 const prisma = require('../utils/prisma');
 const { logRequest } = require('../services/logService');
 
+// Admin listelerinde talebi açan kullanıcıyı da içeren ortak select.
 const REQUEST_SELECT = {
   id: true, placeId: true, placeName: true, placeAddress: true,
   note: true, status: true, createdAt: true,
   user: { select: { id: true, displayName: true, email: true } },
 };
 
+// Kullanıcı yeni bir mekan talebi oluşturur.
 async function submitRequest(req, res, next) {
   try {
     const { placeId, placeName, placeAddress, note } = req.body;
@@ -19,6 +24,7 @@ async function submitRequest(req, res, next) {
       return res.status(400).json({ error: 'Not en fazla 500 karakter olabilir.' });
     }
 
+    // Aynı kullanıcı + mekan için mükerrer talebi engelle (unique kısıt karşılığı).
     const existing = await prisma.placeRequest.findUnique({
       where: { userId_placeId: { userId: req.user.id, placeId } },
     });
@@ -38,6 +44,7 @@ async function submitRequest(req, res, next) {
       select: REQUEST_SELECT,
     });
 
+    // Aktivite logu fire-and-forget — talep oluşturmayı bloklamasın.
     logRequest({ req, page: 'Mekan Talepleri', action: 'Mekan talebi oluşturdu', details: placeName }).catch(() => {});
     res.status(201).json(request);
   } catch (err) {
@@ -45,6 +52,7 @@ async function submitRequest(req, res, next) {
   }
 }
 
+// Kullanıcının kendi taleplerini (en yeni 50) döner.
 async function myRequests(req, res, next) {
   try {
     const requests = await prisma.placeRequest.findMany({
@@ -59,6 +67,7 @@ async function myRequests(req, res, next) {
   }
 }
 
+// Admin: tüm talepleri 20'şerlik sayfalarla, opsiyonel status filtresiyle listeler.
 async function listRequests(req, res, next) {
   try {
     const { status, page = '1' } = req.query;
@@ -82,6 +91,7 @@ async function listRequests(req, res, next) {
   }
 }
 
+// Admin: bir talebi "incelendi" (REVIEWED) olarak işaretler.
 async function reviewRequest(req, res, next) {
   try {
     const { id } = req.params;

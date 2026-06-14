@@ -1,3 +1,6 @@
+// Admin controller'ı: admin girişi (brute-force korumalı), restoran başvuru
+// onay/ret akışı, platform istatistikleri, kullanıcı yönetimi (askıya alma),
+// yorum moderasyonu, kullanıcı şikayetleri, manuel job tetikleme ve metrikler.
 const bcrypt = require('bcryptjs');
 const prisma = require('../utils/prisma');
 const { signToken } = require('../utils/jwt');
@@ -29,6 +32,7 @@ async function registerAdminFail(key, currentFails, req) {
   });
 }
 
+// Onay listelerinde dönen restoran profili alanları (vergi levhası verisi hariç).
 const PROFILE_SUMMARY = {
   id: true, businessName: true, ownerName: true, taxNumber: true,
   taxOffice: true, phone: true, contactEmail: true, address: true,
@@ -81,6 +85,7 @@ async function adminLogin(req, res, next) {
 
 // ─── Restaurant Approval ──────────────────────────────────────────────────────
 
+// Onay durumuna göre (varsayılan PENDING) restoran başvurularını sayfalı listeler.
 async function getPendingRestaurants(req, res, next) {
   try {
     const { status = 'PENDING', page = '1', limit = '20' } = req.query;
@@ -103,6 +108,7 @@ async function getPendingRestaurants(req, res, next) {
   }
 }
 
+// Tek restoran başvuru detayı; vergi levhası verisini gövdede göndermez, sadece varlık bayrağı.
 async function getRestaurantDetail(req, res, next) {
   try {
     const { id } = req.params;
@@ -122,6 +128,7 @@ async function getRestaurantDetail(req, res, next) {
   }
 }
 
+// Vergi levhası görselini ayrı uçtan döner (detay görünümünden kasıtlı olarak ayrıldı).
 async function getTaxCertificate(req, res, next) {
   try {
     const { id } = req.params;
@@ -136,6 +143,7 @@ async function getTaxCertificate(req, res, next) {
   }
 }
 
+// Başvuruyu onaylar (status=APPROVED, red nedenini temizler, onaylayan admini damgalar).
 async function approveRestaurant(req, res, next) {
   try {
     const { id } = req.params;
@@ -151,6 +159,7 @@ async function approveRestaurant(req, res, next) {
   }
 }
 
+// Başvuruyu reddeder; red nedeni zorunlu (restorana geri bildirim için).
 async function rejectRestaurant(req, res, next) {
   try {
     const { id } = req.params;
@@ -172,8 +181,10 @@ async function rejectRestaurant(req, res, next) {
 
 // ─── Platform Stats ───────────────────────────────────────────────────────────
 
+// Admin dashboard'ı için tüm sayaçları tek seferde (paralel) toplar.
 async function getPlatformStats(req, res, next) {
   try {
+    // Gün başlangıcı (yerel) — "bugün" filtrelerinin alt sınırı.
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -210,6 +221,7 @@ async function getPlatformStats(req, res, next) {
 
 // ─── User Management ─────────────────────────────────────────────────────────
 
+// Kullanıcıları role + opsiyonel e-posta/isim aramasıyla sayfalı listeler.
 async function getUsers(req, res, next) {
   try {
     const { search = '', page = '1', limit = '30', role = 'USER' } = req.query;
@@ -246,6 +258,7 @@ async function getUsers(req, res, next) {
   }
 }
 
+// Kullanıcıyı askıya alır; adminin kendini kilitlemesini engeller.
 async function suspendUser(req, res, next) {
   try {
     const { id } = req.params;
@@ -263,6 +276,7 @@ async function suspendUser(req, res, next) {
   }
 }
 
+// Askıyı kaldırır.
 async function unsuspendUser(req, res, next) {
   try {
     const { id } = req.params;
@@ -280,6 +294,7 @@ async function unsuspendUser(req, res, next) {
 
 // ─── Review Moderation ────────────────────────────────────────────────────────
 
+// Moderasyon: bir yorumu siler.
 async function deleteReview(req, res, next) {
   try {
     const { id } = req.params;
@@ -312,7 +327,7 @@ async function getFlaggedReviews(req, res, next) {
 
 // ─── User Reports ─────────────────────────────────────────────────────────────
 
-// GET /api/admin/reports?status=PENDING&page=1
+// GET /api/admin/reports?status=PENDING&page=1 — kullanıcı şikayetlerini durum filtresiyle listeler.
 async function getReports(req, res, next) {
   try {
     const { status = 'PENDING', page = '1', limit = '20' } = req.query;

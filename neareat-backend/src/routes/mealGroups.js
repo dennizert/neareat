@@ -1,3 +1,4 @@
+// /api/meal-groups — yemek grupları ve restoran anketleri rotaları (giriş + rate limit zorunlu).
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');

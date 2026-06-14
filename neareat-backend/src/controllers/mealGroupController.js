@@ -1,11 +1,15 @@
+// Yemek grupları (MealGroup): arkadaşlarla grup kurma, davet, ve "nereye gidelim?"
+// restoran anketleri (RestaurantPoll). Tüm aksiyonlar üyelik/yetki kontrolünden geçer
+// ve ilgili üyelere push bildirim gönderir (fire-and-forget).
 const prisma = require('../utils/prisma');
 const { createNotification } = require('../services/notificationService');
 const { logRequest } = require('../services/logService');
 const { getNearbyRestaurantsFast, getPhotoUrl, passesQualityFilter } = require('../services/googlePlaces');
 
+// Üye/oy kartlarında gösterilen minimal kullanıcı alanları.
 const MEMBER_SELECT = { id: true, displayName: true, photoUrl: true };
 
-// GET /api/meal-groups
+// GET /api/meal-groups — kullanıcının üye olduğu tüm grupları (kendi durumu + açık anket bilgisiyle) döner.
 async function getMyGroups(req, res, next) {
   try {
     const userId = req.user.id;
@@ -43,7 +47,7 @@ async function getMyGroups(req, res, next) {
   }
 }
 
-// GET /api/meal-groups/:id
+// GET /api/meal-groups/:id — grup detayı (üyeler + son 5 anket ve oyları). Sadece üyeler erişebilir.
 async function getGroup(req, res, next) {
   try {
     const userId = req.user.id;
@@ -88,7 +92,7 @@ async function getGroup(req, res, next) {
   }
 }
 
-// POST /api/meal-groups
+// POST /api/meal-groups — yeni grup oluşturur; sadece kullanıcının arkadaşları üye olarak davet edilebilir.
 async function createGroup(req, res, next) {
   try {
     const userId = req.user.id;
@@ -102,6 +106,7 @@ async function createGroup(req, res, next) {
     // null/undefined değerleri filtrele (Prisma 6.x in:[] hata verir)
     const safeIds = memberIds.filter((id) => typeof id === 'string' && id.length > 0);
 
+    // Davet edilenleri yalnızca kabul edilmiş arkadaşlıklarla sınırla (yetkisiz davet engeli).
     let validMemberIds = [];
     if (safeIds.length > 0) {
       const friends = await prisma.friendRequest.findMany({
@@ -155,7 +160,7 @@ async function createGroup(req, res, next) {
   }
 }
 
-// POST /api/meal-groups/:id/respond
+// POST /api/meal-groups/:id/respond — davetli üye daveti kabul/ret eder; kabulde kurucuya bildirim gider.
 async function respondToInvite(req, res, next) {
   try {
     const userId = req.user.id;
@@ -200,7 +205,7 @@ async function respondToInvite(req, res, next) {
   }
 }
 
-// POST /api/meal-groups/:id/polls
+// POST /api/meal-groups/:id/polls — elle seçilen restoran seçenekleriyle anket açar (grup başına tek açık anket).
 async function createPoll(req, res, next) {
   try {
     const userId = req.user.id;
@@ -278,7 +283,7 @@ async function createPoll(req, res, next) {
   }
 }
 
-// POST /api/meal-groups/:groupId/polls/:pollId/vote
+// POST /api/meal-groups/:groupId/polls/:pollId/vote — bir seçeneğe YES/NO/MAYBE oyu (upsert ile tek oy/üye).
 async function vote(req, res, next) {
   try {
     const userId = req.user.id;
@@ -315,7 +320,8 @@ async function vote(req, res, next) {
   }
 }
 
-// POST /api/meal-groups/:groupId/polls/:pollId/close
+// POST /api/meal-groups/:groupId/polls/:pollId/close — anketi kapatır (anket sahibi veya grup kurucusu),
+// YES oylarına göre kazananı hesaplar ve üyelere sonucu bildirir.
 async function closePoll(req, res, next) {
   try {
     const userId = req.user.id;
@@ -380,7 +386,7 @@ async function closePoll(req, res, next) {
   }
 }
 
-// POST /api/meal-groups/:id/members
+// POST /api/meal-groups/:id/members — mevcut gruba yeni üye(ler) davet eder (yine sadece arkadaşlar).
 async function addMembers(req, res, next) {
   try {
     const userId = req.user.id;
@@ -452,7 +458,8 @@ async function addMembers(req, res, next) {
   }
 }
 
-// POST /api/meal-groups/:id/quick-poll
+// POST /api/meal-groups/:id/quick-poll — verilen konuma göre yakındaki restoranlardan otomatik
+// seçenekli "Şu an nereye gidelim?" anketi oluşturur (Google Places fast aramasıyla).
 async function quickPoll(req, res, next) {
   try {
     const userId = req.user.id;

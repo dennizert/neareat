@@ -1,3 +1,6 @@
+// Koleksiyon (liste) controller'ı: kullanıcının kayıtlı mekan listeleri, CRUD,
+// öğe ekleme/çıkarma ve arkadaşlarla paylaşım. Free tier tek liste ile sınırlı;
+// liste adı/açıklaması içerik filtresinden geçer; paylaşım yalnızca arkadaşlarla yapılır.
 const prisma = require('../utils/prisma');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { containsOffensiveContent } = require('../utils/contentFilter');
@@ -67,6 +70,7 @@ async function listSharedWithMe(req, res, next) {
 // ─── Tekil Koleksiyon ────────────────────────────────────────────────────────
 
 // GET /api/collections/:id
+// İzin verilen sıralama seçenekleri — keyfi alan sıralamasını engellemek için whitelist.
 const VALID_SORT = {
   addedAt_desc: { addedAt: 'desc' },
   addedAt_asc:  { addedAt: 'asc' },
@@ -93,6 +97,7 @@ async function getCollection(req, res, next) {
 
     if (!col) return res.status(404).json({ error: 'Koleksiyon bulunamadı.' });
 
+    // Erişim: sahibi, paylaşılan arkadaş veya herkese açık liste; aksi halde 403.
     const isOwner = col.userId === req.user.id;
     const isShared = col.shares.some(s => s.sharedWithId === req.user.id);
 
@@ -211,6 +216,7 @@ async function addItem(req, res, next) {
       return res.status(400).json({ error: 'placeId ve placeName zorunludur.' });
     }
 
+    // Aynı mekan zaten varsa not'u güncelle (200), yoksa ekle (201) — yanıt kodu buna göre.
     const existing = await prisma.collectionItem.findUnique({
       where: { collectionId_placeId: { collectionId: req.params.id, placeId } },
     });

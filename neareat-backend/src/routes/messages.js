@@ -1,3 +1,5 @@
+// /api/messages — kullanıcılar arası birebir mesajlaşma rotaları.
+// Mesaj gönderimi e-posta doğrulaması + rate limit gerektirir.
 const router = require('express').Router();
 const auth = require('../middleware/auth');
 const userRateLimit = require('../middleware/userRateLimit');

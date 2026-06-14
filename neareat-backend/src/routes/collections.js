@@ -1,3 +1,4 @@
+// /api/collections — kullanıcı mekan listeleri: CRUD, öğe ekle/çıkar ve arkadaşlarla paylaşım rotaları.
 const router = require('express').Router();
 const auth = require('../middleware/auth');
 const {

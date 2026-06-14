@@ -1,3 +1,5 @@
+// /api/auth — kimlik doğrulama rotaları: kayıt, e-posta/şifre ve Google girişi,
+// hesap silme, e-posta doğrulama ve şifre sıfırlama akışları.
 const router = require('express').Router();
 const authenticate = require('../middleware/auth');
 const validate = require('../middleware/validate');

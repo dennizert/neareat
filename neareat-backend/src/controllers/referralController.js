@@ -1,11 +1,13 @@
 'use strict';
 
+// Davet (referral) sistemi: her kullanıcının benzersiz bir davet kodu vardır;
+// kod uygulandığında hem davet eden hem davet edilen yıldız ödülü kazanır.
 const prisma = require('../utils/prisma');
 const { awardStars } = require('../utils/stars');
 const { logRequest } = require('../services/logService');
 
-const REFERRER_STARS = 15;
-const REFERRED_STARS = 10;
+const REFERRER_STARS = 15; // Davet eden kullanıcının kazandığı yıldız
+const REFERRED_STARS = 10; // Daveti kabul eden (kodu kullanan) kullanıcının kazandığı yıldız
 
 // Davet eden için kod üretir: adın ilk 4 harfi (büyük, sadece A-Z) + 4 rasgele alfanümerik
 function generateCode(displayName) {
@@ -22,6 +24,7 @@ function generateCode(displayName) {
   return `${prefix}${suffix}`;
 }
 
+// Çakışma olmayan bir kod bulana kadar (en fazla 10 deneme) yeniden üretir.
 async function ensureUniqueCode(displayName) {
   for (let attempt = 0; attempt < 10; attempt++) {
     const code = generateCode(displayName);
@@ -31,11 +34,12 @@ async function ensureUniqueCode(displayName) {
   throw new Error('Unique referral code üretilemedi');
 }
 
-// GET /api/referral/my-code
+// GET /api/referral/my-code — kullanıcının davet kodunu döner (yoksa ilk istekte üretir) + kullanım sayısı.
 async function getMyCode(req, res, next) {
   try {
     const userId = req.user.id;
 
+    // Kod henüz yoksa tembel üretim (lazy): ilk görüntülemede oluştur ve kaydet.
     let user = await prisma.user.findUnique({
       where: { id: userId },
       select: { referralCode: true, displayName: true, starCount: true },
@@ -65,8 +69,8 @@ async function getMyCode(req, res, next) {
   }
 }
 
-// POST /api/referral/apply
-// Body: { code }
+// POST /api/referral/apply { code } — kullanıcı bir davet kodu uygular (ömür boyu tek kez);
+// kendi kodu/zaten uygulanmış/geçersiz durumları reddedilir, geçerliyse iki tarafa yıldız verilir.
 async function applyCode(req, res, next) {
   try {
     const userId = req.user.id;

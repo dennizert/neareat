@@ -1,5 +1,8 @@
+// Bildirim controller'ı: kullanıcının FCM push token kaydı + uygulama içi bildirim
+// listeleme / okundu işaretleme uçları.
 const prisma = require('../utils/prisma');
 
+// Cihazın FCM push token'ını kullanıcıya kaydeder (push gönderiminde kullanılır).
 async function updateFcmToken(req, res, next) {
   try {
     const { fcmToken } = req.body;
@@ -16,11 +19,12 @@ async function updateFcmToken(req, res, next) {
   }
 }
 
+// Geriye dönük uyumluluk için tutulan no-op uç (gerçek tercihler notificationPrefsController'da).
 async function updatePreferences(req, res, next) {
   res.json({ message: 'Preferences updated' });
 }
 
-// GET /api/notifications?page=1&limit=20
+// GET /api/notifications?page=1&limit=20 — kullanıcının bildirimlerini sayfalı döner (limit max 50).
 async function getNotifications(req, res, next) {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -55,9 +59,10 @@ async function getUnreadCount(req, res, next) {
   }
 }
 
-// PUT /api/notifications/:id/read
+// PUT /api/notifications/:id/read — tek bildirimi okundu işaretler (sahiplik kontrolüyle).
 async function markAsRead(req, res, next) {
   try {
+    // Başka kullanıcının bildirimini açığa çıkarmamak için 404 (sahip değilse) döndür.
     const notif = await prisma.notification.findUnique({ where: { id: req.params.id } });
     if (!notif || notif.userId !== req.user.id) return res.status(404).json({ error: 'Bulunamadı' });
 
@@ -71,7 +76,7 @@ async function markAsRead(req, res, next) {
   }
 }
 
-// PUT /api/notifications/read-all
+// PUT /api/notifications/read-all — kullanıcının tüm okunmamış bildirimlerini topluca okundu yapar.
 async function markAllAsRead(req, res, next) {
   try {
     await prisma.notification.updateMany({

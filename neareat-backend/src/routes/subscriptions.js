@@ -1,3 +1,5 @@
+// /api/subscriptions — premium abonelik durumu, deneme başlatma ve IAP satın alma
+// doğrulama (Android Google Play / App Store) rotaları.
 const router = require('express').Router();
 const authenticate = require('../middleware/auth');
 const {

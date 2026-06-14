@@ -1,3 +1,5 @@
+// /api/reviews — mekan yorumları (listele + oluştur/güncelle/sil).
+// Yorum oluşturma e-posta doğrulaması, rate limit ve zod şema validasyonundan geçer.
 const router = require('express').Router();
 const authenticate = require('../middleware/auth');
 const userRateLimit = require('../middleware/userRateLimit');

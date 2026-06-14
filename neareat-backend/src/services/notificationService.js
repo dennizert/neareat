@@ -1,3 +1,6 @@
+// Uygulama içi bildirim yazma servisi: kullanıcı bildirim tercihlerine (opt-out)
+// saygı duyarak tekil veya toplu Notification kaydı oluşturur. Tüm yazımlar
+// fire-and-forget'tir — hata fırlatmaz ki asıl iş akışını bozmasın.
 const prisma = require('../utils/prisma');
 
 // Kullanıcının belirli bir bildirim tipini kapatıp kapatmadığını döner. Opt-out modeli:
