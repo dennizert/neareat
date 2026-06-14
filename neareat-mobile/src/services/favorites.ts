@@ -9,7 +9,7 @@ import { MOCK_MODE } from '../config';
 import { MOCK_FAVORITES } from '../mocks/data';
 import api from './api';
 import { saveCache, loadCache, isNetworkError } from './offlineCache';
-import type { Favorite, RestaurantDetail } from '../types';
+import type { Favorite, Restaurant, RestaurantDetail } from '../types';
 
 const FAVORITES_CACHE_KEY = 'favorites';
 
@@ -74,6 +74,36 @@ export async function addFavorite(restaurant: RestaurantDetail): Promise<Favorit
     placePhotoUrl: restaurant.photos?.[0] ?? null,
     placeRating: restaurant.rating,
   });
+  return data;
+}
+
+/**
+ * Restoranı liste/harita kartındaki hafif `Restaurant` verisinden favoriye ekler
+ * (Sprint-17 #367). Detay ekranı `addFavorite` kullanmaya devam eder; bu sürüm
+ * harita alt önizleme kartının hızlı favori aksiyonu içindir (telefon bilgisi yok).
+ *
+ * @param r - Favoriye eklenecek restoranın liste verisi
+ * @returns Oluşturulan favori kaydı
+ */
+export async function addFavoriteFromRestaurant(r: Restaurant): Promise<Favorite> {
+  const payload = {
+    placeId: r.placeId,
+    placeName: r.name,
+    placeAddress: r.formattedAddress ?? null,
+    placeLat: r.location.lat,
+    placeLng: r.location.lng,
+    placePhone: null,
+    placePhotoUrl: r.photoUrl ?? null,
+    placeRating: r.rating ?? null,
+  };
+  if (MOCK_MODE) {
+    const already = sessionFavorites.find((f) => f.placeId === r.placeId);
+    if (already) return already;
+    const fav: Favorite = { id: `fav_mock_${Date.now()}`, ...payload };
+    sessionFavorites = [fav, ...sessionFavorites];
+    return fav;
+  }
+  const { data } = await api.post('/favorites', payload);
   return data;
 }
 
