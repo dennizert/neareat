@@ -1,13 +1,15 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { Restaurant } from '../../types';
 import { formatDistance } from '../../utils/haversine';
 import { clusterPoints, regionForCluster, type ClusterPoint } from '../../utils/mapClustering';
+import { runOptimisticFavoriteToggle } from '../../utils/optimisticFavorite';
 import { useFavoriteStore } from '../../store/favoriteStore';
 import { addFavoriteFromRestaurant, removeFavorite } from '../../services/favorites';
 import { haptics } from '../../utils/haptics';
 import AppIcon from '../../components/AppIcon';
+import FadeInImage from '../../components/FadeInImage';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
@@ -24,6 +26,8 @@ type RPoint = ClusterPoint & { r: Restaurant };
 export default function MapViewScreen({ restaurants, onPressRestaurant, userLat, userLng }: Props) {
   const mapRef = useRef<MapView>(null);
   const [selected, setSelected] = useState<Restaurant | null>(null);
+  // Çift tetikleme koruması için devam eden favori işlemleri.
+  const favInFlight = useRef<Set<string>>(new Set());
 
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
@@ -82,27 +86,28 @@ export default function MapViewScreen({ restaurants, onPressRestaurant, userLat,
     );
   }
 
-  // Alt karttaki hızlı favori — optimistik; hata olursa eski duruma döner.
-  async function toggleFavorite(r: Restaurant) {
+  // Alt karttaki hızlı favori — ortak optimistik util ile (anında tepki + rollback).
+  function toggleFavorite(r: Restaurant) {
     haptics.light();
     const store = useFavoriteStore.getState();
-    if (store.isFavorite(r.placeId)) {
-      store.removeFavorite(r.placeId);
-      try {
-        await removeFavorite(r.placeId);
-      } catch {
-        store.addFavorite(buildProvisional(r));
-      }
-    } else {
-      store.addFavorite(buildProvisional(r));
-      try {
-        const created = await addFavoriteFromRestaurant(r);
-        store.removeFavorite(r.placeId);
-        store.addFavorite(created);
-      } catch {
-        store.removeFavorite(r.placeId);
-      }
-    }
+    runOptimisticFavoriteToggle({
+      placeId: r.placeId,
+      currentlyFavorited: store.isFavorite(r.placeId),
+      inFlight: favInFlight.current,
+      applyOptimistic: (favorited) => {
+        if (favorited) store.addFavorite(buildProvisional(r));
+        else store.removeFavorite(r.placeId);
+      },
+      persist: async (action) => {
+        if (action === 'remove') {
+          await removeFavorite(r.placeId);
+        } else {
+          const created = await addFavoriteFromRestaurant(r);
+          store.removeFavorite(r.placeId); // geçici kaydı gerçeğiyle değiştir
+          store.addFavorite(created);
+        }
+      },
+    });
   }
 
   return (
@@ -168,7 +173,7 @@ export default function MapViewScreen({ restaurants, onPressRestaurant, userLat,
       {selected && (
         <View style={styles.previewCard}>
           {selected.photoUrl ? (
-            <Image source={{ uri: selected.photoUrl }} style={styles.previewPhoto} />
+            <FadeInImage source={{ uri: selected.photoUrl }} style={styles.previewPhoto} />
           ) : (
             <View style={[styles.previewPhoto, styles.previewPhotoPlaceholder]}>
               <AppIcon name="restaurant" size={24} color={C.textMuted} />

@@ -20,6 +20,7 @@ import { getClosingInfo } from '../../utils/closingTime';
 import { computeAppRating } from '../../utils/appRating';
 import { submitPlaceRequest } from '../../services/placeRequests';
 import { recordPlaceView } from '../../services/discovery';
+import { runOptimisticFavoriteToggle } from '../../utils/optimisticFavorite';
 import StarRating from '../../components/StarRating';
 import PhotoGallery from '../../components/PhotoGallery';
 import ProductPhotosSection from '../../components/ProductPhotosSection';
@@ -59,6 +60,8 @@ export default function RestaurantDetailScreen() {
   const { placeId } = route.params;
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+  // Favori toggle çift tetikleme koruması (S17-#368).
+  const favInFlight = React.useRef<Set<string>>(new Set());
 
   const [detail, setDetail] = useState<RestaurantDetail | null>(null);
   const [appReviews, setAppReviews] = useState<AppReview[]>([]);
@@ -131,9 +134,8 @@ export default function RestaurantDetailScreen() {
 
   async function toggleFavorite() {
     if (!detail) return;
-    const wasFavorited = favorited;
     haptics.light();
-    // Optimistik: önce UI'ı güncelle, sunucu hatasında geri al.
+    // Optimistik: ortak util anında UI'ı günceller, sunucu hatasında geri alır (S17-#368).
     const provisional: Favorite = {
       id: `temp-${placeId}`, placeId, placeName: detail.name,
       placeAddress: detail.formattedAddress ?? null,
@@ -141,23 +143,27 @@ export default function RestaurantDetailScreen() {
       placePhone: null, placePhotoUrl: detail.photos?.[0] ?? null,
       placeRating: detail.rating ?? null,
     };
-    if (wasFavorited) storeRemoveFav(placeId); else storeFav(provisional);
-    try {
-      if (wasFavorited) {
-        await removeFavorite(placeId);
-      } else {
-        const fav = await addFavorite(detail);
-        storeFav(fav); // geçici kaydı gerçek kayıtla değiştir
-      }
-    } catch (err: any) {
-      // rollback
-      if (wasFavorited) storeFav(provisional); else storeRemoveFav(placeId);
-      if (err.response?.data?.code === 'PREMIUM_REQUIRED') {
-        navigation.navigate('Paywall', { trigger: 'favorites' });
-      } else {
-        Alert.alert('Hata', err.message);
-      }
-    }
+    await runOptimisticFavoriteToggle({
+      placeId,
+      currentlyFavorited: favorited,
+      inFlight: favInFlight.current,
+      applyOptimistic: (fav) => { if (fav) storeFav(provisional); else storeRemoveFav(placeId); },
+      persist: async (action) => {
+        if (action === 'remove') {
+          await removeFavorite(placeId);
+        } else {
+          const fav = await addFavorite(detail);
+          storeFav(fav); // geçici kaydı gerçek kayıtla değiştir
+        }
+      },
+      onError: (err: any) => {
+        if (err?.response?.data?.code === 'PREMIUM_REQUIRED') {
+          navigation.navigate('Paywall', { trigger: 'favorites' });
+        } else {
+          Alert.alert('Hata', err?.message ?? 'İşlem başarısız.');
+        }
+      },
+    });
   }
 
   function openReviewModal() {

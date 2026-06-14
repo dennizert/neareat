@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View, FlatList, StyleSheet, ActivityIndicator, Text,
-  TouchableOpacity, ScrollView, RefreshControl, TextInput, Image,
+  TouchableOpacity, ScrollView, RefreshControl, TextInput,
 } from 'react-native';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import { fetchNearby } from '../../services/restaurants';
@@ -21,6 +21,8 @@ import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { shouldShowSkeleton, isListStale } from '../../utils/listCache';
 import { isPersonalizationActive, shouldShowRails, mergeForYou } from '../../utils/personalization';
+import PressableScale from '../../components/PressableScale';
+import FadeInImage from '../../components/FadeInImage';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -178,14 +180,14 @@ export default function HomeScreen() {
   // Nearby listesinin başlığı (ListHeaderComponent) olarak listeyle birlikte kayar.
   const renderMiniCard = useCallback(
     (placeId: string, name: string, photoUrl: string | null, rating: number | null) => (
-      <TouchableOpacity
+      <PressableScale
         key={placeId}
         style={styles.miniCard}
-        activeOpacity={0.85}
         onPress={() => navigation.navigate('RestaurantDetail', { placeId })}
+        accessibilityLabel={`${name} restoranını aç`}
       >
         {photoUrl ? (
-          <Image source={{ uri: photoUrl }} style={styles.miniPhoto} />
+          <FadeInImage source={{ uri: photoUrl }} style={styles.miniPhoto} />
         ) : (
           <View style={[styles.miniPhoto, styles.miniPhotoPlaceholder]}>
             <Text style={styles.miniPhotoIcon}>🍽️</Text>
@@ -193,7 +195,7 @@ export default function HomeScreen() {
         )}
         <Text style={styles.miniName} numberOfLines={1}>{name}</Text>
         {rating != null && rating > 0 && <Text style={styles.miniMeta}>★ {rating.toFixed(1)}</Text>}
-      </TouchableOpacity>
+      </PressableScale>
     ),
     [styles, navigation],
   );
@@ -306,22 +308,22 @@ export default function HomeScreen() {
       {/* AI Recommendation CTAs — kompakt, yan yana */}
       {viewMode === 'list' && (
         <View style={styles.aiRow}>
-          <TouchableOpacity
+          <PressableScale
             style={styles.aiCta}
             onPress={() => navigation.navigate('Recommendation')}
-            activeOpacity={0.85}
+            accessibilityLabel="Yapay zekâ önerisi: Şimdi ne yesem?"
           >
             <Text style={styles.aiCtaEmoji}>🤖</Text>
             <Text style={styles.aiCtaTitle} numberOfLines={1}>Şimdi ne yesem?</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          </PressableScale>
+          <PressableScale
             style={styles.routeCta}
             onPress={() => navigation.navigate('RouteRecommendation')}
-            activeOpacity={0.85}
+            accessibilityLabel="Rota önerisi: Yolda ne yesem?"
           >
             <Text style={styles.aiCtaEmoji}>🗺️</Text>
             <Text style={styles.routeCtaTitle} numberOfLines={1}>Yolda ne yesem?</Text>
-          </TouchableOpacity>
+          </PressableScale>
         </View>
       )}
 
