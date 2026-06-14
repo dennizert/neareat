@@ -1,3 +1,5 @@
+// Yemek grupları servis katmanı: /api/meal-groups uçlarına tipli ince sarmalayıcılar
+// (grup CRUD/davet + restoran anketleri: oluştur/oy ver/kapat, konumdan hızlı anket).
 import api from './api';
 import type { MealGroup, RestaurantPoll, PollVoteValue } from '../types';
 

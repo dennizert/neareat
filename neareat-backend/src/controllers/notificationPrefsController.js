@@ -1,5 +1,7 @@
 'use strict';
 
+// Bildirim tercihleri: kullanıcı bildirim türlerini tek tek açıp kapatabilir.
+// Opt-out modeli — kayıt yoksa tür varsayılan olarak açık kabul edilir.
 const prisma = require('../utils/prisma');
 
 // Kullanıcıların toggle edebileceği bildirim türleri (kampanya/seviye vb. dahil)

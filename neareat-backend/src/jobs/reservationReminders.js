@@ -1,8 +1,13 @@
+// Rezervasyon cron'ları: (1) her gün 09:00 TR'de bugünkü CONFIRMED rezervasyonlar için
+// kullanıcıya hatırlatma; (2) her saat başı 24 saatten uzun süredir PENDING kalan
+// rezervasyonları escalate eder (restoran + kullanıcı bildirimi). Replika-güvenli (withCronLock),
+// `pendingReminderSentAt` ile idempotent.
 const cron = require('node-cron');
 const prisma = require('../utils/prisma');
 const { createNotification } = require('../services/notificationService');
 const { withCronLock } = require('../services/cronLock');
 
+// Türkiye yerel tarihi (YYYY-MM-DD, UTC+3) — "bugünkü" rezervasyonları eşlemek için.
 function getTurkeyDateString() {
   const now = new Date(Date.now() + 3 * 60 * 60 * 1000);
   return now.toISOString().split('T')[0];

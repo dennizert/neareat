@@ -86,6 +86,7 @@ model User {
   diaryEntries            DiaryEntry[]
   notificationPreferences NotificationPreference[]
   placeRequests           PlaceRequest[]
+  placeViews              PlaceView[]
 
   @@map("users")
 }
@@ -883,4 +884,26 @@ model PlaceRequest {
   @@unique([userId, placeId])
   @@index([status, createdAt])
   @@map("place_requests")
+}
+
+// Sprint-17 #366 — "Son baktığın restoranlar" için görüntüleme kaydı.
+// Kullanıcı bir mekan detayını açtığında upsert edilir (userId+placeId tekil; en son
+// viewedAt güncellenir). Place alanları denormalize tutulur ki "Son Baktıkların" rayı
+// Google'a tekrar çağrı yapmadan render edilebilsin.
+model PlaceView {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  placeId       String   @map("place_id")
+  placeName     String   @map("place_name")
+  placeAddress  String?  @map("place_address") @db.VarChar(300)
+  placePhotoUrl String?  @map("place_photo_url")
+  placeRating   Decimal? @map("place_rating") @db.Decimal(3, 1)
+  placeTypes    String[] @default([]) @map("place_types")
+  viewedAt      DateTime @default(now()) @map("viewed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, placeId])
+  @@index([userId, viewedAt])
+  @@map("place_views")
 }

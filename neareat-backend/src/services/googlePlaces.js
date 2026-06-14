@@ -1,3 +1,8 @@
+// Google Places entegrasyonu: yakındaki restoranlar (nearby), metin/isim araması (text),
+// mekan detayı (details) ve rota (directions). Sonuçlar Redis'te tile/sorgu bazlı önbelleğe
+// alınır (maliyet düşürme); kalite filtresi (passesQualityFilter) fırın/market/eczane gibi
+// alakasız tipleri eler. Her cache-miss çağrısı SKU başına recordExternalCall ile harcama
+// metriğine işlenir (S16-4 → googleDailyUsd alarmı).
 const https = require('https');
 const { cacheGet, cacheSet } = require('./redis');
 const { recordExternalCall } = require('./metrics'); // S16-4 — Google harcama metriği

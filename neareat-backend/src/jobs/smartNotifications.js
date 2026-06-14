@@ -1,3 +1,8 @@
+// Akıllı bildirim cron'ları: 4 zamanlanmış iş — favori restoran kapanıyor, grup
+// anketi oy hatırlatması, haftalık aktivite özeti ve aktif olmayan kullanıcı hatırlatması.
+// Tüm zamanlamalar UTC'de tanımlı (yorumlarda TR karşılığı), replika-güvenli olması için
+// withCronLock ile sarılır; Redis anahtarları tekrar göndermeyi (idempotency) engeller.
+// Saf karar mantığı (closingSoonDiff/isInClosingWindow/selectUnvotedMembers) test için dışa açılır (S14-B7).
 const cron = require('node-cron');
 const prisma = require('../utils/prisma');
 const { createNotification, createNotificationsForUsers } = require('../services/notificationService');

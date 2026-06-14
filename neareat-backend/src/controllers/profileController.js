@@ -1,9 +1,12 @@
+// Kullanıcı profili controller'ı: kendi profilini görüntüleme/güncelleme ve
+// başka kullanıcıların (gizlilik kuralına tabi) profilini okuma.
 const prisma = require('../utils/prisma');
 const { getLevel } = require('../utils/stars');
 const { isActivePremium } = require('../utils/premiumCheck');
 const { logRequest } = require('../services/logService');
 const { containsOffensiveContent } = require('../utils/contentFilter');
 
+// Ham user kaydını istemciye dönen profil DTO'suna çevirir (yıldız seviyesi + premium bayrağı dahil).
 function formatProfile(user, subscription = null) {
   const level = getLevel(user.starCount);
   return {
@@ -23,7 +26,7 @@ function formatProfile(user, subscription = null) {
   };
 }
 
-// GET /api/profile/me
+// GET /api/profile/me — kendi profili + istatistikler (arkadaş/yorum/öneri sayısı).
 async function getMe(req, res, next) {
   try {
     const [user, subscription, friendCount] = await Promise.all([
@@ -56,7 +59,7 @@ async function getMe(req, res, next) {
   }
 }
 
-// PUT /api/profile/me
+// PUT /api/profile/me — yalnızca gönderilen alanları günceller (uzunluk kırpma + içerik filtresiyle).
 async function updateMe(req, res, next) {
   try {
     const {
@@ -99,7 +102,8 @@ async function updateMe(req, res, next) {
   }
 }
 
-// GET /api/profile/:userId
+// GET /api/profile/:userId — başka kullanıcının profili; gizli profil sadece arkadaşlara açık
+// (arkadaş değilse `hidden: true` ile sınırlı bilgi döner).
 async function getUser(req, res, next) {
   try {
     const { userId } = req.params;

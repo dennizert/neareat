@@ -1,3 +1,7 @@
+// Sosyal özellikler servis katmanı: profil, arkadaşlık, öneri paylaşımı, yıldız/ödül
+// (gamification), aktivite akışı, lider tablosu ve arkadaş önerileri.
+// Her fonksiyon iki yollu çalışır: MOCK_MODE açıksa bellek-içi session state üzerinden
+// sahte veriyle yanıt verir (SDK'sız/dev build), aksi halde backend'e gerçek API çağrısı yapar.
 import { MOCK_MODE } from '../config';
 import {
   MOCK_USER_PROFILES,
@@ -10,12 +14,14 @@ import {
 import type { UserProfile, Friend, FriendRequest, Recommendation, RawRecommendation, StarEvent, Reward, Restaurant, Leaderboard, FriendSuggestion, ActivityFeedResponse } from '../types';
 import api from './api';
 
+// MOCK_MODE'da kalıcılığı taklit eden bellek-içi oturum durumu (yalnızca mock için).
 let sessionProfile = { ...MOCK_USER_PROFILES[0] };
 let sessionFriends = [...MOCK_FRIENDS];
 let sessionRequests = [...MOCK_FRIEND_REQUESTS];
 let sessionRecommendations = [...MOCK_RECOMMENDATIONS];
 let sessionStarEvents = [...MOCK_STAR_EVENTS];
 
+// Aksiyon başına kazanılan yıldız miktarları (backend ile eşleşmeli).
 export const STAR_AMOUNTS: Record<StarEvent['type'], number> = {
   review: 5,
   recommendation: 3,
@@ -23,6 +29,7 @@ export const STAR_AMOUNTS: Record<StarEvent['type'], number> = {
   rating: 2,
 };
 
+// Toplam yıldıza göre kullanıcı seviyesi + rozet adı/ikonu.
 export function getLevel(stars: number): { level: number; badge: string; badgeIcon: string } {
   if (stars >= 100) return { level: 5, badge: 'Gastronomi Efsanesi', badgeIcon: '👑' };
   if (stars >= 50) return { level: 4, badge: 'Eatlas Elçisi', badgeIcon: '⭐' };
@@ -31,6 +38,7 @@ export function getLevel(stars: number): { level: number; badge: string; badgeIc
   return { level: 1, badge: 'Yeni Kaşif', badgeIcon: '🌱' };
 }
 
+// Bir sonraki seviye eşiği (ilerleme çubuğu için); en üst seviyede 100'de sabitlenir.
 export function getNextMilestone(stars: number): number {
   if (stars < 10) return 10;
   if (stars < 25) return 25;
@@ -38,6 +46,8 @@ export function getNextMilestone(stars: number): number {
   if (stars < 100) return 100;
   return 100;
 }
+
+// ─── Profil ────────────────────────────────────────────────────────────────
 
 export async function getMyProfile(): Promise<UserProfile> {
   if (MOCK_MODE) return { ...sessionProfile };
@@ -94,6 +104,8 @@ export async function getActivityFeed(
   const res = await api.get(`/social/feed?${params.toString()}`);
   return res.data;
 }
+
+// ─── Arkadaşlık ──────────────────────────────────────────────────────────────
 
 export async function getFriends(): Promise<Friend[]> {
   if (MOCK_MODE) {
@@ -171,6 +183,8 @@ export async function removeFriend(friendId: string): Promise<void> {
   await api.delete(`/social/friends/${friendId}`);
 }
 
+// ─── Restoran Önerileri ──────────────────────────────────────────────────────
+
 export interface SendRecommendationResult {
   recommendations: Recommendation[];
   starEvent: StarEvent;
@@ -237,6 +251,8 @@ export async function sendRecommendation(
   return res.data;
 }
 
+// Backend'in düz öneri kaydını (placeId/placeName/... ayrı alanlar) UI'ın beklediği
+// iç içe Recommendation şekline çevirir (restaurant nesnesi olarak gruplar).
 export function mapRec(r: RawRecommendation): Recommendation {
   return {
     id: r.id,
@@ -293,6 +309,8 @@ export async function getStarEvents(): Promise<StarEvent[]> {
   const res = await api.get('/social/stars');
   return res.data;
 }
+
+// ─── Yıldız & Ödüller (Gamification) ─────────────────────────────────────────
 
 export interface RatingResult {
   starEvent: StarEvent;

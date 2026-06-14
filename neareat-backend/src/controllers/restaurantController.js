@@ -107,22 +107,19 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
   };
 }
 
-async function getNearby(req, res, next) {
-  try {
-    const { lat, lng, type = 'all', cuisineTag } = req.query;
-    if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+/**
+ * Bir koordinat için kalite-filtreli, sıralanmış ve DB enrichment'i uygulanmış nearby
+ * sonuç satırlarını üretir. `getNearby` HTTP handler'ı ile kişiselleştirme endpoint'i
+ * (Sprint-17 #366) aynı boru hattını paylaşsın diye dışa açıldı — davranış birebir korunur.
+ *
+ * @param {{userLat:number, userLng:number, radiusKm:number, placeType?:string, cuisineFilter?:string[], userLevel?:number}} params
+ * @returns {Promise<object[]>} mapPlaceToResultRow satırları
+ */
+async function buildNearbyResults({ userLat, userLng, radiusKm, placeType = 'all', cuisineFilter = [], userLevel = 1 }) {
+  const radiusMeters = radiusKm * 1000;
 
-    const userLat = parseFloat(lat);
-    const userLng = parseFloat(lng);
-    const placeType = VALID_TYPES.has(type) ? type : 'all';
-    const cuisineFilter = parseCuisineTagFilter(cuisineTag);
-
-    const premium = req.user ? await isPremiumUser(req.user.id) : false;
-    const radiusKm = premium ? PREMIUM_RADIUS_KM : FREE_RADIUS_KM;
-    const radiusMeters = radiusKm * 1000;
-
-    let rawPlaces;
-    if (placeType === 'all') {
+  let rawPlaces;
+  if (placeType === 'all') {
       // S16-4 — env-ayarlı tip listesini paralel çek (rankby=distance, AVM içi/düşük
       // puanlı yerler dahil), placeId'ye göre dedup et. Eski 5 sabit tip → 3 (maliyet ↓).
       const perType = await Promise.all(
@@ -173,7 +170,6 @@ async function getNearby(req, res, next) {
     // Attach discount + override hours from our DB for matching placeIds
     const placeIds = filtered.map((p) => p.place_id);
     const now = new Date();
-    const userLevel = req.user ? getLevel(req.user.starCount).level : 1;
     const allProfiles = await prisma.restaurantProfile.findMany({
       where: { placeId: { in: placeIds }, status: 'APPROVED' },
       select: {
@@ -195,6 +191,26 @@ async function getNearby(req, res, next) {
     const results = filtered.map((place) =>
       mapPlaceToResultRow(place, discountMap[place.place_id] || null, now, userLevel, place._dist),
     );
+
+    return results;
+}
+
+// GET /api/restaurants/nearby — Keşfet listesi (kalite filtreli, sıralı, DB enrichment'li).
+async function getNearby(req, res, next) {
+  try {
+    const { lat, lng, type = 'all', cuisineTag } = req.query;
+    if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    const placeType = VALID_TYPES.has(type) ? type : 'all';
+    const cuisineFilter = parseCuisineTagFilter(cuisineTag);
+
+    const premium = req.user ? await isPremiumUser(req.user.id) : false;
+    const radiusKm = premium ? PREMIUM_RADIUS_KM : FREE_RADIUS_KM;
+    const userLevel = req.user ? getLevel(req.user.starCount).level : 1;
+
+    const results = await buildNearbyResults({ userLat, userLng, radiusKm, placeType, cuisineFilter, userLevel });
 
     res.json({ results, radiusKm });
   } catch (err) {
@@ -376,4 +392,4 @@ async function getDetails(req, res, next) {
   }
 }
 
-module.exports = { getNearby, getDetails, searchByText };
+module.exports = { getNearby, getDetails, searchByText, buildNearbyResults };

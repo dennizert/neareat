@@ -1,17 +1,18 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View, FlatList, StyleSheet, ActivityIndicator, Text,
-  TouchableOpacity, ScrollView, RefreshControl, TextInput,
+  TouchableOpacity, ScrollView, RefreshControl, TextInput, Image,
 } from 'react-native';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import { fetchNearby } from '../../services/restaurants';
+import { getPersonalizedDiscovery } from '../../services/discovery';
 import { getCurrentLocation } from '../../services/location';
 import RestaurantCard from '../../components/RestaurantCard';
 import RestaurantListSkeleton from '../../components/RestaurantListSkeleton';
 import EmptyState from '../../components/EmptyState';
 import SortFilterBar from '../../components/SortFilterBar';
 import MapViewScreen from './MapViewScreen';
-import type { Restaurant } from '../../types';
+import type { Restaurant, PersonalizedDiscovery } from '../../types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import NotificationBell from '../../components/NotificationBell';
 import AppHeader from '../../components/AppHeader';
@@ -19,6 +20,7 @@ import EmailVerificationBanner from '../../components/EmailVerificationBanner';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { shouldShowSkeleton, isListStale } from '../../utils/listCache';
+import { isPersonalizationActive, shouldShowRails, mergeForYou } from '../../utils/personalization';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -37,11 +39,25 @@ export default function HomeScreen() {
 
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | undefined>();
   const [refreshing, setRefreshing] = useState(false);
+  // Sprint-17 #366 — kişiselleştirilmiş Keşfet verisi (raylar + skorlu liste). Hata/boş
+  // olursa null kalır ve ekran mevcut nearby deneyimine sorunsuz düşer.
+  const [personalized, setPersonalized] = useState<PersonalizedDiscovery | null>(null);
   const coordsRef = useRef<{ lat: number; lng: number } | undefined>(undefined);
   const lastFetchRef = useRef<number>(0);
 
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
+
+  // S17-#366 — kişiselleştirilmiş keşif verisini getirir. Sessiz/fire-and-forget:
+  // hata olursa personalized null kalır ve liste standart nearby davranışına düşer.
+  const loadPersonalized = useCallback(async (coords: { lat: number; lng: number }) => {
+    try {
+      const data = await getPersonalizedDiscovery(coords.lat, coords.lng);
+      setPersonalized(data);
+    } catch {
+      setPersonalized(null);
+    }
+  }, []);
 
   // Fetch all data — category changes are client-side (instant, no API call)
   const loadAll = useCallback(async (forceLocation: boolean = false) => {
@@ -59,12 +75,13 @@ export default function HomeScreen() {
       setRestaurants(results);
       recordNearbyFetch(coords);          // S15-P2 — koordinat + zaman damgasını persist et
       lastFetchRef.current = Date.now();
+      loadPersonalized(coords);           // S17-#366 — kişiselleştirmeyi arka planda tazele
     } catch (err: any) {
       setError(err.message || 'Restoranlar yüklenemedi');
     } finally {
       setLoading(false);
     }
-  }, [setLoading, setError, setRestaurants, recordNearbyFetch]);
+  }, [setLoading, setError, setRestaurants, recordNearbyFetch, loadPersonalized]);
 
   // S15-P2 — Stale-while-revalidate: persist hidrasyonu bitince önbellekteki konumu
   // ref'lere tohumla (GPS'i tekrar bekleme) ve arka planda tazele. Önbellekteki liste
@@ -127,6 +144,17 @@ export default function HomeScreen() {
   const isSearching = searchQuery.trim().length >= 2;
   const displayList = isSearching ? searchResults : displayedRestaurants;
 
+  // S17-#366 — Kişiselleştirme yalnızca varsayılan görünümde devreye girer (saf util kararı).
+  const personalizationActive = isPersonalizationActive({ isSearching, selectedCuisineTag, personalized });
+
+  // "Senin İçin" sıralaması: önce kişisel skorlu forYou, ardından kalan nearby (kayıp olmasın).
+  const nearbyData = React.useMemo(() => {
+    if (!personalizationActive || !personalized) return displayedRestaurants;
+    return mergeForYou(personalized.forYou, displayedRestaurants);
+  }, [personalizationActive, personalized, displayedRestaurants]);
+
+  const showRails = shouldShowRails({ viewMode, isSearching, selectedCuisineTag, personalized });
+
   const handlePress = useCallback((restaurant: Restaurant) => {
     navigation.navigate('RestaurantDetail', { placeId: restaurant.placeId });
   }, [navigation]);
@@ -145,6 +173,56 @@ export default function HomeScreen() {
       />
     );
   }, [handlePress]);
+
+  // S17-#366 — "Son Baktıkların" / "Tekrar gitmek ister misin?" yatay rayları.
+  // Nearby listesinin başlığı (ListHeaderComponent) olarak listeyle birlikte kayar.
+  const renderMiniCard = useCallback(
+    (placeId: string, name: string, photoUrl: string | null, rating: number | null) => (
+      <TouchableOpacity
+        key={placeId}
+        style={styles.miniCard}
+        activeOpacity={0.85}
+        onPress={() => navigation.navigate('RestaurantDetail', { placeId })}
+      >
+        {photoUrl ? (
+          <Image source={{ uri: photoUrl }} style={styles.miniPhoto} />
+        ) : (
+          <View style={[styles.miniPhoto, styles.miniPhotoPlaceholder]}>
+            <Text style={styles.miniPhotoIcon}>🍽️</Text>
+          </View>
+        )}
+        <Text style={styles.miniName} numberOfLines={1}>{name}</Text>
+        {rating != null && rating > 0 && <Text style={styles.miniMeta}>★ {rating.toFixed(1)}</Text>}
+      </TouchableOpacity>
+    ),
+    [styles, navigation],
+  );
+
+  const renderRails = useCallback(() => {
+    if (!personalized) return null;
+    const { recentlyViewed, revisit } = personalized;
+    return (
+      <View>
+        {recentlyViewed.length > 0 && (
+          <View style={styles.railSection}>
+            <Text style={styles.railTitle}>Son Baktıkların</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railRow}>
+              {recentlyViewed.map((p) => renderMiniCard(p.placeId, p.name, p.photoUrl, p.rating))}
+            </ScrollView>
+          </View>
+        )}
+        {revisit.length > 0 && (
+          <View style={styles.railSection}>
+            <Text style={styles.railTitle}>Tekrar gitmek ister misin?</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railRow}>
+              {revisit.map((p) => renderMiniCard(p.placeId, p.name, p.photoUrl, p.rating))}
+            </ScrollView>
+          </View>
+        )}
+        {personalizationActive && <Text style={styles.forYouLabel}>Senin İçin</Text>}
+      </View>
+    );
+  }, [personalized, personalizationActive, styles, renderMiniCard]);
 
   return (
     <View style={styles.container}>
@@ -323,9 +401,10 @@ export default function HomeScreen() {
           {error && <Text style={styles.errorText}>{error}</Text>}
           {!error && (loading ? displayedRestaurants.length > 0 : true) && (
             <FlatList
-              data={displayedRestaurants}
+              data={nearbyData}
               keyExtractor={(r) => r.placeId}
               renderItem={renderCard}
+              ListHeaderComponent={showRails ? renderRails : undefined}
               contentContainerStyle={styles.list}
               showsVerticalScrollIndicator={false}
               windowSize={5}
@@ -412,6 +491,18 @@ function makeStyles(C: Colors) {
       justifyContent: 'center', alignItems: 'center',
     },
     cuisineClearText: { fontSize: 11, fontWeight: '700', color: C.textMuted },
+
+    // S17-#366 — kişiselleştirme rayları + mini kartlar
+    railSection: { marginBottom: 14 },
+    railTitle: { fontSize: 14, fontWeight: '800', color: C.textPrimary, marginBottom: 8 },
+    railRow: { flexDirection: 'row', gap: 10, paddingRight: 8 },
+    miniCard: { width: 128 },
+    miniPhoto: { width: 128, height: 84, borderRadius: 10, backgroundColor: C.surfaceAlt },
+    miniPhotoPlaceholder: { justifyContent: 'center', alignItems: 'center' },
+    miniPhotoIcon: { fontSize: 24 },
+    miniName: { fontSize: 12.5, fontWeight: '600', color: C.textPrimary, marginTop: 5 },
+    miniMeta: { fontSize: 11.5, color: C.warning, fontWeight: '600', marginTop: 1 },
+    forYouLabel: { fontSize: 14, fontWeight: '800', color: C.textPrimary, marginBottom: 4 },
 
     loader: { marginTop: 40 },
     errorText: { textAlign: 'center', color: C.error, marginTop: 40, paddingHorizontal: 16 },

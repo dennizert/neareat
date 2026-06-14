@@ -1,3 +1,6 @@
+// Transactional e-posta servisi (Resend): Eatlas markalı doğrulama, şifre sıfırlama
+// ve hoş geldin e-postaları. Tüm mailler ortak `renderEmail` HTML şablonunu kullanır;
+// kullanıcı verisi `escapeHtml` ile temizlenerek HTML enjeksiyonu önlenir.
 const { Resend } = require('resend');
 
 if (!process.env.RESEND_API_KEY) {
@@ -23,6 +26,7 @@ const BRAND = {
   cream: '#FBF7F2',
 };
 
+// E-posta doğrulama maili (token'lı link, 24 saat geçerli).
 async function sendVerificationEmail(email, displayName, token) {
   const link = `${BASE_URL}/verify-email?token=${token}`;
   const { error } = await resend.emails.send({
@@ -41,6 +45,7 @@ async function sendVerificationEmail(email, displayName, token) {
   if (error) throw error;
 }
 
+// Şifre sıfırlama maili (token'lı link, 1 saat geçerli).
 async function sendPasswordResetEmail(email, displayName, token) {
   const link = `${BASE_URL}/reset-password?token=${token}`;
   const { error } = await resend.emails.send({
@@ -59,6 +64,7 @@ async function sendPasswordResetEmail(email, displayName, token) {
   if (error) throw error;
 }
 
+// Kayıt sonrası gönderilen hoş geldin maili (özellik tanıtımı + uygulamaya yönlendirme).
 async function sendWelcomeEmail(email, displayName) {
   const link = `${BASE_URL}/`;
   const { error } = await resend.emails.send({

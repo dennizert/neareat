@@ -17,13 +17,19 @@ interface Props {
   closingSoon?: boolean;
   closingVerySoon?: boolean;
   minutesUntilClose?: number | null;
+  // Sprint-17 #366 — kişiselleştirme "neden" rozeti. Verilmezse restoranın kendi
+  // reasons[0] alanına düşer; o da yoksa rozet gösterilmez (geriye uyumlu).
+  reasonTag?: string | null;
 }
 
-const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPress, closingSoon, closingVerySoon, minutesUntilClose }: Props) {
+const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPress, closingSoon, closingVerySoon, minutesUntilClose, reasonTag }: Props) {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const [imgError, setImgError] = React.useState(false);
   const favorited = useFavoriteStore((s) => s.isFavorite(r.placeId));
+
+  // Gösterilecek kişiselleştirme gerekçesi (en güçlü olan).
+  const reason = reasonTag ?? r.reasons?.[0] ?? null;
 
   const showClosingSoon = r.isOpenNow && (closingSoon || closingVerySoon);
 
@@ -88,6 +94,12 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
         </View>
       )}
       <View style={styles.info}>
+        {reason && (
+          <View style={styles.reasonChip}>
+            <AppIcon name="star" size={10} color={C.primary} />
+            <Text style={styles.reasonText} numberOfLines={1}>{reason}</Text>
+          </View>
+        )}
         <View style={styles.topRow}>
           <Text style={styles.name} numberOfLines={1}>{r.name}</Text>
           {renderBadge()}
@@ -172,6 +184,12 @@ function makeStyles(C: Colors) {
       shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2,
     },
     info: { flex: 1, padding: 12, justifyContent: 'center' },
+    reasonChip: {
+      flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+      backgroundColor: C.primaryLight, borderRadius: 8,
+      paddingHorizontal: 7, paddingVertical: 2, marginBottom: 5,
+    },
+    reasonText: { fontSize: 10.5, fontWeight: '700', color: C.primary },
     topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
     name: { fontSize: 15.5, fontWeight: '700', color: C.textPrimary, flex: 1, marginRight: 8 },
     badge: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
