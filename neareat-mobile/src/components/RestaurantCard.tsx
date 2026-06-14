@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import type { Restaurant } from '../types';
 import { formatDistance } from '../utils/haversine';
 import StarRating from './StarRating';
 import AppIcon from './AppIcon';
+import PressableScale from './PressableScale';
+import FadeInImage from './FadeInImage';
 import { EatlasEInline } from './EatlasMark';
 import { useFavoriteStore } from '../store/favoriteStore';
 import { useTheme } from '../theme';
@@ -71,7 +73,7 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
   }
 
   return (
-    <TouchableOpacity
+    <PressableScale
       style={[
         styles.card,
         showClosingSoon && (closingVerySoon ? styles.cardClosingVery : styles.cardClosingSoon),
@@ -79,10 +81,10 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
         !showClosingSoon && !showInstant && showStar && styles.cardStarDiscount,
       ]}
       onPress={onPress}
-      activeOpacity={0.85}
+      accessibilityLabel={`${r.name} restoranını aç`}
     >
       {r.photoUrl && !imgError ? (
-        <Image source={{ uri: r.photoUrl }} style={styles.photo} onError={() => setImgError(true)} />
+        <FadeInImage source={{ uri: r.photoUrl }} style={styles.photo} onError={() => setImgError(true)} />
       ) : (
         <View style={[styles.photo, styles.photoPlaceholder]}>
           <AppIcon name="restaurant" size={28} color={C.textMuted} />
@@ -158,7 +160,7 @@ const RestaurantCard = React.memo(function RestaurantCard({ restaurant: r, onPre
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 });
 
