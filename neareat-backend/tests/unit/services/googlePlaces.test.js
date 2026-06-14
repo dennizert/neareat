@@ -147,3 +147,35 @@ describe('passesQualityFilter — isim elemesi', () => {
     expect(passesQualityFilter(badName)).toBe(false);
   });
 });
+
+describe('passesQualityFilter — anlamsız isim elemesi (Sprint-17 fix)', () => {
+  it('yalnızca noktalama/sembol (".." / "-") → elenir', () => {
+    expect(passesQualityFilter({ name: '..', rating: 5, user_ratings_total: 3 })).toBe(false);
+    expect(passesQualityFilter({ name: '-', rating: 4.8, user_ratings_total: 10 })).toBe(false);
+  });
+  it('en az 2 harfli gerçek ad → geçer', () => {
+    expect(passesQualityFilter({ name: 'Ev', rating: 4.5, user_ratings_total: 5 })).toBe(true);
+  });
+});
+
+describe('passesQualityFilter — tip (types) bazlı eleme (Sprint-17 fix)', () => {
+  it('yiyecek-dışı tip (premise/plaza) → restoran tipi olsa bile elenir', () => {
+    const plaza = { name: 'Wings Ankara', rating: 4.1, user_ratings_total: 18, types: ['restaurant', 'premise', 'point_of_interest'] };
+    expect(passesQualityFilter(plaza)).toBe(false);
+  });
+  it('güzellik salonu tipi → elenir', () => {
+    const salon = { name: 'Stil Merkezi', rating: 4.9, user_ratings_total: 40, types: ['beauty_salon', 'point_of_interest', 'establishment'] };
+    expect(passesQualityFilter(salon)).toBe(false);
+  });
+  it('types var ama hiç yeme-içme tipi yok → elenir', () => {
+    const generic = { name: 'Bir Yer', rating: 4.5, user_ratings_total: 50, types: ['point_of_interest', 'establishment'] };
+    expect(passesQualityFilter(generic)).toBe(false);
+  });
+  it('gerçek restoran tipi → geçer', () => {
+    const r = { name: 'Köşk Restoran', rating: 4.5, user_ratings_total: 200, types: ['restaurant', 'food', 'point_of_interest', 'establishment'] };
+    expect(passesQualityFilter(r)).toBe(true);
+  });
+  it('types alanı yoksa (geriye uyum) → tip kontrolü atlanır', () => {
+    expect(passesQualityFilter({ name: 'Çınaraltı', rating: 4.2, user_ratings_total: 150 })).toBe(true);
+  });
+});

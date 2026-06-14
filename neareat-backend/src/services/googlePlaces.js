@@ -447,8 +447,46 @@ function isExcludedByName(name) {
   return EXCLUDED_NAME_PATTERNS.some((re) => re.test(norm));
 }
 
+// Google Places `types` ile yiyecek-dışı eleme (isim listesi bunları yakalayamıyor;
+// ör. "Wings Ankara" adlı bir plaza isimde anahtar kelime taşımaz). Aşağıdaki
+// tiplerden biri varsa, yer 'restaurant' tipini de taşısa bile (karma kullanımlı
+// plaza/iş merkezi/güzellik vb.) elenir.
+const NON_FOOD_TYPES = new Set([
+  'lodging',
+  'premise', // adlandırılmış bina/plaza → genelde restoran değil
+  'real_estate_agency',
+  'beauty_salon', 'hair_care', 'spa', 'nail_salon',
+  'gym', 'doctor', 'dentist', 'hospital', 'pharmacy', 'physiotherapist',
+  'school', 'university', 'primary_school', 'secondary_school',
+  'bank', 'atm', 'finance', 'insurance_agency', 'accounting', 'lawyer',
+  'car_repair', 'car_dealer', 'car_wash', 'gas_station',
+  'shopping_mall', 'department_store', 'furniture_store', 'hardware_store',
+  'clothing_store', 'shoe_store', 'electronics_store', 'home_goods_store',
+  'grocery_or_supermarket', 'supermarket', 'convenience_store',
+  'storage', 'moving_company', 'electrician', 'plumber', 'painter',
+  'veterinary_care', 'pet_store',
+  'travel_agency', 'local_government_office', 'courthouse', 'police',
+  'church', 'mosque', 'hindu_temple', 'synagogue', 'place_of_worship',
+]);
+
+// Gerçek bir yeme-içme tipi (en az biri olmalı). `types` mevcutsa zorunludur.
+const FOOD_TYPES = new Set([
+  'restaurant', 'cafe', 'bakery', 'meal_takeaway', 'meal_delivery', 'bar', 'food',
+]);
+
+// Anlamlı bir ada sahip mi? Normalize edilmiş adda en az 2 harf olmalı —
+// ".." / "-" / yalnızca emoji gibi çöp kayıtları eler.
+function hasMeaningfulName(name) {
+  return normalizeName(name).replace(/[^a-z]/g, '').length >= 2;
+}
+
 function passesQualityFilter(place) {
+  if (!hasMeaningfulName(place?.name)) return false;
   if (isExcludedByName(place?.name)) return false;
+  // Tip bazlı eleme: yiyecek-dışı tip varsa ele; `types` varsa en az bir yeme-içme tipi şart.
+  const types = Array.isArray(place?.types) ? place.types : [];
+  if (types.some((t) => NON_FOOD_TYPES.has(t))) return false;
+  if (types.length > 0 && !types.some((t) => FOOD_TYPES.has(t))) return false;
   const total = place?.user_ratings_total;
   const rating = place?.rating;
   if (typeof total !== 'number' || total < QUALITY_MIN_USER_RATINGS) return false;
@@ -466,7 +504,10 @@ module.exports = {
   isOpenAtTime,
   passesQualityFilter,
   isExcludedByName,
+  hasMeaningfulName,
   normalizeName,
+  NON_FOOD_TYPES,
+  FOOD_TYPES,
   EXCLUDED_NAME_KEYWORDS,
   QUALITY_MIN_RATING,
   QUALITY_MIN_USER_RATINGS,
