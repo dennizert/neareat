@@ -19,6 +19,7 @@ import { getMyCollections, addToCollection, createCollection } from '../../servi
 import { getClosingInfo } from '../../utils/closingTime';
 import { computeAppRating } from '../../utils/appRating';
 import { submitPlaceRequest } from '../../services/placeRequests';
+import { recordPlaceView } from '../../services/discovery';
 import StarRating from '../../components/StarRating';
 import PhotoGallery from '../../components/PhotoGallery';
 import ProductPhotosSection from '../../components/ProductPhotosSection';
@@ -108,6 +109,15 @@ export default function RestaurantDetailScreen() {
           ]);
           setDetail(d);
           setAppReviews(reviews);
+          // Sprint-17 #366 — "Son Baktıkların" rayı için görüntülemeyi kaydet (fire-and-forget).
+          recordPlaceView({
+            placeId,
+            name: d.name,
+            rating: d.rating,
+            photoUrl: d.photoUrl ?? d.photos?.[0] ?? null,
+            types: d.types ?? [],
+            address: d.formattedAddress ?? null,
+          });
         } catch (err: any) {
           // userMessage interceptor'dan gelir (çevrimdışıyken anlamlı Türkçe mesaj)
           Alert.alert('Hata', err.userMessage || err.message || 'Restoran bilgileri yüklenemedi.');

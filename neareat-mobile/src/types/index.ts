@@ -70,6 +70,29 @@ export interface Restaurant {
   minutesUntilClose?: number | null;
   isNewlyOpened?: boolean;
   isRegistered?: boolean;
+  // Sprint-17 #366 — kişiselleştirme: skor + "neden" gerekçeleri (ör. "Sevdiğin mutfak: Kebap")
+  personalScore?: number;
+  reasons?: string[];
+}
+
+// Sprint-17 #366 — "Son Baktıkların" rayı için hafif kart verisi (PlaceView).
+export interface RecentlyViewedPlace {
+  placeId: string;
+  name: string;
+  address: string | null;
+  photoUrl: string | null;
+  rating: number | null;
+  types: string[];
+  viewedAt: string;
+}
+
+// Sprint-17 #366 — kişiselleştirilmiş Keşfet yanıtı.
+export interface PersonalizedDiscovery {
+  tasteProfile: { topCuisines: string[] };
+  recentlyViewed: RecentlyViewedPlace[];
+  forYou: Restaurant[];
+  revisit: Restaurant[];
+  radiusKm: number;
 }
 
 export interface OpeningHoursPeriodTime {
