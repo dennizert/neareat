@@ -5,8 +5,13 @@ import { haptics } from '../utils/haptics';
 /**
  * Basışta hafifçe küçülen + haptik veren dokunma sarmalayıcısı (Sprint-17 #368).
  * RN `Animated` ile (kod tabanının mevcut animasyon deseni — Skeleton/Toast gibi).
+ *
+ * `style` (flex/width/margin dahil layout) doğrudan basılabilir öğeye uygulanır —
+ * böylece `flex: 1` gibi kurallar ebeveyn satırında düzgün çalışır (animated Pressable).
  * `onPress` API'siyle uyumlu drop-in; erişilebilirlik prop'ları Pressable'a geçer.
  */
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 interface Props extends Omit<PressableProps, 'style' | 'children'> {
   onPress?: () => void;
   children: React.ReactNode;
@@ -24,7 +29,7 @@ export default function PressableScale({
     Animated.spring(scale, { toValue, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
 
   return (
-    <Pressable
+    <AnimatedPressable
       onPressIn={() => { if (!disabled) animateTo(scaleTo); }}
       onPressOut={() => { if (!disabled) animateTo(1); }}
       onPress={() => {
@@ -34,9 +39,10 @@ export default function PressableScale({
       }}
       disabled={disabled}
       accessibilityRole={accessibilityRole}
+      style={[style, { transform: [{ scale }] }]}
       {...rest}
     >
-      <Animated.View style={[{ transform: [{ scale }] }, style]}>{children}</Animated.View>
-    </Pressable>
+      {children}
+    </AnimatedPressable>
   );
 }
