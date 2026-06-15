@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useRef, useState } from 'react';
 import {
   View, FlatList, StyleSheet, ActivityIndicator, Text,
   TouchableOpacity, ScrollView, RefreshControl, TextInput,
+  LayoutAnimation, Platform, UIManager,
 } from 'react-native';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import { fetchNearby } from '../../services/restaurants';
@@ -24,6 +25,11 @@ import { isPersonalizationActive, shouldShowRails, mergeForYou } from '../../uti
 import PressableScale from '../../components/PressableScale';
 import FadeInImage from '../../components/FadeInImage';
 
+// Android'de LayoutAnimation (rayların açılır/kapanır animasyonu) için bir kez etkinleştir.
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const {
@@ -44,6 +50,10 @@ export default function HomeScreen() {
   // Sprint-17 #366 — kişiselleştirilmiş Keşfet verisi (raylar + skorlu liste). Hata/boş
   // olursa null kalır ve ekran mevcut nearby deneyimine sorunsuz düşer.
   const [personalized, setPersonalized] = useState<PersonalizedDiscovery | null>(null);
+  // S17 — kişiselleştirme rayları açılır/kapanır; ilk açılışta 2sn sonra otomatik kapanır.
+  const [recentExpanded, setRecentExpanded] = useState(true);
+  const [revisitExpanded, setRevisitExpanded] = useState(true);
+  const autoCollapsedRef = useRef(false);
   const coordsRef = useRef<{ lat: number; lng: number } | undefined>(undefined);
   const lastFetchRef = useRef<number>(0);
 
@@ -157,6 +167,25 @@ export default function HomeScreen() {
 
   const showRails = shouldShowRails({ viewMode, isSearching, selectedCuisineTag, personalized });
 
+  // İlk kez raylar göründüğünde 2 sn açık kalsın, sonra animasyonla kendiliğinden kapansın.
+  useEffect(() => {
+    if (!showRails || autoCollapsedRef.current) return;
+    autoCollapsedRef.current = true;
+    const t = setTimeout(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setRecentExpanded(false);
+      setRevisitExpanded(false);
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [showRails]);
+
+  // Bir rayı animasyonla aç/kapat.
+  const toggleRail = useCallback((which: 'recent' | 'revisit') => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (which === 'recent') setRecentExpanded((v) => !v);
+    else setRevisitExpanded((v) => !v);
+  }, []);
+
   const handlePress = useCallback((restaurant: Restaurant) => {
     navigation.navigate('RestaurantDetail', { placeId: restaurant.placeId });
   }, [navigation]);
@@ -207,24 +236,34 @@ export default function HomeScreen() {
       <View>
         {recentlyViewed.length > 0 && (
           <View style={styles.railSection}>
-            <Text style={styles.railTitle}>Son Baktıkların</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railRow}>
-              {recentlyViewed.map((p) => renderMiniCard(p.placeId, p.name, p.photoUrl, p.rating))}
-            </ScrollView>
+            <TouchableOpacity style={styles.railHeader} onPress={() => toggleRail('recent')} activeOpacity={0.7}>
+              <Text style={styles.railTitle}>Son Baktıkların</Text>
+              <Text style={styles.railCaret}>{recentExpanded ? '▾' : '▸'}</Text>
+            </TouchableOpacity>
+            {recentExpanded && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railRow}>
+                {recentlyViewed.map((p) => renderMiniCard(p.placeId, p.name, p.photoUrl, p.rating))}
+              </ScrollView>
+            )}
           </View>
         )}
         {revisit.length > 0 && (
           <View style={styles.railSection}>
-            <Text style={styles.railTitle}>Tekrar gitmek ister misin?</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railRow}>
-              {revisit.map((p) => renderMiniCard(p.placeId, p.name, p.photoUrl, p.rating))}
-            </ScrollView>
+            <TouchableOpacity style={styles.railHeader} onPress={() => toggleRail('revisit')} activeOpacity={0.7}>
+              <Text style={styles.railTitle}>Tekrar gitmek ister misin?</Text>
+              <Text style={styles.railCaret}>{revisitExpanded ? '▾' : '▸'}</Text>
+            </TouchableOpacity>
+            {revisitExpanded && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railRow}>
+                {revisit.map((p) => renderMiniCard(p.placeId, p.name, p.photoUrl, p.rating))}
+              </ScrollView>
+            )}
           </View>
         )}
         {personalizationActive && <Text style={styles.forYouLabel}>Senin İçin</Text>}
       </View>
     );
-  }, [personalized, personalizationActive, styles, renderMiniCard]);
+  }, [personalized, personalizationActive, styles, renderMiniCard, recentExpanded, revisitExpanded, toggleRail]);
 
   return (
     <View style={styles.container}>
@@ -494,16 +533,18 @@ function makeStyles(C: Colors) {
     },
     cuisineClearText: { fontSize: 11, fontWeight: '700', color: C.textMuted },
 
-    // S17-#366 — kişiselleştirme rayları + mini kartlar (kompakt)
-    railSection: { marginBottom: 12 },
-    railTitle: { fontSize: 13.5, fontWeight: '800', color: C.textPrimary, marginBottom: 6 },
-    railRow: { flexDirection: 'row', gap: 8, paddingRight: 8 },
-    miniCard: { width: 96 },
-    miniPhoto: { width: 96, height: 62, borderRadius: 9, backgroundColor: C.surfaceAlt },
+    // S17-#366 — kişiselleştirme rayları + mini kartlar (kompakt, açılır/kapanır)
+    railSection: { marginBottom: 8 },
+    railHeader: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingVertical: 4, paddingRight: 8 },
+    railTitle: { fontSize: 12.5, fontWeight: '800', color: C.textPrimary },
+    railCaret: { fontSize: 12, color: C.textMuted, fontWeight: '700', marginLeft: 6 },
+    railRow: { flexDirection: 'row', gap: 7, paddingRight: 8, paddingTop: 6 },
+    miniCard: { width: 66 },
+    miniPhoto: { width: 66, height: 44, borderRadius: 8, backgroundColor: C.surfaceAlt },
     miniPhotoPlaceholder: { justifyContent: 'center', alignItems: 'center' },
-    miniPhotoIcon: { fontSize: 18 },
-    miniName: { fontSize: 11.5, fontWeight: '600', color: C.textPrimary, marginTop: 4 },
-    miniMeta: { fontSize: 11, color: C.warning, fontWeight: '600', marginTop: 1 },
+    miniPhotoIcon: { fontSize: 13 },
+    miniName: { fontSize: 10, fontWeight: '600', color: C.textPrimary, marginTop: 3 },
+    miniMeta: { fontSize: 9.5, color: C.warning, fontWeight: '600', marginTop: 0 },
     forYouLabel: { fontSize: 14, fontWeight: '800', color: C.textPrimary, marginBottom: 4 },
 
     loader: { marginTop: 40 },
