@@ -494,16 +494,16 @@ function makeStyles(C: Colors) {
     },
     cuisineClearText: { fontSize: 11, fontWeight: '700', color: C.textMuted },
 
-    // S17-#366 — kişiselleştirme rayları + mini kartlar
-    railSection: { marginBottom: 14 },
-    railTitle: { fontSize: 14, fontWeight: '800', color: C.textPrimary, marginBottom: 8 },
-    railRow: { flexDirection: 'row', gap: 10, paddingRight: 8 },
-    miniCard: { width: 128 },
-    miniPhoto: { width: 128, height: 84, borderRadius: 10, backgroundColor: C.surfaceAlt },
+    // S17-#366 — kişiselleştirme rayları + mini kartlar (kompakt)
+    railSection: { marginBottom: 12 },
+    railTitle: { fontSize: 13.5, fontWeight: '800', color: C.textPrimary, marginBottom: 6 },
+    railRow: { flexDirection: 'row', gap: 8, paddingRight: 8 },
+    miniCard: { width: 96 },
+    miniPhoto: { width: 96, height: 62, borderRadius: 9, backgroundColor: C.surfaceAlt },
     miniPhotoPlaceholder: { justifyContent: 'center', alignItems: 'center' },
-    miniPhotoIcon: { fontSize: 24 },
-    miniName: { fontSize: 12.5, fontWeight: '600', color: C.textPrimary, marginTop: 5 },
-    miniMeta: { fontSize: 11.5, color: C.warning, fontWeight: '600', marginTop: 1 },
+    miniPhotoIcon: { fontSize: 18 },
+    miniName: { fontSize: 11.5, fontWeight: '600', color: C.textPrimary, marginTop: 4 },
+    miniMeta: { fontSize: 11, color: C.warning, fontWeight: '600', marginTop: 1 },
     forYouLabel: { fontSize: 14, fontWeight: '800', color: C.textPrimary, marginBottom: 4 },
 
     loader: { marginTop: 40 },
