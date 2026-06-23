@@ -1,6 +1,14 @@
 const prisma = require('../utils/prisma');
-const { isPremiumUser } = require('../utils/premiumCheck');
+const { getUserAccess } = require('../utils/levelAccess');
 const { awardStars, deductStars, RESERVATION_NO_SHOW_PENALTY } = require('../utils/stars');
+
+// S18-2: İçinde bulunulan takvim ayının başlangıcı (İstanbul UTC+3, DST yok) → UTC.
+// L2 kullanıcının "ayda 1 rezervasyon" kotasını saymak için.
+function getIstanbulMonthStartUtc() {
+  const ist = new Date(Date.now() + 3 * 60 * 60 * 1000);
+  const monthStartIst = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1, 0, 0, 0, 0);
+  return new Date(monthStartIst - 3 * 60 * 60 * 1000);
+}
 const { createNotification } = require('../services/notificationService');
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
 
@@ -60,16 +68,32 @@ async function createReservation(req, res, next) {
     const validationError = validateReservationInput({ date, time, occasion, specialRequests });
     if (validationError) return res.status(400).json({ error: validationError });
 
-    // Premium kısıtı: ücretsiz üyeler ömür boyu yalnızca 1 rezervasyon yapabilir.
-    // (Geçmiş/iptal dahil tüm rezervasyonlar sayılır.) Premium → sınırsız.
-    const premium = await isPremiumUser(req.user.id);
-    if (!premium) {
-      const totalReservations = await prisma.reservation.count({ where: { userId: req.user.id } });
-      if (totalReservations >= 1) {
-        return res.status(403).json({
-          error: 'Ücretsiz üyelikte yalnızca 1 rezervasyon yapabilirsin. Sınırsız rezervasyon için Premium\'a geç.',
-          code: 'PREMIUM_REQUIRED',
+    // S18-2: Rezervasyon hakkı yıldız SEVİYESİNE bağlı (premium kaldırıldı).
+    //  - L1 (maxReservationsPerMonth=0): yalnızca İLK rezervasyon (onboarding) — geçmişte
+    //    hiç rezervasyonu yoksa izin verilir, sonrası seviye 2 gerektirir.
+    //  - L2 (=1): takvim ayı başına 1 rezervasyon.
+    //  - L3+ (null): sınırsız.
+    const { access } = await getUserAccess(req.user.id);
+    const monthlyLimit = access.maxReservationsPerMonth;
+    if (monthlyLimit !== null) {
+      if (monthlyLimit === 0) {
+        const totalReservations = await prisma.reservation.count({ where: { userId: req.user.id } });
+        if (totalReservations >= 1) {
+          return res.status(403).json({
+            error: 'İlk rezervasyonunu yaptın. Aylık rezervasyon hakkı için Seviye 2\'ye ulaş.',
+            code: 'LEVEL_REQUIRED', requiredLevel: 2, feature: 'reservation',
+          });
+        }
+      } else {
+        const monthlyCount = await prisma.reservation.count({
+          where: { userId: req.user.id, createdAt: { gte: getIstanbulMonthStartUtc() } },
         });
+        if (monthlyCount >= monthlyLimit) {
+          return res.status(403).json({
+            error: `Bu ay ${monthlyLimit} rezervasyon hakkını kullandın. Sınırsız rezervasyon için Seviye 3'e ulaş.`,
+            code: 'LEVEL_REQUIRED', requiredLevel: 3, feature: 'reservation',
+          });
+        }
       }
     }
 

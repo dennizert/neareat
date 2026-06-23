@@ -395,9 +395,10 @@ describe('Favorites Endpoints', () => {
       expect(res.body.placeId).toBe('place-1');
     });
 
-    it('should reject when free user hits limit', async () => {
-      mockPrisma.subscription.findUnique.mockResolvedValue(null);
-      mockPrisma.favorite.count.mockResolvedValue(99); // limit env'den okunur — net şekilde aş
+    it('should reject when user hits level favorite limit (L1=5)', async () => {
+      // S18-2: favori limiti seviyeye bağlı; testUser L1 (starCount 0) → limit 5
+      mockPrisma.favorite.findUnique.mockResolvedValue(null); // yeni favori
+      mockPrisma.favorite.count.mockResolvedValue(99); // limiti net şekilde aş
 
       const res = await request(app)
         .post('/api/favorites')
@@ -405,7 +406,7 @@ describe('Favorites Endpoints', () => {
         .send({ placeId: 'place-4', placeName: 'Place 4', placeLat: 41.0, placeLng: 29.0 });
 
       expect(res.status).toBe(403);
-      expect(res.body.code).toBe('PREMIUM_REQUIRED');
+      expect(res.body.code).toBe('LEVEL_REQUIRED');
     });
 
     it('should reject missing required fields', async () => {

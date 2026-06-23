@@ -180,8 +180,8 @@ describe('GET /api/restaurants/:placeId — detay isim & foto sırası (S10-4)',
     expect(res.body.productPhotos).toEqual(['https://cdn.example/p1.jpg']);
   });
 
-  it('free kullanıcı → productPhotos gizli ([]) ama hasProductPhotos=true', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue(null); // free
+  it('S18-2: productPhotos artık herkese açık (seviye/premium kilidi kaldırıldı)', async () => {
+    // L1 kullanıcı (starCount 0) — premium kavramı kalktı; ürün fotoları herkese döner
     mockGetDetails.mockResolvedValue(detailPlace);
     mockPrisma.restaurantProfile.findFirst.mockResolvedValue({
       id: 'r-1', displayName: 'Mavera Restaurant', status: 'APPROVED', menuItems: [],
@@ -196,9 +196,9 @@ describe('GET /api/restaurants/:placeId — detay isim & foto sırası (S10-4)',
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.productPhotos).toEqual([]);
+    expect(res.body.productPhotos).toEqual(['https://cdn.example/p1.jpg']);
     expect(res.body.hasProductPhotos).toBe(true);
-    // Mekan (RESTAURANT) fotoları free'ye de görünür
+    // Mekan (RESTAURANT) fotoları da görünür
     expect(res.body.photos).toContain('https://cdn.example/r1.jpg');
   });
 

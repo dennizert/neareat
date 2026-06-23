@@ -2,10 +2,8 @@
 // öğe ekleme/çıkarma ve arkadaşlarla paylaşım. Free tier tek liste ile sınırlı;
 // liste adı/açıklaması içerik filtresinden geçer; paylaşım yalnızca arkadaşlarla yapılır.
 const prisma = require('../utils/prisma');
-const { isPremiumUser } = require('../utils/premiumCheck');
+const { getUserAccess } = require('../utils/levelAccess');
 const { containsOffensiveContent } = require('../utils/contentFilter');
-
-const FREE_COLLECTION_LIMIT = 1; // Free kullanıcılar en fazla 1 koleksiyon oluşturabilir
 
 // ─── Koleksiyon Listesi ───────────────────────────────────────────────────────
 
@@ -127,15 +125,14 @@ async function getCollection(req, res, next) {
 // POST /api/collections
 async function createCollection(req, res, next) {
   try {
-    const premium = await isPremiumUser(req.user.id);
-    if (!premium) {
-      const count = await prisma.collection.count({ where: { userId: req.user.id } });
-      if (count >= FREE_COLLECTION_LIMIT) {
-        return res.status(403).json({
-          error: 'Ücretsiz üyelikte en fazla 1 liste oluşturabilirsin. Sınırsız liste için Premium\'a geç.',
-          code: 'PREMIUM_REQUIRED',
-        });
-      }
+    // S18-2: Liste oluşturma yıldız SEVİYESİNE bağlı (premium kaldırıldı). L1 liste
+    // oluşturamaz; L2+ sınırsız liste oluşturabilir.
+    const { access } = await getUserAccess(req.user.id);
+    if (!access.canCreateLists) {
+      return res.status(403).json({
+        error: 'Liste oluşturmak için Seviye 2\'ye ulaşmalısın.',
+        code: 'LEVEL_REQUIRED', requiredLevel: 2, feature: 'collection',
+      });
     }
 
     const { name, description, isPublic = false } = req.body;

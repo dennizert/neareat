@@ -105,10 +105,9 @@ describe('POST /api/recommendations/analyze-photo', () => {
     expect(r2.body.remainingToday).toBe(1);
   });
 
-  it('premium kullanıcıda limit yok (remainingToday null)', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      status: 'active',
-      expiresAt: new Date(Date.now() + 86400000 * 30),
+  it('L5 (sınırsız) kullanıcıda limit yok (remainingToday null) — S18-2', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: userId, email: 'u@test.com', role: 'USER', displayName: 'U', starCount: 250, isSuspended: false,
     });
     for (let i = 0; i < 5; i++) {
       const r = await request(app).post(PATH).set('Authorization', `Bearer ${token}`)

@@ -321,11 +321,19 @@ describe('GET /api/collections/:id', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('POST /api/collections', () => {
-  // Premium subscription mock shared across create tests.
-  const activeSub = { id: 'sub-1', userId: 'user-1', status: 'active', expiresAt: new Date('2027-01-01') };
+  // S18-2: liste oluşturma yıldız SEVİYESİNE bağlı (premium kaldırıldı). L1 oluşturamaz,
+  // L2+ sınırsız oluşturur. Seviyeyi starCount ile ayarlayan yardımcı (auth + getUserAccess
+  // aynı user.findUnique'i okur).
+  function setStarCount(stars) {
+    mockPrisma.user.findUnique.mockImplementation(({ where }) => {
+      if (where.id === testUser.id) return Promise.resolve({ ...testUser, starCount: stars });
+      if (where.id === testUser2.id) return Promise.resolve(testUser2);
+      return Promise.resolve(null);
+    });
+  }
 
-  it('returns 201 and the new collection for a Premium user', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue(activeSub);
+  it('returns 201 and the new collection for an L2+ user', async () => {
+    setStarCount(50); // L2
     const created = makeCollection({ id: 'col-new', name: 'Best Brunch Spots', description: null, isPublic: false });
     mockPrisma.collection.create.mockResolvedValue(created);
 
@@ -340,36 +348,35 @@ describe('POST /api/collections', () => {
     expect(res.body.shareCount).toBe(0);
   });
 
-  it('returns 201 for a free user creating their FIRST collection', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue(null);
-    mockPrisma.collection.count.mockResolvedValue(0); // henüz koleksiyonu yok
-    const created = makeCollection({ id: 'col-free-1', name: 'İlk Listem', description: null });
+  it('returns 201 for an L2+ user creating multiple collections (no count limit)', async () => {
+    setStarCount(50); // L2 → sınırsız liste
+    const created = makeCollection({ id: 'col-free-1', name: 'İkinci Listem', description: null });
     mockPrisma.collection.create.mockResolvedValue(created);
 
     const res = await request(app)
       .post('/api/collections')
       .set('Authorization', `Bearer ${testToken}`)
-      .send({ name: 'İlk Listem' });
+      .send({ name: 'İkinci Listem' });
 
     expect(res.status).toBe(201);
-    expect(res.body.name).toBe('İlk Listem');
+    expect(res.body.name).toBe('İkinci Listem');
   });
 
-  it('returns 403 PREMIUM_REQUIRED for a free user creating a SECOND collection', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue(null);
-    mockPrisma.collection.count.mockResolvedValue(1); // zaten 1 koleksiyonu var
+  it('returns 403 LEVEL_REQUIRED for an L1 user creating a collection', async () => {
+    setStarCount(5); // L1 → liste oluşturamaz
 
     const res = await request(app)
       .post('/api/collections')
       .set('Authorization', `Bearer ${testToken}`)
-      .send({ name: 'İkinci Liste' });
+      .send({ name: 'İlk Liste Denemesi' });
 
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe('PREMIUM_REQUIRED');
+    expect(res.body.code).toBe('LEVEL_REQUIRED');
+    expect(res.body.requiredLevel).toBe(2);
   });
 
   it('returns 400 when name is missing', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue(activeSub);
+    setStarCount(50);
 
     const res = await request(app)
       .post('/api/collections')
@@ -381,7 +388,7 @@ describe('POST /api/collections', () => {
   });
 
   it('returns 400 when name is only whitespace', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue(activeSub);
+    setStarCount(50);
 
     const res = await request(app)
       .post('/api/collections')
@@ -392,7 +399,7 @@ describe('POST /api/collections', () => {
   });
 
   it('truncates names longer than 100 characters and still returns 201', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue(activeSub);
+    setStarCount(50);
     const longName = 'A'.repeat(120);
     const created = makeCollection({ id: 'col-trunc', name: 'A'.repeat(100) });
     mockPrisma.collection.create.mockResolvedValue(created);

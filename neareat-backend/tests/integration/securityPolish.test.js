@@ -48,7 +48,8 @@ const token = createTestToken('user-1');
 
 beforeEach(() => {
   jest.clearAllMocks();
-  prisma.user.findUnique.mockResolvedValue({ id: 'user-1', role: 'USER', isSuspended: false });
+  // starCount 50 → L2 (S18-2: liste oluşturma L2+ gerektirir; moderasyon testleri gate'i geçmeli)
+  prisma.user.findUnique.mockResolvedValue({ id: 'user-1', role: 'USER', isSuspended: false, starCount: 50 });
 });
 
 describe('Koleksiyon adı moderasyonu (S11-11)', () => {
