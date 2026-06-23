@@ -91,12 +91,24 @@ async function awardStars(userId, type, description, referenceId = null, multipl
 
 // Toplam yıldız sayısını kullanıcı seviyesine + rozete çevirir (5 kademe, eşikler sabit).
 // Hem level-up tespitinde (awardStars) hem profil/rozet gösteriminde kullanılır.
+// S18-1: eşikler büyütüldü (özellikler artık seviyeye bağlandığı için tırmanma daha anlamlı
+// olsun + farming zorlaşsın): L1 0–49 · L2 50–99 · L3 100–149 · L4 150–249 · L5 250+.
 function getLevel(stars) {
-  if (stars >= 100) return { level: 5, badge: 'Gastronomi Efsanesi', badgeIcon: '👑' };
-  if (stars >= 50)  return { level: 4, badge: 'NearEat Elçisi',       badgeIcon: '⭐' };
-  if (stars >= 25)  return { level: 3, badge: 'Restoran Uzmanı',      badgeIcon: '🏆' };
-  if (stars >= 10)  return { level: 2, badge: 'Gastronomi Meraklısı', badgeIcon: '🍽️' };
-  return                   { level: 1, badge: 'Yeni Kaşif',           badgeIcon: '🌱' };
+  if (stars >= 250) return { level: 5, badge: 'Gastronomi Efsanesi', badgeIcon: '👑' };
+  if (stars >= 150) return { level: 4, badge: 'NearEat Elçisi',       badgeIcon: '⭐' };
+  if (stars >= 100) return { level: 3, badge: 'Restoran Uzmanı',      badgeIcon: '🏆' };
+  if (stars >= 50)  return { level: 2, badge: 'Gastronomi Meraklısı', badgeIcon: '🍽️' };
+  return                    { level: 1, badge: 'Yeni Kaşif',           badgeIcon: '🌱' };
+}
+
+// S18-1: bir seviyenin alt yıldız eşiği (sezon sıfırlamada — S18-4 — ve "sonraki seviyeye
+// kaç yıldız" hesabında kullanılır). 5 kademe sabittir.
+const LEVEL_THRESHOLDS = { 1: 0, 2: 50, 3: 100, 4: 150, 5: 250 };
+
+// Verilen seviyenin başlangıç (alt) yıldız eşiğini döndürür. Sınır dışı seviyeler clamp'lenir.
+function thresholdForLevel(level) {
+  const lvl = Math.min(5, Math.max(1, Math.round(level)));
+  return LEVEL_THRESHOLDS[lvl];
 }
 
 // Sistem tanımlı yıldız seviyesi → indirim oranı tablosu (restoran değiştiremez)
@@ -121,4 +133,4 @@ async function deductStars(userId, amount, description, referenceId = null) {
   return newCount;
 }
 
-module.exports = { awardStars, deductStars, getLevel, STAR_AMOUNTS, STAR_LEVEL_DISCOUNTS, RESERVATION_NO_SHOW_PENALTY };
+module.exports = { awardStars, deductStars, getLevel, thresholdForLevel, LEVEL_THRESHOLDS, STAR_AMOUNTS, STAR_LEVEL_DISCOUNTS, RESERVATION_NO_SHOW_PENALTY };

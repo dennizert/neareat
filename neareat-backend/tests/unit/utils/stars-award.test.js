@@ -47,7 +47,7 @@ beforeEach(() => {
 
 describe('awardStars — level-up notification', () => {
   it('seviye atlayınca tam 1 LEVEL_UP bildirimi gönderir', async () => {
-    setupStars(9, 14); // level 1 → 2
+    setupStars(49, 55); // level 1 → 2 (S18-1 eşikleri: L2 = 50+)
 
     await awardStars('u1', 'REVIEW', 'yorum');
 
@@ -66,7 +66,7 @@ describe('awardStars — level-up notification', () => {
   });
 
   it('tek seferde iki seviye atlanırsa yine tam 1 LEVEL_UP (son seviye)', async () => {
-    setupStars(0, 30); // level 1 → 3
+    setupStars(0, 100); // level 1 → 3 (S18-1 eşikleri: L3 = 100+)
 
     await awardStars('u1', 'REVIEW', 'yorum');
 
@@ -76,7 +76,7 @@ describe('awardStars — level-up notification', () => {
   });
 
   it('seviye 5 sınırını geçince LEVEL_UP gönderir', async () => {
-    setupStars(99, 104); // level 4 → 5
+    setupStars(240, 255); // level 4 → 5 (S18-1 eşikleri: L5 = 250+)
 
     await awardStars('u1', 'REVIEW', 'yorum');
 
