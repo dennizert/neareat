@@ -1,9 +1,6 @@
 const prisma = require('../utils/prisma');
-const { isPremiumUser } = require('../utils/premiumCheck');
+const { getUserAccess } = require('../utils/levelAccess');
 const { logActivity, ACTIVITY_TYPES } = require('../services/logService');
-
-// Ücretsiz favori limiti env'den okunur (.env.example: FREE_FAVORITES_LIMIT). Varsayılan 5.
-const FREE_FAVORITES_LIMIT = parseInt(process.env.FREE_FAVORITES_LIMIT, 10) || 5;
 
 // Kullanıcının favorilerini listeler; kayıtlı (APPROVED) restoranların görünen adıyla
 // zenginleştirir (kart "displayName || placeName" gösterir). Restoran kendi adını
@@ -46,18 +43,27 @@ async function addFavorite(req, res, next) {
       return res.status(400).json({ error: 'placeId, placeName, placeLat, placeLng required' });
     }
 
-    const [premium, count] = await Promise.all([
-      isPremiumUser(req.user.id),
-      prisma.favorite.count({ where: { userId: req.user.id } }),
-    ]);
-    if (!premium && count >= FREE_FAVORITES_LIMIT) {
-      return res.status(403).json({ error: 'Favorite limit reached', code: 'PREMIUM_REQUIRED' });
-    }
-
     const existing = await prisma.favorite.findUnique({
       where: { userId_placeId: { userId: req.user.id, placeId } },
       select: { id: true },
     });
+
+    // S18-2: Favori limiti yıldız SEVİYESİNE bağlı (premium kaldırıldı): L1=5, L2=15,
+    // L3=30, L4=50, L5=sınırsız. Limit yalnızca YENİ favoride uygulanır (idempotent
+    // yeniden ekleme — örn. optimistik toggle — limite takılmaz).
+    if (!existing) {
+      const { level, access } = await getUserAccess(req.user.id);
+      const favLimit = access.favoritesLimit; // number | null (null = sınırsız)
+      if (favLimit !== null) {
+        const count = await prisma.favorite.count({ where: { userId: req.user.id } });
+        if (count >= favLimit) {
+          return res.status(403).json({
+            error: `Favori limitine ulaştın (${favLimit}). Daha fazla favori için seviye atla.`,
+            code: 'LEVEL_REQUIRED', requiredLevel: Math.min(5, level + 1), feature: 'favorite',
+          });
+        }
+      }
+    }
 
     const favorite = await prisma.favorite.upsert({
       where: { userId_placeId: { userId: req.user.id, placeId } },

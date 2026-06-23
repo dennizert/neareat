@@ -35,6 +35,11 @@ jest.mock('../../src/utils/stars', () => ({
   awardStars: jest.fn().mockResolvedValue(undefined),
   deductStars: jest.fn().mockResolvedValue(undefined),
   STAR_AMOUNTS: { RESERVATION: 5 }, RESERVATION_NO_SHOW_PENALTY: 10,
+  // S18-2: levelAccess getLevel'i buradan okur — eşiklerle uyumlu mock.
+  getLevel: (s) => ({
+    level: s >= 250 ? 5 : s >= 150 ? 4 : s >= 100 ? 3 : s >= 50 ? 2 : 1,
+    badge: '', badgeIcon: '',
+  }),
 }));
 jest.mock('../../src/jobs/reservationReminders', () => ({ scheduleReservationReminders: jest.fn() }));
 jest.mock('../../src/jobs/smartNotifications', () => ({ scheduleSmartNotifications: jest.fn() }));
@@ -62,16 +67,13 @@ const createdReservation = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  prisma.user.findUnique.mockResolvedValue({ id: 'u-1', role: 'USER', isSuspended: false });
+  // S18-2: kapasite testleri L5 (sınırsız rezervasyon) kullanıcıyla çalışır → seviye gate
+  // atlanır, yalnızca kapasite kontrolü test edilir. Seviye limiti ayrı describe'da.
+  prisma.user.findUnique.mockResolvedValue({ id: 'u-1', role: 'USER', isSuspended: false, starCount: 250 });
   prisma.restaurantProfile.findFirst.mockResolvedValue(restaurant);
   prisma.reservation.findFirst.mockResolvedValue(null);
   prisma.reservation.count.mockResolvedValue(0);
   prisma.reservation.create.mockResolvedValue(createdReservation);
-  // Kapasite testleri premium kullanıcıyla çalışır (ömür-boyu 1 rezervasyon limiti atlanır,
-  // yalnızca kapasite kontrolü test edilir). Free-tier limiti ayrı describe'da test edilir.
-  prisma.subscription.findUnique.mockResolvedValue({
-    id: 'sub-1', userId: 'u-1', status: 'active', expiresAt: new Date('2030-01-01'),
-  });
 });
 
 describe('POST /api/reservations — kapasite kontrolü', () => {
@@ -110,13 +112,13 @@ describe('POST /api/reservations — kapasite kontrolü', () => {
   });
 });
 
-describe('POST /api/reservations — free tier ömür-boyu 1 rezervasyon limiti', () => {
+describe('POST /api/reservations — L1 seviye rezervasyon kısıtı (S18-2)', () => {
   beforeEach(() => {
-    // Free kullanıcı (aktif abonelik yok)
-    prisma.subscription.findUnique.mockResolvedValue(null);
+    // L1 kullanıcı (starCount düşük) → yalnızca İLK (onboarding) rezervasyon
+    prisma.user.findUnique.mockResolvedValue({ id: 'u-1', role: 'USER', isSuspended: false, starCount: 5 });
   });
 
-  it('ilk rezervasyon (geçmişte 0) → 201', async () => {
+  it('ilk rezervasyon (geçmişte 0) → 201 (onboarding herkese açık)', async () => {
     prisma.reservation.count.mockResolvedValue(0);
     const res = await request(app)
       .post('/api/reservations')
@@ -125,14 +127,15 @@ describe('POST /api/reservations — free tier ömür-boyu 1 rezervasyon limiti'
     expect(res.status).toBe(201);
   });
 
-  it('ikinci rezervasyon (geçmişte 1) → 403 PREMIUM_REQUIRED', async () => {
+  it('ikinci rezervasyon (geçmişte 1) → 403 LEVEL_REQUIRED (Seviye 2 gerekir)', async () => {
     prisma.reservation.count.mockResolvedValue(1);
     const res = await request(app)
       .post('/api/reservations')
       .set('Authorization', `Bearer ${token}`)
       .send(validBody);
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe('PREMIUM_REQUIRED');
+    expect(res.body.code).toBe('LEVEL_REQUIRED');
+    expect(res.body.requiredLevel).toBe(2);
   });
 });
 

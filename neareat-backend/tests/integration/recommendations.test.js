@@ -332,76 +332,93 @@ describe('POST /api/recommendations/dinner-tonight — free tier rate limit', ()
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PREMIUM TIER
+// SEVİYE BAZLI TIER (S18-2) — kullanıcı premium kaldırıldı; AI kotası yıldız seviyesine bağlı
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe('POST /api/recommendations/dinner-tonight — premium tier', () => {
-  beforeEach(() => {
-    // Premium subscription mock — expires 30 days from now
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      userId: testUser.id,
-      status: 'active',
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+// Kullanıcının seviyesini starCount ile ayarlayan yardımcı (getUserAccess + auth
+// resolver aynı user.findUnique'i okur).
+function setUserStarCount(stars) {
+  mockPrisma.user.findUnique.mockImplementation(({ where }) =>
+    Promise.resolve(where.id === testUser.id ? { ...testUser, starCount: stars } : null));
+}
+
+describe('POST /api/recommendations/dinner-tonight — seviye bazlı tier (S18-2)', () => {
+  describe('L5 (250+ yıldız → sınırsız + zengin model)', () => {
+    beforeEach(() => setUserStarCount(250));
+
+    it('returns 200 with tier=premium, Sonnet model, remainingToday null', async () => {
+      const res = await request(app)
+        .post('/api/recommendations/dinner-tonight')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ lat: 41.04, lng: 28.98 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.tier).toBe('premium');
+      expect(res.body.model).toMatch(/sonnet/);
+      expect(res.body.remainingToday).toBeNull(); // sınırsız
+      expect(res.body.resetAt).toBeNull();
+    });
+
+    it('is NOT subject to a daily count limit (under S16-3 cap)', async () => {
+      mockPrisma.aiRecommendationLog.count.mockResolvedValue(5);
+      const res = await request(app)
+        .post('/api/recommendations/dinner-tonight')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ lat: 41.04, lng: 28.98 });
+      expect(res.status).toBe(200);
+    });
+
+    it('still bounded by S16-3 cost cap → 429 AI_DAILY_LIMIT at cap (30)', async () => {
+      mockPrisma.aiRecommendationLog.count.mockResolvedValue(30);
+      const res = await request(app)
+        .post('/api/recommendations/dinner-tonight')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ lat: 41.04, lng: 28.98 });
+      expect(res.status).toBe(429);
+      expect(res.body.error).toBe('AI_DAILY_LIMIT');
     });
   });
 
-  it('returns 200 with tier=premium and uses Sonnet model', async () => {
-    const res = await request(app)
-      .post('/api/recommendations/dinner-tonight')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ lat: 41.04, lng: 28.98 });
+  describe('L3 (100+ yıldız → zengin model ama sınırlı: 10/gün)', () => {
+    beforeEach(() => setUserStarCount(100));
 
-    expect(res.status).toBe(200);
-    expect(res.body.tier).toBe('premium');
-    expect(res.body.model).toMatch(/sonnet/);
-    expect(res.body.remainingToday).toBeNull(); // limitsiz
-    expect(res.body.resetAt).toBeNull();
-  });
+    it('uses Sonnet (richModel) and still reports remainingToday', async () => {
+      mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
+      const res = await request(app)
+        .post('/api/recommendations/dinner-tonight')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ lat: 41.04, lng: 28.98 });
 
-  it('is NOT subject to the free 1/day limit (under S16-3 cap)', async () => {
-    // Premium free 1/gün limitine tabi değil; S16-3 premium tavanının (30) altında → 200
-    mockPrisma.aiRecommendationLog.count.mockResolvedValue(5);
-
-    const res = await request(app)
-      .post('/api/recommendations/dinner-tonight')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ lat: 41.04, lng: 28.98 });
-
-    expect(res.status).toBe(200);
-  });
-
-  it('trial status is also treated as premium', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      userId: testUser.id,
-      status: 'trial',
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expect(res.status).toBe(200);
+      expect(res.body.tier).toBe('premium');
+      expect(res.body.model).toMatch(/sonnet/);
+      expect(res.body.remainingToday).toBe(9); // 10 limit - 1 kullanım
     });
-    mockPrisma.aiRecommendationLog.count.mockResolvedValue(5); // S16-3 tavanı altında
 
-    const res = await request(app)
-      .post('/api/recommendations/dinner-tonight')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ lat: 41.04, lng: 28.98 });
-
-    expect(res.status).toBe(200);
-    expect(res.body.tier).toBe('premium');
+    it('returns 429 LIMIT_EXCEEDED when L3 daily limit (10) is reached', async () => {
+      mockPrisma.aiRecommendationLog.count.mockResolvedValue(10);
+      const res = await request(app)
+        .post('/api/recommendations/dinner-tonight')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ lat: 41.04, lng: 28.98 });
+      expect(res.status).toBe(429);
+      expect(res.body.error).toBe('LIMIT_EXCEEDED');
+    });
   });
 
-  it('expired subscription falls back to free tier', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      userId: testUser.id,
-      status: 'active',
-      expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // expired yesterday
+  describe('L1 (varsayılan düşük seviye → free model, 1/gün)', () => {
+    // testUser.starCount = 5 (varsayılan) → L1
+    it('uses Haiku and is limited to 1/day', async () => {
+      mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
+      const res = await request(app)
+        .post('/api/recommendations/dinner-tonight')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ lat: 41.04, lng: 28.98 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.model).toMatch(/haiku/);
+      expect(res.body.remainingToday).toBe(0); // 1 limit - 1 kullanım
     });
-    mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
-
-    const res = await request(app)
-      .post('/api/recommendations/dinner-tonight')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ lat: 41.04, lng: 28.98 });
-
-    expect(res.status).toBe(200);
-    expect(res.body.tier).toBe('free');
   });
 });
 
@@ -756,12 +773,8 @@ describe('POST /api/recommendations/route-tonight — auth + validation', () => 
 describe('POST /api/recommendations/route-tonight — happy path', () => {
   beforeEach(() => {
     mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
-    // Premium — no rate limit concerns
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      userId: testUser.id,
-      status: 'active',
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    });
+    // L5 (sınırsız) — rate limit endişesi yok (S18-2)
+    setUserStarCount(250);
   });
 
   it('returns 200 with recommendations and route meta', async () => {
@@ -844,12 +857,8 @@ describe('POST /api/recommendations/route-tonight — rate limit (shared counter
     expect(mockAnthropicCreate).not.toHaveBeenCalled();
   });
 
-  it('premium user is not subject to free limit on route-tonight (under S16-3 cap)', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      userId: testUser.id,
-      status: 'active',
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    });
+  it('L5 (sınırsız) is not subject to daily limit on route-tonight (under S16-3 cap)', async () => {
+    setUserStarCount(250);
     mockPrisma.aiRecommendationLog.count.mockResolvedValue(5); // S16-3 tavanı altında
 
     const res = await request(app)
@@ -860,13 +869,9 @@ describe('POST /api/recommendations/route-tonight — rate limit (shared counter
     expect(res.status).toBe(200);
   });
 
-  // ─── S16-3: premium günlük tavan + yanıt cache ────────────────────────────
-  it('premium hits AI_DAILY_LIMIT when daily cap is exceeded', async () => {
-    mockPrisma.subscription.findUnique.mockResolvedValue({
-      userId: testUser.id,
-      status: 'active',
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    });
+  // ─── S16-3: sınırsız (L5) günlük tavan + yanıt cache ──────────────────────
+  it('L5 (sınırsız) hits AI_DAILY_LIMIT when daily cap is exceeded', async () => {
+    setUserStarCount(250);
     // PREMIUM_AI_DAILY_CAP varsayılan 30; üstünde → 429
     mockPrisma.aiRecommendationLog.count.mockResolvedValue(30);
 

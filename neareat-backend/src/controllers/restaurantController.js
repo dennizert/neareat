@@ -305,7 +305,7 @@ async function getDetails(req, res, next) {
     const { placeId } = req.params;
     const { lat, lng } = req.query;
 
-    const [place, restaurantProfile, premium] = await Promise.all([
+    const [place, restaurantProfile] = await Promise.all([
       getPlaceDetails(placeId),
       prisma.restaurantProfile.findFirst({
         where: { placeId, status: 'APPROVED' },
@@ -322,7 +322,6 @@ async function getDetails(req, res, next) {
           },
         },
       }),
-      isPremiumUser(req.user.id),
     ]);
 
     const now = new Date();
@@ -352,8 +351,9 @@ async function getDetails(req, res, next) {
       openingHours: place.opening_hours,
       location: place.geometry?.location,
       photos: [...ownerRestaurantPhotos, ...googlePhotos],
-      // Ürün fotoğrafları yalnızca premium kullanıcılara görünür (free tier kısıtı).
-      productPhotos: premium ? productPhotos : [],
+      // S18-2: Ürün fotoğrafları artık herkese açık (premium gating kaldırıldı) — bunlar
+      // ödeme yapan restoranın vitrini; seviyeye/premium'a kilitlemek değer kaybettirir.
+      productPhotos,
       hasProductPhotos: productPhotos.length > 0,
       googleReviews: place.reviews || [],
       popularTimes: null,
@@ -372,8 +372,8 @@ async function getDetails(req, res, next) {
       acceptsReservations: rp?.acceptsReservations ?? false,
       isRegistered: !!rp,
       restaurantId: rp?.id ?? null,
-      // Menu only for premium users
-      menu: premium && rp ? rp.menuItems : [],
+      // S18-2: Menü artık herkese açık (premium gating kaldırıldı).
+      menu: rp ? rp.menuItems : [],
       hasMenu: rp ? rp.menuItems.length > 0 : false,
     };
 
