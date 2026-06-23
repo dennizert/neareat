@@ -41,6 +41,7 @@ const mockUser: User = {
   emailVerified: false,
   role: 'USER',
   isSuspended: false,
+  starCount: 0,
 };
 
 function makeSub(overrides: Partial<Subscription> = {}): Subscription {

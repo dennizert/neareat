@@ -6,6 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
+import { starsToNextLevel } from '../utils/levelGate';
 import { useFavoriteStore } from '../store/favoriteStore';
 import { useUserProfileStore } from '../store/userProfileStore';
 import { useFriendStore } from '../store/friendStore';
@@ -26,7 +27,7 @@ import { useRestaurantStore } from '../store/restaurantStore';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
-  const { user, subscription, isPremium, clear } = useAuthStore();
+  const { user, isPremium, clear } = useAuthStore();
   const { setFavorites } = useFavoriteStore();
   const { profile, starEvents, setProfile, setStarEvents, clear: clearProfile } = useUserProfileStore();
   const { friends, pendingRequests, setFriends, setPendingRequests, clear: clearFriends } = useFriendStore();
@@ -271,28 +272,26 @@ export default function ProfileScreen() {
         <Text style={styles.menuRowChevron}>›</Text>
       </TouchableOpacity>
 
-      {/* Membership */}
+      {/* Seviye İlerlemesi (S18-5: kullanıcı premium kaldırıldı — özellikler seviyeyle açılır) */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Üyelik</Text>
+        <Text style={styles.sectionLabel}>Seviye</Text>
         <View style={styles.membershipRow}>
-          <View style={[styles.statusBadge, premium ? styles.premiumBadge : styles.freeBadge]}>
-            <Text style={styles.statusText}>{premium ? '⭐ Premium' : '🆓 Ücretsiz'}</Text>
+          <View style={[styles.statusBadge, styles.premiumBadge]}>
+            <Text style={styles.statusText}>{profile?.badgeIcon ?? '🌱'} Seviye {profile?.level ?? 1}</Text>
           </View>
-          {subscription?.expiresAt && (
-            <Text style={styles.expiryText}>
-              {premium ? 'Bitiş: ' : 'Süresi doldu: '}
-              {new Date(subscription.expiresAt).toLocaleDateString('tr-TR')}
-            </Text>
-          )}
-          {!premium && (
-            <TouchableOpacity
-              style={styles.upgradeBtn}
-              onPress={() => navigation.navigate('Paywall', { trigger: 'onboarding' })}
-            >
-              <Text style={styles.upgradeBtnText}>Premium'a Geç →</Text>
-            </TouchableOpacity>
-          )}
+          {(() => {
+            const stars = profile?.starCount ?? user?.starCount ?? 0;
+            const toNext = starsToNextLevel(stars);
+            return (
+              <Text style={styles.expiryText}>
+                {toNext === null ? 'En yüksek seviyedesin! 👑' : `Sonraki seviyeye ${toNext} yıldız`}
+              </Text>
+            );
+          })()}
         </View>
+        <Text style={styles.levelHint}>
+          Rezervasyon yap, gittiğin yere yorum yaz, arkadaş davet et — seviye atladıkça rezervasyon, liste ve daha fazla AI önerisi açılır.
+        </Text>
       </View>
 
       {/* Recommendations Tabs */}
@@ -492,6 +491,7 @@ function makeStyles(C: Colors) {
     freeBadge: { backgroundColor: C.inputBg },
     statusText: { fontWeight: '600', color: C.textPrimary },
     expiryText: { fontSize: 12, color: C.textMuted },
+    levelHint: { fontSize: 12, color: C.textMuted, marginTop: 8, lineHeight: 17 },
     upgradeBtn: { backgroundColor: C.primary, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
     upgradeBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
     recSection: { backgroundColor: C.surface, margin: 12, borderRadius: 16, overflow: 'hidden' },

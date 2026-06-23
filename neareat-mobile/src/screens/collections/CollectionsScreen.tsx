@@ -13,14 +13,14 @@ import {
 } from '../../services/collections';
 import NotificationBell from '../../components/NotificationBell';
 import type { Collection, SharedCollection } from '../../types';
-import { handleUserPremiumError } from '../../utils/premiumGate';
+import { handleLevelError, levelForStars } from '../../utils/levelGate';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { listPerf } from '../../theme/listPerf';
 
 export default function CollectionsScreen() {
   const navigation = useNavigation<any>();
-  const { isPremium } = useAuthStore();
+  const { user } = useAuthStore();
   const { myCollections, sharedWithMe, setMyCollections, setSharedWithMe, addCollection, removeCollection } = useCollectionStore();
   const insets = useSafeAreaInsets();
   const { bottom } = insets;
@@ -38,7 +38,8 @@ export default function CollectionsScreen() {
   const [newPublic, setNewPublic] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const premium = isPremium();
+  // S18-5: liste oluşturma yıldız seviyesine bağlı — L2+ oluşturabilir (premium kaldırıldı).
+  const canCreateLists = levelForStars(user?.starCount ?? 0) >= 2;
 
   async function loadAll() {
     setLoading(true);
@@ -63,9 +64,9 @@ export default function CollectionsScreen() {
   }
 
   function handleCreatePress() {
-    // Ücretsiz üyeler 1 liste oluşturabilir; ikinciden itibaren paywall.
-    if (!premium && myCollections.length >= 1) {
-      navigation.navigate('Paywall', { trigger: 'collections' });
+    // S18-5: Liste oluşturmak Seviye 2 gerektirir (premium kaldırıldı). L1 → bilgi göster.
+    if (!canCreateLists) {
+      Alert.alert('Seviye Gerekli', 'Liste oluşturmak için Seviye 2\'ye ulaşmalısın. Rezervasyon yap, yorum yaz ve yıldız kazan!');
       return;
     }
     setNewName('');
@@ -90,7 +91,7 @@ export default function CollectionsScreen() {
       setCreateModalVisible(false);
     } catch (err: any) {
       setCreateModalVisible(false);
-      if (handleUserPremiumError(err, navigation, 'collections')) return;
+      if (handleLevelError(err)) return;
       Alert.alert('Hata', err.response?.data?.error ?? 'Oluşturulamadı.');
     } finally {
       setCreating(false);
@@ -174,15 +175,12 @@ export default function CollectionsScreen() {
         </View>
       </View>
 
-      {!premium && (
-        <TouchableOpacity
-          style={styles.premiumBanner}
-          onPress={() => navigation.navigate('Paywall', { trigger: 'collections' })}
-        >
+      {!canCreateLists && (
+        <View style={styles.premiumBanner}>
           <Text style={styles.premiumBannerText}>
-            ⭐ Premium özellik — Koleksiyon oluşturmak için Premium'a geç
+            ⭐ Liste oluşturmak Seviye 2 ile açılır — rezervasyon yap, yorum yaz, yıldız kazan!
           </Text>
-        </TouchableOpacity>
+        </View>
       )}
 
       {/* Tabs */}
@@ -219,9 +217,9 @@ export default function CollectionsScreen() {
               <Text style={styles.emptyIcon}>📋</Text>
               <Text style={styles.emptyTitle}>Henüz liste yok</Text>
               <Text style={styles.emptyText}>
-                {premium
+                {canCreateLists
                   ? 'Sağ üstteki "+ Yeni" ile ilk koleksiyonunu oluştur.'
-                  : 'Premium üyeler restoran listesi oluşturabilir.'}
+                  : 'Seviye 2\'ye ulaşınca restoran listesi oluşturabilirsin.'}
               </Text>
             </View>
           }

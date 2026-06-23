@@ -30,8 +30,11 @@ async function isEmailSendThrottled(action, email) {
 // ayrı uçtan dönen profil alanlarını çıkarır. Tüm auth yanıtları bu filtreden geçer —
 // hassas veri sızıntısına karşı tek savunma noktası.
 function sanitizeUser(user) {
+  // S18-5: starCount artık session user'da KALIR — kullanıcı premium kaldırıldı, özellikler
+  // yıldız seviyesine bağlı; mobil seviye-bazlı UI kilitleri (liste/favori/rezervasyon)
+  // için oturum kullanıcısında seviyeyi taşıyoruz. (Hassas değil; profil yine taze kaynak.)
   const {
-    passwordHash, bio, city, favoriteCuisines, isPublic, starCount,
+    passwordHash, bio, city, favoriteCuisines, isPublic,
     shareWithFriendsRecommender, // profile data, getMyProfile'da döner
     emailVerificationToken, emailVerificationExpiry,
     passwordResetToken, passwordResetExpiry,

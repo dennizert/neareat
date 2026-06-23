@@ -22,19 +22,10 @@ export function isPremiumRequired(err: any): boolean {
   return code === 'PREMIUM_REQUIRED';
 }
 
-/**
- * Regular kullanıcı akışı: premium hatasıysa Paywall'a yönlendirir.
- * @returns hata ele alındıysa true (çağıran ayrıca Alert göstermemeli).
- */
-export function handleUserPremiumError(
-  err: any,
-  navigation: { navigate: (screen: string, params?: any) => void },
-  trigger: PaywallTrigger,
-): boolean {
-  if (!isPremiumRequired(err)) return false;
-  navigation.navigate('Paywall', { trigger });
-  return true;
-}
+// NOT (S18-5): Kullanıcı (USER) premium'u kaldırıldı; USER tarafı artık Paywall'a
+// yönlendirilmez — seviye-bazlı erişim için `utils/levelGate.ts` kullanılır.
+// `handleUserPremiumError` bu nedenle KALDIRILDI. Restoran tarafı premium akışı korunur
+// (Sprint-19'da elden geçecek).
 
 /**
  * Restoran kullanıcı akışı: bilgilendirici bir popup gösterir ve "Premium'a Geç"

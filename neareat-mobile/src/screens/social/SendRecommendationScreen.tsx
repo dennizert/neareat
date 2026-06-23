@@ -9,7 +9,6 @@ import { useFriendStore } from '../../store/friendStore';
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { useRecommendationStore } from '../../store/recommendationStore';
 import { sendRecommendation, getFriends } from '../../services/social';
-import { handleUserPremiumError } from '../../utils/premiumGate';
 import { useRestaurantStore } from '../../store/restaurantStore';
 import type { Friend } from '../../types';
 import StarRating from '../../components/StarRating';
@@ -79,7 +78,7 @@ export default function SendRecommendationScreen() {
         [{ text: 'Harika!', onPress: () => navigation.goBack() }],
       );
     } catch (err: any) {
-      if (handleUserPremiumError(err, navigation, 'recommendations')) return;
+      // S18-5: kullanıcı premium kaldırıldı; günlük öneri limiti mesajı doğrudan gösterilir (Paywall yok).
       Alert.alert('Hata', err?.response?.data?.error ?? 'Öneri gönderilemedi.');
     } finally {
       setSending(false);

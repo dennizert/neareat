@@ -1,7 +1,6 @@
 import { Alert } from 'react-native';
 import {
   isPremiumRequired,
-  handleUserPremiumError,
   handleRestaurantPremiumError,
 } from '../../utils/premiumGate';
 
@@ -17,26 +16,6 @@ describe('premiumGate', () => {
       expect(isPremiumRequired({ response: { data: { error: 'Başka hata' } } })).toBe(false);
       expect(isPremiumRequired(new Error('boom'))).toBe(false);
       expect(isPremiumRequired(undefined)).toBe(false);
-    });
-  });
-
-  describe('handleUserPremiumError', () => {
-    it('premium hatasında Paywall\'a yönlendirir + true döner', () => {
-      const navigation = { navigate: jest.fn() };
-      const handled = handleUserPremiumError(
-        { response: { data: { code: 'PREMIUM_REQUIRED' } } },
-        navigation,
-        'reservations',
-      );
-      expect(handled).toBe(true);
-      expect(navigation.navigate).toHaveBeenCalledWith('Paywall', { trigger: 'reservations' });
-    });
-
-    it('premium dışı hatada false döner, yönlendirmez', () => {
-      const navigation = { navigate: jest.fn() };
-      const handled = handleUserPremiumError(new Error('x'), navigation, 'collections');
-      expect(handled).toBe(false);
-      expect(navigation.navigate).not.toHaveBeenCalled();
     });
   });
 
