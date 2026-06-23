@@ -67,6 +67,7 @@ import MyReservationsScreen from '../screens/reservations/MyReservationsScreen';
 import ReservationDetailScreen from '../screens/reservations/ReservationDetailScreen';
 import EditReservationScreen from '../screens/reservations/EditReservationScreen';
 import RestaurantReservationsScreen from '../screens/restaurant-account/RestaurantReservationsScreen';
+import RestaurantOccupancyScreen from '../screens/restaurant-account/RestaurantOccupancyScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -315,6 +316,11 @@ export default function Navigation() {
                   name="RestaurantReservations"
                   component={RestaurantReservationsScreen}
                   options={{ ...H, title: 'Rezervasyonlar' }}
+                />
+                <Stack.Screen
+                  name="RestaurantOccupancy"
+                  component={RestaurantOccupancyScreen}
+                  options={{ ...H, title: 'Doluluk Paneli' }}
                 />
                 <Stack.Screen
                   name="ReservationDetail"

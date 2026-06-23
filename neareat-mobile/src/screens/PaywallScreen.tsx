@@ -16,14 +16,14 @@ import { trackEvent, ANALYTICS_EVENTS } from '../services/analytics';
 // Rol başına TEK aylık ürün. Bu değerler Play Console'daki Subscription ID'leriyle
 // BİREBİR aynı olmalı.
 const SKUS = {
-  user: 'user_premium',          // 79,90 ₺ / ay
-  restaurant: 'restaurant_premium', // 699,90 ₺ / ay
+  user: 'user_premium',          // (kullanıcı premium KALDIRILDI — S18; ekran yalnızca restoran)
+  restaurant: 'restaurant_premium', // 1.299,90 ₺ / ay (15 gün ücretsiz deneme — S19-1)
 };
 
 // Play Store erişilemiyorsa (ürün henüz oluşturulmadı / emülatör) gösterilecek fiyat.
 const FALLBACK_PRICE = {
-  user: '79,90 ₺',
-  restaurant: '699,90 ₺',
+  user: '0 ₺',
+  restaurant: '1.299,90 ₺',
 };
 
 type Feature = { icon: string; title: string; desc: string };

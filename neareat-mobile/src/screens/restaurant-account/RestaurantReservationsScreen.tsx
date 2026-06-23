@@ -54,6 +54,10 @@ export default function RestaurantReservationsScreen() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejecting, setRejecting] = useState(false);
+  // S19-5: onay modalı — restoran rezerve koltuk girer (varsayılan = guestCount)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [confirmSeats, setConfirmSeats] = useState('');
+  const [confirming, setConfirming] = useState(false);
 
   async function load(isRefresh = false) {
     if (!isRefresh) setLoading(true);
@@ -77,21 +81,29 @@ export default function RestaurantReservationsScreen() {
     setSelectedTab(key);
   }
 
-  function handleConfirm(id: string) {
-    Alert.alert('Rezervasyonu Onayla', 'Bu rezervasyonu onaylamak istiyor musunuz?', [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Onayla',
-        onPress: async () => {
-          try {
-            const updated = await updateReservationStatus(id, 'CONFIRMED');
-            setReservations(prev => prev.map(r => r.id === id ? updated : r));
-          } catch (err: any) {
-            Alert.alert('Hata', err.response?.data?.error ?? 'Onaylanamadı.');
-          }
-        },
-      },
-    ]);
+  // S19-5: onay modalını aç — rezerve koltuk varsayılanı = talep edilen kişi sayısı.
+  function handleConfirm(item: Reservation) {
+    setConfirmingId(item.id);
+    setConfirmSeats(String(item.guestCount));
+  }
+
+  async function confirmAccept() {
+    if (!confirmingId) return;
+    const seats = parseInt(confirmSeats, 10);
+    if (isNaN(seats) || seats < 1 || seats > 5000) {
+      Alert.alert('Hata', 'Rezerve koltuk 1-5000 arasında olmalıdır.');
+      return;
+    }
+    setConfirming(true);
+    try {
+      const updated = await updateReservationStatus(confirmingId, 'CONFIRMED', undefined, seats);
+      setReservations(prev => prev.map(r => r.id === confirmingId ? updated : r));
+      setConfirmingId(null);
+    } catch (err: any) {
+      Alert.alert('Hata', err.response?.data?.error ?? 'Onaylanamadı.');
+    } finally {
+      setConfirming(false);
+    }
   }
 
   // Alert.prompt yalnızca iOS'ta çalışır → cross-platform modal aç.
@@ -182,7 +194,14 @@ export default function RestaurantReservationsScreen() {
             <Text style={[styles.statusText, { color: st.color }]}>{st.label}</Text>
           </View>
         </View>
-        <Text style={styles.dateTime}>📅 {item.date}   🕐 {item.time}   👥 {item.guestCount} kişi</Text>
+        {/* S19-4: L3+ öncelikli kullanıcı rozeti */}
+        {item.isPriority && (
+          <View style={styles.priorityBadge}>
+            <Text style={styles.priorityBadgeText}>⭐ Öncelikli Kullanıcı (Seviye {item.userLevel})</Text>
+          </View>
+        )}
+        <Text style={styles.dateTime}>📅 {item.date}   🕐 {item.time}   👥 {item.guestCount} kişi
+          {item.status === 'CONFIRMED' && item.reservedSeats != null ? `   🪑 ${item.reservedSeats} koltuk` : ''}</Text>
         {item.occasion ? <Text style={styles.occasion}>🎉 {item.occasion}</Text> : null}
         {item.specialRequests ? <Text style={styles.special}>📝 {item.specialRequests}</Text> : null}
         {item.status === 'REJECTED' && item.rejectionReason && (
@@ -202,7 +221,7 @@ export default function RestaurantReservationsScreen() {
 
           {item.status === 'PENDING' && (
             <>
-              <TouchableOpacity style={styles.confirmBtn} onPress={() => handleConfirm(item.id)}>
+              <TouchableOpacity style={styles.confirmBtn} onPress={() => handleConfirm(item)}>
                 <Text style={styles.confirmBtnText}>✓ Onayla</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.rejectBtn} onPress={() => handleReject(item.id)}>
@@ -328,6 +347,52 @@ export default function RestaurantReservationsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* S19-5: Onay modalı — rezerve koltuk girişi (varsayılan = kişi sayısı) */}
+      <Modal
+        visible={confirmingId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmingId(null)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Rezervasyonu Onayla</Text>
+            <Text style={styles.modalHint}>Bu rezervasyon için kaç koltuk ayırıyorsunuz? (doluluk hesabına katılır)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={confirmSeats}
+              onChangeText={setConfirmSeats}
+              keyboardType="number-pad"
+              placeholder="Koltuk sayısı"
+              placeholderTextColor={C.textMuted}
+              maxLength={4}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setConfirmingId(null)}
+                disabled={confirming}
+              >
+                <Text style={styles.modalCancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalConfirmBtn, confirming && { opacity: 0.6 }]}
+                onPress={confirmAccept}
+                disabled={confirming}
+              >
+                {confirming
+                  ? <ActivityIndicator color={C.success} size="small" />
+                  : <Text style={styles.modalConfirmText}>Onayla</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -422,5 +487,9 @@ function makeStyles(C: Colors) {
     modalCancelText: { fontSize: 14, color: C.textSecondary, fontWeight: '600' },
     modalRejectBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8, backgroundColor: C.errorSurface, minWidth: 90, alignItems: 'center' },
     modalRejectText: { fontSize: 14, color: C.error, fontWeight: '700' },
+    modalConfirmBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8, backgroundColor: C.successSurface, minWidth: 90, alignItems: 'center' },
+    modalConfirmText: { fontSize: 14, color: C.success, fontWeight: '700' },
+    priorityBadge: { alignSelf: 'flex-start', marginTop: 6, backgroundColor: C.warningSurface, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+    priorityBadgeText: { fontSize: 12, color: C.warning, fontWeight: '700' },
   });
 }

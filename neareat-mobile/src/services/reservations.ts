@@ -105,8 +105,18 @@ export async function updateReservationStatus(
   id: string,
   status: 'CONFIRMED' | 'REJECTED',
   rejectionReason?: string,
+  reservedSeats?: number, // S19-5: onayda rezerve koltuk (varsayılan = guestCount, backend)
 ): Promise<Reservation> {
-  const { data } = await api.put(`/reservations/${id}/status`, { status, rejectionReason });
+  const { data } = await api.put(`/reservations/${id}/status`, { status, rejectionReason, reservedSeats });
+  return data;
+}
+
+// S19-2: bir gün için saat bazlı koltuk doluluğu (restoran paneli).
+export interface OccupancySlot { time: string; reserved: number; free: number | null; percent: number | null; band: string }
+export interface OccupancyResponse { date: string; seatCapacity: number | null; slots: OccupancySlot[] }
+
+export async function getOccupancy(date: string): Promise<OccupancyResponse> {
+  const { data } = await api.get('/restaurant-account/occupancy', { params: { date } });
   return data;
 }
 
