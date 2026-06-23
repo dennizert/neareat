@@ -17,7 +17,7 @@ const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logServ
 
 const RESERVATION_SELECT = {
   id: true, userId: true, restaurantId: true, placeId: true, placeName: true,
-  date: true, time: true, guestCount: true, occasion: true, specialRequests: true,
+  date: true, time: true, guestCount: true, reservedSeats: true, occasion: true, specialRequests: true,
   status: true, rejectionReason: true, attended: true,
   createdAt: true, updatedAt: true,
   user: { select: { id: true, displayName: true, photoUrl: true } },
@@ -132,7 +132,7 @@ async function createReservation(req, res, next) {
     // ayrıca aktif aboneliği olmalı — pasif restoranda rezervasyon yapılamaz).
     const restaurant = await prisma.restaurantProfile.findFirst({
       where: registeredProfileWhere({ placeId, acceptsReservations: true }),
-      select: { id: true, businessName: true, userId: true, placeName: true, tableCount: true },
+      select: { id: true, businessName: true, userId: true, placeName: true, tableCount: true, seatCapacity: true },
     });
     if (!restaurant) {
       return res.status(400).json({ error: 'Bu restoran rezervasyona açık değil veya bulunamadı.' });
@@ -160,6 +160,24 @@ async function createReservation(req, res, next) {
     });
     if (existing) {
       return res.status(409).json({ error: 'Bu restoran için aynı gün ve saatte zaten aktif bir rezervasyonunuz var.' });
+    }
+
+    // S19-3: Koltuk bazlı OVERBOOKING uyarısı. Yetersiz kapasitede talep YİNE oluşturulur
+    // (PENDING) ama yanıtta uyarı döner — restoran planlama yapabilirse onaylar, aksi halde
+    // reddeder. (Kapasite tanımsızsa kontrol yapılmaz.)
+    let overbooking = null;
+    if (restaurant.seatCapacity != null) {
+      const confirmed = await prisma.reservation.findMany({
+        where: { restaurantId: restaurant.id, date, status: 'CONFIRMED' },
+        select: { time: true, guestCount: true, reservedSeats: true },
+      });
+      const avail = availabilityForRequest(confirmed, restaurant.seatCapacity, time, parseInt(guestCount));
+      if (avail.known && !avail.enough) {
+        overbooking = {
+          warning: 'OVERBOOKING',
+          message: 'Restoranda talebinize uygun yer kalmamıştır. Talebiniz oluşturulmuştur, restoran planlama yapabilirse onaylanacaktır. Aksi halde reddedilecektir.',
+        };
+      }
     }
 
     const reservation = await prisma.reservation.create({
@@ -201,7 +219,7 @@ async function createReservation(req, res, next) {
       { reservationId: reservation.id },
     ).catch(() => {});
 
-    res.status(201).json(reservation);
+    res.status(201).json(overbooking ? { ...reservation, ...overbooking } : reservation);
   } catch (err) {
     next(err);
   }
@@ -438,7 +456,7 @@ async function getRestaurantReservations(req, res, next) {
 async function updateReservationStatus(req, res, next) {
   try {
     const { id } = req.params;
-    const { status, rejectionReason } = req.body;
+    const { status, rejectionReason, reservedSeats } = req.body;
 
     if (!['CONFIRMED', 'REJECTED'].includes(status)) {
       return res.status(400).json({ error: 'status CONFIRMED veya REJECTED olmalıdır.' });
@@ -458,11 +476,23 @@ async function updateReservationStatus(req, res, next) {
       return res.status(400).json({ error: 'Yalnızca bekleyen rezervasyonlar güncellenebilir.' });
     }
 
+    // S19-3: Onayda rezerve KOLTUK sayısı (varsayılan = talep edilen kişi sayısı, restoran
+    // düzeltebilir). Doluluk hesabına bu değer katılır. Kalan kapasiteyi aşması engellenmez
+    // (overbooking → restoran kararı); yalnızca 1-5000 sınırı.
+    let seats;
+    if (status === 'CONFIRMED') {
+      seats = (reservedSeats != null) ? parseInt(reservedSeats, 10) : reservation.guestCount;
+      if (isNaN(seats) || seats < 1 || seats > 5000) {
+        return res.status(400).json({ error: 'Rezerve koltuk sayısı 1-5000 arasında olmalıdır.' });
+      }
+    }
+
     const updated = await prisma.reservation.update({
       where: { id },
       data: {
         status,
         rejectionReason: status === 'REJECTED' ? rejectionReason.trim() : null,
+        reservedSeats: status === 'CONFIRMED' ? seats : undefined,
       },
       select: RESERVATION_SELECT,
     });
