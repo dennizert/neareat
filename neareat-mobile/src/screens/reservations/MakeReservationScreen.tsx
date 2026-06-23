@@ -4,8 +4,10 @@ import {
   TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { createReservation } from '../../services/reservations';
+import { createReservation, getAvailability } from '../../services/reservations';
+import type { AvailabilityResponse } from '../../services/reservations';
 import { handleLevelError } from '../../utils/levelGate';
+import { bandLabel, bandColorKey, shouldShowBand } from '../../utils/occupancyBand';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
@@ -41,6 +43,16 @@ function getNextDays(count: number): string[] {
   return days;
 }
 
+// S19-6: bant → tema renkleri (yüzey + metin).
+function bandTint(C: Colors, band: string): string {
+  const k = bandColorKey(band);
+  return k === 'success' ? C.successSurface : k === 'warning' ? C.warningSurface : k === 'danger' ? C.errorSurface : C.inputBg;
+}
+function bandTone(C: Colors, band: string): string {
+  const k = bandColorKey(band);
+  return k === 'success' ? C.success : k === 'warning' ? C.warning : k === 'danger' ? C.error : C.textMuted;
+}
+
 export default function MakeReservationScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
@@ -60,6 +72,18 @@ export default function MakeReservationScreen() {
   const [occasion, setOccasion] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // S19-6: seçili tarih/saat/kişi için doluluk bandı (kayıtlı + kapasiteli restoranda).
+  const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+
+  useEffect(() => {
+    const guests = parseInt(guestCount);
+    if (!selectedDate || !selectedTime || isNaN(guests) || guests < 1) { setAvailability(null); return; }
+    let cancelled = false;
+    getAvailability(placeId, selectedDate, selectedTime, guests)
+      .then((a) => { if (!cancelled) setAvailability(a); })
+      .catch(() => { if (!cancelled) setAvailability(null); });
+    return () => { cancelled = true; };
+  }, [placeId, selectedDate, selectedTime, guestCount]);
 
   async function handleSubmit() {
     if (!selectedDate) return Alert.alert('Hata', 'Lütfen bir tarih seçin.');
@@ -71,7 +95,7 @@ export default function MakeReservationScreen() {
 
     setSubmitting(true);
     try {
-      await createReservation({
+      const res = await createReservation({
         placeId,
         date: selectedDate,
         time: selectedTime,
@@ -80,11 +104,20 @@ export default function MakeReservationScreen() {
         specialRequests: specialRequests.trim() || undefined,
       });
       trackEvent(ANALYTICS_EVENTS.RESERVATION_COMPLETED, { placeId, guestCount: guests }); // S14-M5 funnel
-      Alert.alert(
-        '✅ Rezervasyon Talebiniz Alındı',
-        'Restoran onayladığında bildirim alacaksınız. (+10 yıldız kazandınız!)',
-        [{ text: 'Tamam', onPress: () => navigation.goBack() }],
-      );
+      // S19-6: yetersiz kapasitede backend overbooking uyarısı döner — talep YİNE alınır.
+      if (res?.warning === 'OVERBOOKING') {
+        Alert.alert(
+          '⚠️ Talebiniz Alındı',
+          res.message ?? 'Restoranda talebinize uygun yer kalmamıştır. Talebiniz oluşturulmuştur, restoran planlama yapabilirse onaylanacaktır.',
+          [{ text: 'Anladım', onPress: () => navigation.goBack() }],
+        );
+      } else {
+        Alert.alert(
+          '✅ Rezervasyon Talebiniz Alındı',
+          'Restoran onayladığında bildirim alacaksınız. (+10 yıldız kazandınız!)',
+          [{ text: 'Tamam', onPress: () => navigation.goBack() }],
+        );
+      }
     } catch (err: any) {
       if (handleLevelError(err)) return;
       Alert.alert('Hata', err.response?.data?.error ?? 'Rezervasyon oluşturulamadı.');
@@ -191,6 +224,22 @@ export default function MakeReservationScreen() {
           <Text style={styles.infoText}>🏆 Rezervasyona katıldığınızda ek +20 yıldız kazanırsınız.</Text>
         </View>
 
+        {/* S19-6: Doluluk bandı + yetersizlik uyarısı (kayıtlı + kapasiteli restoran) */}
+        {availability && shouldShowBand(availability.band) && (
+          <View style={styles.bandBox}>
+            <View style={[styles.bandChip, { backgroundColor: bandTint(C, availability.band) }]}>
+              <Text style={[styles.bandChipText, { color: bandTone(C, availability.band) }]}>
+                {bandLabel(availability.band)}
+              </Text>
+            </View>
+            {!availability.enough && (
+              <Text style={styles.bandWarn}>
+                Seçtiğin saatte yeterli yer görünmüyor — talebin yine iletilir, restoran planlayabilirse onaylar.
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Gönder Butonu */}
         <TouchableOpacity
           style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
@@ -267,5 +316,9 @@ function makeStyles(C: Colors) {
       paddingVertical: 16, alignItems: 'center',
     },
     submitText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+    bandBox: { marginHorizontal: 16, marginTop: 16, gap: 6 },
+    bandChip: { alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5 },
+    bandChipText: { fontSize: 13, fontWeight: '700' },
+    bandWarn: { fontSize: 12, color: C.textMuted, lineHeight: 17 },
   });
 }
