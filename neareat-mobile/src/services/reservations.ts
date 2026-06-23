@@ -120,6 +120,14 @@ export async function getOccupancy(date: string): Promise<OccupancyResponse> {
   return data;
 }
 
+// S19-6: kullanıcı talebi için doluluk bandı + yeterlilik (kayıtlı/kapasiteli restoranda).
+export interface AvailabilityResponse { known: boolean; band: string; enough: boolean; reserved?: number; free?: number | null }
+
+export async function getAvailability(placeId: string, date: string, time: string, guestCount: number): Promise<AvailabilityResponse> {
+  const { data } = await api.get('/reservations/availability', { params: { placeId, date, time, guestCount } });
+  return data;
+}
+
 /**
  * Müşterinin rezervasyona katılıp katılmadığını işaretler.
  * Katılım durumuna göre yıldız kazandırılır veya ceza verilir.
