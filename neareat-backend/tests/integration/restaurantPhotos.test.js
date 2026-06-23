@@ -110,14 +110,14 @@ describe('POST /api/restaurant-account/photos (S10-3)', () => {
     expect(res.status).toBe(400);
   });
 
-  it('premium olmayan restoran PRODUCT yüklerse → 403 PREMIUM_REQUIRED', async () => {
+  it('premium olmayan restoran PRODUCT yüklerse → 403 SUBSCRIPTION_REQUIRED', async () => {
     prisma.subscription.findUnique.mockResolvedValue(null); // free restoran
     const res = await request(app)
       .post(BASE)
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ kind: 'PRODUCT', url: 'https://cdn.example/x.jpg' });
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe('PREMIUM_REQUIRED');
+    expect(res.body.code).toBe('SUBSCRIPTION_REQUIRED');
     expect(prisma.restaurantPhoto.create).not.toHaveBeenCalled();
   });
 

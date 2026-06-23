@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const prisma = require('../utils/prisma');
-const { isPremiumUser } = require('../utils/premiumCheck');
+const { isRestaurantActive } = require('../utils/premiumCheck');
 const { signToken } = require('../utils/jwt');
 const { createNotificationsForUsers, createNotification } = require('../services/notificationService');
 const { containsOffensiveContent } = require('../utils/contentFilter');
@@ -240,10 +240,10 @@ async function updateDiscount(req, res, next) {
 async function activateInstantDiscount(req, res, next) {
   try {
     // Premium kısıtı: anlık indirim yalnızca premium restoranlara açık.
-    if (!(await isPremiumUser(req.user.id))) {
+    if (!(await isRestaurantActive(req.user.id))) {
       return res.status(403).json({
         error: 'Anlık indirim tanımlamak Premium üyelik gerektirir.',
-        code: 'PREMIUM_REQUIRED',
+        code: 'SUBSCRIPTION_REQUIRED',
       });
     }
     const { durationMinutes, percent, note } = req.body;
@@ -353,10 +353,10 @@ async function updateInfo(req, res, next) {
     const { reservationUrl, phone, altPhone, contactEmail, address, displayName, acceptsReservations, tableCount } = req.body;
     // Premium kısıtı: rezervasyon kabulünü yalnızca premium restoranlar açabilir
     // (kapatmak her zaman serbest).
-    if (acceptsReservations === true && !(await isPremiumUser(req.user.id))) {
+    if (acceptsReservations === true && !(await isRestaurantActive(req.user.id))) {
       return res.status(403).json({
         error: 'Rezervasyon kabul etmek Premium üyelik gerektirir.',
-        code: 'PREMIUM_REQUIRED',
+        code: 'SUBSCRIPTION_REQUIRED',
       });
     }
     if (tableCount !== undefined && tableCount !== null) {
@@ -463,10 +463,10 @@ async function getMyReviews(req, res, next) {
 async function getAnalytics(req, res, next) {
   try {
     // Premium kısıtı: analitik paneli yalnızca premium restoranlara açık.
-    if (!(await isPremiumUser(req.user.id))) {
+    if (!(await isRestaurantActive(req.user.id))) {
       return res.status(403).json({
         error: 'Analitik paneli Premium üyelik gerektirir.',
-        code: 'PREMIUM_REQUIRED',
+        code: 'SUBSCRIPTION_REQUIRED',
       });
     }
     const profile = await prisma.restaurantProfile.findUnique({
@@ -502,10 +502,10 @@ async function getAnalytics(req, res, next) {
 async function getWeeklyReport(req, res, next) {
   try {
     // Premium kısıtı: işletme raporu yalnızca premium restoranlara açık.
-    if (!(await isPremiumUser(req.user.id))) {
+    if (!(await isRestaurantActive(req.user.id))) {
       return res.status(403).json({
         error: 'İşletme raporu Premium üyelik gerektirir.',
-        code: 'PREMIUM_REQUIRED',
+        code: 'SUBSCRIPTION_REQUIRED',
       });
     }
     const profile = await prisma.restaurantProfile.findUnique({
@@ -564,10 +564,10 @@ function getTurkeyDayStartUtc() {
 async function sendCampaign(req, res, next) {
   try {
     // Premium kısıtı: anlık kampanya yalnızca premium restoranlara açık.
-    if (!(await isPremiumUser(req.user.id))) {
+    if (!(await isRestaurantActive(req.user.id))) {
       return res.status(403).json({
         error: 'Kampanya göndermek Premium üyelik gerektirir.',
-        code: 'PREMIUM_REQUIRED',
+        code: 'SUBSCRIPTION_REQUIRED',
       });
     }
     const { message, audience = 'all' } = req.body || {};
@@ -661,10 +661,10 @@ async function createPhotoUploadUrl(req, res, next) {
     }
     // Premium kısıtı: ürün (PRODUCT) fotoğrafı yüklemek premium gerektirir; mekan
     // (RESTAURANT) fotoğrafı serbest.
-    if (kindUpper === 'PRODUCT' && !(await isPremiumUser(req.user.id))) {
+    if (kindUpper === 'PRODUCT' && !(await isRestaurantActive(req.user.id))) {
       return res.status(403).json({
         error: 'Ürün fotoğrafı yüklemek Premium üyelik gerektirir.',
-        code: 'PREMIUM_REQUIRED',
+        code: 'SUBSCRIPTION_REQUIRED',
       });
     }
     if (!s3.ALLOWED_CONTENT_TYPES[contentType]) {
@@ -705,10 +705,10 @@ async function addPhoto(req, res, next) {
       return res.status(400).json({ error: "kind 'RESTAURANT' veya 'PRODUCT' olmalıdır." });
     }
     // Premium kısıtı: ürün (PRODUCT) fotoğrafı yalnızca premium restoranlarda.
-    if (kind === 'PRODUCT' && !(await isPremiumUser(req.user.id))) {
+    if (kind === 'PRODUCT' && !(await isRestaurantActive(req.user.id))) {
       return res.status(403).json({
         error: 'Ürün fotoğrafı yüklemek Premium üyelik gerektirir.',
-        code: 'PREMIUM_REQUIRED',
+        code: 'SUBSCRIPTION_REQUIRED',
       });
     }
     if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url.trim())) {

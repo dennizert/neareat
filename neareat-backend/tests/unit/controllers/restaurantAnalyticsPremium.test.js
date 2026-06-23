@@ -2,7 +2,7 @@
 
 /**
  * Restoran analitik/rapor premium gate testleri.
- * getAnalytics + getWeeklyReport yalnızca premium restoranlara açık (403 PREMIUM_REQUIRED).
+ * getAnalytics + getWeeklyReport yalnızca premium restoranlara açık (403 SUBSCRIPTION_REQUIRED).
  */
 
 const mockPrisma = {
@@ -15,6 +15,7 @@ jest.mock('../../../src/utils/prisma', () => mockPrisma);
 const mockIsPremiumUser = jest.fn();
 jest.mock('../../../src/utils/premiumCheck', () => ({
   isPremiumUser: (...args) => mockIsPremiumUser(...args),
+  isRestaurantActive: (...args) => mockIsPremiumUser(...args), // S19-1: restoran gate'i bunu kullanır
 }));
 
 jest.mock('../../../src/services/businessReport', () => ({
@@ -43,12 +44,12 @@ beforeEach(() => {
 });
 
 describe('getAnalytics premium gate', () => {
-  it('premium olmayan → 403 PREMIUM_REQUIRED, profil sorgulanmaz', async () => {
+  it('premium olmayan → 403 SUBSCRIPTION_REQUIRED, profil sorgulanmaz', async () => {
     mockIsPremiumUser.mockResolvedValue(false);
     const res = mockRes();
     await getAnalytics({ user: OWNER }, res, jest.fn());
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'PREMIUM_REQUIRED' }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'SUBSCRIPTION_REQUIRED' }));
     expect(mockPrisma.restaurantProfile.findUnique).not.toHaveBeenCalled();
   });
 
@@ -61,12 +62,12 @@ describe('getAnalytics premium gate', () => {
 });
 
 describe('getWeeklyReport premium gate', () => {
-  it('premium olmayan → 403 PREMIUM_REQUIRED, profil sorgulanmaz', async () => {
+  it('premium olmayan → 403 SUBSCRIPTION_REQUIRED, profil sorgulanmaz', async () => {
     mockIsPremiumUser.mockResolvedValue(false);
     const res = mockRes();
     await getWeeklyReport({ user: OWNER }, res, jest.fn());
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'PREMIUM_REQUIRED' }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'SUBSCRIPTION_REQUIRED' }));
     expect(mockPrisma.restaurantProfile.findUnique).not.toHaveBeenCalled();
   });
 

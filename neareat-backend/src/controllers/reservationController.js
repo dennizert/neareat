@@ -1,6 +1,7 @@
 const prisma = require('../utils/prisma');
 const { getUserAccess } = require('../utils/levelAccess');
 const { maybeAwardReferrer } = require('../services/referralReward');
+const { registeredProfileWhere } = require('../utils/restaurantVisibility');
 const { awardStars, deductStars, RESERVATION_NO_SHOW_PENALTY } = require('../utils/stars');
 
 // S18-2: İçinde bulunulan takvim ayının başlangıcı (İstanbul UTC+3, DST yok) → UTC.
@@ -98,9 +99,10 @@ async function createReservation(req, res, next) {
       }
     }
 
-    // Restoranın rezervasyona açık ve onaylı olduğunu kontrol et
+    // Restoranın rezervasyona açık ve onaylı olduğunu kontrol et (S19-1: flag açıksa
+    // ayrıca aktif aboneliği olmalı — pasif restoranda rezervasyon yapılamaz).
     const restaurant = await prisma.restaurantProfile.findFirst({
-      where: { placeId, status: 'APPROVED', acceptsReservations: true },
+      where: registeredProfileWhere({ placeId, acceptsReservations: true }),
       select: { id: true, businessName: true, userId: true, placeName: true, tableCount: true },
     });
     if (!restaurant) {
