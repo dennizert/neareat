@@ -25,9 +25,12 @@ const mockPrisma = {
   subscription: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), upsert: jest.fn() },
   favorite: { findMany: jest.fn(), findUnique: jest.fn(), count: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
   review: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), upsert: jest.fn() },
+  // S18-3: starGuards.hasVerifiedVisit bunları sorgular (doğrulanmış ziyaret kontrolü)
+  checkIn: { findFirst: jest.fn() },
+  reservation: { findFirst: jest.fn(), count: jest.fn() },
   friendRequest: { findMany: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
   recommendation: { findMany: jest.fn(), create: jest.fn(), count: jest.fn() },
-  starEvent: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
+  starEvent: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
   reward: { findMany: jest.fn() },
   userReward: { findMany: jest.fn(), create: jest.fn() },
   notification: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), count: jest.fn() },

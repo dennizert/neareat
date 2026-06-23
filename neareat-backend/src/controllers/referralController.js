@@ -4,6 +4,7 @@
 // kod uygulandığında hem davet eden hem davet edilen yıldız ödülü kazanır.
 const prisma = require('../utils/prisma');
 const { awardStars } = require('../utils/stars');
+const { markPendingReferral } = require('../services/referralReward');
 const { logRequest } = require('../services/logService');
 
 const REFERRER_STARS = 15; // Davet eden kullanıcının kazandığı yıldız
@@ -114,12 +115,13 @@ async function applyCode(req, res, next) {
       data: { referralApplied: true },
     });
 
-    // Ödüller (hata olursa işareti geri al)
+    // S18-3: Davet edilen kullanıcının bonusu ANINDA verilir (gerçek bir kayıt + kod kullandı).
+    // Davet EDENin yıldızı ertelenir (sahte-hesap farming'ine karşı): davet edilen e-postasını
+    // doğrulayıp ilk anlamlı aksiyonunu (rezervasyon / doğrulanmış yorum) yapınca verilir —
+    // bağ bekleyen olarak Redis'e yazılır, maybeAwardReferrer ile sonra ödüllenir.
     try {
-      await Promise.all([
-        awardStars(referrer.id, 'REFERRAL', `${me.displayName} davet kodunu kullandı`, userId),
-        awardStars(userId, 'REFERRAL_BONUS', `${referrer.displayName}'in davet kodu ile katıldın`, referrer.id),
-      ]);
+      await awardStars(userId, 'REFERRAL_BONUS', `${referrer.displayName}'in davet kodu ile katıldın`, referrer.id);
+      await markPendingReferral(userId, referrer.id);
     } catch (starErr) {
       // Star hatası kritik değil, flag zaten set edildi
       console.error('[referral] star award error:', starErr.message);
