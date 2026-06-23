@@ -7,6 +7,7 @@ const { signToken } = require('../utils/jwt');
 const { logRequest } = require('../services/logService');
 const { runFriendSuggestionsJob } = require('../jobs/friendSuggestions');
 const { runNotificationCleanup } = require('../jobs/notificationCleanup');
+const { runSeasonResetJob } = require('../jobs/seasonReset');
 const { cacheGet, cacheSet, cacheDel } = require('../services/redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
 const { snapshot, evaluateAlarms } = require('../services/metrics'); // S16-2
@@ -438,6 +439,19 @@ async function triggerFriendSuggestions(req, res, next) {
   }
 }
 
+// POST /api/admin/jobs/season-reset/run — sezon sıfırlamayı manuel tetikler (force).
+// S18-4: süre kontrolünü atlayarak (force) sıfırlamayı çalıştırır; test/operasyon için.
+async function triggerSeasonReset(req, res, next) {
+  try {
+    const result = await runSeasonResetJob({ force: true });
+    logRequest({ req, page: 'Admin Paneli', action: 'Sezon sıfırlama job tetikledi', details: `action=${result.action}` }).catch(() => {});
+    if (result.error) return res.status(500).json({ error: 'Job çalışırken hata oluştu', detail: result.error });
+    res.json({ message: 'Sezon sıfırlama çalıştırıldı.', ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // POST /api/admin/jobs/notification-cleanup/run
 async function triggerNotificationCleanup(req, res, next) {
   try {
@@ -475,6 +489,6 @@ module.exports = {
   getUsers, suspendUser, unsuspendUser,
   deleteReview, getFlaggedReviews, seedAdmin,
   getReports, handleReport,
-  triggerFriendSuggestions, triggerNotificationCleanup,
+  triggerFriendSuggestions, triggerNotificationCleanup, triggerSeasonReset,
   getMetrics,
 };

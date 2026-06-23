@@ -8,7 +8,7 @@ const {
   approveRestaurant, rejectRestaurant, getPlatformStats,
   getUsers, suspendUser, unsuspendUser,
   deleteReview, getFlaggedReviews, seedAdmin,
-  getReports, handleReport, triggerFriendSuggestions, triggerNotificationCleanup,
+  getReports, handleReport, triggerFriendSuggestions, triggerNotificationCleanup, triggerSeasonReset,
   getMetrics,
 } = require('../controllers/adminController');
 const { listRequests, reviewRequest } = require('../controllers/placeRequestController');
@@ -65,6 +65,7 @@ router.put('/reports/:id', authenticate, requireAdmin, handleReport);
 // Manuel job tetikleme
 router.post('/jobs/friend-suggestions/run', authenticate, requireAdmin, triggerFriendSuggestions);
 router.post('/jobs/notification-cleanup/run', authenticate, requireAdmin, triggerNotificationCleanup);
+router.post('/jobs/season-reset/run', authenticate, requireAdmin, triggerSeasonReset);
 
 router.get('/place-requests', authenticate, requireAdmin, listRequests);
 router.patch('/place-requests/:id/review', authenticate, requireAdmin, reviewRequest);
