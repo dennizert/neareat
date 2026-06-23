@@ -18,9 +18,12 @@ const mockPrisma = {
   subscription: { findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), upsert: jest.fn() },
   favorite: { findMany: jest.fn(), count: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
   review: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), upsert: jest.fn() },
+  // S18-3: starGuards.hasVerifiedVisit (doğrulanmış ziyaret) için
+  checkIn: { findFirst: jest.fn() },
+  reservation: { findFirst: jest.fn(), count: jest.fn() },
   friendRequest: { findMany: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn(), count: jest.fn() },
   recommendation: { findMany: jest.fn(), create: jest.fn(), count: jest.fn() },
-  starEvent: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn() },
+  starEvent: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
   reward: { findMany: jest.fn() },
   userReward: { findMany: jest.fn(), create: jest.fn() },
   notification: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), count: jest.fn() },
@@ -401,5 +404,43 @@ describe('GET /api/reviews/:placeId — sayfalama (S14-B6)', () => {
     expect(mockPrisma.review.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ cursor: { id: 'rev-5' }, skip: 1, take: 11 }),
     );
+  });
+});
+
+// ─── S18-3: yorum yıldızı doğrulanmış ziyaret şartı (farming önleme) ───────────
+describe('POST /api/reviews — yıldız ödülü doğrulanmış ziyaret şartı (S18-3)', () => {
+  beforeEach(() => {
+    mockPrisma.review.findUnique.mockResolvedValue(null); // yeni yorum
+    mockPrisma.review.upsert.mockResolvedValue({ id: 'rv-1', userId: user1.id, placeId: 'p1', rating: 5, body: 'Harika yer' });
+    mockPrisma.starEvent.count.mockResolvedValue(0); // günlük tavan altında
+  });
+
+  it('doğrulanmış ziyaret YOK → yorum 201 ama yıldız verilmez (starEvent null)', async () => {
+    mockPrisma.checkIn.findFirst.mockResolvedValue(null);
+    mockPrisma.reservation.findFirst.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${token1}`)
+      .send({ placeId: 'p1', rating: 5, body: 'Harika yer' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.review).toBeDefined();
+    expect(res.body.starEvent).toBeNull();
+    expect(res.body.newStarCount).toBeNull();
+  });
+
+  it('check-in ile doğrulanmış ziyaret VAR → yorum 201 + yıldız verilir', async () => {
+    mockPrisma.checkIn.findFirst.mockResolvedValue({ id: 'c1' });
+    mockPrisma.reservation.findFirst.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post('/api/reviews')
+      .set('Authorization', `Bearer ${token1}`)
+      .send({ placeId: 'p1', rating: 5, body: 'Harika yer' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.starEvent).not.toBeNull();
+    expect(res.body.newStarCount).toBe(5);
   });
 });

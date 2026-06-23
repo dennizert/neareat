@@ -1,5 +1,6 @@
 const prisma = require('../utils/prisma');
 const { getUserAccess } = require('../utils/levelAccess');
+const { maybeAwardReferrer } = require('../services/referralReward');
 const { awardStars, deductStars, RESERVATION_NO_SHOW_PENALTY } = require('../utils/stars');
 
 // S18-2: İçinde bulunulan takvim ayının başlangıcı (İstanbul UTC+3, DST yok) → UTC.
@@ -156,6 +157,9 @@ async function createReservation(req, res, next) {
     });
     // Kullanıcıya rezervasyon oluşturma puanı ver
     awardStars(req.user.id, 'RESERVATION', `${restaurant.placeName || restaurant.businessName} için rezervasyon talebi`, reservation.id).catch(() => {});
+
+    // S18-3: rezervasyon = anlamlı aksiyon → bekleyen referral'ı (varsa) davet edene ödüllendir.
+    maybeAwardReferrer(req.user.id).catch(() => {});
 
     // Restoran kullanıcısına bildirim gönder
     createNotification(

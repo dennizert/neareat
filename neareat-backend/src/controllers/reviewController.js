@@ -1,5 +1,7 @@
 const prisma = require('../utils/prisma');
 const { awardStars } = require('../utils/stars');
+const { canEarnPlaceStars } = require('../utils/starGuards');
+const { maybeAwardReferrer } = require('../services/referralReward');
 const { containsOffensiveContent } = require('../utils/contentFilter');
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
 
@@ -81,12 +83,20 @@ async function createReview(req, res, next) {
     let starEvent = null;
     let newStarCount = null;
     let newRewards = [];
+    // S18-3: Yorum yıldızı yalnızca DOĞRULANMIŞ ZİYARET (check-in / tamamlanmış rezervasyon)
+    // varsa ve günlük tavanın altındaysa verilir (farming önleme). Yorum yine kaydedilir,
+    // yalnızca yıldız ödülü koşulludur.
     if (!existing) {
-      const label = placeName || placeId;
-      const result = await awardStars(req.user.id, 'REVIEW', `${label} için yorum yazdın`, review.id);
-      starEvent = result.event;
-      newStarCount = result.newStarCount;
-      newRewards = result.newRewards;
+      const { allowed } = await canEarnPlaceStars(req.user.id, placeId, 'REVIEW');
+      if (allowed) {
+        const label = placeName || placeId;
+        const result = await awardStars(req.user.id, 'REVIEW', `${label} için yorum yazdın`, review.id);
+        starEvent = result.event;
+        newStarCount = result.newStarCount;
+        newRewards = result.newRewards;
+        // Doğrulanmış yorum = anlamlı aksiyon → bekleyen referral'ı (varsa) tetikle.
+        maybeAwardReferrer(req.user.id).catch(() => {});
+      }
     }
 
     const action = existing ? 'Yorumunu güncelledi' : 'Yorum yazdı';

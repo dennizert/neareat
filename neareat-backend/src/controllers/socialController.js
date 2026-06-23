@@ -1,5 +1,6 @@
 const prisma = require('../utils/prisma');
 const { awardStars, getLevel } = require('../utils/stars');
+const { canEarnPlaceStars } = require('../utils/starGuards');
 const { isPremiumUser } = require('../utils/premiumCheck');
 const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
@@ -495,13 +496,24 @@ async function rateRestaurant(req, res, next) {
       return res.status(429).json({ error: 'Bu restoran için bugün zaten puan verdin.' });
     }
 
-    const ratingPremium = await isPremiumUser(req.user.id);
+    // S18-3: Puan yıldızı yalnızca DOĞRULANMIŞ ZİYARET varsa ve günlük tavanın altındaysa
+    // verilir (farming önleme). Aksi halde 403 (puanlama bir yıldız aksiyonu; ziyaret şart).
+    const { visited, underCap } = await canEarnPlaceStars(req.user.id, placeId, 'RATING');
+    if (!visited) {
+      return res.status(403).json({
+        error: 'Bir restoranı puanlamak için önce ziyaret etmelisin (check-in veya tamamlanmış rezervasyon).',
+        code: 'VISIT_REQUIRED',
+      });
+    }
+    if (!underCap) {
+      return res.status(429).json({ error: 'Günlük puanlama limitine ulaştın, yarın tekrar dene.' });
+    }
+
     const { event, newStarCount, newRewards } = await awardStars(
       req.user.id,
       'RATING',
       `${placeName}'ı puanladın`,
       placeId,
-      ratingPremium ? 2 : 1,
     );
 
     logRequest({ req, page: 'Restoran', action: 'Restoran puanladı', details: placeName }).catch(() => {});

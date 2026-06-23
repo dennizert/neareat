@@ -134,15 +134,20 @@ describe('POST /api/referral/apply', () => {
     expect(res.status).toBe(401);
   });
 
-  it('referred user REFERRAL_BONUS, referrer REFERRAL tipiyle awardStars çağrılır', async () => {
+  it('S18-3: referred user REFERRAL_BONUS alır; referrer REFERRAL ANINDA verilmez (ertelenir)', async () => {
     mockFindUnique(U1, U1, U2); // auth, me, referrer
     mockPrisma.user.update.mockResolvedValue({ ...U1, referralApplied: true });
     await request(app).post('/api/referral/apply').set('Authorization', `Bearer ${token1}`).send({ code: 'BORA1234' });
 
     const calls = mockAwardStars.mock.calls;
-    const referrerCall = calls.find(c => c[0] === U2.id);
     const referredCall = calls.find(c => c[0] === U1.id);
-    expect(referrerCall[1]).toBe('REFERRAL');
+    const referrerCall = calls.find(c => c[0] === U2.id);
+    // Davet edilen bonusu anında alır
     expect(referredCall[1]).toBe('REFERRAL_BONUS');
+    // Davet eden ertelendi → şimdi REFERRAL verilmez
+    expect(referrerCall).toBeUndefined();
+    // Bekleyen referral bağı Redis'e yazıldı (maybeAwardReferrer sonra ödüllendirir)
+    const { cacheSet } = require('../../src/services/redis');
+    expect(cacheSet).toHaveBeenCalledWith(`pending-referral:${U1.id}`, U2.id, expect.any(Number));
   });
 });
