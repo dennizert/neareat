@@ -178,6 +178,7 @@ export interface RestaurantProfile {
   announcementActive: boolean;
   acceptsReservations: boolean;
   tableCount: number | null;
+  seatCapacity: number | null; // S19-2: toplam koltuk kapasitesi (doluluk)
   openingHours: Record<string, { open: string; close: string; closed: boolean }> | null;
   discountEnabled: boolean;
   discountPercent: number | null;
@@ -450,6 +451,7 @@ export interface Reservation {
   date: string;
   time: string;
   guestCount: number;
+  reservedSeats?: number | null; // S19-3: onayda rezerve koltuk
   occasion: string | null;
   specialRequests: string | null;
   status: ReservationStatus;
@@ -459,6 +461,13 @@ export interface Reservation {
   updatedAt: string;
   user: { id: string; displayName: string; photoUrl: string | null };
   restaurant: { id: string; businessName: string; displayName: string | null; placePhotoUrl: string | null; userId: string };
+  // S19-4: restoran rezervasyon listesinde talep sahibinin seviyesi/önceliği
+  userLevel?: number;
+  reservationPriority?: number;
+  isPriority?: boolean;
+  // S19-3: kullanıcı talebi oluşturulurken overbooking uyarısı (createReservation yanıtı)
+  warning?: string;
+  message?: string;
 }
 
 export interface ReservationMessage {
@@ -790,6 +799,7 @@ export type RootStackParamList = {
   ReservationDetail: { reservationId: string };
   EditReservation: { reservationId: string };
   RestaurantReservations: undefined;
+  RestaurantOccupancy: undefined;
   // Restaurant account
   RestaurantRegister: undefined;
   RestaurantPending: { status: ApprovalStatus; rejectionReason?: string | null };

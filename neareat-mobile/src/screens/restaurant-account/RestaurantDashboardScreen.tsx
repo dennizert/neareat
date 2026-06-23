@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { getMyRestaurantProfile, getRestaurantStats } from '../../services/restaurantAccount';
 import { getRestaurantReservations } from '../../services/reservations';
+import { trialDaysLeft } from '../../utils/occupancyBand';
 import NotificationBell from '../../components/NotificationBell';
 import AppHeader from '../../components/AppHeader';
 import AppIcon from '../../components/AppIcon';
@@ -23,12 +24,13 @@ const MENU_ITEMS: { icon: IconName; label: string; screen: string }[] = [
   { icon: 'campaign', label: 'Anlık Kampanya', screen: 'RestaurantCampaign' },
   { icon: 'analytics', label: 'Analitik Panel', screen: 'RestaurantAnalytics' },
   { icon: 'reservation', label: 'Rezervasyonlar', screen: 'RestaurantReservations' },
+  { icon: 'calendar', label: 'Doluluk Paneli', screen: 'RestaurantOccupancy' },
   { icon: 'restaurant', label: 'Restoran Bilgileri', screen: 'RestaurantInfo' },
 ];
 
 export default function RestaurantDashboardScreen() {
   const navigation = useNavigation<any>();
-  const { logout } = useAuthStore();
+  const { logout, subscription, loadSubscription } = useAuthStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
@@ -68,9 +70,12 @@ export default function RestaurantDashboardScreen() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadSubscription(); }, []);
 
   if (loading) return <ActivityIndicator style={{ flex: 1 }} color={C.primary} size="large" />;
+
+  // S19-5: trial sayacı — deneme süresindeki restorana kalan günü ve yenileme CTA'sını göster.
+  const trialLeft = subscription?.status === 'trial' ? trialDaysLeft(subscription.expiresAt) : null;
 
   const now = new Date();
   const instantActive = profile?.discountActiveUntil && new Date(profile.discountActiveUntil) > now;
@@ -113,6 +118,17 @@ export default function RestaurantDashboardScreen() {
           <Text style={styles.placeName} numberOfLines={1}>{profile?.placeName ?? 'Restoran seçilmedi'}</Text>
         </View>
       </View>
+
+      {/* S19-5: Trial sayacı — deneme süresi banner'ı + yenileme */}
+      {trialLeft != null && (
+        <TouchableOpacity style={styles.trialBanner} onPress={() => navigation.navigate('Paywall', { trigger: 'reservations' })}>
+          <Text style={styles.trialBannerText}>
+            {trialLeft > 0
+              ? `⏳ Ücretsiz deneme: ${trialLeft} gün kaldı — 1.299,90 ₺/ay ile devam et`
+              : '⏳ Deneme süren doldu — aboneliğini başlat (1.299,90 ₺/ay)'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Active discount banner */}
       {instantActive && (
@@ -210,6 +226,8 @@ function makeStyles(C: Colors) {
     activeBannerText: { color: C.success, fontWeight: '700', fontSize: 13 },
     announcementBanner: { backgroundColor: C.amberSurface, padding: 12 },
     announcementText: { color: C.amber, fontSize: 13, lineHeight: 18, fontWeight: '600' },
+    trialBanner: { backgroundColor: C.warningSurface, padding: 12 },
+    trialBannerText: { color: C.warning, fontSize: 13, lineHeight: 18, fontWeight: '700' },
     statsRow: { flexDirection: 'row', padding: 16, gap: 10 },
     statCard: {
       flex: 1, backgroundColor: C.surface, borderRadius: 14, padding: 12,

@@ -72,7 +72,7 @@ export async function updateHours(openingHours: Record<string, { open: string; c
  * @param payload - Güncellenecek alanlar (telefon, email, adres, rezervasyon URL'i vb.)
  * @returns Güncellenmiş restoran profili
  */
-export async function updateInfo(payload: { reservationUrl?: string; phone?: string; altPhone?: string | null; contactEmail?: string; address?: string; displayName?: string | null; acceptsReservations?: boolean; tableCount?: number | null }): Promise<RestaurantProfile> {
+export async function updateInfo(payload: { reservationUrl?: string; phone?: string; altPhone?: string | null; contactEmail?: string; address?: string; displayName?: string | null; acceptsReservations?: boolean; tableCount?: number | null; seatCapacity?: number | null }): Promise<RestaurantProfile> {
   const { data } = await api.put('/restaurant-account/info', payload);
   return data;
 }

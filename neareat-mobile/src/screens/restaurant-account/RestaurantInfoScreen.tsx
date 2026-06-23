@@ -39,6 +39,7 @@ export default function RestaurantInfoScreen() {
   const [reservationUrl, setReservationUrl] = useState('');
   const [acceptsReservations, setAcceptsReservations] = useState(false);
   const [tableCount, setTableCount] = useState('');
+  const [seatCapacity, setSeatCapacity] = useState(''); // S19-5: koltuk kapasitesi (doluluk)
 
   const [restaurantPhotos, setRestaurantPhotos] = useState<RestaurantPhoto[]>([]);
   const [productPhotos, setProductPhotos] = useState<RestaurantPhoto[]>([]);
@@ -57,6 +58,7 @@ export default function RestaurantInfoScreen() {
         setReservationUrl(p.reservationUrl ?? '');
         setAcceptsReservations(p.acceptsReservations ?? false);
         setTableCount(p.tableCount != null ? String(p.tableCount) : '');
+        setSeatCapacity(p.seatCapacity != null ? String(p.seatCapacity) : '');
         setRestaurantPhotos(photos.filter(x => x.kind === 'RESTAURANT'));
         setProductPhotos(photos.filter(x => x.kind === 'PRODUCT'));
       })
@@ -90,6 +92,11 @@ export default function RestaurantInfoScreen() {
         Alert.alert('Hata', 'Masa kapasitesi 1-500 arasında olmalıdır.');
         return;
       }
+      const sc = seatCapacity.trim();
+      if (sc && (isNaN(Number(sc)) || Number(sc) < 1 || Number(sc) > 5000)) {
+        Alert.alert('Hata', 'Koltuk kapasitesi 1-5000 arasında olmalıdır.');
+        return;
+      }
       await updateInfo({
         displayName: dn || '',
         phone: phone.trim(),
@@ -99,6 +106,7 @@ export default function RestaurantInfoScreen() {
         reservationUrl: reservationUrl.trim() || undefined,
         acceptsReservations,
         tableCount: tc ? Number(tc) : null,
+        seatCapacity: sc ? Number(sc) : null,
       });
       toast.show('Restoran bilgilerin güncellendi', 'success');
       navigation.goBack();
@@ -226,7 +234,7 @@ export default function RestaurantInfoScreen() {
               placeholderTextColor={C.textMuted}
             />
           </Field>
-          <Field label="Masa Kapasitesi (isteğe bağlı)" last styles={styles}>
+          <Field label="Masa Kapasitesi (isteğe bağlı)" styles={styles}>
             <TextInput
               style={styles.input}
               value={tableCount}
@@ -235,6 +243,17 @@ export default function RestaurantInfoScreen() {
               placeholder="Aynı saate max rezervasyon (boş = sınırsız)"
               placeholderTextColor={C.textMuted}
               maxLength={3}
+            />
+          </Field>
+          <Field label="Koltuk Kapasitesi (isteğe bağlı)" last styles={styles}>
+            <TextInput
+              style={styles.input}
+              value={seatCapacity}
+              onChangeText={setSeatCapacity}
+              keyboardType="number-pad"
+              placeholder="Toplam sandalye sayısı (doluluk için)"
+              placeholderTextColor={C.textMuted}
+              maxLength={4}
             />
           </Field>
         </View>
