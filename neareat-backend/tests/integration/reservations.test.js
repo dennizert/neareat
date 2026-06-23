@@ -738,6 +738,29 @@ describe('GET /api/reservations/restaurant', () => {
     expect(res.status).toBe(200);
   });
 
+  it('S19-4: PENDING listesinde L3+ öncelikli kullanıcılar EN ÜSTTE + rozet verisi', async () => {
+    mockPrisma.restaurantProfile.findUnique.mockResolvedValue(mockRestaurantProfile);
+    // L1 (10 yıldız) önce gelir DB sırasında ama L4 (160) öne geçmeli
+    mockPrisma.reservation.findMany.mockResolvedValue([
+      { ...mockReservation, id: 'r-l1', status: 'PENDING', date: '2026-12-01', time: '12:00', user: { id: 'u-l1', displayName: 'L1', photoUrl: null, starCount: 10 } },
+      { ...mockReservation, id: 'r-l4', status: 'PENDING', date: '2026-12-01', time: '20:00', user: { id: 'u-l4', displayName: 'L4', photoUrl: null, starCount: 160 } },
+    ]);
+
+    const res = await request(app)
+      .get('/api/reservations/restaurant?status=PENDING')
+      .set('Authorization', `Bearer ${restaurantToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body[0].id).toBe('r-l4'); // L4 önce
+    expect(res.body[0].userLevel).toBe(4);
+    expect(res.body[0].reservationPriority).toBe(2);
+    expect(res.body[0].isPriority).toBe(true);
+    expect(res.body[1].id).toBe('r-l1');
+    expect(res.body[1].isPriority).toBe(false);
+    // starCount yanıtta sızdırılmaz
+    expect(res.body[0].user.starCount).toBeUndefined();
+  });
+
   it('should return 404 when the user has no restaurant profile', async () => {
     mockPrisma.restaurantProfile.findUnique.mockResolvedValue(null);
 

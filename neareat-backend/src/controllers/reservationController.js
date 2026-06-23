@@ -1,9 +1,9 @@
 const prisma = require('../utils/prisma');
-const { getUserAccess } = require('../utils/levelAccess');
+const { getUserAccess, getLevelAccess } = require('../utils/levelAccess');
 const { maybeAwardReferrer } = require('../services/referralReward');
 const { registeredProfileWhere } = require('../utils/restaurantVisibility');
 const { availabilityForRequest } = require('../utils/occupancy');
-const { awardStars, deductStars, RESERVATION_NO_SHOW_PENALTY } = require('../utils/stars');
+const { awardStars, deductStars, getLevel, RESERVATION_NO_SHOW_PENALTY } = require('../utils/stars');
 
 // S18-2: İçinde bulunulan takvim ayının başlangıcı (İstanbul UTC+3, DST yok) → UTC.
 // L2 kullanıcının "ayda 1 rezervasyon" kotasını saymak için.
@@ -20,7 +20,7 @@ const RESERVATION_SELECT = {
   date: true, time: true, guestCount: true, reservedSeats: true, occasion: true, specialRequests: true,
   status: true, rejectionReason: true, attended: true,
   createdAt: true, updatedAt: true,
-  user: { select: { id: true, displayName: true, photoUrl: true } },
+  user: { select: { id: true, displayName: true, photoUrl: true, starCount: true } },
   restaurant: { select: { id: true, businessName: true, displayName: true, placePhotoUrl: true, userId: true } },
 };
 
@@ -446,7 +446,28 @@ async function getRestaurantReservations(req, res, next) {
       select: RESERVATION_SELECT,
       orderBy: [{ date: 'asc' }, { time: 'asc' }],
     });
-    res.json(reservations);
+
+    // S19-4: her talebe sahibinin SEVİYESİ + öncelik derecesini ekle (mobil rozet için).
+    // L3+ "öncelikli kullanıcı" (reservationPriority 1/2/3). starCount yanıtta sızdırılmaz.
+    const enriched = reservations.map((r) => {
+      const stars = r.user?.starCount ?? 0;
+      const level = getLevel(stars).level;
+      const reservationPriority = getLevelAccess(level).reservationPriority;
+      const { starCount, ...user } = r.user || {};
+      return { ...r, user, userLevel: level, reservationPriority, isPriority: reservationPriority > 0 };
+    });
+
+    // PENDING listesinde öncelikli kullanıcılar EN ÜSTTE (sıralama: öncelik desc, sonra
+    // tarih/saat asc). Diğer durum filtrelerinde DB sırası (tarih/saat) korunur.
+    if (where.status === 'PENDING') {
+      enriched.sort((a, b) =>
+        b.reservationPriority - a.reservationPriority ||
+        (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
+        (a.time < b.time ? -1 : a.time > b.time ? 1 : 0),
+      );
+    }
+
+    res.json(enriched);
   } catch (err) {
     next(err);
   }
