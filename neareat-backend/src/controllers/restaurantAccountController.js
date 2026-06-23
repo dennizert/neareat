@@ -6,6 +6,7 @@ const { createNotificationsForUsers, createNotification } = require('../services
 const { containsOffensiveContent } = require('../utils/contentFilter');
 const { logRequest } = require('../services/logService');
 const { computeReservationAnalytics, computeReviewAnalytics } = require('../utils/restaurantAnalytics');
+const { dailyOccupancySlots } = require('../utils/occupancy');
 const { generateWeeklyReport } = require('../services/businessReport');
 const s3 = require('../services/s3');
 
@@ -17,7 +18,7 @@ const RESTAURANT_SELECT = {
   approvedAt: true, reservationUrl: true, announcement: true,
   announcementActive: true, openingHours: true, discountEnabled: true,
   discountPercent: true, discountMinStars: true, discountNote: true,
-  discountActiveUntil: true, acceptsReservations: true, tableCount: true, createdAt: true, updatedAt: true,
+  discountActiveUntil: true, acceptsReservations: true, tableCount: true, seatCapacity: true, createdAt: true, updatedAt: true,
 };
 
 async function registerRestaurant(req, res, next) {
@@ -350,7 +351,7 @@ async function updateAnnouncement(req, res, next) {
 
 async function updateInfo(req, res, next) {
   try {
-    const { reservationUrl, phone, altPhone, contactEmail, address, displayName, acceptsReservations, tableCount } = req.body;
+    const { reservationUrl, phone, altPhone, contactEmail, address, displayName, acceptsReservations, tableCount, seatCapacity } = req.body;
     // Premium kısıtı: rezervasyon kabulünü yalnızca premium restoranlar açabilir
     // (kapatmak her zaman serbest).
     if (acceptsReservations === true && !(await isRestaurantActive(req.user.id))) {
@@ -363,6 +364,13 @@ async function updateInfo(req, res, next) {
       const n = parseInt(tableCount);
       if (isNaN(n) || n < 1 || n > 500) {
         return res.status(400).json({ error: 'Masa kapasitesi 1-500 arasında olmalıdır.' });
+      }
+    }
+    // S19-2: koltuk kapasitesi (doluluk hesabı için). 1-5000 arası.
+    if (seatCapacity !== undefined && seatCapacity !== null) {
+      const n = parseInt(seatCapacity);
+      if (isNaN(n) || n < 1 || n > 5000) {
+        return res.status(400).json({ error: 'Koltuk kapasitesi 1-5000 arasında olmalıdır.' });
       }
     }
     // displayName: gönderildiyse trim + 2-80 karakter; boş string → null (Google adına döner)
@@ -402,6 +410,7 @@ async function updateInfo(req, res, next) {
         displayName: displayNameUpdate,
         acceptsReservations: typeof acceptsReservations === 'boolean' ? acceptsReservations : undefined,
         tableCount: tableCount === null ? null : (tableCount !== undefined ? parseInt(tableCount) : undefined),
+        seatCapacity: seatCapacity === null ? null : (seatCapacity !== undefined ? parseInt(seatCapacity) : undefined),
       },
       select: RESTAURANT_SELECT,
     });
@@ -489,6 +498,38 @@ async function getAnalytics(req, res, next) {
     const reviewAnalytics = computeReviewAnalytics(reviews.map((r) => r.rating));
 
     res.json({ reservations: reservationAnalytics, reviews: reviewAnalytics });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/restaurant-account/occupancy?date=YYYY-MM-DD
+ * S19-2: O gün için saat bazlı KOLTUK doluluğu (yalnızca CONFIRMED rezervasyonlar). Restoran
+ * sahibi planlama yapsın diye. seatCapacity yoksa doluluk "bilinmiyor" (band:'unknown').
+ */
+async function getOccupancy(req, res, next) {
+  try {
+    if (!(await isRestaurantActive(req.user.id))) {
+      return res.status(403).json({ error: 'Bu özellik aktif abonelik gerektirir.', code: 'SUBSCRIPTION_REQUIRED' });
+    }
+    const { date } = req.query;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'Geçerli bir tarih (YYYY-MM-DD) gerekli.' });
+    }
+    const profile = await prisma.restaurantProfile.findUnique({
+      where: { userId: req.user.id },
+      select: { id: true, seatCapacity: true },
+    });
+    if (!profile) return res.status(404).json({ error: 'Restoran profili bulunamadı' });
+
+    const reservations = await prisma.reservation.findMany({
+      where: { restaurantId: profile.id, date, status: 'CONFIRMED' },
+      select: { time: true, guestCount: true, reservedSeats: true },
+    });
+
+    const slots = dailyOccupancySlots(reservations, profile.seatCapacity);
+    res.json({ date, seatCapacity: profile.seatCapacity ?? null, slots });
   } catch (err) {
     next(err);
   }
@@ -821,6 +862,6 @@ module.exports = {
   replyToReview, deleteReply,
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
-  sendCampaign, getAnalytics, getWeeklyReport,
+  sendCampaign, getAnalytics, getWeeklyReport, getOccupancy,
   createPhotoUploadUrl, addPhoto, listPhotos, deletePhoto,
 };

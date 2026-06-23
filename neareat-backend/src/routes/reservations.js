@@ -4,6 +4,7 @@ const authenticate = require('../middleware/auth');
 const { requireRestaurant } = require('../middleware/roles');
 const {
   createReservation,
+  getAvailability,
   getMyReservations,
   cancelReservation,
   updateReservation,
@@ -17,6 +18,7 @@ const {
 
 // Kullanıcı — rezervasyon oluştur / listele
 router.post('/', authenticate, createReservation);
+router.get('/availability', authenticate, getAvailability); // S19-2: /:id'den ÖNCE (id olarak yakalanmasın)
 router.get('/me', authenticate, getMyReservations);
 router.put('/:id', authenticate, updateReservation);
 router.delete('/:id', authenticate, cancelReservation);

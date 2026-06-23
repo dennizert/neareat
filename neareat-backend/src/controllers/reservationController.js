@@ -2,6 +2,7 @@ const prisma = require('../utils/prisma');
 const { getUserAccess } = require('../utils/levelAccess');
 const { maybeAwardReferrer } = require('../services/referralReward');
 const { registeredProfileWhere } = require('../utils/restaurantVisibility');
+const { availabilityForRequest } = require('../utils/occupancy');
 const { awardStars, deductStars, RESERVATION_NO_SHOW_PENALTY } = require('../utils/stars');
 
 // S18-2: İçinde bulunulan takvim ayının başlangıcı (İstanbul UTC+3, DST yok) → UTC.
@@ -45,6 +46,34 @@ function validateReservationInput({ date, time, occasion, specialRequests }) {
     return `Özel istekler en fazla ${MAX_SPECIAL_REQUESTS} karakter olabilir.`;
   }
   return null;
+}
+
+// GET /api/reservations/availability?placeId&date&time&guestCount
+// S19-2: Kullanıcıya bir talep için doluluk BANDI (Müsait/Az yer kaldı/Dolu) + yeterlilik.
+// Kayıtlı/aktif restoran değilse veya koltuk kapasitesi yoksa → known:false (bant gösterilmez).
+async function getAvailability(req, res, next) {
+  try {
+    const { placeId, date, time } = req.query;
+    const guestCount = parseInt(req.query.guestCount, 10) || 1;
+    if (!placeId || !date || !time) {
+      return res.status(400).json({ error: 'placeId, date ve time zorunludur.' });
+    }
+    const restaurant = await prisma.restaurantProfile.findFirst({
+      where: registeredProfileWhere({ placeId }),
+      select: { id: true, seatCapacity: true },
+    });
+    if (!restaurant || restaurant.seatCapacity == null) {
+      return res.json({ known: false, band: 'unknown', enough: true });
+    }
+    const reservations = await prisma.reservation.findMany({
+      where: { restaurantId: restaurant.id, date, status: 'CONFIRMED' },
+      select: { time: true, guestCount: true, reservedSeats: true },
+    });
+    const result = availabilityForRequest(reservations, restaurant.seatCapacity, time, guestCount);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
 }
 
 // ─── Kullanıcı — Rezervasyon Oluştur ─────────────────────────────────────────
@@ -600,6 +629,7 @@ async function getMessages(req, res, next) {
 
 module.exports = {
   createReservation,
+  getAvailability,
   getMyReservations,
   cancelReservation,
   computeCancelPolicy,
