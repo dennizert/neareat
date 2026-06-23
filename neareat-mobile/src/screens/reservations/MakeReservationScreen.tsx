@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { createReservation } from '../../services/reservations';
-import { handleUserPremiumError } from '../../utils/premiumGate';
+import { handleLevelError } from '../../utils/levelGate';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
@@ -86,7 +86,7 @@ export default function MakeReservationScreen() {
         [{ text: 'Tamam', onPress: () => navigation.goBack() }],
       );
     } catch (err: any) {
-      if (handleUserPremiumError(err, navigation, 'reservations')) return;
+      if (handleLevelError(err)) return;
       Alert.alert('Hata', err.response?.data?.error ?? 'Rezervasyon oluşturulamadı.');
     } finally {
       setSubmitting(false);

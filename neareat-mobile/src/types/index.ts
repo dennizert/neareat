@@ -12,6 +12,8 @@ export interface User {
   role: UserRole;
   isSuspended: boolean;
   emailVerified: boolean;
+  // S18-5: oturum kullanıcısında yıldız sayısı — seviye-bazlı UI kilitleri için.
+  starCount: number;
 }
 
 export interface UserProfile {

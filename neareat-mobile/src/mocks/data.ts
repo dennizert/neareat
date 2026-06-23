@@ -14,6 +14,7 @@ export const MOCK_USER: User = {
   emailVerified: true,
   role: 'USER',
   isSuspended: false,
+  starCount: 120,
 };
 
 export const MOCK_SUBSCRIPTION: Subscription = {
