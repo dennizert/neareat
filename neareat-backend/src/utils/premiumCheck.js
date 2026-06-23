@@ -48,10 +48,24 @@ async function isPremiumUser(userId) {
   return false;
 }
 
+// S19-1: Restoran tarafı için anlamsal takma ad. Restoran "premium" değil; tek-tip
+// zorunlu ücretli — ama kontrol aynı (aktif/trial abonelik). Çağrı yerlerinde niyeti
+// netleştirmek için ayrı isim.
+const isRestaurantActive = isPremiumUser;
+
+// S19-1: Aktif (active/trial + süresi geçmemiş) bir aboneliği eşleyen Prisma where
+// fragmanı — kayıtlı restoran görünürlük filtrelerinde `user: { subscription: { is: ... } }`
+// olarak kullanılır. Allowlist override'ı KAPSAMAZ (DB-only filtre).
+function activeSubscriptionWhere(now = new Date()) {
+  return { status: { in: PREMIUM_STATUSES }, expiresAt: { gt: now } };
+}
+
 module.exports = {
   isPremiumUser,
+  isRestaurantActive,
   isActivePremium,
   isAlwaysPremiumEmail,
   getAlwaysPremiumEmails,
+  activeSubscriptionWhere,
   PREMIUM_STATUSES,
 };

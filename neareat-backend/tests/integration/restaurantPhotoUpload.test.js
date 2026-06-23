@@ -120,7 +120,7 @@ describe('POST /api/restaurant-account/photos/upload-url (S10-2)', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ kind: 'product', contentType: 'image/jpeg' });
     expect(res.status).toBe(403);
-    expect(res.body.code).toBe('PREMIUM_REQUIRED');
+    expect(res.body.code).toBe('SUBSCRIPTION_REQUIRED');
     expect(s3.createUploadUrl).not.toHaveBeenCalled();
   });
 

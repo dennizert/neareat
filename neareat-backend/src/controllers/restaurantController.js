@@ -5,6 +5,7 @@ const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
 const { deriveCuisineTags, parseCuisineTagFilter } = require('../utils/cuisineTags');
 const { deriveFreshness } = require('../utils/freshnessTags');
+const { registeredProfileWhere } = require('../utils/restaurantVisibility');
 const { logSearchHistory } = require('./searchHistoryController');
 
 const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
@@ -171,7 +172,7 @@ async function buildNearbyResults({ userLat, userLng, radiusKm, placeType = 'all
     const placeIds = filtered.map((p) => p.place_id);
     const now = new Date();
     const allProfiles = await prisma.restaurantProfile.findMany({
-      where: { placeId: { in: placeIds }, status: 'APPROVED' },
+      where: registeredProfileWhere({ placeId: { in: placeIds } }),
       select: {
         placeId: true, displayName: true, discountEnabled: true, discountPercent: true,
         discountNote: true, discountActiveUntil: true,
@@ -267,7 +268,7 @@ async function searchByText(req, res, next) {
     const userLevel = req.user ? getLevel(req.user.starCount).level : 1;
     const profiles = placeIds.length
       ? await prisma.restaurantProfile.findMany({
-          where: { placeId: { in: placeIds }, status: 'APPROVED' },
+          where: registeredProfileWhere({ placeId: { in: placeIds } }),
           select: {
             placeId: true, displayName: true, discountEnabled: true, discountPercent: true,
             discountNote: true, discountActiveUntil: true,
@@ -308,7 +309,7 @@ async function getDetails(req, res, next) {
     const [place, restaurantProfile] = await Promise.all([
       getPlaceDetails(placeId),
       prisma.restaurantProfile.findFirst({
-        where: { placeId, status: 'APPROVED' },
+        where: registeredProfileWhere({ placeId }),
         include: {
           menuItems: {
             select: { id: true, data: true, mimeType: true, fileName: true, sortOrder: true, uploadedAt: true },

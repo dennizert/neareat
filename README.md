@@ -188,11 +188,12 @@ firstproject/                    # monorepo (repo adı: neareat)
 | Anlık indirim · kampanya | — | ✓ |
 | Analitik panel · haftalık rapor | — | ✓ |
 
-### Fiyatlar (aylık, Google Play; 7 gün ücretsiz deneme)
+### Fiyatlar (Google Play)
+> **Sprint-18/19 güncellemesi:** Bireysel kullanıcıdan ücret ALINMAZ — özellikler yıldız/seviye ile açılır (`user_premium` kaldırıldı). Restoran tarafı **tek-tip zorunlu ücretli**: 15 gün ücretsiz deneme, sonra aylık abonelik.
+
 | Ürün ID | Kime | Ücret |
 |--------|------|-------|
-| `user_premium` | Bireysel kullanıcı | **79,90 ₺ / ay** |
-| `restaurant_premium` | Restoran | **699,90 ₺ / ay** |
+| `restaurant_premium` | Restoran | **1.299,90 ₺ / ay** (15 gün ücretsiz deneme) |
 
 ---
 

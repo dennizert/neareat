@@ -19,7 +19,9 @@ export type PaywallTrigger =
  */
 export function isPremiumRequired(err: any): boolean {
   const code = err?.response?.data?.code ?? err?.code;
-  return code === 'PREMIUM_REQUIRED';
+  // S19-1: restoran gate'leri artık SUBSCRIPTION_REQUIRED döner (tek-tip zorunlu ücretli);
+  // geriye uyum için PREMIUM_REQUIRED de tanınır.
+  return code === 'PREMIUM_REQUIRED' || code === 'SUBSCRIPTION_REQUIRED';
 }
 
 // NOT (S18-5): Kullanıcı (USER) premium'u kaldırıldı; USER tarafı artık Paywall'a

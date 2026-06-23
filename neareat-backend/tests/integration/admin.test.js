@@ -63,7 +63,7 @@ const mockPrisma = {
   },
   favorite: { count: jest.fn() },
   recommendation: { count: jest.fn() },
-  subscription: { count: jest.fn(), findUnique: jest.fn() },
+  subscription: { count: jest.fn(), findUnique: jest.fn(), create: jest.fn().mockResolvedValue({ id: 'sub-trial' }) },
   notification: { create: jest.fn(), createMany: jest.fn() },
   starEvent: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
   reward: { findMany: jest.fn() },
@@ -436,6 +436,24 @@ describe('POST /api/admin/restaurants/:id/approve', () => {
       .set('Authorization', `Bearer ${userToken}`);
 
     expect(res.status).toBe(403);
+  });
+
+  it('S19-1: onayda 15 günlük trial aboneliği başlatır (abonelik yoksa)', async () => {
+    mockPrisma.restaurantProfile.update.mockResolvedValue({
+      id: 'p-new', businessName: 'X', status: 'APPROVED', approvedAt: new Date(),
+      user: { id: 'user-r1', email: 'r@test.com', displayName: 'Owner' },
+    });
+    mockPrisma.subscription.findUnique.mockResolvedValue(null); // henüz aboneliği yok
+
+    await request(app)
+      .post('/api/admin/restaurants/p-new/approve')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    // trial başlatma fire-and-forget → bir tick bekle
+    await new Promise((r) => setImmediate(r));
+    expect(mockPrisma.subscription.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ userId: 'user-r1', status: 'trial', planType: 'monthly' }) }),
+    );
   });
 });
 

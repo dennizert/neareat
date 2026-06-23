@@ -8,6 +8,7 @@ const { logRequest } = require('../services/logService');
 const { runFriendSuggestionsJob } = require('../jobs/friendSuggestions');
 const { runNotificationCleanup } = require('../jobs/notificationCleanup');
 const { runSeasonResetJob } = require('../jobs/seasonReset');
+const { startTrialForRestaurant } = require('../services/restaurantSubscription');
 const { cacheGet, cacheSet, cacheDel } = require('../services/redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
 const { snapshot, evaluateAlarms } = require('../services/metrics'); // S16-2
@@ -153,6 +154,8 @@ async function approveRestaurant(req, res, next) {
       data: { status: 'APPROVED', approvedAt: new Date(), reviewedByAdminId: req.user.id, rejectionReason: null },
       select: PROFILE_SUMMARY,
     });
+    // S19-1: onayda 15 günlük ücretsiz trial başlat (aboneliği yoksa). Best-effort.
+    if (profile.user?.id) startTrialForRestaurant(profile.user.id).catch(() => {});
     logRequest({ req, page: 'Admin - Restoran Onayları', action: 'Restoran onayladı', details: profile.businessName }).catch(() => {});
     res.json(profile);
   } catch (err) {
