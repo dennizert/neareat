@@ -8,7 +8,7 @@ const {
   replyToReview, deleteReply,
   updateDiscount, activateInstantDiscount, deactivateInstantDiscount,
   updateAnnouncement, updateInfo, getStats, getMyReviews,
-  sendCampaign, getAnalytics, getWeeklyReport,
+  sendCampaign, getAnalytics, getWeeklyReport, getOccupancy,
   createPhotoUploadUrl, addPhoto, listPhotos, deletePhoto,
 } = require('../controllers/restaurantAccountController');
 
@@ -23,6 +23,7 @@ router.put('/announcement', authenticate, requireRestaurant, updateAnnouncement)
 router.get('/stats', authenticate, requireRestaurant, getStats);
 router.get('/analytics', authenticate, requireRestaurant, getAnalytics);
 router.get('/report', authenticate, requireRestaurant, getWeeklyReport);
+router.get('/occupancy', authenticate, requireRestaurant, getOccupancy);
 router.get('/reviews', authenticate, requireRestaurant, getMyReviews);
 
 // Fotoğraf yükleme (S3 presigned URL) — S10-2

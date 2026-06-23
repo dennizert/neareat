@@ -433,6 +433,9 @@ model RestaurantProfile {
 
   // Aynı saat dilimine maksimum rezervasyon sayısı (null = sınırsız) — S8-5
   tableCount Int? @map("table_count")
+  // S19-2: toplam KOLTUK kapasitesi (null = bilinmiyor → doluluk hesaplanmaz). tableCount'tan
+  // AYRI kavram: bu sandalye sayısı, zaman-dilimi bazlı doluluk için.
+  seatCapacity Int? @map("seat_capacity")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -551,6 +554,9 @@ model Reservation {
   date            String // "2026-05-20" yerel tarih
   time            String // "19:30"
   guestCount      Int     @map("guest_count")
+  // S19-2/S19-3: onayda restoranın rezerve ettiği koltuk sayısı (varsayılan = guestCount).
+  // Doluluk hesabında CONFIRMED rezervasyonlarda kullanılır (null → guestCount fallback).
+  reservedSeats   Int?    @map("reserved_seats")
   occasion        String? @db.VarChar(100)
   specialRequests String? @map("special_requests") @db.VarChar(500)
 
