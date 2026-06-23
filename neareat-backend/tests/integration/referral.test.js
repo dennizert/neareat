@@ -17,6 +17,9 @@ jest.mock('../../src/utils/stars', () => ({
   deductStars: jest.fn().mockResolvedValue(undefined),
   STAR_AMOUNTS: { REFERRAL: 15, REFERRAL_BONUS: 10 },
   RESERVATION_NO_SHOW_PENALTY: 10,
+  // S18-4: seasonReset modülü app yüklenince bunları okur (modül-üstü sabitler)
+  LEVEL_THRESHOLDS: { 1: 0, 2: 50, 3: 100, 4: 150, 5: 250 },
+  computeSeasonResetStars: (s) => (s >= 250 ? 100 : 50),
 }));
 
 const mockPrisma = {

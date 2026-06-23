@@ -40,6 +40,9 @@ jest.mock('../../src/utils/stars', () => ({
     level: s >= 250 ? 5 : s >= 150 ? 4 : s >= 100 ? 3 : s >= 50 ? 2 : 1,
     badge: '', badgeIcon: '',
   }),
+  // S18-4: seasonReset modülü app yüklenince bunları okur.
+  LEVEL_THRESHOLDS: { 1: 0, 2: 50, 3: 100, 4: 150, 5: 250 },
+  computeSeasonResetStars: (s) => (s >= 250 ? 100 : 50),
 }));
 jest.mock('../../src/jobs/reservationReminders', () => ({ scheduleReservationReminders: jest.fn() }));
 jest.mock('../../src/jobs/smartNotifications', () => ({ scheduleSmartNotifications: jest.fn() }));

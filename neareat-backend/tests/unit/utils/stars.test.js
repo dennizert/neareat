@@ -70,6 +70,28 @@ describe('thresholdForLevel', () => {
   });
 });
 
+describe('computeSeasonResetStars (S18-4: 2 seviye düş, taban L2)', () => {
+  const { computeSeasonResetStars } = require('../../../src/utils/stars');
+  it('L5 (250+) → L3 (100 yıldız)', () => {
+    expect(computeSeasonResetStars(300)).toBe(100);
+    expect(computeSeasonResetStars(250)).toBe(100);
+  });
+  it('L4 (150–249) → L2 (50)', () => {
+    expect(computeSeasonResetStars(200)).toBe(50);
+    expect(computeSeasonResetStars(150)).toBe(50);
+  });
+  it('L3 (100–149) → taban L2 (50)', () => {
+    expect(computeSeasonResetStars(120)).toBe(50);
+  });
+  it('L2 (50–99) → L2 (50)', () => {
+    expect(computeSeasonResetStars(60)).toBe(50);
+  });
+  it('L1 (0–49) → taban L2 (50)', () => {
+    expect(computeSeasonResetStars(10)).toBe(50);
+    expect(computeSeasonResetStars(0)).toBe(50);
+  });
+});
+
 describe('STAR_AMOUNTS', () => {
   it('REVIEW equals 5', () => {
     expect(STAR_AMOUNTS.REVIEW).toBe(5);

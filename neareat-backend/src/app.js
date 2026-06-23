@@ -53,6 +53,7 @@ const { scheduleSmartNotifications } = require('./jobs/smartNotifications');
 const { scheduleFeedbackAggregation } = require('./jobs/feedbackAggregator');
 const { scheduleFriendSuggestions } = require('./jobs/friendSuggestions');
 const { scheduleNotificationCleanup } = require('./jobs/notificationCleanup');
+const { scheduleSeasonReset } = require('./jobs/seasonReset');
 
 const app = express();
 
@@ -226,6 +227,7 @@ if (process.env.NODE_ENV !== 'test') {
     scheduleFeedbackAggregation();
     scheduleFriendSuggestions();
     scheduleNotificationCleanup();
+    scheduleSeasonReset();
   });
 
   // Keep-alive (S16-1): keepAliveTimeout < headersTimeout olmalı. Aksi halde Node,

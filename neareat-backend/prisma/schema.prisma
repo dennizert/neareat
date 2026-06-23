@@ -34,6 +34,9 @@ model User {
 
   // Gamification — denormalized for fast reads
   starCount Int @default(0) @map("star_count")
+  // S18-4: sezonluk yıldız (starCount) sıfırlamasının çapası. 6 ayda bir sezon kapanır;
+  // bu damga en son sezon başlangıcını tutar (tüm kullanıcılarda sıfırlama anında eşitlenir).
+  seasonStartAt DateTime? @map("season_start_at")
 
   // Email verification (email/password auth)
   emailVerified           Boolean   @default(false) @map("email_verified")

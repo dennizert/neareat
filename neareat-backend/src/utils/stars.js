@@ -111,6 +111,16 @@ function thresholdForLevel(level) {
   return LEVEL_THRESHOLDS[lvl];
 }
 
+// S18-4: 6-aylık sezon sıfırlamasında bir kullanıcının yeni sezonluk yıldızı.
+// KARAR: herkes 2 SEVİYE DÜŞER, taban L2 → newLevel = max(2, currentLevel - 2);
+// yeni starCount o seviyenin alt eşiğine set edilir. (L5→L3=100, L4/L3/L2/L1→L2=50.)
+// Saf fonksiyon — sezon job'ı bunu birim test edilebilir tek-kaynak olarak kullanır.
+function computeSeasonResetStars(currentStars) {
+  const currentLevel = getLevel(currentStars).level;
+  const newLevel = Math.max(2, currentLevel - 2);
+  return thresholdForLevel(newLevel);
+}
+
 // Sistem tanımlı yıldız seviyesi → indirim oranı tablosu (restoran değiştiremez)
 const STAR_LEVEL_DISCOUNTS = { 1: 0, 2: 10, 3: 15, 4: 20, 5: 25 };
 
@@ -133,4 +143,4 @@ async function deductStars(userId, amount, description, referenceId = null) {
   return newCount;
 }
 
-module.exports = { awardStars, deductStars, getLevel, thresholdForLevel, LEVEL_THRESHOLDS, STAR_AMOUNTS, STAR_LEVEL_DISCOUNTS, RESERVATION_NO_SHOW_PENALTY };
+module.exports = { awardStars, deductStars, getLevel, thresholdForLevel, computeSeasonResetStars, LEVEL_THRESHOLDS, STAR_AMOUNTS, STAR_LEVEL_DISCOUNTS, RESERVATION_NO_SHOW_PENALTY };
