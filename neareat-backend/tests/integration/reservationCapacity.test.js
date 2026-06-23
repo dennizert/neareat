@@ -2,7 +2,7 @@
 
 jest.mock('../../src/utils/prisma', () => ({
   restaurantProfile: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-  reservation: { findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn() },
+  reservation: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn() },
   user: { findUnique: jest.fn() },
   subscription: { findUnique: jest.fn() },
   starEvent: { create: jest.fn() },
@@ -75,6 +75,7 @@ beforeEach(() => {
   prisma.user.findUnique.mockResolvedValue({ id: 'u-1', role: 'USER', isSuspended: false, starCount: 250 });
   prisma.restaurantProfile.findFirst.mockResolvedValue(restaurant);
   prisma.reservation.findFirst.mockResolvedValue(null);
+  prisma.reservation.findMany.mockResolvedValue([]);
   prisma.reservation.count.mockResolvedValue(0);
   prisma.reservation.create.mockResolvedValue(createdReservation);
 });
@@ -236,5 +237,79 @@ describe('PUT /api/reservations/:id — güncelleme sırasında kapasite kontrol
       .send({ date: '2026-12-02', time: '20:00', guestCount: 2 });
     expect(res.status).toBe(201);
     expect(prisma.reservation.count).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S19-3 — koltuk bazlı overbooking uyarısı + onayda rezerve koltuk
+// ─────────────────────────────────────────────────────────────────────────────
+describe('POST /api/reservations — koltuk overbooking uyarısı (S19-3)', () => {
+  const OVERBOOK_MSG = 'Restoranda talebinize uygun yer kalmamıştır. Talebiniz oluşturulmuştur, restoran planlama yapabilirse onaylanacaktır. Aksi halde reddedilecektir.';
+
+  it('yeterli koltuk varsa → 201, uyarı YOK', async () => {
+    prisma.restaurantProfile.findFirst.mockResolvedValue({ ...restaurant, tableCount: null, seatCapacity: 40 });
+    prisma.reservation.findMany.mockResolvedValue([{ time: '19:00', guestCount: 4, reservedSeats: 4 }]); // 4/40 dolu
+    const res = await request(app)
+      .post('/api/reservations').set('Authorization', `Bearer ${token}`)
+      .send({ ...validBody, time: '19:00', guestCount: 2 });
+    expect(res.status).toBe(201);
+    expect(res.body.warning).toBeUndefined();
+  });
+
+  it('yetersiz koltuk → 201 + warning:OVERBOOKING (birebir mesaj), talep yine oluşur', async () => {
+    prisma.restaurantProfile.findFirst.mockResolvedValue({ ...restaurant, tableCount: null, seatCapacity: 40 });
+    prisma.reservation.findMany.mockResolvedValue([{ time: '19:00', guestCount: 38, reservedSeats: 38 }]); // 38/40
+    const res = await request(app)
+      .post('/api/reservations').set('Authorization', `Bearer ${token}`)
+      .send({ ...validBody, time: '19:00', guestCount: 4 });
+    expect(res.status).toBe(201);
+    expect(res.body.warning).toBe('OVERBOOKING');
+    expect(res.body.message).toBe(OVERBOOK_MSG);
+    expect(prisma.reservation.create).toHaveBeenCalled(); // talep yine oluşturuldu
+  });
+
+  it('seatCapacity tanımsız → overbooking kontrolü yapılmaz (uyarı yok)', async () => {
+    prisma.restaurantProfile.findFirst.mockResolvedValue({ ...restaurant, tableCount: null, seatCapacity: null });
+    const res = await request(app)
+      .post('/api/reservations').set('Authorization', `Bearer ${token}`)
+      .send({ ...validBody, time: '19:00', guestCount: 10 });
+    expect(res.status).toBe(201);
+    expect(res.body.warning).toBeUndefined();
+  });
+});
+
+describe('PUT /api/reservations/:id/status — onayda rezerve koltuk (S19-3)', () => {
+  beforeEach(() => {
+    prisma.user.findUnique.mockResolvedValue({ id: 'owner-1', role: 'RESTAURANT', isSuspended: false });
+    prisma.restaurantProfile.findUnique.mockResolvedValue({ id: 'r-1', businessName: 'Test', userId: 'owner-1' });
+    prisma.reservation.findUnique.mockResolvedValue({ id: 'res-1', restaurantId: 'r-1', status: 'PENDING', guestCount: 4, date: '2026-12-01', time: '19:00', userId: 'u-1', placeName: 'Test' });
+    prisma.reservation.update.mockImplementation(({ data }) => Promise.resolve({ id: 'res-1', status: data.status, reservedSeats: data.reservedSeats ?? null }));
+  });
+
+  it('reservedSeats verilmezse → varsayılan guestCount yazılır', async () => {
+    const res = await request(app)
+      .put('/api/reservations/res-1/status').set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'CONFIRMED' });
+    expect(res.status).toBe(200);
+    expect(prisma.reservation.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'CONFIRMED', reservedSeats: 4 }) }),
+    );
+  });
+
+  it('reservedSeats verilirse → o değer yazılır', async () => {
+    const res = await request(app)
+      .put('/api/reservations/res-1/status').set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'CONFIRMED', reservedSeats: 6 });
+    expect(res.status).toBe(200);
+    expect(prisma.reservation.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ reservedSeats: 6 }) }),
+    );
+  });
+
+  it('geçersiz reservedSeats (0) → 400', async () => {
+    const res = await request(app)
+      .put('/api/reservations/res-1/status').set('Authorization', `Bearer ${ownerToken}`)
+      .send({ status: 'CONFIRMED', reservedSeats: 0 });
+    expect(res.status).toBe(400);
   });
 });
