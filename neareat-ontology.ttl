@@ -1,0 +1,750 @@
+@prefix ne:   <http://www.eatlas.com/ontology/neareat#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix geo:  <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+
+#################################################################
+#  Eatlas (NearEat) — OWL Ontolojisi
+#  Yapay zekâ destekli restoran keşif platformunun bilgi modeli.
+#
+#  Kaynak: neareat-backend/prisma/schema.prisma (~40 model) +
+#          CLAUDE.md mimari dokümanı + MIMARI.md.
+#
+#  Tasarım kararı: Restoranlar (Google Places) DB'de TUTULMAZ; tüm
+#  kullanıcı-üretimli veri restorana bir `placeId` ile bağlanır.
+#  Ontolojide bu, soyut ne:Place kavramı (Google Places place'i) ile
+#  modellenir; somut kullanıcı verisi ona ne:aboutPlace ile bağlanır.
+#################################################################
+
+<http://www.eatlas.com/ontology/neareat>
+    a owl:Ontology ;
+    dcterms:title "Eatlas (NearEat) Restoran Keşif Ontolojisi"@tr ;
+    dcterms:description "NearEat/Eatlas platformunun alan modelini (kullanıcılar, restoranlar, sosyal etkileşim, AI öneri, oyunlaştırma, rezervasyon, premium/ücretsiz kademe, B2B) OWL ile biçimlendiren ontoloji."@tr ;
+    dcterms:creator "Eatlas ekibi" ;
+    dcterms:created "2026-06-15"^^xsd:date ;
+    owl:versionInfo "1.0.0" .
+
+#################################################################
+#  1) ÜST DÜZEY (SOYUT) SINIFLAR
+#################################################################
+
+ne:Agent a owl:Class ;
+    rdfs:label "Aktör"@tr ;
+    rdfs:comment "Sistemde eylemde bulunabilen varlık (insan kullanıcı veya işletme)."@tr .
+
+ne:Place a owl:Class ;
+    rdfs:label "Mekan (Google Places)"@tr ;
+    rdfs:comment "Bir restoran/kafe gibi mekanın soyut temsili. Eatlas'ta restoran verisi veritabanında tutulmaz; Google Places'ten gelir ve yalnızca placeId ile referanslanır. Bu sınıf o dış varlığı ontolojide birinci-sınıf nesne yapar."@tr .
+
+ne:UserGeneratedContent a owl:Class ;
+    rdfs:label "Kullanıcı Üretimli İçerik"@tr ;
+    rdfs:comment "Bir kullanıcının ürettiği, çoğunlukla bir mekan hakkında olan içerik (yorum, favori, günlük vb.)."@tr .
+
+ne:SocialInteraction a owl:Class ;
+    rdfs:label "Sosyal Etkileşim"@tr ;
+    rdfs:comment "İki kullanıcı arasındaki etkileşim (arkadaşlık isteği, öneri, mesaj, şikayet)."@tr .
+
+ne:CommerceConcept a owl:Class ;
+    rdfs:label "Ticaret Kavramı"@tr ;
+    rdfs:comment "Abonelik, satın alma defteri ve ödüller gibi para/değer ile ilgili varlıklar."@tr .
+
+ne:GroupActivity a owl:Class ;
+    rdfs:label "Grup Aktivitesi"@tr ;
+    rdfs:comment "Birden çok kullanıcının katıldığı planlama/oylama yapıları."@tr .
+
+ne:AiArtifact a owl:Class ;
+    rdfs:label "Yapay Zekâ Çıktısı/Kaydı"@tr ;
+    rdfs:comment "Claude tabanlı AI öneri motorunun ürettiği veya beslediği kayıtlar."@tr .
+
+ne:SystemRecord a owl:Class ;
+    rdfs:label "Sistem Kaydı"@tr ;
+    rdfs:comment "Bildirim, log, tercih gibi sistem tarafından tutulan kayıtlar."@tr .
+
+#################################################################
+#  2) KULLANICI VE ROLLER
+#  UserRole enum (USER / RESTAURANT / ADMIN) → ayrık, kapsayıcı alt sınıflar.
+#################################################################
+
+ne:User a owl:Class ;
+    rdfs:subClassOf ne:Agent ;
+    rdfs:label "Kullanıcı"@tr ;
+    rdfs:comment "Platformun bir hesabı. E-posta+şifre veya Google OAuth ile kimliklenir; her ikisi de aynı JWT'yi üretir."@tr .
+
+# Üç rol — birbirinden ayrık ve birlikte User'ı tam kaplar.
+ne:RegularUser a owl:Class ;
+    rdfs:subClassOf ne:User ;
+    rdfs:label "Normal Kullanıcı"@tr ;
+    rdfs:comment "role=USER. Keşfet, favori, liste, AI öneri ve sosyal özellikleri kullanır."@tr .
+
+ne:RestaurantOwner a owl:Class ;
+    rdfs:subClassOf ne:User ;
+    rdfs:label "Restoran Sahibi"@tr ;
+    rdfs:comment "role=RESTAURANT. Bir RestaurantProfile'a sahiptir; B2B panelini kullanır."@tr .
+
+ne:Admin a owl:Class ;
+    rdfs:subClassOf ne:User ;
+    rdfs:label "Yönetici"@tr ;
+    rdfs:comment "role=ADMIN. Kullanıcı/restoran yönetimi, başvuru onayı, log ve metrik erişimi."@tr .
+
+[] a owl:AllDisjointClasses ;
+    owl:members ( ne:RegularUser ne:RestaurantOwner ne:Admin ) .
+
+ne:User owl:equivalentClass
+    [ a owl:Class ; owl:unionOf ( ne:RegularUser ne:RestaurantOwner ne:Admin ) ] .
+
+# Tanımlı sınıf: restoran sahibi = bir restoran profiline sahip olan kullanıcı.
+ne:RestaurantOwner owl:equivalentClass
+    [ a owl:Class ;
+      owl:intersectionOf (
+        ne:User
+        [ a owl:Restriction ;
+          owl:onProperty ne:ownsRestaurantProfile ;
+          owl:someValuesFrom ne:RestaurantProfile ]
+      ) ] .
+
+#################################################################
+#  3) PREMIUM / ÜCRETSİZ KADEME (iş kuralı → OWL kısıtı)
+#  Ücretsiz kullanıcı: favori ≤ 5, koleksiyon ≤ 1, ömür-boyu rezervasyon ≤ 1.
+#################################################################
+
+ne:Subscription a owl:Class ;
+    rdfs:subClassOf ne:CommerceConcept ;
+    rdfs:label "Abonelik"@tr ;
+    rdfs:comment "Premium kademeyi kontrol eder. Aktif/trial abonelik premium ayrıcalıkları açar."@tr .
+
+ne:PremiumUser owl:equivalentClass
+    [ a owl:Class ;
+      owl:intersectionOf (
+        ne:User
+        [ a owl:Restriction ;
+          owl:onProperty ne:hasSubscription ;
+          owl:someValuesFrom ne:ActiveSubscription ]
+      ) ] ;
+    rdfs:subClassOf ne:User ;
+    rdfs:label "Premium Kullanıcı"@tr ;
+    rdfs:comment "Aktif (active/trial) aboneliği olan kullanıcı. Sınırsız favori/liste, premium AI (Sonnet)."@tr .
+
+ne:FreeTierUser a owl:Class ;
+    rdfs:subClassOf ne:User ,
+        [ a owl:Restriction ;
+          owl:onProperty ne:hasFavorite ;
+          owl:maxCardinality "5"^^xsd:nonNegativeInteger ] ,
+        [ a owl:Restriction ;
+          owl:onProperty ne:ownsCollection ;
+          owl:maxCardinality "1"^^xsd:nonNegativeInteger ] ;
+    owl:disjointWith ne:PremiumUser ;
+    rdfs:label "Ücretsiz Kademe Kullanıcısı"@tr ;
+    rdfs:comment "Aktif aboneliği olmayan kullanıcı. İş kuralları kardinalite kısıtı olarak modellenir: favori ≤ 5, koleksiyon ≤ 1, AI önerisi günde 1 (Haiku)."@tr .
+
+ne:ActiveSubscription a owl:Class ;
+    rdfs:subClassOf ne:Subscription ;
+    owl:equivalentClass
+        [ a owl:Restriction ;
+          owl:onProperty ne:hasStatus ;
+          owl:someValuesFrom
+            [ a owl:Class ; owl:oneOf ( ne:Status_active ne:Status_trial ) ] ] ;
+    rdfs:label "Aktif Abonelik"@tr .
+
+#################################################################
+#  4) NUMARALANDIRMALAR (enum → owl:oneOf ile tanımlı sınıflar)
+#################################################################
+
+# UserRole değerleri (etiket olarak — rol sınıfları yukarıda modellendi)
+ne:UserRole a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf ( ne:Role_USER ne:Role_RESTAURANT ne:Role_ADMIN ) ] ;
+    rdfs:label "Kullanıcı Rolü"@tr .
+ne:Role_USER a ne:UserRole .
+ne:Role_RESTAURANT a ne:UserRole .
+ne:Role_ADMIN a ne:UserRole .
+
+# Abonelik durumu + plan tipi
+ne:SubscriptionStatus a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf ( ne:Status_active ne:Status_cancelled ne:Status_expired ne:Status_trial ) ] ;
+    rdfs:label "Abonelik Durumu"@tr .
+ne:Status_active a ne:SubscriptionStatus .
+ne:Status_cancelled a ne:SubscriptionStatus .
+ne:Status_expired a ne:SubscriptionStatus .
+ne:Status_trial a ne:SubscriptionStatus .
+
+ne:PlanType a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf ( ne:Plan_monthly ne:Plan_yearly ne:Plan_trial ) ] ;
+    rdfs:label "Plan Tipi"@tr .
+ne:Plan_monthly a ne:PlanType .
+ne:Plan_yearly a ne:PlanType .
+ne:Plan_trial a ne:PlanType .
+
+# Arkadaşlık isteği durumu
+ne:FriendRequestStatus a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf ( ne:FR_PENDING ne:FR_ACCEPTED ne:FR_REJECTED ) ] ;
+    rdfs:label "Arkadaşlık İsteği Durumu"@tr .
+ne:FR_PENDING a ne:FriendRequestStatus .
+ne:FR_ACCEPTED a ne:FriendRequestStatus .
+ne:FR_REJECTED a ne:FriendRequestStatus .
+
+# Rezervasyon durumu
+ne:ReservationStatus a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf ( ne:RES_PENDING ne:RES_CONFIRMED ne:RES_REJECTED ne:RES_CANCELLED ne:RES_COMPLETED ) ] ;
+    rdfs:label "Rezervasyon Durumu"@tr .
+ne:RES_PENDING a ne:ReservationStatus .
+ne:RES_CONFIRMED a ne:ReservationStatus .
+ne:RES_REJECTED a ne:ReservationStatus .
+ne:RES_CANCELLED a ne:ReservationStatus .
+ne:RES_COMPLETED a ne:ReservationStatus .
+
+# Restoran başvuru onay durumu
+ne:ApprovalStatus a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf ( ne:AP_PENDING ne:AP_APPROVED ne:AP_REJECTED ) ] ;
+    rdfs:label "Onay Durumu"@tr .
+ne:AP_PENDING a ne:ApprovalStatus .
+ne:AP_APPROVED a ne:ApprovalStatus .
+ne:AP_REJECTED a ne:ApprovalStatus .
+
+# Yıldız olayı tipi (oyunlaştırma)
+ne:StarEventType a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf
+        ( ne:SE_REVIEW ne:SE_RECOMMENDATION ne:SE_FRIEND_ADDED ne:SE_RATING ne:SE_RESERVATION ne:SE_RESERVATION_ATTENDED ne:SE_REFERRAL ) ] ;
+    rdfs:label "Yıldız Olayı Tipi"@tr .
+ne:SE_REVIEW a ne:StarEventType .
+ne:SE_RECOMMENDATION a ne:StarEventType .
+ne:SE_FRIEND_ADDED a ne:StarEventType .
+ne:SE_RATING a ne:StarEventType .
+ne:SE_RESERVATION a ne:StarEventType .
+ne:SE_RESERVATION_ATTENDED a ne:StarEventType .
+ne:SE_REFERRAL a ne:StarEventType .
+
+# Ödül tipi
+ne:RewardType a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf ( ne:RT_BADGE ne:RT_GIFT ) ] ;
+    rdfs:label "Ödül Tipi"@tr .
+ne:RT_BADGE a ne:RewardType .
+ne:RT_GIFT a ne:RewardType .
+
+# Restoran foto tipi
+ne:RestaurantPhotoKind a owl:Class ;
+    owl:equivalentClass [ a owl:Class ; owl:oneOf ( ne:PK_RESTAURANT ne:PK_PRODUCT ) ] ;
+    rdfs:label "Restoran Foto Tipi"@tr .
+ne:PK_RESTAURANT a ne:RestaurantPhotoKind .
+ne:PK_PRODUCT a ne:RestaurantPhotoKind .
+
+# Mutfak etiketi — utils/cuisineTags.js'teki 13 etiket (SKOS kavram şeması olarak)
+ne:CuisineTag a owl:Class ;
+    rdfs:label "Mutfak Etiketi"@tr ;
+    rdfs:comment "Google types + isim anahtar kelimelerinden türetilen mutfak etiketi (Pizza, Kebap, Sushi...)."@tr .
+ne:Cuisine_Pizza a ne:CuisineTag ; skos:prefLabel "Pizza"@tr .
+ne:Cuisine_Kebap a ne:CuisineTag ; skos:prefLabel "Kebap"@tr .
+ne:Cuisine_Sushi a ne:CuisineTag ; skos:prefLabel "Sushi"@tr .
+ne:Cuisine_Burger a ne:CuisineTag ; skos:prefLabel "Burger"@tr .
+ne:Cuisine_Cafe a ne:CuisineTag ; skos:prefLabel "Kafe"@tr .
+
+#################################################################
+#  5) KULLANICI ÜRETİMLİ İÇERİK
+#################################################################
+
+ne:Favorite a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Favori"@tr ;
+    rdfs:comment "Kullanıcının bir mekanı favorilemesi. (userId, placeId) tekildir."@tr .
+
+ne:Review a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Yorum"@tr ;
+    rdfs:comment "Kullanıcının bir mekana yazdığı puan + metin yorumu. Bir kullanıcı bir mekana en fazla bir yorum yazar (userId, placeId tekil). Eatlas puanı bu yorumlardan istemci tarafında hesaplanır."@tr .
+
+ne:ReviewReply a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Yorum Cevabı"@tr ;
+    rdfs:comment "Restoran sahibinin bir yoruma verdiği cevap. Her yorumun en fazla bir cevabı olur."@tr .
+
+ne:DiaryEntry a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Yemek Günlüğü Kaydı"@tr ;
+    rdfs:comment "Kullanıcının kendine özel ziyaret kaydı. Aynı mekana birçok kez gidilebilir; sadece sahibi görür."@tr .
+
+ne:CheckIn a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Check-in"@tr ;
+    rdfs:comment "Kullanıcının aktif check-in'i (3 saat TTL). Bir kullanıcının aynı anda en fazla bir aktif check-in'i olur."@tr .
+
+ne:Collection a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Koleksiyon/Liste"@tr ;
+    rdfs:comment "Kullanıcının oluşturduğu restoran listesi (premium özellik; ücretsiz kademe 1 ile sınırlı)."@tr .
+
+ne:CollectionItem a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Koleksiyon Öğesi"@tr ;
+    rdfs:comment "Bir koleksiyona eklenmiş mekan. (collectionId, placeId) tekildir."@tr .
+
+ne:CollectionShare a owl:Class ;
+    rdfs:subClassOf ne:SocialInteraction ;
+    rdfs:label "Koleksiyon Paylaşımı"@tr ;
+    rdfs:comment "Bir koleksiyonun bir arkadaşla paylaşılması."@tr .
+
+ne:PlaceView a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Mekan Görüntüleme"@tr ;
+    rdfs:comment "Kullanıcının bir mekan detayını açma kaydı (Son Baktıkların rayı). (userId, placeId) tekil; viewedAt güncellenir."@tr .
+
+ne:SearchHistory a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Arama Geçmişi"@tr ;
+    rdfs:comment "Serbest metin/mutfak araması kaydı. Son aramalar AI sistem promptuna sinyal olarak enjekte edilir; KVKK için kullanıcı silebilir."@tr .
+
+#################################################################
+#  6) SOSYAL ETKİLEŞİM
+#################################################################
+
+ne:FriendRequest a owl:Class ;
+    rdfs:subClassOf ne:SocialInteraction ;
+    rdfs:label "Arkadaşlık İsteği"@tr ;
+    rdfs:comment "İki kullanıcı arası istek. status ACCEPTED olunca arkadaşlık doğar. (fromUser, toUser) tekildir."@tr .
+
+ne:Recommendation a owl:Class ;
+    rdfs:subClassOf ne:SocialInteraction ;
+    rdfs:label "Restoran Önerisi"@tr ;
+    rdfs:comment "Bir kullanıcının başka bir kullanıcıya (veya herkese açık) gönderdiği mekan önerisi. toUser null ise profilde herkese açıktır."@tr .
+
+ne:Message a owl:Class ;
+    rdfs:subClassOf ne:SocialInteraction ;
+    rdfs:label "Mesaj"@tr ;
+    rdfs:comment "İki kullanıcı arasında birebir mesaj."@tr .
+
+ne:UserReport a owl:Class ;
+    rdfs:subClassOf ne:SocialInteraction ;
+    rdfs:label "Kullanıcı Şikayeti"@tr ;
+    rdfs:comment "Bir kullanıcının başka bir kullanıcıyı şikayet etmesi. Admin çözer/reddeder."@tr .
+
+#################################################################
+#  7) OYUNLAŞTIRMA
+#################################################################
+
+ne:StarEvent a owl:Class ;
+    rdfs:subClassOf ne:SystemRecord ;
+    rdfs:label "Yıldız Olayı"@tr ;
+    rdfs:comment "Kullanıcının yıldız kazandığı her olay. Hem geçmiş hem denetim."@tr .
+
+ne:Reward a owl:Class ;
+    rdfs:subClassOf ne:CommerceConcept ;
+    rdfs:label "Ödül"@tr ;
+    rdfs:comment "Yıldızla açılabilen ödül tanımı (rozet/hediye)."@tr .
+
+ne:UserReward a owl:Class ;
+    rdfs:subClassOf ne:CommerceConcept ;
+    rdfs:label "Kazanılan Ödül"@tr ;
+    rdfs:comment "Bir kullanıcının kilidini açtığı ödül. (userId, rewardId) tekildir."@tr .
+
+#################################################################
+#  8) RESTORAN B2B
+#################################################################
+
+ne:RestaurantProfile a owl:Class ;
+    rdfs:subClassOf ne:Agent ;
+    rdfs:label "Restoran Profili"@tr ;
+    rdfs:comment "Restoran sahibinin işletme hesabı (vergi no, onay durumu, çalışma saatleri, indirim/kampanya, rezervasyon ayarları). İsteğe bağlı bir Google placeId ile gerçek mekana bağlanır."@tr .
+
+ne:RestaurantPhoto a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Restoran Fotoğrafı"@tr ;
+    rdfs:comment "Restoran/ürün galerisi fotoğrafı (S3'te tutulur, burada URL)."@tr .
+
+ne:RestaurantMenu a owl:Class ;
+    rdfs:subClassOf ne:UserGeneratedContent ;
+    rdfs:label "Restoran Menüsü"@tr ;
+    rdfs:comment "Restoranın yüklediği menü dosyası."@tr .
+
+#################################################################
+#  9) REZERVASYON
+#################################################################
+
+ne:Reservation a owl:Class ;
+    rdfs:subClassOf ne:SocialInteraction ;
+    rdfs:label "Rezervasyon"@tr ;
+    rdfs:comment "Kullanıcının bir restoran profiline yaptığı masa rezervasyonu. Durum makinesi: PENDING→CONFIRMED/REJECTED/CANCELLED→COMPLETED. 24h+ PENDING kalırsa restorana escalation."@tr .
+
+ne:ReservationMessage a owl:Class ;
+    rdfs:subClassOf ne:SocialInteraction ;
+    rdfs:label "Rezervasyon Mesajı"@tr ;
+    rdfs:comment "Bir rezervasyon bağlamında kullanıcı↔restoran mesajı."@tr .
+
+#################################################################
+#  10) GRUP AKTİVİTESİ
+#################################################################
+
+ne:MealGroup a owl:Class ;
+    rdfs:subClassOf ne:GroupActivity ;
+    rdfs:label "Yemek Grubu"@tr ;
+    rdfs:comment "Arkadaşlar arası yemek planı grubu."@tr .
+
+ne:MealGroupMember a owl:Class ;
+    rdfs:subClassOf ne:GroupActivity ;
+    rdfs:label "Grup Üyesi"@tr ;
+    rdfs:comment "Bir kullanıcının bir yemek grubundaki üyelik kaydı (INVITED/ACCEPTED/DECLINED)."@tr .
+
+ne:RestaurantPoll a owl:Class ;
+    rdfs:subClassOf ne:GroupActivity ;
+    rdfs:label "Restoran Anketi"@tr ;
+    rdfs:comment "Grup içi nereye gidilsin oylaması (OPEN/CLOSED)."@tr .
+
+ne:PollOption a owl:Class ;
+    rdfs:subClassOf ne:GroupActivity ;
+    rdfs:label "Anket Seçeneği"@tr ;
+    rdfs:comment "Bir ankette aday mekan. (pollId, placeId) tekildir."@tr .
+
+ne:PollVote a owl:Class ;
+    rdfs:subClassOf ne:GroupActivity ;
+    rdfs:label "Anket Oyu"@tr ;
+    rdfs:comment "Bir kullanıcının bir seçeneğe oyu (YES/NO/MAYBE). (optionId, userId) tekildir."@tr .
+
+#################################################################
+#  11) YAPAY ZEKÂ
+#################################################################
+
+ne:AiRecommendationLog a owl:Class ;
+    rdfs:subClassOf ne:AiArtifact ;
+    rdfs:label "AI Öneri Kaydı"@tr ;
+    rdfs:comment "Claude'a yapılan her AI öneri çağrısının logu (model, aday/önerilen placeId'ler, token, maliyet). Audit + günlük limit sayımı."@tr .
+
+ne:RecommendationFeedback a owl:Class ;
+    rdfs:subClassOf ne:AiArtifact ;
+    rdfs:label "Öneri Geri Bildirimi"@tr ;
+    rdfs:comment "Kullanıcının AI önerisine verdiği 👍/👎. Mutfak tipleriyle haftalık aggregate'e beslenir."@tr .
+
+ne:FeedbackPreference a owl:Class ;
+    rdfs:subClassOf ne:AiArtifact ;
+    rdfs:label "Mutfak Tercih Özeti"@tr ;
+    rdfs:comment "Haftalık cron'un ürettiği, kullanıcı bazlı sevilen/sevilmeyen mutfak tipleri özeti. AI sistem promptuna enjekte edilir."@tr .
+
+#################################################################
+#  12) SİSTEM KAYITLARI
+#################################################################
+
+ne:Notification a owl:Class ;
+    rdfs:subClassOf ne:SystemRecord ;
+    rdfs:label "Bildirim"@tr .
+
+ne:NotificationPreference a owl:Class ;
+    rdfs:subClassOf ne:SystemRecord ;
+    rdfs:label "Bildirim Tercihi"@tr ;
+    rdfs:comment "Opt-out modeli: kayıt yoksa bildirim açık sayılır."@tr .
+
+ne:ActivityEvent a owl:Class ;
+    rdfs:subClassOf ne:SystemRecord ;
+    rdfs:label "Aktivite Olayı"@tr ;
+    rdfs:comment "Sosyal akış olayı (REVIEW/FAVORITE/RESERVATION/RECOMMENDATION). Arkadaşların son 7 günü feed'de gösterilir."@tr .
+
+ne:UserLog a owl:Class ;
+    rdfs:subClassOf ne:SystemRecord ;
+    rdfs:label "Kullanıcı Log Kaydı"@tr ;
+    rdfs:comment "Admin denetim izi (sayfa, aksiyon, IP)."@tr .
+
+ne:PlaceRequest a owl:Class ;
+    rdfs:subClassOf ne:SystemRecord ;
+    rdfs:label "Mekan Ekleme Talebi"@tr ;
+    rdfs:comment "Kullanıcının platforma eklenmesini istediği restoran talebi. (userId, placeId) tekil."@tr .
+
+ne:PurchaseEvent a owl:Class ;
+    rdfs:subClassOf ne:CommerceConcept ;
+    rdfs:label "Satın Alma Olayı"@tr ;
+    rdfs:comment "Append-only IAP defteri. Her doğrulama/RTDN olayı bir satır; token HMAC-hash'li. Kullanıcıya FK yok (RTDN'de userId olmayabilir)."@tr .
+
+#################################################################
+#  NESNE ÖZELLİKLERİ (Object Properties)
+#################################################################
+
+# --- Sahiplik / yazarlık ---
+ne:performedBy a owl:ObjectProperty ;
+    rdfs:label "tarafından gerçekleştirildi"@tr ;
+    rdfs:comment "Bir içeriği/olayı üreten kullanıcı (genel üst-özellik)."@tr ;
+    rdfs:range ne:User .
+
+ne:hasFavorite a owl:ObjectProperty ;
+    rdfs:label "favorisi var"@tr ;
+    rdfs:domain ne:User ; rdfs:range ne:Favorite ;
+    owl:inverseOf ne:favoriteOf .
+ne:favoriteOf a owl:ObjectProperty ; rdfs:domain ne:Favorite ; rdfs:range ne:User ;
+    rdfs:subPropertyOf ne:performedBy .
+
+ne:wroteReview a owl:ObjectProperty ;
+    rdfs:label "yorum yazdı"@tr ;
+    rdfs:domain ne:User ; rdfs:range ne:Review ;
+    owl:inverseOf ne:reviewAuthor .
+ne:reviewAuthor a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:Review ; rdfs:range ne:User ;
+    rdfs:subPropertyOf ne:performedBy .
+
+ne:ownsCollection a owl:ObjectProperty ;
+    rdfs:label "koleksiyon sahibi"@tr ;
+    rdfs:domain ne:User ; rdfs:range ne:Collection .
+
+ne:ownsRestaurantProfile a owl:ObjectProperty , owl:FunctionalProperty , owl:InverseFunctionalProperty ;
+    rdfs:label "restoran profili sahibi"@tr ;
+    rdfs:comment "Bir kullanıcının en fazla bir restoran profili olur; her profil tam bir kullanıcıya aittir (1-1)."@tr ;
+    rdfs:domain ne:RestaurantOwner ; rdfs:range ne:RestaurantProfile .
+
+ne:hasSubscription a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "aboneliği var"@tr ;
+    rdfs:domain ne:User ; rdfs:range ne:Subscription .
+
+# --- Mekana referans (DB-dışı Google Places bağı) ---
+ne:aboutPlace a owl:ObjectProperty ;
+    rdfs:label "mekanla ilgili"@tr ;
+    rdfs:comment "Bir kullanıcı-üretimli içeriği veya etkinliği bir Google Places mekanına bağlar (placeId üzerinden). Restoranlar DB'de tutulmadığı için bu özellik dış varlığa köprüdür."@tr ;
+    rdfs:range ne:Place .
+
+ne:linkedToPlace a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:subPropertyOf ne:aboutPlace ;
+    rdfs:label "mekana bağlı"@tr ;
+    rdfs:domain ne:RestaurantProfile ; rdfs:range ne:Place ;
+    rdfs:comment "Restoran profilinin (varsa) gerçek Google mekanına bağı."@tr .
+
+# --- Sosyal ---
+ne:isFriendOf a owl:ObjectProperty , owl:SymmetricProperty , owl:IrreflexiveProperty ;
+    rdfs:label "arkadaşı"@tr ;
+    rdfs:comment "ACCEPTED bir FriendRequest'ten doğan simetrik arkadaşlık. Kendi kendine arkadaş olunamaz (irreflexive)."@tr ;
+    rdfs:domain ne:User ; rdfs:range ne:User .
+
+ne:requestFrom a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:FriendRequest ; rdfs:range ne:User ; rdfs:label "isteği gönderen"@tr .
+ne:requestTo a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:FriendRequest ; rdfs:range ne:User ; rdfs:label "isteğin gittiği"@tr .
+
+ne:recommendationFrom a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:Recommendation ; rdfs:range ne:User ; rdfs:label "öneriyi gönderen"@tr ;
+    rdfs:subPropertyOf ne:performedBy .
+ne:recommendationTo a owl:ObjectProperty ;
+    rdfs:domain ne:Recommendation ; rdfs:range ne:User ; rdfs:label "önerinin alıcısı"@tr ;
+    rdfs:comment "Boş olabilir (herkese açık öneri)."@tr .
+
+ne:messageSender a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:Message ; rdfs:range ne:User ; rdfs:label "mesajı gönderen"@tr ;
+    rdfs:subPropertyOf ne:performedBy .
+ne:messageReceiver a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:Message ; rdfs:range ne:User ; rdfs:label "mesajı alan"@tr .
+
+ne:reportReporter a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:UserReport ; rdfs:range ne:User ; rdfs:label "şikayet eden"@tr .
+ne:reportReported a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:UserReport ; rdfs:range ne:User ; rdfs:label "şikayet edilen"@tr .
+
+# --- Koleksiyon ---
+ne:hasItem a owl:ObjectProperty ;
+    rdfs:domain ne:Collection ; rdfs:range ne:CollectionItem ; rdfs:label "öğesi var"@tr .
+ne:sharedWith a owl:ObjectProperty ;
+    rdfs:domain ne:Collection ; rdfs:range ne:User ; rdfs:label "paylaşıldığı kişi"@tr .
+
+# --- Rezervasyon ---
+ne:reservationAt a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:Reservation ; rdfs:range ne:RestaurantProfile ; rdfs:label "rezervasyon restoranı"@tr .
+ne:reservationBy a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:Reservation ; rdfs:range ne:User ; rdfs:label "rezervasyon sahibi"@tr ;
+    rdfs:subPropertyOf ne:performedBy .
+
+# --- Yorum cevabı ---
+ne:replyTo a owl:ObjectProperty , owl:FunctionalProperty , owl:InverseFunctionalProperty ;
+    rdfs:domain ne:ReviewReply ; rdfs:range ne:Review ; rdfs:label "yanıtladığı yorum"@tr ;
+    rdfs:comment "Her cevap tam bir yoruma; her yorumun en fazla bir cevabı (1-1)."@tr .
+
+# --- Restoran galeri/menü ---
+ne:hasPhoto a owl:ObjectProperty ;
+    rdfs:domain ne:RestaurantProfile ; rdfs:range ne:RestaurantPhoto ; rdfs:label "fotoğrafı var"@tr .
+ne:hasMenu a owl:ObjectProperty ;
+    rdfs:domain ne:RestaurantProfile ; rdfs:range ne:RestaurantMenu ; rdfs:label "menüsü var"@tr .
+
+# --- Grup ---
+ne:groupCreator a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:MealGroup ; rdfs:range ne:User ; rdfs:label "grubu kuran"@tr .
+ne:hasMember a owl:ObjectProperty ;
+    rdfs:domain ne:MealGroup ; rdfs:range ne:MealGroupMember ; rdfs:label "üyesi var"@tr .
+ne:hasPoll a owl:ObjectProperty ;
+    rdfs:domain ne:MealGroup ; rdfs:range ne:RestaurantPoll ; rdfs:label "anketi var"@tr .
+ne:hasOption a owl:ObjectProperty ;
+    rdfs:domain ne:RestaurantPoll ; rdfs:range ne:PollOption ; rdfs:label "seçeneği var"@tr .
+ne:hasVote a owl:ObjectProperty ;
+    rdfs:domain ne:PollOption ; rdfs:range ne:PollVote ; rdfs:label "oyu var"@tr .
+
+# --- Oyunlaştırma ---
+ne:unlockedReward a owl:ObjectProperty ;
+    rdfs:domain ne:User ; rdfs:range ne:Reward ; rdfs:label "açtığı ödül"@tr .
+
+# --- AI ---
+ne:feedbackOnLog a owl:ObjectProperty ;
+    rdfs:domain ne:RecommendationFeedback ; rdfs:range ne:AiRecommendationLog ; rdfs:label "geri bildirimin logu"@tr .
+ne:suggestedPlace a owl:ObjectProperty ;
+    rdfs:subPropertyOf ne:aboutPlace ;
+    rdfs:domain ne:AiRecommendationLog ; rdfs:range ne:Place ; rdfs:label "önerilen mekan"@tr .
+
+# --- Durum (enum bağı) ---
+ne:hasStatus a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "durumu"@tr ;
+    rdfs:comment "Bir varlığın enum-değerli durumu (abonelik/rezervasyon/istek/onay)."@tr .
+ne:hasCuisineTag a owl:ObjectProperty ;
+    rdfs:range ne:CuisineTag ; rdfs:label "mutfak etiketi"@tr .
+ne:prefersCuisine a owl:ObjectProperty ;
+    rdfs:domain ne:User ; rdfs:range ne:CuisineTag ; rdfs:label "tercih ettiği mutfak"@tr .
+
+#################################################################
+#  VERİ ÖZELLİKLERİ (Data Properties)
+#################################################################
+
+ne:email a owl:DatatypeProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:User ; rdfs:range xsd:string ; rdfs:label "e-posta"@tr .
+ne:displayName a owl:DatatypeProperty ;
+    rdfs:domain ne:Agent ; rdfs:range xsd:string ; rdfs:label "görünen ad"@tr .
+ne:authProvider a owl:DatatypeProperty ;
+    rdfs:domain ne:User ; rdfs:range xsd:string ; rdfs:label "kimlik sağlayıcı"@tr ;
+    rdfs:comment "'email' | 'google'."@tr .
+ne:emailVerified a owl:DatatypeProperty ;
+    rdfs:domain ne:User ; rdfs:range xsd:boolean ; rdfs:label "e-posta doğrulandı"@tr .
+ne:isSuspended a owl:DatatypeProperty ;
+    rdfs:domain ne:User ; rdfs:range xsd:boolean ; rdfs:label "askıya alındı"@tr .
+ne:isPublic a owl:DatatypeProperty ;
+    rdfs:range xsd:boolean ; rdfs:label "herkese açık"@tr .
+ne:starCount a owl:DatatypeProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:User ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "yıldız sayısı"@tr .
+ne:referralCode a owl:DatatypeProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:User ; rdfs:range xsd:string ; rdfs:label "referans kodu"@tr .
+
+# Puan: 1..5 aralığında tam sayı (Review.rating SmallInt)
+ne:ratingValue a owl:DatatypeProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:Review ;
+    rdfs:label "puan değeri"@tr ;
+    rdfs:range [ a rdfs:Datatype ;
+        owl:onDatatype xsd:integer ;
+        owl:withRestrictions ( [ xsd:minInclusive 1 ] [ xsd:maxInclusive 5 ] ) ] .
+
+ne:body a owl:DatatypeProperty ;
+    rdfs:range xsd:string ; rdfs:label "metin"@tr .
+
+# Mekan (Place) verisi — Google Places snapshot alanları
+ne:placeId a owl:DatatypeProperty , owl:FunctionalProperty ;
+    rdfs:domain ne:Place ; rdfs:range xsd:string ; rdfs:label "Google Place ID"@tr ;
+    rdfs:comment "Restoranı tanımlayan Google kimliği. Eatlas'ın 'dış anahtarı'."@tr .
+ne:placeName a owl:DatatypeProperty ;
+    rdfs:domain ne:Place ; rdfs:range xsd:string ; rdfs:label "mekan adı"@tr .
+ne:placeRating a owl:DatatypeProperty ;
+    rdfs:domain ne:Place ; rdfs:range xsd:decimal ; rdfs:label "Google puanı"@tr .
+ne:latitude a owl:DatatypeProperty ;
+    rdfs:range xsd:decimal ; rdfs:label "enlem"@tr .
+ne:longitude a owl:DatatypeProperty ;
+    rdfs:range xsd:decimal ; rdfs:label "boylam"@tr .
+
+# Abonelik / IAP
+ne:planType a owl:DatatypeProperty ;
+    rdfs:domain ne:Subscription ; rdfs:label "plan"@tr .
+ne:expiresAt a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ; rdfs:label "bitiş zamanı"@tr .
+ne:tokenHash a owl:DatatypeProperty ;
+    rdfs:domain ne:PurchaseEvent ; rdfs:range xsd:string ; rdfs:label "token hash"@tr .
+
+# Rezervasyon
+ne:reservationDate a owl:DatatypeProperty ;
+    rdfs:domain ne:Reservation ; rdfs:range xsd:string ; rdfs:label "tarih"@tr .
+ne:reservationTime a owl:DatatypeProperty ;
+    rdfs:domain ne:Reservation ; rdfs:range xsd:string ; rdfs:label "saat"@tr .
+ne:guestCount a owl:DatatypeProperty ;
+    rdfs:domain ne:Reservation ; rdfs:range xsd:positiveInteger ; rdfs:label "kişi sayısı"@tr .
+
+# AI log
+ne:aiModel a owl:DatatypeProperty ;
+    rdfs:domain ne:AiRecommendationLog ; rdfs:range xsd:string ; rdfs:label "AI modeli"@tr ;
+    rdfs:comment "'claude-haiku-4-5-20251001' (free) | 'claude-sonnet-4-6' (premium)."@tr .
+ne:promptTokens a owl:DatatypeProperty ;
+    rdfs:domain ne:AiRecommendationLog ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "prompt token"@tr .
+ne:latencyMs a owl:DatatypeProperty ;
+    rdfs:domain ne:AiRecommendationLog ; rdfs:range xsd:nonNegativeInteger ; rdfs:label "gecikme (ms)"@tr .
+
+ne:createdAt a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ; rdfs:label "oluşturulma zamanı"@tr .
+
+#################################################################
+#  KISITLAR (Class Restrictions — iş kurallarının biçimlendirilmesi)
+#################################################################
+
+# Yorumun tam bir puanı (1..5) ve tam bir yazarı olur.
+ne:Review rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty ne:ratingValue ; owl:cardinality "1"^^xsd:nonNegativeInteger ] ,
+    [ a owl:Restriction ; owl:onProperty ne:reviewAuthor ; owl:cardinality "1"^^xsd:nonNegativeInteger ] ,
+    [ a owl:Restriction ; owl:onProperty ne:aboutPlace ; owl:someValuesFrom ne:Place ] .
+
+# Favori tam bir mekana işaret eder.
+ne:Favorite rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty ne:aboutPlace ; owl:cardinality "1"^^xsd:nonNegativeInteger ] .
+
+# Rezervasyonun tam bir durumu, bir restoranı ve bir sahibi olur.
+ne:Reservation rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty ne:hasStatus ; owl:allValuesFrom ne:ReservationStatus ] ,
+    [ a owl:Restriction ; owl:onProperty ne:reservationAt ; owl:cardinality "1"^^xsd:nonNegativeInteger ] ,
+    [ a owl:Restriction ; owl:onProperty ne:reservationBy ; owl:cardinality "1"^^xsd:nonNegativeInteger ] .
+
+# Arkadaşlık isteğinin durumu yalnızca FriendRequestStatus değerlerinden olabilir.
+ne:FriendRequest rdfs:subClassOf
+    [ a owl:Restriction ; owl:onProperty ne:hasStatus ; owl:allValuesFrom ne:FriendRequestStatus ] .
+
+# Restoran profili: onaylıysa rezervasyon kabul edebilir (tanımlı alt sınıf örneği).
+ne:ApprovedRestaurant owl:equivalentClass
+    [ a owl:Class ; owl:intersectionOf (
+        ne:RestaurantProfile
+        [ a owl:Restriction ; owl:onProperty ne:hasStatus ; owl:hasValue ne:AP_APPROVED ]
+      ) ] ;
+    rdfs:subClassOf ne:RestaurantProfile ;
+    rdfs:label "Onaylı Restoran"@tr .
+
+#################################################################
+#  ÖRNEK BİREYLER (ABox — gösterim amaçlı)
+#################################################################
+
+ne:place_balkon a ne:Place ;
+    ne:placeId "ChIJxyz_balkon_ankara" ;
+    ne:placeName "Balkon Restaurant" ;
+    ne:placeRating 4.5 ;
+    ne:hasCuisineTag ne:Cuisine_Kebap .
+
+ne:user_deniz a ne:RegularUser ;
+    ne:displayName "Deniz" ;
+    ne:email "deniz@example.com" ;
+    ne:authProvider "google" ;
+    ne:emailVerified true ;
+    ne:starCount 42 ;
+    ne:prefersCuisine ne:Cuisine_Kebap , ne:Cuisine_Pizza ;
+    ne:hasSubscription ne:sub_deniz ;
+    ne:isFriendOf ne:user_ayse .
+
+ne:sub_deniz a ne:Subscription ;
+    ne:planType "monthly" ;
+    ne:hasStatus ne:Status_active .
+# → Reasoner çıkarımı: ne:sub_deniz, ne:ActiveSubscription'tır;
+#   dolayısıyla ne:user_deniz, ne:PremiumUser olarak sınıflandırılır.
+
+ne:user_ayse a ne:RegularUser ;
+    ne:displayName "Ayşe" ;
+    ne:email "ayse@example.com" .
+# → isFriendOf simetrik olduğundan: ne:user_ayse ne:isFriendOf ne:user_deniz (çıkarsanır).
+
+ne:owner_kebapci a ne:RestaurantOwner ;
+    ne:displayName "Kebapçı Sahibi" ;
+    ne:email "owner@kebapci.com" ;
+    ne:ownsRestaurantProfile ne:profile_kebapci .
+
+ne:profile_kebapci a ne:RestaurantProfile ;
+    ne:displayName "Kebapçı Halil" ;
+    ne:hasStatus ne:AP_APPROVED ;
+    ne:linkedToPlace ne:place_balkon .
+# → ne:profile_kebapci, ne:ApprovedRestaurant olarak sınıflandırılır.
+
+ne:review_deniz_balkon a ne:Review ;
+    ne:reviewAuthor ne:user_deniz ;
+    ne:aboutPlace ne:place_balkon ;
+    ne:ratingValue 5 ;
+    ne:body "Harika kebap!" ;
+    ne:createdAt "2026-06-14T20:00:00Z"^^xsd:dateTime .
+
+ne:rec_log_deniz a ne:AiRecommendationLog ;
+    ne:performedBy ne:user_deniz ;
+    ne:aiModel "claude-sonnet-4-6" ;
+    ne:promptTokens 1850 ;
+    ne:latencyMs 2300 ;
+    ne:suggestedPlace ne:place_balkon .
