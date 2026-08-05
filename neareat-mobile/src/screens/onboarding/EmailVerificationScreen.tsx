@@ -7,10 +7,6 @@ import { resendVerification } from '../../services/auth';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 
-interface Props {
-  email: string;
-}
-
 export default function EmailVerificationScreen({ route }: { route: any }) {
   const navigation = useNavigation<any>();
   const { C } = useTheme();

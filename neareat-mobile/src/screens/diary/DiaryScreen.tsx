@@ -21,11 +21,6 @@ const MONTH_NAMES_TR = [
   'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara',
 ];
 
-function formatMonth(ym: string) {
-  const [y, m] = ym.split('-');
-  return `${MONTH_NAMES_TR[parseInt(m) - 1]} ${y.slice(2)}`;
-}
-
 function formatDate(iso: string) {
   const d = new Date(iso);
   return `${d.getDate()} ${MONTH_NAMES_TR[d.getMonth()]} ${d.getFullYear()}`;

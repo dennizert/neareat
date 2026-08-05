@@ -11,11 +11,9 @@ import type { Colors } from '../../theme';
 import type { Friend } from '../../types';
 import { getFriends } from '../../services/social';
 import { createMealGroup } from '../../services/mealGroups';
-import { useAuthStore } from '../../store/authStore';
 
 export default function CreateMealGroupScreen() {
   const navigation = useNavigation<any>();
-  const { user } = useAuthStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const { bottom } = useSafeAreaInsets();

@@ -4,7 +4,6 @@
 // Admin tarafı listeleme/inceleme rotaları admin router'ında yer alır.
 const router = require('express').Router();
 const auth = require('../middleware/auth');
-const { requireRole } = require('../middleware/roles');
 const ctrl = require('../controllers/placeRequestController');
 
 router.use(auth); // Tüm uçlar giriş gerektirir

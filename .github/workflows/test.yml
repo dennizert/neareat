@@ -1,8 +1,8 @@
 name: Tests
 
-# Backend + mobil Jest suite'lerini her PR'da koşan test kapısı (S13-6).
-# Tüm dış servisler (DB/Redis/Firebase/Resend/Anthropic) test ortamında mock'lu;
-# gerçek altyapı gerekmez (env tests/setup.js'ten gelir).
+# Backend + mobil Jest suite'lerini her PR'da koşan test kapısı (S13-6) ve
+# ESLint kapısı (S20-3). Tüm dış servisler (DB/Redis/Firebase/Resend/Anthropic)
+# test ortamında mock'lu; gerçek altyapı gerekmez (env tests/setup.js'ten gelir).
 on:
   push:
     branches: [master]
@@ -10,6 +10,41 @@ on:
     branches: [master]
 
 jobs:
+  backend-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: neareat-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: neareat-backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ESLint
+        run: npm run lint
+
+  mobile-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: neareat-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: neareat-mobile/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ESLint
+        run: npm run lint
+
+
   backend-test:
     runs-on: ubuntu-latest
     defaults:

@@ -232,7 +232,7 @@ kodu (\`\`\`), başlık YOK. Yapı:
   ],
   "noteToUser": "<opsiyonel kısa not: aday listesinin zayıf olduğunu
                   düşünüyorsan, ya da özel bir gözlemini paylaşmak
-                  istiyorsan. Yoksa boş string \\\"\\\".>"
+                  istiyorsan. Yoksa boş string \\"\\".>"
 }
 
 JSON dışında HİÇBİR şey yazma. Çıktın "{" ile başlasın "}" ile bitsin.

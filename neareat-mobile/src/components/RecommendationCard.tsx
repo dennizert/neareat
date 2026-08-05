@@ -12,7 +12,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import type { AiRecommendation, FeedbackSentiment } from '../types';
 import StarRating from './StarRating';
-import AppIcon from './AppIcon';
 import { EatlasEInline } from './EatlasMark';
 import { formatDistance } from '../utils/haversine';
 import { useTheme } from '../theme';

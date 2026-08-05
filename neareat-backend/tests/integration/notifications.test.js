@@ -79,7 +79,6 @@ const makeNotification = (userId, overrides = {}) => ({
 let testUser;
 let testToken;
 let testUser2;
-let testToken2;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -88,7 +87,6 @@ beforeEach(() => {
   testToken = createTestToken(testUser.id);
 
   testUser2 = createTestUser({ id: 'user-2', email: 'user2@test.com', displayName: 'User Two' });
-  testToken2 = createTestToken(testUser2.id);
 
   // Auth middleware: resolve the token owner via findUnique.
   mockPrisma.user.findUnique.mockImplementation(({ where }) => {

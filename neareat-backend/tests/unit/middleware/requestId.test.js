@@ -19,7 +19,6 @@ function makeReqRes(headers = {}) {
 }
 
 // UUID v4 canonical format: 8-4-4-4-12 hex chars separated by hyphens
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // The prompt specifies a looser regex — also accept it
 const UUID_LOOSE_RE = /^[0-9a-f-]{36}$/i;
 

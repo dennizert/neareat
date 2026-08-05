@@ -21,7 +21,7 @@ export default function FriendProfileScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { userId } = route.params as { userId: string };
-  const { friends, setFriends, addFriend, removeFriend: storeDel } = useFriendStore();
+  const { friends, setFriends, removeFriend: storeDel } = useFriendStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 

@@ -21,7 +21,7 @@
 
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
-const { createTestToken, randomId, createTestUser } = require('../helpers');
+const { createTestToken, createTestUser } = require('../helpers');
 
 // ─── Mocks (must come before require('../src/app')) ───────────────────────────
 

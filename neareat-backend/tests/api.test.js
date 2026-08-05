@@ -15,7 +15,7 @@
  */
 
 const request = require('supertest');
-const { createTestToken, randomId, createTestUser } = require('./helpers');
+const { createTestToken, createTestUser } = require('./helpers');
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,6 @@ const mockPrisma = {
   searchHistory: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), deleteMany: jest.fn() },
   activityEvent: { create: jest.fn().mockResolvedValue({}) },
   $transaction: jest.fn(),
-  $queryRaw: jest.fn(),
 };
 
 jest.mock('../src/utils/prisma', () => mockPrisma);
@@ -107,7 +106,6 @@ const app = require('../src/app');
 let testUser;
 let testToken;
 let testUser2;
-let testToken2;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -116,7 +114,6 @@ beforeEach(() => {
   testToken = createTestToken(testUser.id);
 
   testUser2 = createTestUser({ id: 'user-2', email: 'user2@test.com', displayName: 'User Two' });
-  testToken2 = createTestToken(testUser2.id);
 
   // Default: authenticate middleware bulacak
   mockPrisma.user.findUnique.mockImplementation(({ where }) => {

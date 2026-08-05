@@ -21,7 +21,7 @@
 const prisma = require('../utils/prisma');
 const { getLevel } = require('../utils/stars');
 const { getCountryCode } = require('../utils/cityCountry');
-const { cacheGet, cacheSet, cacheSetMany, cacheDel } = require('./redis');
+const { cacheGet, cacheSetMany, cacheDel } = require('./redis');
 
 // Aday havuzu ve sonuç boyutu sınırları
 const CANDIDATE_POOL_LIMIT = 500;

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { View, Image, FlatList, TouchableOpacity, Modal, StyleSheet, Dimensions, Text } from 'react-native';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';

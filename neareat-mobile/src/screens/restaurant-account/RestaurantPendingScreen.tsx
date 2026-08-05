@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import type { ApprovalStatus } from '../../types';
 import { useTheme } from '../../theme';
@@ -8,7 +8,6 @@ import type { Colors } from '../../theme';
 
 export default function RestaurantPendingScreen() {
   const route = useRoute<any>();
-  const navigation = useNavigation<any>();
   const { logout } = useAuthStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);

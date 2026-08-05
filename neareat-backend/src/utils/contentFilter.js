@@ -106,7 +106,9 @@ function containsOffensiveContent(text) {
   if (OFFENSIVE_PHRASES.some(phrase => normalizedText.includes(normalizeTr(phrase)))) return true;
 
   // 2. Token-level check — split on whitespace and punctuation
-  const tokens = lower.split(/[\s.,!?;:'"()\[\]{}\-_\/\\|+=#@&%^~`]+/).filter(Boolean);
+  // Not: karakter sınıfı içinde `[` ve `/` escape gerektirmez, ama `]` GEREKTİRİR —
+  // escape'siz bir `]` sınıfı erken kapatır ve regex'in anlamını tamamen değiştirir.
+  const tokens = lower.split(/[\s.,!?;:'"()[\]{}\-_/\\|+=#@&%^~`]+/).filter(Boolean);
   for (const token of tokens) {
     const norm = normalizeTr(token);
     if (OFFENSIVE_WORDS.has(norm)) return true;
