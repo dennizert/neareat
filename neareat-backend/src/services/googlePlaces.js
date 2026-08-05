@@ -7,6 +7,7 @@ const https = require('https');
 const { cacheGet, cacheSet } = require('./redis');
 const { recordExternalCall } = require('./metrics'); // S16-4 — Google harcama metriği
 const { TimeoutError, readTimeoutEnv } = require('../utils/httpTimeout'); // S20-1
+const { withRetry, isTransientNetworkError, DEFAULT_RETRIES } = require('../utils/retry'); // S20-2
 
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 // S16-4 — cache TTL/tile env ile ayarlanabilir; maliyet/güncellik dengesi. Nearby
@@ -36,6 +37,84 @@ const GOOGLE_COST = Object.freeze({
 // Gerçek (cache-miss) Google çağrısını metriğe yazar. Metrik asla akışı bozmamalı.
 function recordGoogleCall(sku) {
   try { recordExternalCall('google', GOOGLE_COST[sku] || 0); } catch { /* ignore */ }
+}
+
+// ── S20-2: idempotent GET çağrıları için yeniden deneme ──────────────────────
+// Yalnızca BU dosyadaki salt-okunur Google sorguları sarmalanır. Yan etkili
+// çağrılar (e-posta gönderimi, AI üretimi, satın alma doğrulama) kapsam DIŞIDIR:
+// böyle bir çağrının tekrarlanması çift e-posta / çift ücret üretir.
+const RETRY_MAX = Number.isFinite(parseInt(process.env.GOOGLE_RETRY_MAX, 10))
+  ? Math.max(0, parseInt(process.env.GOOGLE_RETRY_MAX, 10))
+  : DEFAULT_RETRIES;
+
+/** Upstream 5xx — geçici sunucu hatası, yeniden denenebilir. */
+class UpstreamServerError extends Error {
+  constructor(statusCode) {
+    super(`Google Places upstream ${statusCode} döndü.`);
+    this.name = 'UpstreamServerError';
+    this.statusCode = statusCode;
+  }
+}
+
+/**
+ * Google'ın geçici sunucu hatası. Gövde HTTP 200 ile döner ama `status`
+ * alanı `UNKNOWN_ERROR`'dur — Google'ın kendi dokümantasyonu bu durumda
+ * isteğin tekrarlanmasını önerir.
+ */
+class TransientGoogleStatusError extends Error {
+  constructor(status) {
+    super(`Google Places geçici hata döndürdü: ${status}`);
+    this.name = 'TransientGoogleStatusError';
+    this.status = status;
+  }
+}
+
+/**
+ * Hangi hatalar yeniden denenir — allowlist.
+ *
+ * Kasıtlı olarak DIŞARIDA bırakılanlar: `OVER_QUERY_LIMIT` ve `REQUEST_DENIED`
+ * (kota/kimlik sorunu — tekrar denemek yalnızca maliyeti ve yükü çarpar, sorunu
+ * da maskeler), 4xx, ve JSON parse hataları (kalıcı, bozuk yanıt).
+ * `ZERO_RESULTS` zaten hata değildir; hiç bu yola girmez.
+ */
+function isRetryableGoogleError(err) {
+  return (
+    isTransientNetworkError(err) ||
+    err instanceof UpstreamServerError ||
+    err instanceof TransientGoogleStatusError
+  );
+}
+
+/**
+ * Retry'lı Google Places çağrısı (S20-2).
+ *
+ * Denemeler tükendiğinde `UNKNOWN_ERROR` gövdesi çağırana AYNEN geri verilir —
+ * fırlatılmaz. Böylece her çağrı yerinin kendi `status` kontrolü ve ona bağlı
+ * davranışı (kimi yerde `throw`, `getRouteWaypoints`'te `return null`) bugünkü
+ * gibi çalışmaya devam eder; retry tamamen şeffaf bir katman olarak kalır.
+ *
+ * @param {string} url
+ * @returns {Promise<object>} parse edilmiş JSON gövdesi
+ */
+async function fetchGoogleJson(url) {
+  let lastBody = null;
+
+  try {
+    return await withRetry(
+      async () => {
+        const body = await fetchJson(url);
+        lastBody = body;
+        if (body && body.status === 'UNKNOWN_ERROR') {
+          throw new TransientGoogleStatusError(body.status);
+        }
+        return body;
+      },
+      { retries: RETRY_MAX, isRetryable: isRetryableGoogleError }
+    );
+  } catch (err) {
+    if (err instanceof TransientGoogleStatusError && lastBody) return lastBody;
+    throw err;
+  }
 }
 
 /**
@@ -79,6 +158,13 @@ function fetchJson(url, timeoutMs = HTTP_TIMEOUT_MS) {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
+        // 5xx = upstream'in geçici sunucu hatası; gövdeyi parse etmeye çalışmak
+        // yerine yeniden denenebilir bir hata üret (S20-2). 2xx/4xx yolu bugünkü
+        // gibi parse edilir — Google Places hataları zaten 200 + status alanıdır.
+        if (res.statusCode >= 500) {
+          settle(reject, new UpstreamServerError(res.statusCode));
+          return;
+        }
         try {
           settle(resolve, JSON.parse(data));
         } catch (e) {
@@ -114,7 +200,7 @@ async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant')
     `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
     `?location=${lat},${lng}&rankby=distance&type=${type}&language=tr&key=${API_KEY}`;
 
-  const data = await fetchJson(baseUrl);
+  const data = await fetchGoogleJson(baseUrl);
   recordGoogleCall('nearby'); // S16-4 — gerçek (cache-miss) çağrı maliyeti
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     throw new Error(`Google Places Nearby Search error: ${data.status}`);
@@ -144,7 +230,7 @@ async function getNearbyRestaurantsFast(lat, lng, type = 'restaurant') {
     `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
     `?location=${lat},${lng}&rankby=distance&type=${type}&language=tr&key=${API_KEY}`;
 
-  const data = await fetchJson(url);
+  const data = await fetchGoogleJson(url);
   recordGoogleCall('nearby'); // S16-4
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     throw new Error(`Google Places Nearby Search error: ${data.status}`);
@@ -186,7 +272,7 @@ async function searchPlacesByText(query, lat, lng) {
     url += `&location=${lat},${lng}&radius=${TEXT_SEARCH_BIAS_METERS}`;
   }
 
-  const data = await fetchJson(url);
+  const data = await fetchGoogleJson(url);
   recordGoogleCall('text'); // S16-4
   if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
     throw new Error(`Google Places Text Search error: ${data.status}`);
@@ -241,7 +327,7 @@ async function getRouteWaypoints(originLat, originLng, destLat, destLng) {
     `?origin=${originLat},${originLng}&destination=${destLat},${destLng}` +
     `&mode=driving&language=tr&key=${API_KEY}`;
 
-  const data = await fetchJson(url);
+  const data = await fetchGoogleJson(url);
   recordGoogleCall('directions'); // S16-4
 
   if (data.status !== 'OK' || !data.routes?.length) {
@@ -322,7 +408,7 @@ async function getPlaceDetails(placeId) {
     `https://maps.googleapis.com/maps/api/place/details/json` +
     `?place_id=${placeId}&fields=${fields}&language=tr&key=${API_KEY}`;
 
-  const data = await fetchJson(url);
+  const data = await fetchGoogleJson(url);
   recordGoogleCall('details'); // S16-4
   if (data.status !== 'OK') {
     throw new Error(`Google Places Details error: ${data.status}`);

@@ -17,8 +17,12 @@ jest.mock('../../../src/services/metrics', () => ({ recordExternalCall: jest.fn(
 const mockHttpsGet = jest.fn();
 jest.mock('https', () => ({ get: (...args) => mockHttpsGet(...args) }));
 
-// Zaman aşımını test hızında tut — modül yüklenmeden ÖNCE ayarlanmalı.
+// Modül yüklenmeden ÖNCE ayarlanmalı (env yükleme anında okunur).
 process.env.GOOGLE_HTTP_TIMEOUT_MS = '40';
+// Bu dosya YALNIZCA zaman aşımı semantiğini test eder; retry (S20-2) kapatılır ki
+// deneme sayıları buradaki iddiaları bulandırmasın. Retry davranışı ayrı dosyada
+// (googlePlacesRetry.test.js) test edilir.
+process.env.GOOGLE_RETRY_MAX = '0';
 
 const { getNearbyRestaurants } = require('../../../src/services/googlePlaces');
 
