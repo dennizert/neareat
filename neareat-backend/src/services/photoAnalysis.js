@@ -9,16 +9,21 @@
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
+const { readTimeoutEnv } = require('../utils/httpTimeout'); // S20-1
 
 const VISION_MODEL = 'claude-haiku-4-5-20251001';
 const MAX_VISION_TOKENS = 350;
+
+// S20-1 — SDK varsayılanı 10 dakika; yanıtsız bir upstream'de isteği bu kadar uzun
+// canlı tutmamak için açık bütçe. Foto analizi streaming değil, tek atışlık çağrı.
+const ANTHROPIC_TIMEOUT_MS = readTimeoutEnv('ANTHROPIC_TIMEOUT_MS', 60000);
 
 let _client = null;
 function getClient() {
   if (_client) return _client;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY tanımlı değil');
-  _client = new Anthropic({ apiKey });
+  _client = new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS });
   return _client;
 }
 

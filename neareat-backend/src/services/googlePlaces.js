@@ -6,6 +6,7 @@
 const https = require('https');
 const { cacheGet, cacheSet } = require('./redis');
 const { recordExternalCall } = require('./metrics'); // S16-4 — Google harcama metriği
+const { TimeoutError, readTimeoutEnv } = require('../utils/httpTimeout'); // S20-1
 
 const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 // S16-4 — cache TTL/tile env ile ayarlanabilir; maliyet/güncellik dengesi. Nearby
@@ -16,6 +17,12 @@ const NEARBY_TILE_DECIMALS = parseInt(process.env.NEARBY_TILE_DECIMALS || '3', 1
 const DETAILS_TTL = parseInt(process.env.REDIS_PLACE_DETAILS_TTL || '86400');
 const TEXT_SEARCH_TTL = parseInt(process.env.REDIS_TEXT_SEARCH_TTL || '1800');
 const TEXT_SEARCH_BIAS_METERS = 25000;
+
+// S20-1 — dış çağrı zaman aşımı. Zaman aşımsız bir Google çağrısı, upstream
+// yanıt vermediğinde soketi süresiz açık tutar; yeterince birikirse istek havuzu
+// tükenir ve keşif akışının tamamı kilitlenir. 8sn, Google Places'in normal yanıt
+// süresinin belirgin üstünde — meşru yavaş yanıtları kesmez.
+const HTTP_TIMEOUT_MS = readTimeoutEnv('GOOGLE_HTTP_TIMEOUT_MS', 8000);
 
 // S16-4 — Google Places SKU başına yaklaşık $ (faturalandırma kademe-bağımlı; kaba
 // tahmin, S16-2 metriği + googleDailyUsd alarmı için). Gerçek fatura Google Cloud'da.
@@ -31,19 +38,56 @@ function recordGoogleCall(sku) {
   try { recordExternalCall('google', GOOGLE_COST[sku] || 0); } catch { /* ignore */ }
 }
 
-function fetchJson(url) {
+/**
+ * Google Places JSON çağrısı — TOPLAM süre bütçesiyle (S20-1).
+ *
+ * Bütçe kasıtlı olarak `req.setTimeout` (soketin BOŞTA kalma süresi) değil, açık bir
+ * zamanlayıcıdır: düzenli ama çok yavaş veri gönderen bir upstream soket boşta
+ * sayılmadığı için idle timeout'a hiç takılmaz, oysa istek yine de sonsuza yakın
+ * sürebilir. Açık zamanlayıcı "bu istek en fazla şu kadar sürer" garantisi verir.
+ *
+ * Zaman aşımında soket kapatılır (`req.destroy`) ve ayırt edilebilir bir
+ * `TimeoutError` fırlatılır (S20-2 retry kararı bunu kullanacak).
+ *
+ * @param {string} url
+ * @param {number} [timeoutMs] toplam süre bütçesi (varsayılan GOOGLE_HTTP_TIMEOUT_MS)
+ * @returns {Promise<object>} parse edilmiş JSON gövdesi
+ */
+function fetchJson(url, timeoutMs = HTTP_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    let settled = false;
+    let req = null;
+
+    // Tek seferlik sonuçlandırma. Zaman aşımı ile 'error' yarışabilir: destroy()
+    // sonrasında soket bir ECONNRESET üretir ve buraya ikinci kez düşer — yutulur,
+    // aksi halde çözülmüş bir promise ikinci kez reddedilmeye çalışılırdı.
+    const settle = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+
+    const timer = setTimeout(() => {
+      // Soketi kapat — yanıtsız bağlantı havuzda asılı kalmasın.
+      if (req && typeof req.destroy === 'function') req.destroy();
+      settle(reject, new TimeoutError(timeoutMs, 'Google Places isteği'));
+    }, timeoutMs);
+    if (typeof timer.unref === 'function') timer.unref();
+
+    req = https.get(url, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
         try {
-          resolve(JSON.parse(data));
+          settle(resolve, JSON.parse(data));
         } catch (e) {
-          reject(e);
+          settle(reject, e);
         }
       });
-    }).on('error', reject);
+    });
+
+    if (req && typeof req.on === 'function') req.on('error', (e) => settle(reject, e));
   });
 }
 
