@@ -2,6 +2,7 @@
 // ve hoş geldin e-postaları. Tüm mailler ortak `renderEmail` HTML şablonunu kullanır;
 // kullanıcı verisi `escapeHtml` ile temizlenerek HTML enjeksiyonu önlenir.
 const { Resend } = require('resend');
+const { withTimeout, readTimeoutEnv } = require('../utils/httpTimeout'); // S20-1
 
 if (!process.env.RESEND_API_KEY) {
   console.warn('[EMAIL] UYARI: RESEND_API_KEY tanımlı değil — e-postalar gönderilmeyecek!');
@@ -13,6 +14,22 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.EMAIL_FROM || 'Eatlas <onboarding@resend.dev>';
 const BASE_URL = process.env.APP_BASE_URL
   || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:3000');
+
+// S20-1 — Resend SDK'sı istek bazlı zaman aşımı seçeneği sunmadığı için gönderim
+// çağrısı süre sınırına bağlanır. Sınır: yarışı kaybeden istek arka planda devam
+// eder (uzaktaki gönderim iptal edilmez); amaç kayıt/şifre sıfırlama akışını
+// yanıtsız bir e-posta sağlayıcısına kilitlememektir.
+const EMAIL_TIMEOUT_MS = readTimeoutEnv('EMAIL_SEND_TIMEOUT_MS', 10000);
+
+/**
+ * Resend gönderimini zaman aşımına bağlar ve sağlayıcı hatasını fırlatır.
+ * Çağıranlar (authController) bu çağrıları fire-and-forget kullanıyor; zaman aşımı
+ * da diğer gönderim hataları gibi aynı `.catch` yoluna düşer.
+ */
+async function sendWithTimeout(payload, label) {
+  const { error } = await withTimeout(resend.emails.send(payload), EMAIL_TIMEOUT_MS, label);
+  if (error) throw error;
+}
 
 // ── Marka paleti (mobil EatlasLogo + theme ile aynı) ──
 const BRAND = {
@@ -29,7 +46,7 @@ const BRAND = {
 // E-posta doğrulama maili (token'lı link, 24 saat geçerli).
 async function sendVerificationEmail(email, displayName, token) {
   const link = `${BASE_URL}/verify-email?token=${token}`;
-  const { error } = await resend.emails.send({
+  await sendWithTimeout({
     from: FROM,
     to: [email],
     subject: 'Eatlas — E-posta adresini doğrula',
@@ -41,14 +58,13 @@ async function sendVerificationEmail(email, displayName, token) {
       ctaHref: link,
       note: 'Bu bağlantı <strong>24 saat</strong> geçerlidir. Eatlas’a kayıt olmadıysan bu e-postayı dikkate alma.',
     }),
-  });
-  if (error) throw error;
+  }, 'Doğrulama e-postası gönderimi');
 }
 
 // Şifre sıfırlama maili (token'lı link, 1 saat geçerli).
 async function sendPasswordResetEmail(email, displayName, token) {
   const link = `${BASE_URL}/reset-password?token=${token}`;
-  const { error } = await resend.emails.send({
+  await sendWithTimeout({
     from: FROM,
     to: [email],
     subject: 'Eatlas — Şifre sıfırlama',
@@ -60,14 +76,13 @@ async function sendPasswordResetEmail(email, displayName, token) {
       ctaHref: link,
       note: 'Bu bağlantı <strong>1 saat</strong> geçerlidir. Böyle bir talepte bulunmadıysan bu e-postayı yoksay — hesabın güvende.',
     }),
-  });
-  if (error) throw error;
+  }, 'Şifre sıfırlama e-postası gönderimi');
 }
 
 // Kayıt sonrası gönderilen hoş geldin maili (özellik tanıtımı + uygulamaya yönlendirme).
 async function sendWelcomeEmail(email, displayName) {
   const link = `${BASE_URL}/`;
-  const { error } = await resend.emails.send({
+  await sendWithTimeout({
     from: FROM,
     to: [email],
     subject: 'Eatlas’a hoş geldin! 🍽️',
@@ -84,8 +99,7 @@ async function sendWelcomeEmail(email, displayName) {
       ctaHref: link,
       note: 'İyi keşifler! Aklına takılan olursa bu e-postayı yanıtlaman yeterli.',
     }),
-  });
-  if (error) throw error;
+  }, 'Hoş geldin e-postası gönderimi');
 }
 
 /**

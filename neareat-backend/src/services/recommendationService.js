@@ -18,6 +18,7 @@ const { getCandidates, MAX_CANDIDATES } = require('./candidateService');
 const { getRouteWaypoints, getPlaceDetails, isOpenAtTime } = require('./googlePlaces');
 const { buildUserProfileSummary, buildClaudeRequest } = require('./promptBuilder');
 const { haversineKm } = require('../utils/haversine');
+const { readTimeoutEnv } = require('../utils/httpTimeout'); // S20-1
 const {
   newSessionId,
   getSession,
@@ -44,6 +45,23 @@ const PRICING = Object.freeze({
 let _client = null;
 
 /**
+ * S20-1 — Anthropic çağrılarına açık zaman aşımı.
+ *
+ * SDK varsayılanı 10 DAKİKA; yanıt vermeyen bir upstream'de isteği bu kadar uzun
+ * canlı tutmak istek havuzunu tüketir.
+ *
+ * SSE AKIŞLARI GÜVENDE: SDK'nın zaman aşımı sayacı `fetch` çözülür çözülmez — yani
+ * yanıt BAŞLIKLARI geldiğinde — `finally` bloğunda temizlenir; gövdenin akışı sayaç
+ * altında değildir (kaynak: @anthropic-ai/sdk client.js → fetchWithTimeout). Bu
+ * nedenle bu değer bir "ilk yanıta kadar" bütçesidir ve uzun süren streaming
+ * önerilerini KESMEZ.
+ *
+ * Not: SDK varsayılan olarak 2 kez yeniden dener, dolayısıyla en kötü durumda ilk
+ * yanıta kadar geçen toplam süre yaklaşık 3 × bu değerdir.
+ */
+const ANTHROPIC_TIMEOUT_MS = readTimeoutEnv('ANTHROPIC_TIMEOUT_MS', 60000);
+
+/**
  * Lazy client. Module load sırasında env zorunlu değil — gerçek çağrıda kontrol edilir.
  * Test/CI'de ANTHROPIC_API_KEY olmadan da modül require edilebilir.
  */
@@ -56,7 +74,7 @@ function getClient() {
         'AI öneri motoru kullanılamaz. .env dosyasına Anthropic API key ekleyin.'
     );
   }
-  _client = new Anthropic({ apiKey });
+  _client = new Anthropic({ apiKey, timeout: ANTHROPIC_TIMEOUT_MS }); // S20-1
   return _client;
 }
 
