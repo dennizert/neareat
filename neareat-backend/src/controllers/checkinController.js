@@ -10,6 +10,7 @@
  */
 
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger'); // S21-2
 const { createNotificationsForUsers } = require('../services/notificationService');
 const { logActivity, ACTIVITY_TYPES } = require('../services/logService');
 
@@ -36,7 +37,7 @@ async function notifyFriendsOfCheckin(user, placeName, placeId) {
       { userId: user.id, placeId, placeName },
     );
   } catch (err) {
-    console.warn('[checkin] friend FCM notify failed:', err.message);
+    logger.warn('[checkin] arkadaş bildirimi başarısız', { error: err.message });
   }
 }
 

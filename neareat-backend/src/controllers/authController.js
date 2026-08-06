@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const logger = require('../utils/logger'); // S21-2
 const { v4: uuidv4 } = require('uuid');
 const prisma = require('../utils/prisma');
 const { getAuth } = require('../services/firebase');
@@ -71,7 +72,7 @@ async function login(req, res, next) {
         });
         // Google hesapları zaten doğrulu — kayıt anında hoş geldin maili gönder.
         sendWelcomeEmail(user.email, user.displayName)
-          .catch(e => console.error('[EMAIL] Hoş geldin gönderilemedi:', e.message));
+          .catch(e => logger.error('[EMAIL] Hoş geldin gönderilemedi', { error: e.message }));
       }
     } else {
       user = await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
@@ -115,7 +116,7 @@ async function register(req, res, next) {
     });
 
     sendVerificationEmail(user.email, user.displayName, rawVerificationToken)
-      .catch(e => console.error('[EMAIL] Doğrulama gönderilemedi:', e.message));
+      .catch(e => logger.error('[EMAIL] Doğrulama gönderilemedi', { error: e.message }));
 
     const token = signToken(user.id);
     logRequest({ req: { ...req, user }, page: 'Kayıt', action: 'Email ile kayıt oldu', details: email.toLowerCase() }).catch(() => {});
@@ -239,7 +240,7 @@ async function verifyEmail(req, res, next) {
 
     // Doğrulama tamamlandı — hoş geldin maili (fire-and-forget).
     sendWelcomeEmail(user.email, user.displayName)
-      .catch(e => console.error('[EMAIL] Hoş geldin gönderilemedi:', e.message));
+      .catch(e => logger.error('[EMAIL] Hoş geldin gönderilemedi', { error: e.message }));
 
     res.json({ message: 'E-posta başarıyla doğrulandı' });
   } catch (err) {
@@ -271,7 +272,7 @@ async function resendVerification(req, res, next) {
     });
 
     sendVerificationEmail(user.email, user.displayName, rawVerificationToken)
-      .catch(e => console.error('[EMAIL] Yeniden gönderim başarısız:', e.message));
+      .catch(e => logger.error('[EMAIL] Yeniden gönderim başarısız', { error: e.message }));
 
     res.json({ message: 'Doğrulama e-postası tekrar gönderildi' });
   } catch (err) {
@@ -310,7 +311,7 @@ async function forgotPassword(req, res, next) {
     });
 
     sendPasswordResetEmail(user.email, user.displayName, rawResetToken)
-      .catch(e => console.error('[EMAIL] Şifre sıfırlama gönderilemedi:', e.message));
+      .catch(e => logger.error('[EMAIL] Şifre sıfırlama gönderilemedi', { error: e.message }));
 
     res.json({ message: 'Eğer bu e-posta kayıtlıysa sıfırlama bağlantısı gönderildi' });
   } catch (err) {

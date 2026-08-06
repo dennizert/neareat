@@ -2,6 +2,7 @@
 // saygı duyarak tekil veya toplu Notification kaydı oluşturur. Tüm yazımlar
 // fire-and-forget'tir — hata fırlatmaz ki asıl iş akışını bozmasın.
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger'); // S21-2
 
 // Kullanıcının belirli bir bildirim tipini kapatıp kapatmadığını döner. Opt-out modeli:
 // kayıt yoksa varsayılan AÇIK (kullanıcı bir tipi açıkça kapatmadıkça bildirim alır).
@@ -24,7 +25,7 @@ async function createNotification(userId, type, title, body, data = null) {
       data: { userId, type, title, body, data },
     });
   } catch (err) {
-    console.error('[notification] create failed:', err.message);
+    logger.error('[notification] oluşturma başarısız', { error: err.message });
   }
 }
 
@@ -45,7 +46,7 @@ async function createNotificationsForUsers(userIds, type, title, body, data = nu
       data: activeIds.map(userId => ({ userId, type, title, body, data })),
     });
   } catch (err) {
-    console.error('[notification] bulk create failed:', err.message);
+    logger.error('[notification] toplu oluşturma başarısız', { error: err.message });
   }
 }
 

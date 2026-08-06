@@ -10,6 +10,7 @@
  */
 
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger'); // S21-2
 
 const MAX_HISTORY_RETURNED = 30;
 const MIN_QUERY_LENGTH = 2;
@@ -25,7 +26,7 @@ function logSearchHistory(userId, query, type = 'free_text') {
   if (q.length < MIN_QUERY_LENGTH || q.length > MAX_QUERY_LENGTH) return;
   prisma.searchHistory
     .create({ data: { userId, query: q, type } })
-    .catch((err) => console.warn('[searchHistory] log failed:', err.message));
+    .catch((err) => logger.warn('[searchHistory] kayıt başarısız', { error: err.message }));
 }
 
 // Kullanıcının son aramalarını döner (en yeni önce, üst sınır MAX_HISTORY_RETURNED).

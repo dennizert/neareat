@@ -1,4 +1,5 @@
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger'); // S21-2
 
 /** Sosyal aktivite akışı olay türleri (Sprint-4 Task #4). */
 const ACTIVITY_TYPES = Object.freeze({
@@ -29,7 +30,7 @@ async function logRequest({ req, page, action, details }) {
       },
     });
   } catch (err) {
-    console.error('[logService] error:', err.message);
+    logger.error('[logService] hata', { error: err.message });
   }
 }
 
@@ -50,7 +51,7 @@ async function logActivity({ userId, type, placeId = null, metadata = null }) {
       data: { userId, type, placeId, metadata: metadata ?? undefined },
     });
   } catch (err) {
-    console.error('[logService] logActivity error:', err.message);
+    logger.error('[logService] logActivity hatası', { error: err.message });
   }
 }
 

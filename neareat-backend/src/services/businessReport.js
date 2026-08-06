@@ -10,6 +10,7 @@
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger'); // S21-2
 const { readTimeoutEnv } = require('../utils/httpTimeout'); // S20-1
 
 const REPORT_MODEL = 'claude-haiku-4-5-20251001';
@@ -76,7 +77,7 @@ async function generateWeeklyReport(analytics, recentReviews = []) {
     if (!text) return { report: fallbackReport(analytics), model: null, fallback: true };
     return { report: text, model: REPORT_MODEL, fallback: false };
   } catch (err) {
-    console.error('[businessReport] Anthropic hatası, fallback:', err.message);
+    logger.error('[businessReport] Anthropic hatası, fallback kullanılıyor', { error: err.message });
     return { report: fallbackReport(analytics), model: null, fallback: true };
   }
 }

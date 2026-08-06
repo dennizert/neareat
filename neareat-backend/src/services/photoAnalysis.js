@@ -9,6 +9,7 @@
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger'); // S21-2
 const { readTimeoutEnv } = require('../utils/httpTimeout'); // S20-1
 
 const VISION_MODEL = 'claude-haiku-4-5-20251001';
@@ -91,7 +92,7 @@ async function analyzeRestaurantPhoto(input) {
     if (!text) return { analysis: null, model: null, fallback: true };
     return { analysis: text, model: VISION_MODEL, fallback: false };
   } catch (err) {
-    console.error('[photoAnalysis] Anthropic hatası:', err.message);
+    logger.error('[photoAnalysis] Anthropic hatası', { error: err.message });
     return { analysis: null, model: null, fallback: true, error: err.message };
   }
 }
