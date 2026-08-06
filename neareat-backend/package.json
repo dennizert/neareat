@@ -17,7 +17,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:e2e": "jest --config jest.e2e.config.js --runInBand"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.97.1",
