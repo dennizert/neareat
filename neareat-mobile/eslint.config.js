@@ -34,9 +34,10 @@ module.exports = [
   ...tseslint.configs.recommended,
 
   {
-    // Node tarafında çalışan yapılandırma/eklenti dosyaları — CommonJS, Node global'leri.
-    // Bunlar uygulama kodu değil; TS modül kuralları burada geçerli olmamalı.
-    files: ['*.config.js', 'plugins/**/*.js'],
+    // Node tarafında çalışan yapılandırma/eklenti/araç dosyaları — CommonJS, Node
+    // global'leri. Bunlar uygulama kodu değil; TS modül kuralları burada geçerli olmamalı.
+    // `scripts/` = repo araçları (S25-1 bağımlılık kapısı); cihazda değil, CI'da koşar.
+    files: ['*.config.js', 'plugins/**/*.js', 'scripts/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: { ...globals.node },

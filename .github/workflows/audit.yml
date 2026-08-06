@@ -25,3 +25,29 @@ jobs:
         run: npm ci
       - name: Audit production dependencies (fail on high/critical)
         run: npm audit --omit=dev --audit-level=high
+
+  # Mobil taraf için düz `npm audit --audit-level=high` KULLANILMIYOR (S25-1): mobil
+  # bağımlılıkların high/critical bulgularının neredeyse tamamı Expo ve React Native'in
+  # DERLEME zincirinden geliyor (@expo/cli, metro-config, react-devtools-core…) — APK'ya
+  # girmiyorlar ve düzeltilmeleri Expo'nun sürüm çizelgesine bağlı. Düz bir kapı ilk günden
+  # kırmızı olurdu; kalıcı kırmızı bir kapı, kapı olmayan bir kapıdır.
+  #
+  # Bunun yerine gerekçeli ve SÜRELİ muafiyet: kapı, .audit-allowlist.json'da olmayan her
+  # high/critical bulguda kırılır; muafiyetin `reviewBy` tarihi geçtiğinde kayıt yeniden
+  # bloklayıcı olur. Karar mantığı saf ve jest'li (scripts/auditGate.js).
+  mobile-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: neareat-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: neareat-mobile/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit production dependencies (gerekçeli allowlist ile)
+        run: npm run audit:gate
