@@ -1,0 +1,102 @@
+# Semgrep — projeye ait, çevrimdışı çalışan kural seti (S21-3).
+#
+# Neden yerel kurallar: bu set CI'daki BLOKLAYICI kapıdır, dolayısıyla deterministik
+# olmalı. Uzaktaki kayıt defteri paketleri (p/javascript vb.) faydalı ama iki sorun
+# taşır: (1) kural içerikleri bizden bağımsız değişir ve bir sabah CI'ı beklenmedik
+# şekilde kırabilir, (2) sürüm sabitlemek mümkün değil. Bu yüzden kayıt defteri
+# paketleri ayrı ve BLOKLAMAYAN bir job'da çalışır; kapıyı bu dosya belirler.
+#
+# Kapsam kasıtlı olarak dar: `npm audit`in göremediği, KENDİ kodumuzdaki güvenlik
+# anti-pattern'leri. Her kural gerçek bir istismar yoluna karşılık gelir.
+
+rules:
+  - id: no-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      `eval` / `new Function` çalışma zamanında kod üretir. Girdinin herhangi bir
+      parçası kullanıcıdan geliyorsa bu doğrudan uzaktan kod çalıştırmadır.
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: new Function(...)
+
+  - id: child-process-shell-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Kabuk komutu string birleştirme/şablon ile kuruluyor. Değişkenlerden biri
+      kullanıcı girdisine dayanıyorsa komut enjeksiyonu oluşur — argüman dizisi
+      alan `execFile`/`spawn` kullanın.
+    patterns:
+      - pattern-either:
+          - pattern: $CP.exec(`...${...}...`, ...)
+          - pattern: $CP.execSync(`...${...}...`, ...)
+          - pattern: $CP.exec($A + $B, ...)
+          - pattern: $CP.execSync($A + $B, ...)
+
+  - id: prisma-raw-unsafe
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      `$queryRawUnsafe` / `$executeRawUnsafe` parametre bağlama yapmaz — SQL
+      enjeksiyonuna açıktır. Etiketli şablon alan `$queryRaw` kullanın.
+    patterns:
+      - pattern-either:
+          - pattern: $P.$queryRawUnsafe(...)
+          - pattern: $P.$executeRawUnsafe(...)
+
+  - id: weak-hash-algorithm
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      MD5/SHA1 çakışmaya karşı kırılgandır; güvenlik amaçlı (token, imza, parola)
+      kullanılmamalı. SHA-256 veya HMAC-SHA256 tercih edin.
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createHash('md5')
+          - pattern: crypto.createHash("md5")
+          - pattern: crypto.createHash('sha1')
+          - pattern: crypto.createHash("sha1")
+
+  - id: jwt-algorithm-none
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      JWT doğrulamasında `none` algoritmasına izin vermek, imzasız token'ların
+      kabul edilmesi demektir — kimlik doğrulamanın tamamen atlanmasına yol açar.
+    patterns:
+      - pattern-either:
+          - pattern: 'jwt.verify(..., {..., algorithms: [..., "none", ...], ...})'
+          - pattern: "jwt.verify(..., {..., algorithms: [..., 'none', ...], ...})"
+
+  - id: hardcoded-credential-assignment
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      Sır koda gömülmüş görünüyor. Sırlar env üzerinden gelmeli; repoya giren bir
+      anahtar, geçmişten silinmesi zor ve döndürülmesi zorunlu bir sızıntıdır.
+    patterns:
+      - pattern-either:
+          - pattern: const $NAME = "..."
+          - pattern: const $NAME = '...'
+      # Sır çağrıştıran ad; ama "…KeyName", "…SecretHeader" gibi sırrın KENDİSİ olmayan
+      # (adı/başlığı/etiketi tutan) değişkenler negatif ileri-bakışla elenir.
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: >-
+            (?i)^(?!.*(name|type|field|label|header|param|placeholder|pattern|regex|error|msg|message|text|desc|hint|title|prefix|suffix|len|length|min|max)).*(api_?key|secret|password|passwd|access_?token|private_?key|client_?secret).*$
+
+  - id: insecure-random-for-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >-
+      `Math.random()` kriptografik olarak güvenli değildir ve tahmin edilebilir.
+      Token/sır üretimi için `crypto.randomUUID()` veya `crypto.randomBytes()` kullanın.
+    patterns:
+      - pattern-inside: |
+          function $F(...) { ... }
+      - pattern: Math.random()
+      - metavariable-regex:
+          metavariable: $F
+          regex: (?i).*(token|secret|password|nonce|salt|otp|verification|reset).*
