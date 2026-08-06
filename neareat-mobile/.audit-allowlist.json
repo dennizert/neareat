@@ -1,0 +1,167 @@
+{
+  "_hakkinda": [
+    "Mobil bağımlılık kapısının (S25-1) gerekçeli muafiyet listesi. Kapı, burada OLMAYAN her",
+    "high/critical bulguda kırılır. Buradaki her kayıt beş alanı da taşımak ZORUNDA:",
+    "package, severity, chain, reason, reviewBy — eksik alan muafiyeti geçersiz kılar ve",
+    "kapı yine kırılır (gerekçesi silinmiş bir kayıt sessizce muafiyet üretmesin diye).",
+    "",
+    "reviewBy GEÇTİĞİNDE kayıt YENİDEN BLOKLAYICI olur. Bu kasıtlı: süresiz muafiyet",
+    "'sonsuza kadar görmezden gel' demektir. Tarihi uzatmak bilinçli bir commit gerektirir.",
+    "",
+    "Bulgunun şiddeti burada yazandan YÜKSELİRSE de muafiyet düşer — yeniden puanlanmış bir",
+    "advisory, kararın yeniden verilmesi gereken andır.",
+    "",
+    "Buraya bir kayıt eklemeden önce: bulgu gerçekten düzeltilemiyor mu? Doğrudan bir",
+    "bağımlılıksa ve düzeltmesi kırıcı değilse, muafiyet DEĞİL yükseltme doğru cevaptır.",
+    "(Örnek: axios 1.15.2 → 1.19.0 bu işte muafiyet yerine yükseltmeyle kapatıldı.)"
+  ],
+  "entries": [
+    {
+      "package": "tar",
+      "severity": "critical",
+      "chain": "expo → @expo/cli → cacache → tar",
+      "reason": "Expo CLI'nin paket indirme/açma zinciri. Yalnızca derleme ve `expo` komutları sırasında geliştirici makinesinde veya CI'da çalışır; APK'ya girmez. Düzeltmesi Expo 52'nin @expo/cli sürümüne bağlı, doğrudan yükseltilemez.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "shell-quote",
+      "severity": "critical",
+      "chain": "react-native → react-devtools-core → shell-quote",
+      "reason": "React Native geliştirici araçları (devtools). Yalnızca geliştirme sırasında yüklenir, üretim paketine girmez. Düzeltmesi react-native sürümüne bağlı.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "expo",
+      "severity": "high",
+      "chain": "doğrudan bağımlılık — bulgu alt zincirinden (@expo/cli, @expo/config, expo-constants) geliyor",
+      "reason": "Expo 52 çatısı. Bulgular kendi kodundan değil, derleme zamanı alt paketlerinden. Expo 53+'a geçmek ayrı ve kapsamlı bir iş (native yeniden derleme, breaking API'ler); bu kapının konusu değil.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "@expo/cli",
+      "severity": "high",
+      "chain": "expo → @expo/cli",
+      "reason": "Expo komut satırı aracı — `expo start`, `expo run:android` gibi komutlarda çalışır, APK'ya girmez.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "@expo/config",
+      "severity": "high",
+      "chain": "expo → @expo/cli → @expo/config",
+      "reason": "app.json/app.config okuyucusu — derleme zamanı. Çalışma zamanında kullanılmaz.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "@expo/config-plugins",
+      "severity": "high",
+      "chain": "expo → @expo/cli → @expo/config → @expo/config-plugins",
+      "reason": "Native proje dosyalarını üreten prebuild eklenti sistemi — yalnızca derleme zamanı.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "@expo/metro-config",
+      "severity": "high",
+      "chain": "expo → @expo/metro-config",
+      "reason": "Metro paketleyici yapılandırması — derleme zamanı.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "@expo/plist",
+      "severity": "high",
+      "chain": "expo → @expo/cli → @expo/config-plugins → @expo/plist",
+      "reason": "iOS plist yazıcısı, prebuild sırasında çalışır. Android APK üretimimizi bile ilgilendirmiyor.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "@expo/prebuild-config",
+      "severity": "high",
+      "chain": "expo → @expo/cli → @expo/prebuild-config",
+      "reason": "Prebuild yapılandırması — derleme zamanı.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "@xmldom/xmldom",
+      "severity": "high",
+      "chain": "expo → @expo/cli → @expo/config-plugins → @expo/plist → @xmldom/xmldom",
+      "reason": "XML ayrıştırıcı; plist/manifest üretiminde derleme zamanı kullanılır. Kullanıcı girdisi işlemiyor.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "expo-asset",
+      "severity": "high",
+      "chain": "expo → expo-asset → expo-constants → @expo/config",
+      "reason": "Bulgu paketin kendisinden değil, derleme zamanı @expo/config zincirinden geliyor.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "expo-constants",
+      "severity": "high",
+      "chain": "expo → expo-constants → @expo/config",
+      "reason": "Bulgu derleme zamanı @expo/config zincirinden; expo-constants'ın çalışma zamanı kodundan değil.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "expo-notifications",
+      "severity": "high",
+      "chain": "expo-notifications → expo-constants → @expo/config",
+      "reason": "Bulgu derleme zamanı @expo/config zincirinden. Bildirim çalışma zamanı kodu etkilenmiyor.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "expo-splash-screen",
+      "severity": "high",
+      "chain": "expo-splash-screen → @expo/prebuild-config",
+      "reason": "Bulgu prebuild yapılandırma zincirinden — derleme zamanı.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "cacache",
+      "severity": "high",
+      "chain": "expo → @expo/cli → cacache → tar",
+      "reason": "Expo CLI'nin indirme önbelleği — derleme zamanı.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "undici",
+      "severity": "high",
+      "chain": "expo → @expo/cli → undici",
+      "reason": "Expo CLI'nin HTTP istemcisi — derleme/geliştirme sırasında çalışır. Uygulamanın ağ katmanı axios'tur, undici değil.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "ws",
+      "severity": "high",
+      "chain": "expo → @expo/cli → @react-native/dev-middleware → ws",
+      "reason": "Geliştirme sunucusunun WebSocket katmanı (hot reload, debugger). Üretim paketinde yok.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "postcss",
+      "severity": "high",
+      "chain": "expo → @expo/metro-config → postcss",
+      "reason": "Metro'nun CSS işleme zinciri — derleme zamanı. Bulgu CSS çıktısında XSS ile ilgili; React Native'de CSS çıktısı üretmiyoruz.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "js-yaml",
+      "severity": "high",
+      "chain": "eslint → @eslint/eslintrc → js-yaml",
+      "reason": "ESLint yapılandırma okuyucusu — yalnızca lint çalışırken. Uygulama kodunda YAML ayrıştırılmıyor.",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "brace-expansion",
+      "severity": "high",
+      "chain": "eslint → minimatch → brace-expansion",
+      "reason": "ESLint'in dosya deseni eşleştirmesi — yalnızca lint çalışırken, güvenilir girdiyle (repo yolları).",
+      "reviewBy": "2026-11-06"
+    },
+    {
+      "package": "form-data",
+      "severity": "high",
+      "chain": "expo → @expo/cli → form-data@3",
+      "reason": "Expo CLI'nin yükleme istemcisi — derleme zamanı. Uygulamanın kullandığı axios kendi form-data@4.0.6'sını getiriyor ve o advisory'siz (axios 1.19.0 yükseltmesiyle bu işte kapatıldı).",
+      "reviewBy": "2026-11-06"
+    }
+  ]
+}
