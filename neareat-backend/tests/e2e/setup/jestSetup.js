@@ -102,6 +102,7 @@ jest.mock('../../../src/services/s3', () => ({
 // ─── Veritabanı izolasyonu ───────────────────────────────────────────────────
 
 const prisma = require('../../../src/utils/prisma');
+const { getRedis } = require('../../../src/services/redis');
 const { resetDatabase } = require('./database');
 
 beforeEach(async () => {
@@ -111,4 +112,21 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await prisma.$disconnect();
+
+  // Redis bağlantısını KAPATMAK zorunlu — süslemesi değil, testin doğruluğu meselesi.
+  // ioredis erişilemeyen bir sunucuya arka planda yeniden bağlanmayı dener ve her
+  // denemede `console.warn` yazar (src/services/redis.js). Bu loglar ASENKRON olduğu
+  // için dosyanın teardown'ından SONRA düşebilir; Jest bunu "Cannot log after tests
+  // are done" hatası sayar ve tüm testler geçse bile çıkış kodunu 1 yapar. Yerelde
+  // geçip CI'da kırılan bir yarış koşuluydu. `disconnect()` yeniden deneme
+  // zamanlayıcısını iptal eder, böylece dosya sınırında sessizce kapanır.
+  //
+  // (Hızlı paket bu sorunu görmüyor çünkü `npm test` `--forceExit` ile koşuyor —
+  // süreç loglar düşmeden ölüyor. E2E'de forceExit KULLANMIYORUZ: sızan bir handle'ı
+  // maskelemek yerine görmek istiyoruz.)
+  try {
+    getRedis().disconnect();
+  } catch {
+    // Bağlantı hiç kurulmadıysa sorun değil.
+  }
 });

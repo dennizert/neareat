@@ -28,7 +28,11 @@ process.env.FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY
 process.env.APP_BASE_URL = process.env.APP_BASE_URL || 'http://localhost:3000';
 
 // Redis KASITLI olarak yapılandırılmadı: uygulama Redis'siz fail-open davranır ve
-// E2E bu gerçekçi yolu da kullanır. Redis'li senaryo istenirse REDIS_URL verilir.
+// E2E bu yolu kullanır. Ölçüldü — mevcut yolculuklar Redis'e HİÇ yazmıyor (koşu öncesi
+// ve sonrası `dbsize` 0), çünkü cache'li uçlar (nearby, AI önerisi) bu yolculukların
+// konusu değil. Bu yüzden CI'a Redis servisi eklemek bugün sıfır kapsam kazandırırdı.
+// Cache davranışına dayanan bir yolculuk yazılırsa REDIS_URL verilmesi yeterli
+// (gerçek Redis'le de 21/21 yeşil doğrulandı) ve o zaman CI'a servis eklenmeli.
 
 // NOT — HIZ LİMİTİ BÜTÇESİ: uygulamanın rate limit'i test modunda KAPATILMAZ (bazı
 // mevcut testler 429 davranışına dayanıyor, üretim kodunu test için gevşetmek doğru

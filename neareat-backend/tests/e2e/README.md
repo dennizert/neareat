@@ -111,7 +111,18 @@ expect(pending[0].id).toBe(created.id);   // restoran, kullanıcının YAZDIĞI 
   sıfırlanır: **~120 `/api` ve ~20 `/api/auth` isteği**. Bir dosya bu bütçeye yaklaşırsa
   yolculukları yeni bir `.e2e.js` dosyasına bölün.
 - **Redis kasıtlı olarak yapılandırılmamıştır.** Uygulama Redis'siz fail-open davranır ve
-  E2E bu gerçekçi yolu kullanır. Redis'li senaryo gerekirse `REDIS_URL` verin.
+  E2E bu yolu kullanır. Ölçüldü: mevcut yolculuklar Redis'e hiç yazmıyor (koşu öncesi/sonrası
+  `dbsize` 0), çünkü cache'li uçlar bu yolculukların konusu değil — CI'a Redis servisi
+  eklemek bugün sıfır kapsam kazandırırdı. Cache'e dayanan bir yolculuk yazarsanız
+  `REDIS_URL` verin (gerçek Redis'le de yeşil doğrulandı) ve CI job'ına servis ekleyin.
+- **`--forceExit` KULLANILMIYOR** (hızlı paketten farklı olarak). Sızan bir handle'ı
+  maskelemek yerine görmek istiyoruz. Bunun bedeli: teardown'dan sonra `console` yazan
+  her şey Jest'te "Cannot log after tests are done" hatasına ve **testler geçse bile
+  çıkış kodu 1**'e yol açar. Bu yüzden `jestSetup.js` `afterAll`'da Prisma'nın yanı sıra
+  **Redis bağlantısını da kapatır** — ioredis erişilemeyen sunucuya arka planda yeniden
+  bağlanmayı deneyip her denemede log yazıyordu ve bu loglar dosya sınırından sonra
+  düşebiliyordu. Arka planda iş başlatan yeni bir bağımlılık eklerseniz onu da burada
+  kapatın.
 - **Dış servisler sahtedir** (Google Places, Anthropic, Firebase, Resend, S3). Gerçek
   entegrasyonları doğrulamak bu paketin işi değil; burada doğrulanan, *bizim* akışlarımızın
   birlikte çalışması.
