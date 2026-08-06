@@ -8,6 +8,7 @@ const { hashToken } = require('../utils/tokenHash');
 const { logRequest } = require('../services/logService');
 const { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } = require('../services/emailService');
 const { cacheGet, cacheSet } = require('../services/redis');
+const { sanitizeUser } = require('../utils/userDto'); // S21-1 — kullanıcı DTO sınırı tek yerde
 const s3 = require('../services/s3');
 
 // E-posta-başına gönderim throttle'ı (S14-B1): mail-bomb + Resend kota tüketimini sınırlar.
@@ -24,23 +25,6 @@ async function isEmailSendThrottled(action, email) {
   if (count >= EMAIL_SEND_MAX) return true;
   await cacheSet(key, count + 1, EMAIL_SEND_WINDOW_SEC).catch(() => {});
   return false;
-}
-
-// User nesnesinden istemciye GÖNDERİLMEMESİ gereken alanları (şifre hash'i, token'lar) ve
-// ayrı uçtan dönen profil alanlarını çıkarır. Tüm auth yanıtları bu filtreden geçer —
-// hassas veri sızıntısına karşı tek savunma noktası.
-function sanitizeUser(user) {
-  // S18-5: starCount artık session user'da KALIR — kullanıcı premium kaldırıldı, özellikler
-  // yıldız seviyesine bağlı; mobil seviye-bazlı UI kilitleri (liste/favori/rezervasyon)
-  // için oturum kullanıcısında seviyeyi taşıyoruz. (Hassas değil; profil yine taze kaynak.)
-  const {
-    passwordHash, bio, city, favoriteCuisines, isPublic,
-    shareWithFriendsRecommender, // profile data, getMyProfile'da döner
-    emailVerificationToken, emailVerificationExpiry,
-    passwordResetToken, passwordResetExpiry,
-    ...safe
-  } = user;
-  return safe;
 }
 
 // Google ile giriş/kayıt. Mobilden gelen Google OAuth idToken'ı doğrular; googleId ile
