@@ -26,6 +26,7 @@ npm test -- --testNamePattern="login"   # Run tests matching a pattern
 npm test -- tests/api.test.js           # Run a single test file
 npm run prisma:migrate   # Create + apply a new migration interactively
 npm run prisma:studio    # Visual DB browser at localhost:5555
+npm run test:e2e         # Arayüzsüz uçtan uca yolculuklar (GERÇEK Postgres ister — tests/e2e/README.md)
 npm run lint             # ESLint (CI kapısı — sıfır hata olmalı)
 npm run lint:fix         # Otomatik düzeltilebilenleri düzelt
 npm run format:check     # Prettier farkı (CI'da ZORUNLU DEĞİL — bkz. S20-3)
@@ -113,7 +114,9 @@ tests/
   integration/   # ~30 dosya — özellik alanı başına integration testi
 ```
 
-Test kütlesi kabaca **~90 suite / ~1250 test** (backend) + **~40 suite / ~300 test** (mobil).
+- **E2E / "arayüzsüz frontend" testleri (`tests/e2e/`, ayrı paket):** Mobil uygulamanın yerine geçen bir istemci, **GERÇEK Postgres**'e karşı çok adımlı kullanıcı yolculukları koşar (kayıt→doğrulama→giriş, rezervasyon→restoran onayı→katılım→yıldız, arkadaşlık→öneri→akış). `tests/integration`'dan farkı: orada Prisma **mock'lu** olduğu için her çağrının dönüşü elle stub'lanır ve adımlar birbirine bağlanamaz — "restoranın panelinde gördüğü talep, kullanıcının az önce oluşturduğu talep midir?" sorusu ancak gerçek DB ile test edilebilir. **Çekirdek parça `client/apiClient.js`**: mobil `src/services/*.ts` katmanının AYNASI (aynı isimler/parametreler) → testler kullanıcı eylemi gibi okunur ve mobilin gerçekten tükettiği sözleşme (`code`/`warning` alanları dahil) doğrulanır; 2xx dışı yanıtta axios gibi `status`+`body` taşıyan hata fırlatır. Dış servisler (Google/Anthropic/Firebase/Resend/S3) sahte, **DB ve Redis sahte DEĞİL**; e-posta **susturulmaz yakalanır** (`lastEmailTo`/`extractTokenFromEmail` → kullanıcının doğrulama linkine tıklamasının karşılığı). `setup/database.js` veritabanı adında `test` geçmiyorsa **çalışmayı reddeder** (paket TRUNCATE çalıştırıyor). Kısıtlar: `maxWorkers:1` (paylaşılan DB), rate limit test modunda **kapatılmadı** (mevcut testler 429'a dayanıyor) → dosya başına ~120 `/api` + ~20 `/api/auth` bütçesi. Kurulum + yolculuk yazma kuralları: [tests/e2e/README.md](neareat-backend/tests/e2e/README.md). CI'da ayrı `backend-e2e` job'ı (postgres:16 service container).
+
+Test kütlesi kabaca **~90 suite / ~1250 test** (backend) + **~40 suite / ~300 test** (mobil) + **3 E2E yolculuk dosyası / ~20 senaryo**.
 Kesin rakam için `npm test` çıktısındaki `Test Suites:` / `Tests:` satırlarına bakın — **tek yetkili
 kaynak jest'tir**, `grep -c "it("` değil: `it.each` tek satırda birden çok test üretir, dolayısıyla
 grep ile sayım gerçek sayıyı olduğundan az gösterir.
