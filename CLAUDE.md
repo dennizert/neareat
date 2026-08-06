@@ -108,10 +108,15 @@ prisma/
   seed*.js       # Seed scripts (seed.js, seed-users.js, seed-social-test.js)
 tests/
   setup.js       # Mocks Firebase/Resend/Anthropic before all tests
-  api.test.js    # Main integration test file (~500 tests)
-  unit/          # Unit tests for isolated functions
-  integration/   # Integration tests per feature area
+  api.test.js    # Ana integration dosyası — orta boy (~60 test), tek dev dosya DEĞİL
+  unit/          # ~60 dosya — izole fonksiyonların birim testleri
+  integration/   # ~30 dosya — özellik alanı başına integration testi
 ```
+
+Test kütlesi kabaca **~90 suite / ~1250 test** (backend) + **~40 suite / ~300 test** (mobil).
+Kesin rakam için `npm test` çıktısındaki `Test Suites:` / `Tests:` satırlarına bakın — **tek yetkili
+kaynak jest'tir**, `grep -c "it("` değil: `it.each` tek satırda birden çok test üretir, dolayısıyla
+grep ile sayım gerçek sayıyı olduğundan az gösterir.
 
 ### Mobile state management
 
