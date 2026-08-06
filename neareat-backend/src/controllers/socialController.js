@@ -5,6 +5,7 @@ const { isPremiumUser } = require('../utils/premiumCheck');
 const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
 const { logRequest, logActivity, ACTIVITY_TYPES } = require('../services/logService');
 const { getCachedSuggestions, computeSuggestionsForUser, invalidateSuggestions } = require('../services/friendSuggestionService');
+const { PUBLIC_USER_SELECT } = require('../utils/userDto'); // S21-1
 
 const FREE_DAILY_REC_LIMIT = 1;
 
@@ -689,7 +690,7 @@ async function getActivityFeed(req, res, next) {
     const userIds = [...new Set(pageRows.map((e) => e.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, displayName: true, photoUrl: true },
+      select: PUBLIC_USER_SELECT,
     });
     const userById = new Map(users.map((u) => [u.id, u]));
 

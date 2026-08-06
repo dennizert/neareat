@@ -1,10 +1,10 @@
 const prisma = require('../utils/prisma');
 const { containsOffensiveContent } = require('../utils/contentFilter');
 const { logRequest } = require('../services/logService');
+const { PUBLIC_USER_SELECT } = require('../utils/userDto'); // S21-1
 
-const USER_SELECT = {
-  id: true, displayName: true, photoUrl: true,
-};
+// Konuşma muhatabı kartı — ortak public kullanıcı projeksiyonu (tek kaynak: utils/userDto).
+const USER_SELECT = PUBLIC_USER_SELECT;
 
 // ─── Konuşma listesi ──────────────────────────────────────────────────────────
 

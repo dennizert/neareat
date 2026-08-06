@@ -5,9 +5,12 @@ const prisma = require('../utils/prisma');
 const { createNotification } = require('../services/notificationService');
 const { logRequest } = require('../services/logService');
 const { getNearbyRestaurantsFast, getPhotoUrl, passesQualityFilter } = require('../services/googlePlaces');
+const { PUBLIC_USER_SELECT } = require('../utils/userDto'); // S21-1
 
 // Üye/oy kartlarında gösterilen minimal kullanıcı alanları.
-const MEMBER_SELECT = { id: true, displayName: true, photoUrl: true };
+// S21-1 — ortak public kullanıcı kartı projeksiyonu (tek kaynak: utils/userDto).
+// Yerel ad korunur: çağrı yerlerinde "grup üyesi" anlamını taşıyor.
+const MEMBER_SELECT = PUBLIC_USER_SELECT;
 
 // GET /api/meal-groups — kullanıcının üye olduğu tüm grupları (kendi durumu + açık anket bilgisiyle) döner.
 async function getMyGroups(req, res, next) {
