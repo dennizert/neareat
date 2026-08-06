@@ -1,0 +1,92 @@
+name: SAST
+
+# Statik güvenlik taraması (S21-3). `npm audit` (audit.yml) yalnızca BİLİNEN bağımlılık
+# açıklarını görür; bu workflow KENDİ kodumuzdaki güvenlik anti-pattern'lerini tarar:
+# komut/SQL enjeksiyonu desenleri, koda gömülü sır, eval, zayıf kripto.
+#
+# İki job kasıtlı olarak ayrıdır:
+#   sast          → BLOKLAYICI. Repoda commit'li yerel kural seti (.semgrep/rules.yml).
+#                   Deterministik: kurallar sürümlenmiş ve bizim kontrolümüzde, bir sabah
+#                   uzaktaki bir kural değişip CI'ı beklenmedik şekilde kıramaz.
+#   sast-registry → BLOKLAMAYAN. Semgrep kayıt defteri paketleri (p/javascript, p/nodejs,
+#                   p/secrets) daha geniş kapsam verir ama içerikleri bizden bağımsız
+#                   değişir. Bulguları Security sekmesine raporlar, kapı görevi görmez.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  sast:
+    name: SAST (blocking — local rules)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Sürüm sabitlenir: üçüncü parti bir GitHub Action'a bağımlılık yerine PyPI'dan
+      # tam sürümlü kurulum — tedarik zinciri yüzeyi daha dar ve yükseltme bilinçli olur.
+      - name: Install Semgrep
+        run: pip install --quiet semgrep==1.172.0
+
+      # Yalnızca ERROR seviyesi kapıyı kırar; WARNING seviyesi bulgular aşağıdaki
+      # raporlama adımında görünür ama merge'i engellemez.
+      - name: Run Semgrep (ERROR severity gates the build)
+        run: |
+          semgrep --config=.semgrep/rules.yml \
+            --severity=ERROR \
+            --error \
+            --metrics=off \
+            --exclude=node_modules \
+            neareat-backend/src neareat-mobile/src
+
+      - name: Report all severities (informational)
+        if: always()
+        run: |
+          semgrep --config=.semgrep/rules.yml \
+            --metrics=off \
+            --exclude=node_modules \
+            neareat-backend/src neareat-mobile/src || true
+
+  sast-registry:
+    name: SAST (advisory — registry rulesets)
+    runs-on: ubuntu-latest
+    # Kapı DEĞİL: kural içerikleri uzaktan değiştiği için bu job'ın kırmızıya dönmesi
+    # merge'i engellememeli. Sürekli kırmızı bir kapı, kapı olmaktan çıkar.
+    continue-on-error: true
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Semgrep
+        run: pip install --quiet semgrep==1.172.0
+
+      - name: Scan with registry rulesets
+        continue-on-error: true
+        run: |
+          semgrep \
+            --config=p/javascript \
+            --config=p/nodejs \
+            --config=p/secrets \
+            --metrics=off \
+            --exclude=node_modules \
+            --sarif --output=semgrep.sarif \
+            neareat-backend/src neareat-mobile/src
+
+      # Bulgular Security → Code scanning altında toplanır (repo public olduğu için
+      # code scanning ücretsiz). Yükleme başarısız olsa bile CI kırmızıya dönmemeli.
+      - name: Upload SARIF to the Security tab
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep-registry
