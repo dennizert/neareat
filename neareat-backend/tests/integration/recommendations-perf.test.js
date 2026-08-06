@@ -228,7 +228,6 @@ describe('POST /api/recommendations/dinner-tonight — latency benchmark', () =>
     const max = Math.max(...latencies);
     const avg = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
 
-    // eslint-disable-next-line no-console
     console.log(
       `[perf] N=${N} avg=${avg}ms p50=${p50}ms p95=${p95}ms max=${max}ms ` +
       `(simulated LLM=${SIMULATED_LLM_LATENCY_MS}ms)`

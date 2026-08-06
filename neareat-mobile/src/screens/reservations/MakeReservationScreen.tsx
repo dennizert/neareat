@@ -21,11 +21,6 @@ const TIMES = [
   '19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00',
 ];
 
-function getMinDate(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 function formatDateDisplay(dateStr: string): string {
   if (!dateStr) return '';
   const [y, m, d] = dateStr.split('-');
@@ -56,7 +51,7 @@ function bandTone(C: Colors, band: string): string {
 export default function MakeReservationScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
-  const { placeId, placeName, restaurantId } = route.params;
+  const { placeId, placeName } = route.params;
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 

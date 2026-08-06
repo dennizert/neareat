@@ -10,7 +10,6 @@ import type { NotificationType } from '../../types';
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
-  type NotificationPref,
 } from '../../services/notificationPrefs';
 
 const TYPE_LABELS: Partial<Record<NotificationType, string>> = {

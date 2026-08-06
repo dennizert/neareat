@@ -5,7 +5,7 @@
 // Saf karar mantığı (closingSoonDiff/isInClosingWindow/selectUnvotedMembers) test için dışa açılır (S14-B7).
 const cron = require('node-cron');
 const prisma = require('../utils/prisma');
-const { createNotification, createNotificationsForUsers } = require('../services/notificationService');
+const { createNotification } = require('../services/notificationService');
 const { cacheGet, cacheSet } = require('../services/redis');
 const { withCronLock } = require('../services/cronLock');
 

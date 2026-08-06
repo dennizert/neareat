@@ -16,7 +16,7 @@
  */
 
 const request = require('supertest');
-const { createTestToken, randomId, createTestUser } = require('../helpers');
+const { createTestToken, createTestUser } = require('../helpers');
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 

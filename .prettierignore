@@ -1,0 +1,7 @@
+node_modules
+coverage
+android
+ios
+.expo
+**/prisma/migrations
+package-lock.json

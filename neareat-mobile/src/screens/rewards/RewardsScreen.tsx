@@ -17,7 +17,7 @@ const STAR_EVENT_LABELS: Record<string, string> = {
 };
 
 export default function RewardsScreen() {
-  const { profile, starEvents, setProfile } = useUserProfileStore();
+  const { profile } = useUserProfileStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const { bottom } = useSafeAreaInsets();

@@ -12,7 +12,7 @@
  */
 
 const request = require('supertest');
-const { createTestToken, randomId, createTestUser } = require('../helpers');
+const { createTestToken, createTestUser } = require('../helpers');
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +68,7 @@ const app = require('../../src/app');
 
 // ─── Test users ──────────────────────────────────────────────────────────────
 
-let user1, token1, user2, token2;
+let user1, token1, user2;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -76,7 +76,6 @@ beforeEach(() => {
   user1 = createTestUser({ id: 'social-user-1', displayName: 'Alice' });
   token1 = createTestToken(user1.id);
   user2 = createTestUser({ id: 'social-user-2', displayName: 'Bob' });
-  token2 = createTestToken(user2.id);
 
   mockPrisma.user.findUnique.mockImplementation(({ where }) => {
     if (where.id === user1.id) return Promise.resolve(user1);

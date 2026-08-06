@@ -14,7 +14,7 @@
  */
 
 const request = require('supertest');
-const { createTestToken, randomId, createTestUser } = require('../helpers');
+const { createTestToken, createTestUser } = require('../helpers');
 
 // ─── Mocks (must come before require('../src/app')) ───────────────────────────
 
@@ -119,7 +119,6 @@ let otherUserToken;
 // Shared mock data
 const PLACE_ID = 'ChIJtest12345';
 const FUTURE_DATE = '2027-06-15';
-const PAST_DATE = '2020-01-01';
 const VALID_TIME = '19:00';
 
 const mockRestaurantProfile = {

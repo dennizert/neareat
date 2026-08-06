@@ -94,7 +94,7 @@ export default function RestaurantDetailScreen() {
   const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
 
   const { isFavorite, addFavorite: storeFav, removeFavorite: storeRemoveFav } = useFavoriteStore();
-  const { isPremium, user } = useAuthStore();
+  const { isPremium } = useAuthStore();
   const { addStarEvent } = useUserProfileStore();
   const { myCollections, setMyCollections } = useCollectionStore();
   const toast = useToast();

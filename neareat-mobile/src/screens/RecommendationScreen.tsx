@@ -298,29 +298,6 @@ function FadeInCard({ children }: { children: React.ReactNode }) {
   return <Animated.View style={{ opacity }}>{children}</Animated.View>;
 }
 
-function SkeletonCard({ C }: { C: Colors }) {
-  const opacity = useRef(new Animated.Value(0.4)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.8, duration: 600, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.4, duration: 600, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-  return (
-    <Animated.View
-      style={{
-        backgroundColor: C.surfaceAlt,
-        borderRadius: 14,
-        height: 120,
-        marginBottom: 12,
-        opacity,
-      }}
-    />
-  );
-}
-
 function formatResetTime(iso: string): string {
   try {
     const d = new Date(iso);

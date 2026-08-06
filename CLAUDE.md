@@ -26,6 +26,9 @@ npm test -- --testNamePattern="login"   # Run tests matching a pattern
 npm test -- tests/api.test.js           # Run a single test file
 npm run prisma:migrate   # Create + apply a new migration interactively
 npm run prisma:studio    # Visual DB browser at localhost:5555
+npm run lint             # ESLint (CI kapısı — sıfır hata olmalı)
+npm run lint:fix         # Otomatik düzeltilebilenleri düzelt
+npm run format:check     # Prettier farkı (CI'da ZORUNLU DEĞİL — bkz. S20-3)
 ```
 
 ### Mobile (`neareat-mobile/`)
@@ -35,6 +38,8 @@ npm start            # Expo dev server
 npm run android      # Build + run on Android emulator (expo run:android)
 npm test             # Jest store tests
 npm run test:stores  # Zustand store tests only
+npm run lint         # ESLint (CI kapısı)
+npm run typecheck    # tsc --noEmit
 ```
 
 ### Android APK release build
@@ -174,6 +179,7 @@ Three distinct screen sets loaded conditionally by role:
 - **Input validation (S14-B2):** prefer the `validate(schema)` middleware (`middleware/validate.js`) with zod schemas in `validation/schemas.js` over ad-hoc `typeof`/length checks in controllers. It returns `400 { error, details }` (error = first issue's message, Turkish) and writes the parsed/coerced value back to `req.body`. Migrated so far: `register`, `login/email`, `POST /reviews`; migrate more endpoints incrementally.
 - **Observability (S14-B3):** `services/sentry.js` forwards security events (`securityLogger`) and 5xx errors (`errorHandler`) to Sentry. Env-gated by `SENTRY_DSN` (no-op when unset, so dev/test are unaffected); password/token fields are scrubbed before sending. Route security-relevant signals through `logSecurityEvent` so they reach Sentry automatically.
 - **Performance metrics (S16-2):** `services/metrics.js` is an in-memory, process-local registry — request p50/p95/p99 + status buckets (via `middleware/metrics.js` on `res 'finish'`, mounted right after `requestId`), Redis hit/miss (instrumented in `redis.cacheGet`), event-loop lag (`perf_hooks.monitorEventLoopDelay`), and per-provider external-API call+cost counters (`recordExternalCall`, fed by S16-3 Anthropic / S16-4 Google with daily reset). Bounded memory (1000-sample ring window). `GET /api/admin/metrics` (admin-only) returns the snapshot + live DB active-connection count (`pg_stat_activity`, graceful-null) + current alarm breaches. A periodic `evaluateAlarms` sweep (`METRICS_ALARM_INTERVAL_MS`, default 60s, skipped in tests, `.unref()`) emits `EVENTS.METRICS_ALARM` via `logSecurityEvent`→Sentry when thresholds (`ALARM_ERROR_RATE` .02, `ALARM_EVENT_LOOP_LAG_MS` 200, `ALARM_AI_DAILY_USD` 50, `ALARM_GOOGLE_DAILY_USD` 30) are exceeded (error-rate alarm needs ≥50 samples to avoid noise). Metrics are per-replica (S16-8): the endpoint shows whichever replica served it.
+- **Lint (S20-3):** ESLint flat config her iki pakette (`eslint.config.js`) ve `test.yml`'de `backend-lint`/`mobile-lint` job'ları — **sıfır hata** kapısı. Kural seti kasıtlı olarak DARDIR: amaç stil dayatmak değil, gerçek hata sınıflarını (tanımsız değişken, ölü kod, yinelenen anahtar) yakalamak. Bilinçli kararlar: mobilde `@typescript-eslint/no-require-imports` **kapalı** — React Native'de `require()` zorunlu (statik varlıklar `require('../assets/x.png')`, native modüllerin kasıtlı tembel yüklenmesi: `auth.ts` MOCK_MODE, `sentry.ts` DSN kapısı); `no-empty` `allowEmptyCatch` ile — boş `catch {}` kod tabanında bilinçli "best-effort" idiyomu; `no-explicit-any` ve `react-hooks/exhaustive-deps` **warn** (kapı değil), `react-hooks/rules-of-hooks` **error**; backend'de `no-promise-executor-return` açılmadı (`new Promise((r) => setTimeout(r, ms))` idiyomunu işaretliyor, gerçek riski `recommended`'daki `no-async-promise-executor` zaten yakalıyor). **Prettier yalnızca opsiyonel**: `.prettierrc` + `format`/`format:check` var ama CI'da zorunlu değil ve repo geneline toplu reformat **uygulanmadı** — git blame'i bozmamak ve açık PR'larda conflict üretmemek için.
 - **Backend tests** mock Firebase, Resend, and Anthropic in `tests/setup.js` — don't call real external APIs in tests.
 - **Load tests (S16-9):** k6 scripts in `neareat-backend/load-tests/k6/` (`browse`/`login`/`ai`) validate capacity against the 10k target. **Staging only** — `load-tests/lib/guard.js` requires `BASE_URL` and refuses production hosts (override `ALLOW_PRODUCTION=true`); the guard is pure JS and jest-tested. Correlate runs with `GET /api/admin/metrics` (S16-2). The `ai` scenario costs Anthropic — keep VUs low or mock. See `load-tests/README.md`.
 - **Cron/job testing (S14-B7):** extract a job's pure decision logic into exported helpers (e.g., `smartNotifications` exports `closingSoonDiff`/`isInClosingWindow`/`selectUnvotedMembers`/`getTurkeyNow`) and unit-test those + idempotency (mock prisma/redis/notificationService) rather than the cron wiring. Covered cores: `smartNotifications`, `reservationReminders`, `friendSuggestionService`.

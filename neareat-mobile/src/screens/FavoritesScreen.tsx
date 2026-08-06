@@ -26,7 +26,7 @@ export default function FavoritesScreen() {
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
 
-  const { C, isDark } = useTheme();
+  const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const load = React.useCallback(async () => {

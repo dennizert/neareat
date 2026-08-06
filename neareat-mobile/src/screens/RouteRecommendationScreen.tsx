@@ -21,7 +21,7 @@ import RouteThinkingAnimation from '../components/RouteThinkingAnimation';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 import type { TurkishPlace } from '../data/turkishPlaces';
-import type { AiRecommendation, RouteRecommendation } from '../types';
+import type { AiRecommendation } from '../types';
 
 const DAY_LABELS = ['Bugün', 'Yarın', 'Öbür gün'];
 const MAX_SLOT = 47;

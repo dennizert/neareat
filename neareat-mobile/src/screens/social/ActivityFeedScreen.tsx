@@ -48,7 +48,6 @@ export default function ActivityFeedScreen() {
     loading,
     refreshing,
     loadingMore,
-    nextCursor,
     error,
     loadInitial,
     refresh,

@@ -6,7 +6,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import AppHeader from '../../components/AppHeader';
-import { getPlatformStats, getPendingRestaurants, getReports, handleReport, suspendUser, runFriendSuggestionsJob, getPlaceRequests, reviewPlaceRequest } from '../../services/admin';
+import { getPlatformStats, getPendingRestaurants, getReports, handleReport, runFriendSuggestionsJob, getPlaceRequests, reviewPlaceRequest } from '../../services/admin';
 import type { AdminPlaceRequest } from '../../services/admin';
 import type { AdminStats, AdminRestaurantSummary, UserReport } from '../../types';
 import { useTheme } from '../../theme';
@@ -17,7 +17,7 @@ type Tab = 'pending' | 'approved' | 'rejected' | 'reports' | 'place_requests' | 
 export default function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
   const { logout, user } = useAuthStore();
-  const { C, isDark } = useTheme();
+  const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [tab, setTab] = useState<Tab>('pending');
