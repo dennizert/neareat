@@ -202,3 +202,29 @@ Three distinct screen sets loaded conditionally by role:
 - **Android emulator:** Use `Pixel_7_Standard` (not `Pixel_7` which has 16KB page size incompatibility).
 - **Production URL:** `https://railway-up-production-6cdc.up.railway.app` — health check at `/health`.
 - **Horizontal scaling (S16-8):** the backend is replica-safe for 2+ Railway replicas (prereqs: S16-6 cron leader-lock, S16-7 DB pool). Graceful shutdown sets `utils/readiness.setShuttingDown(true)` on SIGTERM/SIGINT so `/health` returns **503 `shutting_down`** (LB drains away before `server.close()` finishes; 10s force-exit). `railway.toml` sets `healthcheckPath=/health` for zero-downtime rolling deploys. Stateless except deliberately per-replica `metrics` (S16-2) and the `aiRateLimit` in-memory fallback (only when Redis is down). To scale: set replicas=2 in Railway + harden Redis (`allkeys-lru`, enough memory/HA) — see [docs/HORIZONTAL_SCALING.md](neareat-backend/docs/HORIZONTAL_SCALING.md).
+
+---
+
+## Açık işler (TODO)
+
+Bilinçli olarak ertelenmiş, kapanmamış işler. Buraya bir madde eklendiğinde **neden
+şimdi yapılmadığı** da yazılır — sonraki oturum "unutulmuş" sanıp aceleyle yapmasın.
+
+- **#415 — Kalan 29 moderate bağımlılık açığı (kırıcı major yükseltme gerektiriyor).**
+  `npm audit fix` ile çözülemiyor; iki kırıcı yükseltme gerekiyor: **`@sentry/node` 8.55 → 10.x**
+  (zincir: `@opentelemetry/core` <2.8.0, [GHSA-8988-4f7v-96qf](https://github.com/advisories/GHSA-8988-4f7v-96qf))
+  ve **`firebase-admin` 12.7 → 14.x** (zincir: `uuid` <11.1.1, [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq)).
+  **CI kapısını KIRMIYOR** — `backend-audit` `--audit-level=high` ile koşuyor, bunlar moderate
+  (kapıyı kıran high+critical bulgular #414'te kapatıldı).
+  **Neden ertelendi:** ikisi de canlı davranışı etkileyebilir. `firebase-admin` 12→14 kimlik
+  doğrulamanın yarısını taşıyor (`middleware/auth.js` Firebase idToken doğrulama + hesap
+  silmede Firebase temizliği) — kırılırsa **Google ile giriş yapan tüm kullanıcılar** etkilenir,
+  bu yüzden staging'de gerçek Google girişi denenmeden merge edilmemeli. `@sentry/node` 8→10
+  ise S14-B3 gözlemlenebilirlik akışını (`services/sentry.js`, `securityLogger`→Sentry,
+  `errorHandler` 5xx forward, `beforeSend` scrub) sessizce kesebilir.
+  **Yapılırken:** iki yükseltme **ayrı PR'larda** — aynı PR'da birleştirilirse bir regresyonun
+  hangisinden geldiği ayırt edilemez.
+  **Gerçek risk sınırlı:** `uuid` bulgusu yalnızca `buf` parametresi verilen v3/v5/v6
+  çağrılarını etkiliyor; kod tabanı `uuid` v4'ü `buf`suz kullanıyor (`middleware/requestId.js`).
+  Borç kapanmadan `backend-audit` kapısını `--audit-level=moderate`'e sıkılaştırmayın — CI
+  sürekli kırmızı kalır.
