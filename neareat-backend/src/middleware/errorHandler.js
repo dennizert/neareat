@@ -3,6 +3,7 @@
 // Üretimde 5xx detayları gizlenir (bilgi sızıntısını önlemek için "Sunucu hatası" döner),
 // 5xx'ler stack ile loglanır ve (S14-B3) Sentry'ye gönderilir.
 const { captureException } = require('../services/sentry');
+const logger = require('../utils/logger'); // S21-2
 
 function errorHandler(err, req, res, next) {
   const status = err.status || 500;
@@ -12,7 +13,16 @@ function errorHandler(err, req, res, next) {
     : (err.message || 'Internal Server Error');
 
   if (status >= 500) {
-    console.error(`[ERROR] requestId=${req.id} status=${status}`, err);
+    // S21-2 — requestId artık logger tarafından bağlamdan otomatik eklenir; yine de
+    // açıkça geçiyoruz: ALS bağlamının kaybolduğu bir kenar durumda bile hata logunun
+    // korelasyon kimliğini taşıması gerekir (hata logu, kimliği en çok gereken yerdir).
+    logger.error('[ERROR] İstek başarısız', {
+      requestId: req.id,
+      status,
+      path: req.path,
+      error: err.message,
+      stack: err.stack,
+    });
     captureException(err, { requestId: req.id, path: req.path, status }); // DSN yoksa no-op
   }
 

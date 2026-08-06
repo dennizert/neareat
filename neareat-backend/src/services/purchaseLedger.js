@@ -6,6 +6,7 @@
 //
 // Best-effort: asıl IAP akışını ASLA bozmaz (hata yutulur).
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger'); // S21-2
 const { hashToken } = require('../utils/tokenHash');
 
 /**
@@ -32,7 +33,7 @@ async function recordPurchaseEvent(e) {
       },
     });
   } catch (err) {
-    console.warn('[purchaseLedger] yazım başarısız:', err.message);
+    logger.warn('[purchaseLedger] yazım başarısız', { error: err.message });
   }
 }
 

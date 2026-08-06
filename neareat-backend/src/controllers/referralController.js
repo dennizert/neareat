@@ -3,6 +3,7 @@
 // Davet (referral) sistemi: her kullanıcının benzersiz bir davet kodu vardır;
 // kod uygulandığında hem davet eden hem davet edilen yıldız ödülü kazanır.
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger'); // S21-2
 const { awardStars } = require('../utils/stars');
 const { markPendingReferral } = require('../services/referralReward');
 const { logRequest } = require('../services/logService');
@@ -124,7 +125,7 @@ async function applyCode(req, res, next) {
       await markPendingReferral(userId, referrer.id);
     } catch (starErr) {
       // Star hatası kritik değil, flag zaten set edildi
-      console.error('[referral] star award error:', starErr.message);
+      logger.error('[referral] yıldız verme hatası', { error: starErr.message });
     }
 
     logRequest({ req, page: 'Referral', action: 'Davet kodu uyguladı', details: normalizedCode }).catch(() => {});

@@ -12,6 +12,7 @@
  */
 
 const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger'); // S21-2
 const prisma = require('../utils/prisma');
 const { recordExternalCall } = require('./metrics'); // S16-3 — Anthropic harcama metriği
 const { getCandidates, MAX_CANDIDATES } = require('./candidateService');
@@ -122,11 +123,15 @@ function summarizeUsage(model, usage) {
  */
 function logUsage({ userId, model, usage, latencyMs }) {
   const s = summarizeUsage(model, usage);
-  console.log(
-    `[recommend] user=${userId} model=${model} ` +
-      `in=${s.inputTokens} out=${s.outputTokens} cached=${s.cachedTokens} ` +
-      `latency=${latencyMs}ms cost=$${s.estimatedCostUsd}`
-  );
+  logger.info('[recommend] Claude çağrısı tamamlandı', {
+    userId,
+    model,
+    inputTokens: s.inputTokens,
+    outputTokens: s.outputTokens,
+    cachedTokens: s.cachedTokens,
+    latencyMs,
+    estimatedCostUsd: s.estimatedCostUsd,
+  });
   // S16-3 — tahmini Anthropic harcamasını gözlemlenebilirlik metriğine yaz (günlük
   // toplam + eşik alarmı S16-2 evaluateAlarms.aiDailyUsd ile). Metrik asla akışı bozmamalı.
   try { recordExternalCall('anthropic', s.estimatedCostUsd); } catch { /* ignore */ }
@@ -307,7 +312,7 @@ async function recommend({ userId, location, isPremium = false }) {
       },
     })
     .catch((logErr) => {
-      console.error('[recommend] AiRecommendationLog write failed:', logErr.message);
+      logger.error('[recommend] AiRecommendationLog yazımı başarısız', { error: logErr.message });
     });
 
   logUsage({ userId, model, usage: response.usage, latencyMs });
@@ -484,7 +489,7 @@ async function recommendStream({
       },
     })
     .catch((logErr) => {
-      console.error('[recommendStream] AiRecommendationLog write failed:', logErr.message);
+      logger.error('[recommendStream] AiRecommendationLog yazımı başarısız', { error: logErr.message });
     });
 
   logUsage({ userId, model, usage: finalMsg.usage, latencyMs });
@@ -501,7 +506,7 @@ async function recommendStream({
     location,
     suggestedPlaceIds: updatedSuggested,
     refinements: updatedRefinements,
-  }).catch((e) => console.error('[recommendStream] session save failed:', e.message));
+  }).catch((e) => logger.error('[recommendStream] oturum kaydı başarısız', { error: e.message }));
 
   onDone({ tier, model, latencyMs, usage, sessionId: nextSessionId });
 
@@ -892,10 +897,9 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
         if (r.manual && reasonMap[r.placeId]) r.reason = reasonMap[r.placeId];
       }
     } catch (reasonErr) {
-      console.warn(
-        '[recommendForRoute] manuel durak gerekçe üretimi başarısız, templated kullanılıyor:',
-        reasonErr.message,
-      );
+      logger.warn('[recommendForRoute] manuel durak gerekçesi üretilemedi, şablon kullanılıyor', {
+        error: reasonErr.message,
+      });
     }
   }
 
@@ -925,7 +929,7 @@ async function recommendForRoute({ userId, origin, destination, departureTime, i
       },
     })
     .catch((logErr) => {
-      console.error('[recommendForRoute] AiRecommendationLog write failed:', logErr.message);
+      logger.error('[recommendForRoute] AiRecommendationLog yazımı başarısız', { error: logErr.message });
     });
 
   logUsage({ userId, model, usage: response.usage, latencyMs });

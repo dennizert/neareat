@@ -1,4 +1,5 @@
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger'); // S21-2
 const { isAlwaysPremiumEmail, isActivePremium } = require('../utils/premiumCheck');
 const { cacheGet, cacheSet } = require('../services/redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
@@ -210,7 +211,7 @@ async function verifyAndroidPurchase(req, res, next) {
           token: purchaseToken,
         });
       } catch (ackErr) {
-        console.error('[IAP] acknowledge başarısız:', ackErr.message);
+        logger.error('[IAP] acknowledge başarısız', { error: ackErr.message });
       }
     }
 
@@ -280,7 +281,7 @@ async function handleGooglePlayRTDN(req, res) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     if (!auth.enforced) {
-      console.warn('[RTDN][warn] GOOGLE_PUBSUB_AUDIENCE tanımlı değil — webhook doğrulanmıyor (üretimde ayarlayın).');
+      logger.warn('[RTDN] GOOGLE_PUBSUB_AUDIENCE tanımlı değil — webhook doğrulanmıyor (üretimde ayarlayın).');
     }
 
     const message = req.body?.message;
@@ -333,7 +334,7 @@ async function handleGooglePlayRTDN(req, res) {
       await _setSubscriptionStatus(purchaseToken, 'expired');
     }
   } catch (err) {
-    console.error('[RTDN] İşleme hatası:', err.message);
+    logger.error('[RTDN] İşleme hatası', { error: err.message });
   }
   return res.status(200).json({ received: true });
 }

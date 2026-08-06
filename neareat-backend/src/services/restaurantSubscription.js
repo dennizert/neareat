@@ -5,6 +5,7 @@
 // Aylık ücret 1.299,90 TL (gerçek tahsilat Google Play Console'da; kod fiyat tutmaz).
 
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger'); // S21-2
 
 const RESTAURANT_TRIAL_DAYS = parseInt(process.env.RESTAURANT_TRIAL_DAYS || '15', 10);
 // Dokümantasyon/fallback metin — gerçek tahsilat Play Console'da.
@@ -36,7 +37,7 @@ async function startTrialForRestaurant(userId, now = new Date()) {
     });
     return { created: true };
   } catch (err) {
-    console.error('[restaurantSubscription] trial start error:', err.message);
+    logger.error('[restaurantSubscription] trial başlatma hatası', { error: err.message });
     return { created: false, error: err.message };
   }
 }
