@@ -94,7 +94,7 @@ export default function RestaurantDetailScreen() {
   const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
 
   const { isFavorite, addFavorite: storeFav, removeFavorite: storeRemoveFav } = useFavoriteStore();
-  const { isPremium, user } = useAuthStore();
+  const { user } = useAuthStore();
   const { addStarEvent } = useUserProfileStore();
   const { myCollections, setMyCollections } = useCollectionStore();
   const toast = useToast();
@@ -302,10 +302,6 @@ export default function RestaurantDetailScreen() {
   }
 
   async function handleOpenCollectionModal() {
-    if (!isPremium()) {
-      navigation.navigate('Paywall', { trigger: 'collections' });
-      return;
-    }
     setCollectionModalVisible(true);
     if (myCollections.length === 0) {
       setLoadingCollections(true);
@@ -636,60 +632,31 @@ export default function RestaurantDetailScreen() {
             </View>
           )}
 
-          {detail.popularTimes ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>En Kalabalık Saatler</Text>
-              <Text style={styles.premiumHint}>Bu özellik premium kullanıcılara özeldir.</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.blurSection}
-              onPress={() => navigation.navigate('Paywall', { trigger: 'popular_times' })}
-            >
-              <Text style={styles.blurText}>📊 En Kalabalık Saatler · Premium</Text>
-            </TouchableOpacity>
-          )}
-
           {/* Ürün Fotoğrafları — sahibin yüklediği PRODUCT galerisi (S10-6).
-              Free tier'da backend boş döner + hasProductPhotos=true → kilitli teaser. */}
-          {!isPremium() && detail.hasProductPhotos ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Ürün Fotoğrafları</Text>
-              <TouchableOpacity style={styles.blurSection} onPress={() => navigation.navigate('Paywall', { trigger: 'product_photos' })}>
-                <Text style={styles.blurText}>🍽️ Ürün fotoğraflarını gör · Premium</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <ProductPhotosSection photos={detail.productPhotos ?? []} onPressPhoto={setSelectedMenuImage} />
-          )}
+              S18-2: herkese açık; ödeme yapan restoranın vitrini. */}
+          <ProductPhotosSection photos={detail.productPhotos ?? []} onPressPhoto={setSelectedMenuImage} />
 
-          {/* Menu section — premium only */}
+          {/* Menü — S18-2: herkese açık. */}
           {detail.hasMenu && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Menü</Text>
-              {isPremium() ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                  {(detail.menu ?? []).map(item => (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.menuThumb}
-                      onPress={() => item.data && setSelectedMenuImage(item.data)}
-                      activeOpacity={item.data ? 0.8 : 1}
-                    >
-                      {item.data ? (
-                        <Image source={{ uri: item.data }} style={styles.menuThumbImage} resizeMode="cover" />
-                      ) : (
-                        <Text style={{ fontSize: 28 }}>🖼️</Text>
-                      )}
-                      <Text style={styles.menuThumbLabel} numberOfLines={1}>{item.fileName ?? 'Menü'}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              ) : (
-                <TouchableOpacity style={styles.blurSection} onPress={() => navigation.navigate('Paywall', { trigger: 'popular_times' })}>
-                  <Text style={styles.blurText}>📋 Menüyü Görüntüle · Premium</Text>
-                </TouchableOpacity>
-              )}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                {(detail.menu ?? []).map(item => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.menuThumb}
+                    onPress={() => item.data && setSelectedMenuImage(item.data)}
+                    activeOpacity={item.data ? 0.8 : 1}
+                  >
+                    {item.data ? (
+                      <Image source={{ uri: item.data }} style={styles.menuThumbImage} resizeMode="cover" />
+                    ) : (
+                      <Text style={{ fontSize: 28 }}>🖼️</Text>
+                    )}
+                    <Text style={styles.menuThumbLabel} numberOfLines={1}>{item.fileName ?? 'Menü'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
 
@@ -1029,9 +996,6 @@ function makeStyles(C: Colors) {
     collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     hourLine: { fontSize: 13, color: C.textTertiary, marginBottom: 2 },
     todayLine: { fontWeight: '700', color: C.textPrimary },
-    premiumHint: { fontSize: 13, color: C.textMuted },
-    blurSection: { backgroundColor: C.background, borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 20 },
-    blurText: { fontSize: 15, color: C.primary, fontWeight: '600' },
     tabRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: C.border, marginBottom: 16 },
     tab: { flex: 1, paddingVertical: 10, alignItems: 'center' },
     tabActive: { borderBottomWidth: 2, borderColor: C.primary },

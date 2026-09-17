@@ -4,7 +4,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserProfileStore } from '../../store/userProfileStore';
-import { getRewards, getStarEvents, getNextMilestone, getLeaderboard } from '../../services/social';
+import { getRewards, getStarEvents, getLeaderboard } from '../../services/social';
+import { LEVEL_THRESHOLDS, levelForStars, nextLevelThreshold } from '../../utils/levelGate';
 import type { Reward, StarEvent, Leaderboard } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
@@ -28,8 +29,12 @@ export default function RewardsScreen() {
   const [loading, setLoading] = useState(true);
 
   const starCount = profile?.starCount ?? 0;
-  const nextMilestone = getNextMilestone(starCount);
-  const progress = starCount >= 100 ? 1 : (starCount % nextMilestone) / nextMilestone;
+  // İlerleme, bulunulan seviyenin tabanı ile bir sonraki seviyenin eşiği arasında ölçülür.
+  // L5'te (nextMilestone null) sonraki seviye yoktur → çubuk gösterilmez.
+  const nextMilestone = nextLevelThreshold(starCount);
+  const levelFloor = LEVEL_THRESHOLDS[levelForStars(starCount) - 1];
+  const progress =
+    nextMilestone === null ? 1 : (starCount - levelFloor) / (nextMilestone - levelFloor);
 
   useEffect(() => {
     async function load() {
@@ -50,7 +55,7 @@ export default function RewardsScreen() {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color={C.primary} />;
   }
 
-  const starsToNext = nextMilestone - starCount;
+  const starsToNext = nextMilestone === null ? 0 : nextMilestone - starCount;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottom + 16 }}>
@@ -63,7 +68,7 @@ export default function RewardsScreen() {
           <Text style={styles.starCountLabel}> Yıldız</Text>
         </View>
 
-        {starCount < 100 && (
+        {nextMilestone !== null && (
           <>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${Math.min(progress * 100, 100)}%` as any }]} />

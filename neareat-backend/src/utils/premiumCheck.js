@@ -1,6 +1,8 @@
 const prisma = require('./prisma');
 
-const PREMIUM_STATUSES = ['active', 'trial'];
+// 'cancelled' = otomatik yenileme kapatıldı, ama ödenmiş dönem bitene kadar erişim sürer
+// (Google Play semantiği). Erişimi asıl kesen `expiresAt` kontrolüdür, durum değil.
+const PREMIUM_STATUSES = ['active', 'trial', 'cancelled'];
 
 // Her zaman premium sayılan e-postalar — YALNIZCA env'den (virgülle ayrılmış).
 // S13-4: sabit/kod-içi fallback kaldırıldı (yanlışlıkla premium ifşasını önlemek için);
@@ -18,8 +20,8 @@ function isAlwaysPremiumEmail(email) {
   return getAlwaysPremiumEmails().includes(String(email).trim().toLowerCase());
 }
 
-// Bir abonelik kaydının ŞU AN geçerli premium olup olmadığını söyler (durum active/trial
-// VE bitiş tarihi gelecekte). DB sorgusu yapmaz → sync ve her yerde yeniden kullanılabilir.
+// Bir abonelik kaydının ŞU AN geçerli premium olup olmadığını söyler (durum active/trial/
+// cancelled VE bitiş tarihi gelecekte). DB sorgusu yapmaz → sync ve her yerde kullanılabilir.
 function isActivePremium(subscription) {
   return (
     !!subscription &&

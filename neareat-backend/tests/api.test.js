@@ -570,12 +570,25 @@ describe('Subscription Endpoints', () => {
     });
 
     it('Google Play credentials yapılandırılmamışsa 503 döner', async () => {
-      const res = await request(app)
-        .post('/api/subscriptions/verify/android')
-        .set('Authorization', `Bearer ${testToken}`)
-        .send({ purchaseToken: 'tok_test', productId: 'premium_monthly' });
+      // Env'i açıkça boşalt: app.js dotenv.config() çağırdığı için testler geliştiricinin
+      // gerçek .env'ini görüyor; aksi halde bu test makineye göre sonuç değiştirir ve
+      // credentials varsa gerçek Google Play API'sine istek atar.
+      const prevJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
+      const prevPkg = process.env.GOOGLE_PLAY_PACKAGE_NAME;
+      delete process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
+      delete process.env.GOOGLE_PLAY_PACKAGE_NAME;
 
-      expect(res.status).toBe(503);
+      try {
+        const res = await request(app)
+          .post('/api/subscriptions/verify/android')
+          .set('Authorization', `Bearer ${testToken}`)
+          .send({ purchaseToken: 'tok_test', productId: 'premium_monthly' });
+
+        expect(res.status).toBe(503);
+      } finally {
+        if (prevJson !== undefined) process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON = prevJson;
+        if (prevPkg !== undefined) process.env.GOOGLE_PLAY_PACKAGE_NAME = prevPkg;
+      }
     });
   });
 });

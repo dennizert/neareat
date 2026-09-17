@@ -18,7 +18,7 @@ describe('registeredProfileWhere', () => {
     const now = new Date('2026-06-23T00:00:00Z');
     const where = registeredProfileWhere({ placeId: { in: ['p1', 'p2'] } }, now);
     expect(where.status).toBe('APPROVED');
-    expect(where.user.subscription.is.status.in).toEqual(['active', 'trial']);
+    expect(where.user.subscription.is.status.in).toEqual(['active', 'trial', 'cancelled']);
     expect(where.user.subscription.is.expiresAt.gt).toBe(now);
   });
 
