@@ -3,6 +3,7 @@
 // Her fonksiyon iki yollu çalışır: MOCK_MODE açıksa bellek-içi session state üzerinden
 // sahte veriyle yanıt verir (SDK'sız/dev build), aksi halde backend'e gerçek API çağrısı yapar.
 import { MOCK_MODE } from '../config';
+import { levelForStars, levelBadge, nextLevelThreshold } from '../utils/levelGate';
 import {
   MOCK_USER_PROFILES,
   MOCK_FRIENDS,
@@ -29,22 +30,19 @@ export const STAR_AMOUNTS: Record<StarEvent['type'], number> = {
   rating: 2,
 };
 
+// Seviye rozeti ikonları (index = level-1) — sunum detayı, eşikler levelGate'ten gelir.
+const LEVEL_ICONS = ['🌱', '🍽️', '🏆', '⭐', '👑'];
+
 // Toplam yıldıza göre kullanıcı seviyesi + rozet adı/ikonu.
+// Eşik ve rozet adı TEK kaynaktan (utils/levelGate) gelir; backend stars.js ile aynıdır.
 export function getLevel(stars: number): { level: number; badge: string; badgeIcon: string } {
-  if (stars >= 100) return { level: 5, badge: 'Gastronomi Efsanesi', badgeIcon: '👑' };
-  if (stars >= 50) return { level: 4, badge: 'Eatlas Elçisi', badgeIcon: '⭐' };
-  if (stars >= 25) return { level: 3, badge: 'Restoran Uzmanı', badgeIcon: '🏆' };
-  if (stars >= 10) return { level: 2, badge: 'Gastronomi Meraklısı', badgeIcon: '🍽️' };
-  return { level: 1, badge: 'Yeni Kaşif', badgeIcon: '🌱' };
+  const level = levelForStars(stars);
+  return { level, badge: levelBadge(level), badgeIcon: LEVEL_ICONS[level - 1] };
 }
 
-// Bir sonraki seviye eşiği (ilerleme çubuğu için); en üst seviyede 100'de sabitlenir.
-export function getNextMilestone(stars: number): number {
-  if (stars < 10) return 10;
-  if (stars < 25) return 25;
-  if (stars < 50) return 50;
-  if (stars < 100) return 100;
-  return 100;
+// Bir sonraki seviyenin eşiği (ilerleme çubuğu için); en üst seviyede null.
+export function getNextMilestone(stars: number): number | null {
+  return nextLevelThreshold(stars);
 }
 
 // ─── Profil ────────────────────────────────────────────────────────────────
