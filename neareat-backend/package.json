@@ -54,6 +54,9 @@
     "prisma": "^6.19.3",
     "supertest": "^7.2.2"
   },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
+  },
   "jest": {
     "testEnvironment": "node",
     "setupFiles": [
