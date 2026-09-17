@@ -354,6 +354,7 @@ enum StarEventType {
   RESERVATION
   RESERVATION_ATTENDED
   REFERRAL
+  REFERRAL_BONUS
 }
 
 enum ReservationStatus {

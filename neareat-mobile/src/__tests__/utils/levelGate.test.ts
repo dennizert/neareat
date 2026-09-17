@@ -8,6 +8,7 @@ import {
   levelGateMessage,
   handleLevelError,
 } from '../../utils/levelGate';
+import { getLevel, getNextMilestone } from '../../services/social';
 
 describe('levelGate', () => {
   describe('levelForStars (backend eşikleriyle birebir)', () => {
@@ -94,6 +95,24 @@ describe('levelGate', () => {
     it('LEVEL_REQUIRED dışı → false, Alert yok', () => {
       expect(handleLevelError(new Error('x'))).toBe(false);
       expect(Alert.alert).not.toHaveBeenCalled();
+    });
+  });
+
+  // Regresyon: social.getLevel bir zamanlar kendi eşiklerini (10/25/50/100) taşıyordu ve
+  // profil kartı ile "Seviye İlerlemesi" satırı birbirini tutmuyordu. Tek kaynak levelGate.
+  describe('social.getLevel ile tutarlılık', () => {
+    it('her eşikte levelForStars/levelBadge ile aynı sonucu verir', () => {
+      for (const stars of [0, 49, 50, 99, 100, 149, 150, 249, 250, 1000]) {
+        const fromSocial = getLevel(stars);
+        expect(fromSocial.level).toBe(levelForStars(stars));
+        expect(fromSocial.badge).toBe(levelBadge(levelForStars(stars)));
+      }
+    });
+
+    it('getNextMilestone bir sonraki seviye eşiğini verir, L5te null', () => {
+      expect(getNextMilestone(0)).toBe(50);
+      expect(getNextMilestone(120)).toBe(150);
+      expect(getNextMilestone(250)).toBeNull();
     });
   });
 });

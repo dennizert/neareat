@@ -52,8 +52,14 @@ describe('isActivePremium', () => {
     expect(isActivePremium({ status: 'trial', expiresAt: pastDate })).toBe(false);
   });
 
-  it('returns false for cancelled status even with a future expiry date', () => {
-    expect(isActivePremium({ status: 'cancelled', expiresAt: futureDate })).toBe(false);
+  // Google Play'de CANCELED = otomatik yenileme kapatıldı; ödenmiş dönem sonuna kadar
+  // erişim sürmeli. Erişimi kesen expiresAt'tir, iptal anı değil.
+  it('returns true for cancelled status while the paid period is still running', () => {
+    expect(isActivePremium({ status: 'cancelled', expiresAt: futureDate })).toBe(true);
+  });
+
+  it('returns false for cancelled status once the paid period has ended', () => {
+    expect(isActivePremium({ status: 'cancelled', expiresAt: pastDate })).toBe(false);
   });
 
   it('returns false for expired status even with a future expiry date', () => {
@@ -137,7 +143,11 @@ describe('PREMIUM_STATUSES', () => {
     expect(PREMIUM_STATUSES).toContain('trial');
   });
 
-  it('has exactly 2 elements', () => {
-    expect(PREMIUM_STATUSES).toHaveLength(2);
+  it('contains cancelled (paid period runs to expiresAt)', () => {
+    expect(PREMIUM_STATUSES).toContain('cancelled');
+  });
+
+  it('has exactly 3 elements', () => {
+    expect(PREMIUM_STATUSES).toHaveLength(3);
   });
 });
