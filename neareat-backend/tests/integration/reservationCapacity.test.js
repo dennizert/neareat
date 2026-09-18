@@ -284,6 +284,11 @@ describe('PUT /api/reservations/:id/status — onayda rezerve koltuk (S19-3)', (
     prisma.restaurantProfile.findUnique.mockResolvedValue({ id: 'r-1', businessName: 'Test', userId: 'owner-1' });
     prisma.reservation.findUnique.mockResolvedValue({ id: 'res-1', restaurantId: 'r-1', status: 'PENDING', guestCount: 4, date: '2026-12-01', time: '19:00', userId: 'u-1', placeName: 'Test' });
     prisma.reservation.update.mockImplementation(({ data }) => Promise.resolve({ id: 'res-1', status: data.status, reservedSeats: data.reservedSeats ?? null }));
+    // S19-1: onay/red aktif abonelik ister.
+    prisma.subscription.findUnique.mockResolvedValue({
+      status: 'active',
+      expiresAt: new Date(Date.now() + 30 * 86400_000),
+    });
   });
 
   it('reservedSeats verilmezse → varsayılan guestCount yazılır', async () => {

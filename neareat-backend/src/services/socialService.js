@@ -19,15 +19,13 @@
 const prisma = require('../utils/prisma');
 const { HttpError } = require('../utils/httpError');
 const { awardStars, getLevel } = require('../utils/stars');
-const { canEarnPlaceStars } = require('../utils/starGuards');
-const { isPremiumUser } = require('../utils/premiumCheck');
+const { canEarnPlaceStars, getIstanbulMidnightUtc } = require('../utils/starGuards');
+const { getUserAccess } = require('../utils/levelAccess');
 const { createNotification, createNotificationsForUsers } = require('./notificationService');
 const { logActivity, ACTIVITY_TYPES } = require('./logService');
 const { getCachedSuggestions, computeSuggestionsForUser, invalidateSuggestions } = require('./friendSuggestionService');
 const { PUBLIC_USER_SELECT } = require('../utils/userDto');
 const { maskName, canViewUserContent, RANK_MEDALS } = require('../utils/socialPrivacy');
-
-const FREE_DAILY_REC_LIMIT = 1;
 
 // Sosyal aktivite akışı (S4-5)
 const FEED_DEFAULT_LIMIT = 20;
@@ -276,19 +274,19 @@ async function sendRecommendation(actor, input) {
 
   if (!placeId || !placeName) throw new HttpError(400, { error: 'placeId ve placeName gerekli.' });
 
-  // Günlük öneri limiti — ücretsiz kullanıcılar günde max 1 öneri gönderebilir
-  const premium = await isPremiumUser(actor.id);
-  if (!premium) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // S18: günlük öneri limiti SEVİYEYE bağlı (premium kaldırıldı). null = sınırsız.
+  // Gün penceresi diğer günlük sayaçlarla aynı: İstanbul gece yarısı (sunucu saati değil).
+  const { level, access } = await getUserAccess(actor.id);
+  const dailyLimit = access.recommendationsPerDay;
+  if (dailyLimit !== null) {
     const dailyCount = await prisma.recommendation.count({
-      where: { fromUserId: actor.id, createdAt: { gte: today } },
+      where: { fromUserId: actor.id, createdAt: { gte: getIstanbulMidnightUtc() } },
     });
     const newCount = toUserIds.length === 0 ? 1 : toUserIds.length;
-    if (dailyCount + newCount > FREE_DAILY_REC_LIMIT) {
+    if (dailyCount + newCount > dailyLimit) {
       throw new HttpError(403, {
-        error: `Günlük öneri limitinize (${FREE_DAILY_REC_LIMIT}) ulaştınız`,
-        code: 'PREMIUM_REQUIRED',
+        error: `Günlük öneri limitine ulaştın (${dailyLimit}). Daha fazlası için seviye atla.`,
+        code: 'LEVEL_REQUIRED', requiredLevel: Math.min(5, level + 1), feature: 'recommendation',
       });
     }
   }
@@ -323,13 +321,13 @@ async function sendRecommendation(actor, input) {
     metadata: { placeName: placeName || null },
   });
 
-  const starMultiplier = premium ? 2 : 1;
+  // S18: premium 2x çarpanı kaldırıldı — premium kullanıcı kavramı yok ve çarpan,
+  // seviye atlamayı hızlandıran farming vektörünün ana bileşeniydi.
   const { event, newStarCount, newRewards } = await awardStars(
     actor.id,
     'RECOMMENDATION',
     `${placeName}'ı paylaştın`,
     created[0].id,
-    starMultiplier,
   );
 
   // Öneri bildirimleri (fire-and-forget)
@@ -586,5 +584,5 @@ module.exports = {
   getStarEvents, getRewards, rateRestaurant,
   getLeaderboard, getFriendSuggestions, reportUser, getActivityFeed,
   // Sabitler — test ve yeniden kullanım için
-  FREE_DAILY_REC_LIMIT, FEED_DEFAULT_LIMIT, FEED_MAX_LIMIT, FEED_WINDOW_DAYS,
+  FEED_DEFAULT_LIMIT, FEED_MAX_LIMIT, FEED_WINDOW_DAYS,
 };

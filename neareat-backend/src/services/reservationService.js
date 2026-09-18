@@ -19,6 +19,7 @@
 const prisma = require('../utils/prisma');
 const { HttpError } = require('../utils/httpError');
 const { getUserAccess, getLevelAccess } = require('../utils/levelAccess');
+const { isRestaurantActive } = require('../utils/premiumCheck');
 const { maybeAwardReferrer } = require('./referralReward');
 const { registeredProfileWhere } = require('../utils/restaurantVisibility');
 const { availabilityForRequest } = require('../utils/occupancy');
@@ -416,6 +417,17 @@ async function updateReservationStatus(userId, id, { status, rejectionReason, re
   }
 
   const profile = await requireRestaurantProfile(userId);
+
+  // S19-1: rezervasyon kabulü ücretli işlemlerden biri. Gate restaurantAccount uçlarına
+  // uygulanmıştı ama onay/red akışı buradan geçtiği için açıkta kalmıştı → aboneliği
+  // bitmiş restoran süresiz rezervasyon onaylamaya devam edebiliyordu.
+  // (markAttendance bilinçli olarak kapsam dışı: mevcut rezervasyonu kapatmak engellenmemeli.)
+  if (!(await isRestaurantActive(userId))) {
+    throw new HttpError(403, {
+      error: 'Rezervasyon yanıtlamak için aktif aboneliğiniz olmalı.',
+      code: 'SUBSCRIPTION_REQUIRED',
+    });
+  }
 
   const reservation = await prisma.reservation.findUnique({ where: { id } });
   if (!reservation || reservation.restaurantId !== profile.id) {

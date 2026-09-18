@@ -26,11 +26,13 @@ jest.mock('../../../src/services/referralReward', () => ({ maybeAwardReferrer: j
 jest.mock('../../../src/services/notificationService', () => ({ createNotification: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../../../src/services/logService', () => ({ logActivity: jest.fn(), ACTIVITY_TYPES: { RESERVATION: 'RESERVATION' } }));
 jest.mock('../../../src/utils/restaurantVisibility', () => ({ registeredProfileWhere: (base) => base }));
+jest.mock('../../../src/utils/premiumCheck', () => ({ isRestaurantActive: jest.fn() }));
 
 const prisma = require('../../../src/utils/prisma');
 const { getUserAccess, getLevelAccess } = require('../../../src/utils/levelAccess');
 const { awardStars, deductStars, getLevel } = require('../../../src/utils/stars');
 const { maybeAwardReferrer } = require('../../../src/services/referralReward');
+const { isRestaurantActive } = require('../../../src/utils/premiumCheck');
 const svc = require('../../../src/services/reservationService');
 const { OVERBOOKING_WARNING } = require('../../../src/utils/reservationPolicy');
 const { HttpError } = require('../../../src/utils/httpError');
@@ -51,6 +53,7 @@ beforeEach(() => {
   getUserAccess.mockResolvedValue({ access: { maxReservationsPerMonth: null } });
   getLevelAccess.mockReturnValue({ reservationPriority: 0 });
   getLevel.mockReturnValue({ level: 1 });
+  isRestaurantActive.mockResolvedValue(true); // S19-1: varsayılan abonelikli restoran
   prisma.reservation.count.mockResolvedValue(0);
   prisma.reservation.findFirst.mockResolvedValue(null);
   prisma.reservation.findMany.mockResolvedValue([]);
@@ -245,6 +248,27 @@ describe('onay — rezerve koltuk (S19-3)', () => {
   it('PENDING olmayan rezervasyon güncellenemez', async () => {
     prisma.reservation.findUnique.mockResolvedValue({ id: 'res-1', restaurantId: 'r1', status: 'CONFIRMED' });
     await expectHttpError(svc.updateReservationStatus('owner-1', 'res-1', { status: 'CONFIRMED' }), 400);
+  });
+
+  // S19-1 regresyonu: gate restaurantAccount uçlarına uygulanmıştı ama onay/red akışı
+  // buradan geçtiği için açıkta kalmıştı → aboneliği bitmiş restoran onaylamaya devam ediyordu.
+  it('aboneliği yoksa onaylayamaz → 403 SUBSCRIPTION_REQUIRED, kayıt YAZILMAZ', async () => {
+    isRestaurantActive.mockResolvedValue(false);
+    await expectHttpError(
+      svc.updateReservationStatus('owner-1', 'res-1', { status: 'CONFIRMED' }),
+      403,
+      { code: 'SUBSCRIPTION_REQUIRED' },
+    );
+    expect(prisma.reservation.update).not.toHaveBeenCalled();
+  });
+
+  it('aboneliği yoksa reddedemez de → 403', async () => {
+    isRestaurantActive.mockResolvedValue(false);
+    await expectHttpError(
+      svc.updateReservationStatus('owner-1', 'res-1', { status: 'REJECTED', rejectionReason: 'Dolu' }),
+      403,
+      { code: 'SUBSCRIPTION_REQUIRED' },
+    );
   });
 });
 

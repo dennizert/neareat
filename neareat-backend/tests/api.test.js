@@ -530,29 +530,24 @@ describe('Subscription Endpoints', () => {
     });
   });
 
-  describe('POST /api/subscriptions/trial', () => {
-    it('should start trial for new user', async () => {
+  // S18: self-service deneme kaldırıldı. Herhangi bir kullanıcı kendine `status:'trial'`
+  // abonelik yazıp isPremiumUser'ı true yapabiliyordu (hak edilmemiş keşif yarıçapı vb.).
+  describe('POST /api/subscriptions/trial (kaldırıldı)', () => {
+    it('410 TRIAL_REMOVED döner ve abonelik YAZMAZ', async () => {
       mockPrisma.subscription.findUnique.mockResolvedValue(null);
-      mockPrisma.subscription.create.mockResolvedValue({
-        id: 'sub-trial', userId: testUser.id, status: 'trial', planType: 'trial',
-      });
 
       const res = await request(app)
         .post('/api/subscriptions/trial')
         .set('Authorization', `Bearer ${testToken}`);
 
-      expect(res.status).toBe(201);
-      expect(res.body.status).toBe('trial');
+      expect(res.status).toBe(410);
+      expect(res.body.code).toBe('TRIAL_REMOVED');
+      expect(mockPrisma.subscription.create).not.toHaveBeenCalled();
     });
 
-    it('should reject if already has subscription', async () => {
-      mockPrisma.subscription.findUnique.mockResolvedValue({ id: 'sub-1', status: 'active' });
-
-      const res = await request(app)
-        .post('/api/subscriptions/trial')
-        .set('Authorization', `Bearer ${testToken}`);
-
-      expect(res.status).toBe(400);
+    it('kimlik doğrulaması yoksa 401 döner', async () => {
+      const res = await request(app).post('/api/subscriptions/trial');
+      expect(res.status).toBe(401);
     });
   });
 
@@ -574,6 +569,10 @@ describe('Subscription Endpoints', () => {
       const prevPkg = process.env.GOOGLE_PLAY_PACKAGE_NAME;
       delete process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
       delete process.env.GOOGLE_PLAY_PACKAGE_NAME;
+
+      // Satın alma doğrulaması RESTAURANT rolüne özel (S18/S19); rol kapısı config
+      // kontrolünden önce çalıştığı için bu testin restoran hesabıyla koşması gerekir.
+      mockPrisma.user.findUnique.mockResolvedValue({ ...testUser, role: 'RESTAURANT' });
 
       try {
         const res = await request(app)
