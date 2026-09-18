@@ -19,6 +19,20 @@ const LENGTH_CHECKED_SECRETS = ['JWT_SECRET', 'TOKEN_HASH_SECRET'];
 // Eksikliği kritik değil ama önerilir — her ortamda yalnızca uyarı.
 const RECOMMENDED = ['ALLOWED_ORIGINS', 'ANTHROPIC_API_KEY', 'GOOGLE_PLACES_API_KEY', 'REDIS_URL'];
 
+// Şablon/yer-tutucu izleri. Uzunluk kontrolünü geçen ama TAHMİN EDİLEBİLİR bir secret
+// (örn. "...-change-in-production") imza anahtarı olarak kullanılırsa, değeri tahmin eden
+// biri istediği kullanıcı için token üretebilir. Yalnızca UYARI: ölümcül yapmak, rotasyon
+// öncesi bir deploy'da sunucuyu açılmaz hale getirir.
+const PLACEHOLDER_PATTERNS = [
+  'change-in-production', 'changeme', 'change-me', 'your-secret',
+  'replace-me', 'placeholder', 'example', 'todo',
+];
+
+function looksLikePlaceholder(value) {
+  const v = String(value).toLowerCase();
+  return PLACEHOLDER_PATTERNS.some((p) => v.includes(p));
+}
+
 function isPresent(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -48,6 +62,17 @@ function validateEnv(env = process.env) {
     const msg = `${key} çok kısa (< ${MIN_SECRET_LENGTH} karakter) — uzun rastgele bir değer kullanın.`;
     if (isProduction) errors.push(msg);
     else warnings.push(msg);
+  }
+
+  // Uzunluk yeterli olsa bile şablon değeri tahmin edilebilir → imza anahtarı için kritik.
+  for (const key of LENGTH_CHECKED_SECRETS) {
+    const value = env[key];
+    if (!isPresent(value) || !looksLikePlaceholder(value)) continue;
+    warnings.push(
+      `${key} şablon/yer-tutucu bir değere benziyor — tahmin edilebilir bir imza anahtarı ` +
+      'hesap devralmaya izin verir. Rastgele bir değerle değiştirin ' +
+      '(JWT_PREVIOUS_SECRET ile kesintisiz rotasyon mümkün).',
+    );
   }
 
   for (const key of RECOMMENDED) {

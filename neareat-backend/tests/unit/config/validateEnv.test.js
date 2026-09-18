@@ -77,3 +77,29 @@ describe('validateEnv', () => {
     expect(errors.some((e) => e.includes('TOKEN_HASH_SECRET'))).toBe(true);
   });
 });
+
+// Uzunluk kontrolünü geçen ama TAHMİN EDİLEBİLİR bir imza anahtarı, değeri bilen birinin
+// istediği kullanıcı adına token üretmesine izin verir (rol DB'den okunuyor → admin dahil).
+describe('yer-tutucu secret tespiti', () => {
+  const prodBase = {
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgresql://u:p@h:5432/db',
+    TOKEN_HASH_SECRET: 'nRUiVVVmUvbpzg5U7JD6a7tfC5vJFvdxMxq7X94M',
+  };
+
+  it('şablon izli JWT_SECRET uyarı üretir (uzunluk yeterli olsa bile)', () => {
+    const { errors, warnings } = validateEnv({
+      ...prodBase, JWT_SECRET: 'neareat-jwt-secret-2024-change-in-production',
+    });
+    expect(warnings.some((w) => w.includes('şablon'))).toBe(true);
+    // Ölümcül DEĞİL: rotasyon öncesi bir deploy sunucuyu açılmaz hale getirmemeli.
+    expect(errors).toHaveLength(0);
+  });
+
+  it('gerçek rastgele secret uyarı üretmez', () => {
+    const { warnings } = validateEnv({
+      ...prodBase, JWT_SECRET: 'K7pQ2xW9mR4tY6uI8oA1sD3fG5hJ0kL2zX4cV6bN8mQ',
+    });
+    expect(warnings.some((w) => w.includes('şablon'))).toBe(false);
+  });
+});
