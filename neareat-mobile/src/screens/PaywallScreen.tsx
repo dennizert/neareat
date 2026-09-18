@@ -46,7 +46,7 @@ const RESTAURANT_FEATURES: Feature[] = [
 
 export default function PaywallScreen() {
   const navigation = useNavigation<any>();
-  const { subscription, setSubscription, isPremium, user } = useAuthStore();
+  const { setSubscription, isPremium, user } = useAuthStore();
   const { C } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
