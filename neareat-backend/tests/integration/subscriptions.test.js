@@ -150,6 +150,25 @@ describe('POST /api/subscriptions/verify/android', () => {
   const productId = 'premium_yearly';
   const futureExpiry = String(Date.now() + 30 * 86400_000);
 
+  // S18/S19: abonelik yalnızca RESTAURANT rolüne satılır (aşağıdaki rol regresyon testi).
+  const restaurantUser = createTestUser({ id: userId, role: 'RESTAURANT' });
+  beforeEach(() => {
+    mockPrisma.user.findUnique.mockResolvedValue(restaurantUser);
+  });
+
+  it('USER rolü satın alma doğrulayamaz → 403 (ucuz ürünle B2B erişimi engeli)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue(createTestUser({ id: userId, role: 'USER' }));
+
+    const res = await request(app)
+      .post('/api/subscriptions/verify/android')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ purchaseToken, productId });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('PRODUCT_NOT_ALLOWED_FOR_ROLE');
+    expect(mockPrisma.subscription.upsert).not.toHaveBeenCalled();
+  });
+
   it('geçerli satın almayı doğrular ve aboneliği aktifleştirir', async () => {
     mockSubscriptionsGet.mockResolvedValue({
       data: { expiryTimeMillis: futureExpiry, autoRenewing: true },
@@ -662,6 +681,11 @@ describe('S14-B4: purchase ledger', () => {
   const purchaseToken = 'gpa.ledger-token';
   const productId = 'premium_yearly';
   const futureExpiry = String(Date.now() + 30 * 86400_000);
+
+  // Satın alma doğrulaması RESTAURANT rolüne özel (S18/S19).
+  beforeEach(() => {
+    mockPrisma.user.findUnique.mockResolvedValue(createTestUser({ id: userId, role: 'RESTAURANT' }));
+  });
 
   it('geçerli android satın alma → ledger verified yazar (token hash, ham değil)', async () => {
     mockSubscriptionsGet.mockResolvedValue({ data: { expiryTimeMillis: futureExpiry } });

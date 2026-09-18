@@ -66,8 +66,6 @@ export default function PaywallScreen() {
   // Deneme daha önce kullanıldıysa (herhangi bir abonelik kaydı varsa) backend yeni
   // trial'ı reddeder → "7 gün ücretsiz dene" butonunu gizle.
   const alreadyPremium = isPremium();
-  const hasUsedTrial = !!subscription;
-  const canTrial = !hasUsedTrial && !alreadyPremium;
 
   const { connected, subscriptions, requestProducts, requestPurchase, finishTransaction } = useIAP({
     onPurchaseSuccess: async (purchase) => {
@@ -133,20 +131,6 @@ export default function PaywallScreen() {
   const iapAvailable = !!product;
   const priceText = product?.displayPrice ? product.displayPrice : fallbackPrice;
 
-  async function handleTrial() {
-    try {
-      setPurchasing(true);
-      const { data } = await api.post('/subscriptions/trial');
-      setSubscription(data);
-      navigation.goBack();
-      Alert.alert('Deneme Başladı 🎉', '7 günlük Premium denemen aktif!');
-    } catch (err: any) {
-      Alert.alert('Hata', err.userMessage || err.response?.data?.error || 'Deneme başlatılamadı.');
-    } finally {
-      setPurchasing(false);
-    }
-  }
-
   const startPurchase = useCallback(async () => {
     if (Platform.OS !== 'android') {
       Alert.alert('Yakında', 'iOS için App Store entegrasyonu yakında geliyor.');
@@ -176,13 +160,9 @@ export default function PaywallScreen() {
     }
   }, [product, sku, requestPurchase, user?.id]);
 
-  // Ana butona basınca: Play hazırsa satın al; değilse deneme (kullanılabilirse)
+  // S18/S19: self-service deneme kaldırıldı (restoran denemesi onayda otomatik verilir).
   function handlePrimary() {
-    if (iapAvailable) {
-      startPurchase();
-    } else if (canTrial) {
-      handleTrial();
-    }
+    if (iapAvailable) startPurchase();
   }
 
   // ── Zaten premium ise sade bir bilgi ekranı ──
@@ -208,11 +188,9 @@ export default function PaywallScreen() {
     ? null
     : iapAvailable
       ? '✨ Premium\'a Geç'
-      : canTrial
-        ? '7 Gün Ücretsiz Dene'
-        : 'Ödeme yakında aktifleşecek';
+      : 'Ödeme yakında aktifleşecek';
 
-  const primaryDisabled = purchasing || (!iapAvailable && !canTrial);
+  const primaryDisabled = purchasing || !iapAvailable;
 
   return (
     <View style={styles.container}>
@@ -264,13 +242,6 @@ export default function PaywallScreen() {
             : <Text style={styles.primaryBtnText}>{primaryLabel}</Text>}
         </TouchableOpacity>
 
-        {/* Play hazır + deneme hakkı varsa ikincil deneme seçeneği */}
-        {iapAvailable && canTrial && (
-          <TouchableOpacity style={styles.secondaryBtn} onPress={handleTrial} disabled={purchasing}>
-            <Text style={styles.secondaryBtnText}>veya önce 7 gün ücretsiz dene</Text>
-          </TouchableOpacity>
-        )}
-
         <Text style={styles.legal}>
           {iapAvailable
             ? 'Abonelik Google Play üzerinden yönetilir; istediğin zaman iptal edebilirsin. Devam ederek Kullanım Şartları ve Gizlilik Politikasını kabul etmiş olursun.'
@@ -319,8 +290,6 @@ function makeStyles(C: Colors) {
     },
     primaryBtnDisabled: { opacity: 0.5 },
     primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    secondaryBtn: { paddingVertical: 10, alignItems: 'center', marginBottom: 8 },
-    secondaryBtnText: { color: C.textTertiary, fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
     legal: { fontSize: 11, color: C.textMuted, textAlign: 'center', lineHeight: 16, marginTop: 8 },
   });
 }

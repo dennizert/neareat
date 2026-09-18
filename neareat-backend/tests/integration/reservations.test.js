@@ -602,6 +602,31 @@ describe('PUT /api/reservations/:id', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('PUT /api/reservations/:id/status', () => {
+  // S19-1: onay/red aktif abonelik ister (isRestaurantActive → subscription.findUnique).
+  beforeEach(() => {
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      status: 'active',
+      expiresAt: new Date(Date.now() + 30 * 86400_000),
+    });
+  });
+
+  it('aboneliği bitmiş restoran onaylayamaz → 403 SUBSCRIPTION_REQUIRED', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      status: 'expired',
+      expiresAt: new Date(Date.now() - 86400_000),
+    });
+    mockPrisma.restaurantProfile.findUnique.mockResolvedValue(mockRestaurantProfile);
+
+    const res = await request(app)
+      .put(`/api/reservations/${mockReservation.id}/status`)
+      .set('Authorization', `Bearer ${restaurantToken}`)
+      .send({ status: 'CONFIRMED' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('SUBSCRIPTION_REQUIRED');
+    expect(mockPrisma.reservation.update).not.toHaveBeenCalled();
+  });
+
   it('should confirm a PENDING reservation → 200', async () => {
     const pendingReservation = { ...mockReservation, status: 'PENDING', restaurantId: mockRestaurantProfile.id };
     const confirmedReservation = { ...pendingReservation, status: 'CONFIRMED' };

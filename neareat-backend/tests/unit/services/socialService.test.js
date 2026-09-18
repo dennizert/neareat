@@ -24,8 +24,11 @@ jest.mock('../../../src/utils/stars', () => ({
   awardStars: jest.fn().mockResolvedValue({ event: { id: 'ev-1' }, newStarCount: 10, newRewards: [] }),
   getLevel: jest.fn(() => ({ level: 2, levelName: 'L2' })),
 }));
-jest.mock('../../../src/utils/starGuards', () => ({ canEarnPlaceStars: jest.fn() }));
-jest.mock('../../../src/utils/premiumCheck', () => ({ isPremiumUser: jest.fn() }));
+jest.mock('../../../src/utils/starGuards', () => ({
+  canEarnPlaceStars: jest.fn(),
+  getIstanbulMidnightUtc: jest.fn(() => new Date('2026-01-01T00:00:00.000Z')),
+}));
+jest.mock('../../../src/utils/levelAccess', () => ({ getUserAccess: jest.fn() }));
 jest.mock('../../../src/services/notificationService', () => ({
   createNotification: jest.fn().mockResolvedValue(undefined),
   createNotificationsForUsers: jest.fn().mockResolvedValue(undefined),
@@ -43,7 +46,7 @@ jest.mock('../../../src/services/friendSuggestionService', () => ({
 const prisma = require('../../../src/utils/prisma');
 const { awardStars } = require('../../../src/utils/stars');
 const { canEarnPlaceStars } = require('../../../src/utils/starGuards');
-const { isPremiumUser } = require('../../../src/utils/premiumCheck');
+const { getUserAccess } = require('../../../src/utils/levelAccess');
 const { logActivity } = require('../../../src/services/logService');
 const svc = require('../../../src/services/socialService');
 const { HttpError } = require('../../../src/utils/httpError');
@@ -52,7 +55,8 @@ const ACTOR = { id: 'u-1', displayName: 'Deniz', starCount: 100 };
 
 beforeEach(() => {
   jest.clearAllMocks();
-  isPremiumUser.mockResolvedValue(false);
+  // Varsayılan: L1 kullanıcı, günde 1 öneri (seviye matrisiyle aynı).
+  getUserAccess.mockResolvedValue({ level: 1, access: { recommendationsPerDay: 1 } });
   awardStars.mockResolvedValue({ event: { id: 'ev-1' }, newStarCount: 10, newRewards: [] });
 });
 
@@ -181,36 +185,44 @@ describe('sendRecommendation', () => {
     await expectHttpError(svc.sendRecommendation(ACTOR, { placeId: 'p1' }), 400);
   });
 
-  it('ücretsiz kullanıcı günlük limiti aşarsa 403 PREMIUM_REQUIRED', async () => {
+  it('günlük seviye limiti aşılırsa 403 LEVEL_REQUIRED (bir üst seviyeyi işaret eder)', async () => {
     prisma.recommendation.count.mockResolvedValue(1);
     await expectHttpError(
       svc.sendRecommendation(ACTOR, { placeId: 'p1', placeName: 'Test', toUserIds: ['u-2'] }),
       403,
-      { code: 'PREMIUM_REQUIRED' },
+      { code: 'LEVEL_REQUIRED', requiredLevel: 2, feature: 'recommendation' },
     );
   });
 
+  it('L5 (recommendationsPerDay: null) sınırsızdır — sayım bile yapılmaz', async () => {
+    getUserAccess.mockResolvedValue({ level: 5, access: { recommendationsPerDay: null } });
+    await svc.sendRecommendation(ACTOR, { placeId: 'p1', placeName: 'Test', toUserIds: ['u-2'] });
+    expect(prisma.recommendation.count).not.toHaveBeenCalled();
+  });
+
+  it('günlük pencere İstanbul gece yarısına göre hesaplanır (sunucu saatine değil)', async () => {
+    prisma.recommendation.count.mockResolvedValue(0);
+    await svc.sendRecommendation(ACTOR, { placeId: 'p1', placeName: 'Test', toUserIds: ['u-2'] });
+    expect(prisma.recommendation.count).toHaveBeenCalledWith({
+      where: { fromUserId: ACTOR.id, createdAt: { gte: new Date('2026-01-01T00:00:00.000Z') } },
+    });
+  });
+
   it('çok alıcılı gönderim TEK transaction içinde yapılır (kısmi gönderim yok)', async () => {
-    // Premium: 2 alıcı ücretsiz günlük limiti (1) aşardı — burada test edilen şey limit değil,
-    // gönderimin atomikliği.
-    isPremiumUser.mockResolvedValue(true);
+    // Limit değil atomiklik test ediliyor → limiti yüksek bir seviye seç.
+    getUserAccess.mockResolvedValue({ level: 3, access: { recommendationsPerDay: 10 } });
     await svc.sendRecommendation(ACTOR, { placeId: 'p1', placeName: 'Test', toUserIds: ['u-2', 'u-3'] });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
-  it('premium kullanıcıda yıldız çarpanı 2 olur', async () => {
-    isPremiumUser.mockResolvedValue(true);
+  // S18: premium 2x çarpanı kaldırıldı — seviye atlamayı hızlandıran farming vektörüydü.
+  it('yıldız çarpanı uygulanmaz (awardStars çarpansız çağrılır)', async () => {
     await svc.sendRecommendation(ACTOR, { placeId: 'p1', placeName: 'Test', toUserIds: [] });
-    expect(awardStars).toHaveBeenCalledWith(ACTOR.id, 'RECOMMENDATION', expect.any(String), 'rec-1', 2);
-  });
-
-  it('ücretsiz kullanıcıda yıldız çarpanı 1 olur', async () => {
-    await svc.sendRecommendation(ACTOR, { placeId: 'p1', placeName: 'Test', toUserIds: [] });
-    expect(awardStars).toHaveBeenCalledWith(ACTOR.id, 'RECOMMENDATION', expect.any(String), 'rec-1', 1);
+    expect(awardStars).toHaveBeenCalledWith(ACTOR.id, 'RECOMMENDATION', expect.any(String), 'rec-1');
   });
 
   it('aktivite akışına tek olay yazılır (alıcı sayısından bağımsız)', async () => {
-    isPremiumUser.mockResolvedValue(true); // limit değil, olay sayısı test ediliyor
+    getUserAccess.mockResolvedValue({ level: 3, access: { recommendationsPerDay: 10 } });
     await svc.sendRecommendation(ACTOR, { placeId: 'p1', placeName: 'Test', toUserIds: ['u-2', 'u-3'] });
     expect(logActivity).toHaveBeenCalledTimes(1);
   });

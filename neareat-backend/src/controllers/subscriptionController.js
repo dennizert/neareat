@@ -5,7 +5,6 @@ const { cacheGet, cacheSet } = require('../services/redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
 const { verifyPubSubPush } = require('../services/pubsubAuth');
 const { recordPurchaseEvent } = require('../services/purchaseLedger');
-const TRIAL_DAYS = parseInt(process.env.TRIAL_DAYS || '7');
 
 // RTDN teşhisi: gelen her bildirimin özetini (token/kullanıcı YOK) Redis'e yazar.
 // GET /webhooks/google-play/last ile son bildirimi okumak için (kurulum doğrulaması).
@@ -77,32 +76,27 @@ async function getSubscription(req, res, next) {
   }
 }
 
-// Ücretsiz deneme aboneliği başlatır (TRIAL_DAYS gün). Kullanıcının daha önce herhangi bir
-// aboneliği varsa reddeder → deneme yalnızca bir kez kullanılabilir.
-async function startTrial(req, res, next) {
-  try {
-    const existing = await prisma.subscription.findUnique({ where: { userId: req.user.id } });
-    if (existing) {
-      return res.status(400).json({ error: 'User already has a subscription' });
-    }
+// S18: self-service deneme KALDIRILDI. Kullanıcı premium'u yok; bu uç herhangi bir
+// kullanıcının kendine `status:'trial'` abonelik yazmasına izin veriyordu → isPremiumUser
+// true olup keşif yarıçapı gibi hak edilmemiş ayrıcalıklar açılıyordu.
+// Restoran denemesi zaten admin onayında otomatik veriliyor (restaurantSubscription
+// .startTrialForRestaurant, 15 gün), yani bu uca hiçbir rolün ihtiyacı yok.
+// Sahadaki eski APK'lar bu ucu çağırmaya devam ediyor; 404 yerine açık bir 410 dönüyoruz.
+function startTrialRemoved(_req, res) {
+  res.status(410).json({
+    error: 'Ücretsiz deneme kaldırıldı. Özellikler yıldız seviyesine göre açılır.',
+    code: 'TRIAL_REMOVED',
+  });
+}
 
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-
-    const subscription = await prisma.subscription.create({
-      data: {
-        userId: req.user.id,
-        planType: 'trial',
-        status: 'trial',
-        startedAt: now,
-        expiresAt,
-      },
-    });
-
-    res.status(201).json(subscription);
-  } catch (err) {
-    next(err);
-  }
+// S18/S19: abonelik yalnızca RESTAURANT rolüne satılır.
+// Önceden istemciden gelen `productId` role karşı hiç doğrulanmıyordu; bir RESTAURANT
+// hesabı ucuz kullanıcı ürününü satın alıp B2B panelinin tamamını (analitik/kampanya/
+// rapor) fiyatın çok altında açabiliyordu. Kullanıcı premium'u S18'de kaldırıldığı için
+// USER rolünün satın alabileceği ürün yok → rol kontrolü SKU listesi tutmaya gerek
+// bırakmadan bu deliği kapatır (Play kataloğu değişse de doğru kalır).
+function isPurchaseRoleAllowed(role) {
+  return role === 'RESTAURANT';
 }
 
 // Google Play satın alma doğrulama — Android IAP akışı:
@@ -115,6 +109,22 @@ async function verifyAndroidPurchase(req, res, next) {
     const { purchaseToken, productId } = req.body;
     if (!purchaseToken || !productId) {
       return res.status(400).json({ error: 'purchaseToken ve productId gerekli' });
+    }
+
+    // Satın alma ↔ rol bağı (yukarıdaki nota bakın).
+    if (!isPurchaseRoleAllowed(req.user.role)) {
+      logSecurityEvent(EVENTS.IAP_REJECTED, {
+        userId: req.user.id,
+        ip: req.ip,
+        path: req.path,
+        requestId: req.id,
+        reason: 'product_role_mismatch',
+      });
+      recordPurchaseEvent({ userId: req.user.id, source: 'android', type: 'verify', productId, purchaseToken, status: 'role_mismatch' });
+      return res.status(403).json({
+        error: 'PRODUCT_NOT_ALLOWED_FOR_ROLE',
+        message: 'Bu ürün hesabınızın türü için geçerli değil.',
+      });
     }
 
     const serviceAccountJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
@@ -390,7 +400,7 @@ async function _setSubscriptionStatus(purchaseToken, status) {
 
 module.exports = {
   getSubscription,
-  startTrial,
+  startTrialRemoved,
   verifyAndroidPurchase,
   verifyAppStorePurchase,
   handleGooglePlayRTDN,
