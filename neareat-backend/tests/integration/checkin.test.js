@@ -88,7 +88,12 @@ describe('POST /api/checkin', () => {
     const res = await request(app).post('/api/checkin').set('Authorization', `Bearer ${token}`)
       .send({ placeId: 'p1', placeName: 'Köşk Kebap' });
     expect(res.status).toBe(201);
-    expect(mockPrisma.checkIn.deleteMany).toHaveBeenCalledWith({ where: { userId } });
+    // Yalnızca AKTİF check-in silinir: geçmiş kayıtlar ziyaret kanıtıdır
+    // (starGuards.hasVerifiedVisit), süre filtresi olmadan başka mekana check-in
+    // yapmak önceki ziyaretin kanıtını da siliyordu.
+    expect(mockPrisma.checkIn.deleteMany).toHaveBeenCalledWith({
+      where: { userId, expiresAt: { gt: expect.any(Date) } },
+    });
     expect(mockPrisma.checkIn.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ userId, placeId: 'p1', placeName: 'Köşk Kebap' }),
     }));
@@ -166,5 +171,13 @@ describe('DELETE /api/checkin', () => {
     const res = await request(app).delete('/api/checkin').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ deleted: 1 });
+  });
+
+  it('yalnızca aktif kaydı siler — geçmiş ziyaret kanıtı korunur', async () => {
+    mockPrisma.checkIn.deleteMany.mockResolvedValue({ count: 1 });
+    await request(app).delete('/api/checkin').set('Authorization', `Bearer ${token}`);
+    expect(mockPrisma.checkIn.deleteMany).toHaveBeenCalledWith({
+      where: { userId, expiresAt: { gt: expect.any(Date) } },
+    });
   });
 });

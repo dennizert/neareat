@@ -25,4 +25,15 @@ const reviewCreateSchema = z.object({
   placeName: z.string().optional(),
 });
 
-module.exports = { registerSchema, loginEmailSchema, reviewCreateSchema };
+// PUT /api/reviews/:reviewId — kısmi güncelleme; gönderilen alan doğrulanır.
+// Create yolu doğrulanıyordu ama update ham `{ rating, body }` yazıyordu: rating=30000
+// kaydedilip restoran ortalamasını bozabiliyor, sayısal olmayan değer Prisma'yı
+// patlatıp 500 döndürüyordu.
+const reviewUpdateSchema = z.object({
+  rating: z.coerce.number().int().min(1, 'rating 1-5 arasında olmalı').max(5, 'rating 1-5 arasında olmalı').optional(),
+  body: z.string().min(1, 'body boş olamaz').optional(),
+}).refine((d) => d.rating !== undefined || d.body !== undefined, {
+  message: 'rating veya body gönderilmeli',
+});
+
+module.exports = { registerSchema, loginEmailSchema, reviewCreateSchema, reviewUpdateSchema };

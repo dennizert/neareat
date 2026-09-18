@@ -108,6 +108,8 @@ model Subscription {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // jobs/subscriptionReminders her gün status='trial' + expiresAt aralığı tarar.
+  @@index([status, expiresAt])
   @@map("subscriptions")
 }
 
@@ -449,6 +451,9 @@ model RestaurantProfile {
 
   @@index([placeId])
   @@index([status])
+  // Uygulamanın en sıcak sorgusu: registeredProfileWhere (nearby/detail/rezervasyon
+  // zenginleştirmesi) placeId + status='APPROVED' ile filtreliyor.
+  @@index([placeId, status])
   @@map("restaurant_profiles")
 }
 
@@ -578,6 +583,13 @@ model Reservation {
   @@index([userId])
   @@index([restaurantId, status])
   @@index([placeId])
+  // Slot kapasite sayımı her rezervasyon denemesinde çalışır (placeId+date+time).
+  @@index([placeId, date, time])
+  // Doluluk/uygunluk sorgusu restoran+tarih+durum ile filtreliyor; mevcut
+  // [restaurantId, status] indeksi date'i kapsamadığı için gün içi tarama yapıyordu.
+  @@index([restaurantId, date, status])
+  // Aylık rezervasyon kotası: userId + createdAt >= ay başı.
+  @@index([userId, createdAt])
   @@map("reservations")
 }
 

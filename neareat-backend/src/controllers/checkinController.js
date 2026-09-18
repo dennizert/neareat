@@ -51,8 +51,13 @@ async function createCheckin(req, res, next) {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + CHECKIN_TTL_HOURS * 60 * 60 * 1000);
 
-    // Kullanıcının aktif check-in'lerini sil (tek aktif kayıt)
-    await prisma.checkIn.deleteMany({ where: { userId: req.user.id } });
+    // Yalnızca AKTİF (süresi dolmamış) check-in'i sil — tek aktif kayıt invariantı.
+    // Süre filtresi yoktu: B'ye check-in yapmak A'nın kaydını da siliyordu. CheckIn satırı
+    // aynı zamanda ziyaret kanıtı (starGuards.hasVerifiedVisit) olduğu için kullanıcı
+    // gerçekten gittiği yerde yorum yıldızını ve puanlama hakkını kaybediyordu.
+    await prisma.checkIn.deleteMany({
+      where: { userId: req.user.id, expiresAt: { gt: now } },
+    });
 
     const checkin = await prisma.checkIn.create({
       data: { userId: req.user.id, placeId, placeName, expiresAt },
@@ -91,7 +96,10 @@ async function getMyActiveCheckin(req, res, next) {
 
 async function cancelMyCheckin(req, res, next) {
   try {
-    const { count } = await prisma.checkIn.deleteMany({ where: { userId: req.user.id } });
+    // "Check-in'i iptal et" yalnızca aktif olanı kaldırmalı; geçmiş ziyaret kanıtı korunur.
+    const { count } = await prisma.checkIn.deleteMany({
+      where: { userId: req.user.id, expiresAt: { gt: new Date() } },
+    });
     res.json({ deleted: count });
   } catch (err) {
     next(err);

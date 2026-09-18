@@ -104,11 +104,17 @@ async function getMessages(req, res, next) {
       ],
     };
 
+    // Cursor, satırın SIRADAKİ KONUMUNA göre çalışmalı. Önceden `id: { lt: cursor }`
+    // kullanılıyordu: id'ler UUID olduğu için bu, createdAt sıralamasıyla ilgisiz bir
+    // sözlük karşılaştırmasıydı → sayfa 2'de rastgele bir alt küme dönüyor, daha eski
+    // mesajlar kalıcı olarak kayboluyordu. `id: 'desc'` ikincil sıra, eşit createdAt
+    // değerlerinde toplam sıralama garantisi verir (cursor'ın kararlı olması için şart).
     const [messages, otherUser] = await Promise.all([
       prisma.message.findMany({
-        where: cursor ? { ...where, id: { lt: cursor } } : where,
-        orderBy: { createdAt: 'desc' },
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         select: {
           id: true, content: true, isRead: true, createdAt: true,
           senderId: true, receiverId: true,
@@ -123,11 +129,16 @@ async function getMessages(req, res, next) {
       data: { isRead: true },
     });
 
+    // messages desc sırada: [0] en yeni, son eleman en eski. Sonraki sayfa en eskiden
+    // devam eder. (nextCursor'ı reverse'den ÖNCE hesapla — reverse yerinde mutasyon yapar.)
+    const hasMore = messages.length === limit;
+    const nextCursor = hasMore ? messages[messages.length - 1].id : null;
+
     res.json({
       messages: messages.reverse(),
       otherUser,
-      hasMore: messages.length === limit,
-      nextCursor: messages.length === limit ? messages[0]?.id : null,
+      hasMore,
+      nextCursor,
     });
   } catch (err) {
     next(err);

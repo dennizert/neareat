@@ -410,7 +410,10 @@ async function updateInfo(userId, input) {
   return prisma.restaurantProfile.update({
     where: { userId },
     data: {
-      reservationUrl: reservationUrl || null,
+      // Gönderilmediyse DOKUNMA. Önceden koşulsuz `|| null` yazılıyordu: yalnızca telefon
+      // güncelleyen bir istek rezervasyon linkini sessizce siliyordu. Boş string/null
+      // gönderildiğinde temizleme davranışı korunur (bilinçli silme).
+      reservationUrl: reservationUrl === undefined ? undefined : (reservationUrl || null),
       phone: phone || undefined,
       altPhone: altPhoneUpdate,
       contactEmail: contactEmail || undefined,
