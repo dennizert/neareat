@@ -187,6 +187,34 @@ describe('GET /api/profile/:userId', () => {
     expect(res.body.hidden).toBe(true);
   });
 
+  it('gizli profilin İÇERİĞİ gövdede sızmaz (yalnızca kimlik alanları)', async () => {
+    const privateUser = createTestUser({
+      id: 'private-user', displayName: 'Private', isPublic: false,
+      bio: 'çok gizli biyografi', city: 'İstanbul', favoriteCuisines: ['Sushi'], starCount: 180,
+    });
+    mockPrisma.user.findUnique.mockImplementation(({ where }) => {
+      if (where.id === user1.id) return Promise.resolve(user1);
+      if (where.id === 'private-user') return Promise.resolve(privateUser);
+      return Promise.resolve(null);
+    });
+    mockPrisma.friendRequest.findFirst.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get('/api/profile/private-user')
+      .set('Authorization', `Bearer ${token1}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.hidden).toBe(true);
+    // Kişisel alanların HİÇBİRİ dönmemeli — istemci `hidden` bayrağını kullanmıyor.
+    expect(res.body.bio).toBeUndefined();
+    expect(res.body.city).toBeUndefined();
+    expect(res.body.favoriteCuisines).toBeUndefined();
+    expect(res.body.starCount).toBeUndefined();
+    expect(res.body.level).toBeUndefined();
+    // Kimliklendirme için gerekenler kalır.
+    expect(res.body.displayName).toBe('Private');
+  });
+
   it('returns full profile for private user who is a friend', async () => {
     const privateUser = createTestUser({ id: 'private-friend', displayName: 'Secret Bob', isPublic: false });
     mockPrisma.user.findUnique.mockImplementation(({ where }) => {

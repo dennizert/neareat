@@ -149,6 +149,29 @@ describe('POST /api/reviews — e-posta doğrulaması şartı', () => {
 // ─── PUT /api/reviews/:reviewId ───────────────────────────────────────────────
 
 describe('PUT /api/reviews/:reviewId', () => {
+  // Create yolu zod ile doğrulanıyordu ama update ham `{ rating, body }` yazıyordu:
+  // rating=30000 kaydedilip restoran ortalamasını bozuyor, sayısal olmayan değer
+  // Prisma'yı patlatıp 500 döndürüyordu.
+  it('aralık dışı rating reddedilir → 400, güncelleme YAPILMAZ', async () => {
+    const res = await request(app)
+      .put('/api/reviews/rv-1')
+      .set('Authorization', `Bearer ${token1}`)
+      .send({ rating: 30000, body: 'Harika!' });
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.review.update).not.toHaveBeenCalled();
+  });
+
+  it('sayısal olmayan rating reddedilir → 400 (500 değil)', async () => {
+    const res = await request(app)
+      .put('/api/reviews/rv-1')
+      .set('Authorization', `Bearer ${token1}`)
+      .send({ rating: 'beş', body: 'Harika!' });
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.review.update).not.toHaveBeenCalled();
+  });
+
   it('returns 200 when owner updates their review', async () => {
     const existingReview = { id: 'rv-1', userId: user1.id, placeId: 'p1', rating: 3, body: 'Orta' };
     mockPrisma.review.findUnique.mockResolvedValue(existingReview);

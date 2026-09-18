@@ -135,7 +135,17 @@ async function getUser(req, res, next) {
         },
       });
       if (!friendship) {
-        return res.json({ ...formatProfile(user, subscription), hidden: true });
+        // Gizli profilde İÇERİK GÖNDERİLMEZ. Önceden tüm profil (bio, şehir, mutfak
+        // tercihleri, yıldız/seviye) gövdede dönüyor, yalnızca `hidden` bayrağıyla
+        // işaretleniyordu — istemci bu bayrağı hiç kullanmadığı için veri açıkta kalıyordu.
+        // Yalnızca kimliklendirme için gereken minimum alanlar döner.
+        return res.json({
+          id: user.id,
+          displayName: user.displayName,
+          photoUrl: user.photoUrl,
+          isPublic: false,
+          hidden: true,
+        });
       }
     }
 
