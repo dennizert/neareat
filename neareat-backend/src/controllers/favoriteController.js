@@ -32,9 +32,9 @@ async function listFavorites(req, res, next) {
   }
 }
 
-// Favori ekler. Free kullanıcıda limiti (FREE_FAVORITES_LIMIT) zorlar → aşılırsa 403
-// PREMIUM_REQUIRED. upsert ile çift eklemeyi engeller; yalnızca İLK eklemede sosyal
-// aktivite olayı yazar (tekrar eklemede spam üretmez).
+// Favori ekler. Limit SEVİYEYE bağlıdır (utils/levelAccess.favoritesLimit: 5/15/30/50/
+// sınırsız) → aşılırsa 403 LEVEL_REQUIRED. upsert ile çift eklemeyi engeller; yalnızca
+// İLK eklemede sosyal aktivite olayı yazar (tekrar eklemede spam üretmez).
 async function addFavorite(req, res, next) {
   try {
     const { placeId, placeName, placeAddress, placeLat, placeLng, placePhone, placePhotoUrl, placeRating } = req.body;
