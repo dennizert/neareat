@@ -9,12 +9,20 @@
  * yıldız etkileri.
  */
 
-jest.mock('../../../src/utils/prisma', () => ({
-  reservation: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
-  restaurantProfile: { findFirst: jest.fn(), findUnique: jest.fn() },
-  reservationMessage: { create: jest.fn(), findMany: jest.fn() },
-  $transaction: jest.fn(),
-}));
+jest.mock('../../../src/utils/prisma', () => {
+  const m = {
+    reservation: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
+    restaurantProfile: { findFirst: jest.fn(), findUnique: jest.fn() },
+    reservationMessage: { create: jest.fn(), findMany: jest.fn() },
+    // createReservation kapasite+çift-kayıt kontrolünü advisory lock'lu bir transaction
+    // içinde yapıyor → mock hem interaktif (callback) hem dizi formunu desteklemeli.
+    $executeRaw: jest.fn().mockResolvedValue(1),
+    $transaction: jest.fn(),
+  };
+  m.$transaction.mockImplementation((arg) =>
+    typeof arg === 'function' ? arg(m) : Promise.all(arg));
+  return m;
+});
 jest.mock('../../../src/utils/levelAccess', () => ({ getUserAccess: jest.fn(), getLevelAccess: jest.fn() }));
 jest.mock('../../../src/utils/stars', () => ({
   awardStars: jest.fn().mockResolvedValue({}),
@@ -54,6 +62,11 @@ beforeEach(() => {
   getLevelAccess.mockReturnValue({ reservationPriority: 0 });
   getLevel.mockReturnValue({ level: 1 });
   isRestaurantActive.mockResolvedValue(true); // S19-1: varsayılan abonelikli restoran
+  // clearAllMocks sonrası transaction davranışını yeniden kur: createReservation
+  // interaktif (callback) formu, awardStars dizi formunu kullanıyor.
+  prisma.$executeRaw.mockResolvedValue(1);
+  prisma.$transaction.mockImplementation((arg) =>
+    typeof arg === 'function' ? arg(prisma) : Promise.all(arg));
   prisma.reservation.count.mockResolvedValue(0);
   prisma.reservation.findFirst.mockResolvedValue(null);
   prisma.reservation.findMany.mockResolvedValue([]);
@@ -336,5 +349,35 @@ describe('erişim yetkisi', () => {
     });
     await expectHttpError(svc.sendMessage(ACTOR, 'res-1', { content: 'merhaba' }), 403);
     expect(prisma.reservationMessage.create).not.toHaveBeenCalled();
+  });
+});
+
+// Yarış regresyonu: önceden kapasite "say → yaz" arasında kilit yoktu; slotta 1 yer
+// kalmışken gelen iki eşzamanlı talep de kontrolü geçip ikisi de yazılıyordu.
+describe('slot yarışı — advisory lock', () => {
+  beforeEach(() => {
+    prisma.restaurantProfile.findFirst.mockResolvedValue({
+      id: 'r1', businessName: 'Test AŞ', userId: 'owner-1', placeName: 'Test', tableCount: 2, seatCapacity: null,
+    });
+  });
+
+  it('kapasite kontrolü ve kayıt TEK transaction içinde yapılır', async () => {
+    await svc.createReservation(ACTOR, VALID_INPUT);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function));
+  });
+
+  it('slot için transaction-kapsamlı advisory lock alınır', async () => {
+    await svc.createReservation(ACTOR, VALID_INPUT);
+    expect(prisma.$executeRaw).toHaveBeenCalled();
+    // Kilit anahtarı placeId + date + time bileşeni olmalı (tüm tabloyu değil, slotu kilitler)
+    const params = prisma.$executeRaw.mock.calls[0].slice(1);
+    expect(params.join('|')).toContain(`reservation:${VALID_INPUT.placeId}:${FUTURE}:${VALID_INPUT.time}`);
+  });
+
+  it('kilit ALINDIKTAN SONRA sayılır — dolu slotta yazma yapılmaz', async () => {
+    prisma.reservation.count.mockResolvedValue(2); // tableCount=2 → dolu
+    await expectHttpError(svc.createReservation(ACTOR, VALID_INPUT), 409);
+    expect(prisma.$executeRaw).toHaveBeenCalled();
+    expect(prisma.reservation.create).not.toHaveBeenCalled();
   });
 });

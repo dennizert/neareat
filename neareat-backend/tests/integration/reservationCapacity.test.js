@@ -7,6 +7,7 @@ jest.mock('../../src/utils/prisma', () => ({
   subscription: { findUnique: jest.fn() },
   starEvent: { create: jest.fn() },
   notification: { create: jest.fn() },
+  $executeRaw: jest.fn().mockResolvedValue(1),
   $transaction: jest.fn(),
 }));
 
@@ -78,6 +79,10 @@ beforeEach(() => {
   prisma.reservation.findMany.mockResolvedValue([]);
   prisma.reservation.count.mockResolvedValue(0);
   prisma.reservation.create.mockResolvedValue(createdReservation);
+  // createReservation advisory lock'lu interaktif transaction kullanıyor.
+  prisma.$executeRaw.mockResolvedValue(1);
+  prisma.$transaction.mockImplementation((arg) =>
+    typeof arg === 'function' ? arg(prisma) : Promise.all(arg));
 });
 
 describe('POST /api/reservations — kapasite kontrolü', () => {
