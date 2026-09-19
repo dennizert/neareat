@@ -52,15 +52,15 @@ jest.mock('../../src/services/firebase', () => ({
   getMessaging: () => ({ send: jest.fn().mockResolvedValue('msg-id') }),
 }));
 
+const mockRedisClient = {
+  get: jest.fn(), set: jest.fn(), del: jest.fn(),
+  ping: jest.fn().mockResolvedValue('PONG'),
+  incr: jest.fn(), decr: jest.fn(), expire: jest.fn(), pexpire: jest.fn(),
+};
 jest.mock('../../src/services/redis', () => ({
-  getRedis: () => ({
-    get: jest.fn(),
-    set: jest.fn(),
-    del: jest.fn(),
-    ping: jest.fn().mockResolvedValue('PONG'),
-    incr: jest.fn(),
-    pexpire: jest.fn(),
-  }),
+  // Kararlı (paylaşılan) nesne: testler AI günlük kota rezervasyonunu (incr) kontrol
+  // edebilsin. Önceden her çağrıda yeni jest.fn'ler dönüyordu.
+  getRedis: () => mockRedisClient,
   cacheGet: jest.fn().mockResolvedValue(null),
   cacheSet: jest.fn().mockResolvedValue(undefined),
   cacheDel: jest.fn().mockResolvedValue(undefined),
@@ -909,5 +909,59 @@ describe('POST /api/recommendations/route-tonight — rate limit (shared counter
     expect(res.body.cached).toBe(true);
     expect(res.body.recommendations[0].placeId).toBe('cached-1');
     expect(mockAnthropicCreate).not.toHaveBeenCalled();
+  });
+});
+
+// ─── AI günlük kotası: yarış kapısı ──────────────────────────────────────────
+// Kota sayacı AiRecommendationLog satırlarını sayıyor ama o satır LLM çağrısından
+// SONRA fire-and-forget yazılıyor → uçuştaki istekler birbirini göremiyordu ve aynı
+// anda gelen N istek de geçip N× Claude faturası çıkarıyordu. Atomik Redis
+// rezervasyonu "başlatılanları" sayar; asıl kanıt: reddedilen istekte Claude'a
+// HİÇ gidilmemesi.
+
+// aiRateLimit (dakikalık) ile AI günlük kotası AYNI redis.incr'i kullanıyor.
+// Yalnızca kota anahtarını (`ai-used:`) yönlendir, rate limit sayacını düşük tut.
+function setQuotaCounter(value) {
+  mockRedisClient.incr.mockImplementation(async (key) =>
+    String(key).startsWith('ai-used:') ? value : 1);
+}
+describe('POST /api/recommendations/dinner-tonight — kota yarışı (atomik rezervasyon)', () => {
+  it('rezervasyon limiti aşarsa 429 döner ve Claude ÇAĞRILMAZ (fatura çıkmaz)', async () => {
+    setQuotaCounter(999); // günlük sayaç limitin çok üstünde
+    mockAnthropicCreate.mockClear();
+
+    const res = await request(app)
+      .post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ lat: 41.04, lng: 28.98 });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error).toBe('LIMIT_EXCEEDED');
+    expect(mockAnthropicCreate).not.toHaveBeenCalled();
+  });
+
+  it('rezervasyon limit içindeyse istek normal ilerler', async () => {
+    setQuotaCounter(1);
+
+    const res = await request(app)
+      .post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ lat: 41.04, lng: 28.98 });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('Redis erişilemezse kota BLOKLAMAZ (fail-open; DB kontrolü zaten çalıştı)', async () => {
+    mockRedisClient.incr.mockImplementation(async (key) => {
+      if (String(key).startsWith('ai-used:')) throw new Error('redis down');
+      return 1; // rate limiter etkilenmesin
+    });
+
+    const res = await request(app)
+      .post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ lat: 41.04, lng: 28.98 });
+
+    expect(res.status).toBe(200);
   });
 });
