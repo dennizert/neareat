@@ -235,6 +235,83 @@ describe('Auth Endpoints', () => {
       );
     });
 
+    // Hesaplar e-postaya göre eşleştirildiği için Google'ın e-postayı doğrulamış
+    // olması şart; aksi halde doğrulanmamış bir Google e-postasıyla o adrese ait
+    // mevcut hesap ele geçirilebilirdi.
+    it('Google e-postası doğrulanmamışsa giriş reddedilir', async () => {
+      const { verifyGoogleIdToken } = require('../src/services/googleAuth');
+      verifyGoogleIdToken.mockResolvedValueOnce({
+        sub: 'google-sub-123', email: 'gtest@test.com', name: 'G', picture: null,
+        email_verified: false,
+      });
+
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ idToken: 'fake-google-id-token' });
+
+      expect(res.status).toBe(400);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    // ÖN-KAYITLA HESAP DEVRALMA regresyonu.
+    // googleId koşulsuz bağlanıyor ve hesabın passwordHash'i olduğu gibi kalıyordu:
+    // saldırgan victim@x.com ile şifreli hesap açar (kayıt e-posta doğrulaması zorunlu
+    // değil), kurban Google ile girince kimliği o hesaba bağlanır ve saldırgan bildiği
+    // şifreyle girmeye DEVAM eder.
+    it('doğrulanmamış şifreli hesaba bağlanırken şifre İPTAL edilir', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null) // googleId ile bulunamadı
+        .mockResolvedValueOnce({     // saldırganın ön-kaydı: e-posta DOĞRULANMAMIŞ
+          id: 'u-prereg', googleId: null, email: 'gtest@test.com', displayName: 'Ön Kayıt',
+          photoUrl: null, role: 'USER', starCount: 0, isSuspended: false,
+          emailVerified: false, passwordHash: '$2a$12$saldirganin.hashi',
+        });
+      mockPrisma.user.update.mockResolvedValueOnce({
+        id: 'u-prereg', googleId: 'google-sub-123', email: 'gtest@test.com',
+        displayName: 'Ön Kayıt', role: 'USER', starCount: 0, isSuspended: false,
+      });
+      mockPrisma.subscription.findUnique.mockResolvedValueOnce(null);
+
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ idToken: 'fake-google-id-token' });
+
+      expect(res.status).toBe(200);
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'u-prereg' },
+          data: expect.objectContaining({
+            googleId: 'google-sub-123',
+            passwordHash: null,      // saldırganın erişimi kesildi
+            emailVerified: true,     // Google sahipliği kanıtladı
+            authProvider: 'google',
+          }),
+        }),
+      );
+    });
+
+    it('DOĞRULANMIŞ hesaba bağlanırken şifre KORUNUR (meşru kullanıcı kilitlenmez)', async () => {
+      mockPrisma.user.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: 'u-verified', googleId: null, email: 'gtest@test.com', displayName: 'Gerçek Sahip',
+          photoUrl: null, role: 'USER', starCount: 0, isSuspended: false,
+          emailVerified: true, passwordHash: '$2a$12$gercek.sahibin.hashi',
+        });
+      mockPrisma.user.update.mockResolvedValueOnce({
+        id: 'u-verified', googleId: 'google-sub-123', email: 'gtest@test.com',
+        displayName: 'Gerçek Sahip', role: 'USER', starCount: 0, isSuspended: false,
+      });
+      mockPrisma.subscription.findUnique.mockResolvedValueOnce(null);
+
+      await request(app).post('/api/auth/login').send({ idToken: 'fake-google-id-token' });
+
+      const data = mockPrisma.user.update.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty('passwordHash');
+      expect(data).not.toHaveProperty('authProvider');
+    });
+
     it('aynı e-postalı mevcut hesap varsa googleId bağlanır, yeni kayıt YAPILMAZ (P2002 önleme)', async () => {
       mockPrisma.user.findUnique
         .mockResolvedValueOnce(null) // googleId ile bulunamadı

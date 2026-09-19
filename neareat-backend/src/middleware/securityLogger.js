@@ -11,6 +11,9 @@ const EVENTS = {
   IAP_REJECTED: 'IAP_REJECTED',
   ADMIN_LOGIN_LOCKED: 'ADMIN_LOGIN_LOCKED',
   METRICS_ALARM: 'METRICS_ALARM',
+  // Google girişi, e-postası DOĞRULANMAMIŞ mevcut bir hesaba bağlandı ve o hesabın
+  // şifre kimlik bilgisi iptal edildi (ön-kayıtla hesap devralma önlemi).
+  ACCOUNT_LINK_PASSWORD_REVOKED: 'ACCOUNT_LINK_PASSWORD_REVOKED',
 };
 
 // Güvenlik olaylarını (başarısız giriş, askıya alınmış erişim, rate-limit, IAP reddi vb.)
