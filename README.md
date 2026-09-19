@@ -91,7 +91,7 @@ firstproject/                    # monorepo (repo adı: neareat)
 │       ├── app.js               # Express giriş + middleware zinciri + webhook/landing route'ları
 │       ├── controllers/         # Domain başına iş mantığı
 │       ├── routes/              # HTTP → controller eşlemesi
-│       ├── middleware/          # auth, roles, requirePremium, sanitize, rate-limit, securityLogger, requestId
+│       ├── middleware/          # auth, roles, sanitize, rate-limit, securityLogger, requestId
 │       ├── services/            # googlePlaces, firebase, redis, resend (email), anthropic, googleapis (IAP), s3
 │       ├── jobs/                # Cron: reservationReminders, smartNotifications, feedbackAggregator, friendSuggestions
 │       └── utils/               # prisma, jwt, tokenHash, premiumCheck, contentFilter, appLinkPage, haversine ...
@@ -118,7 +118,7 @@ firstproject/                    # monorepo (repo adı: neareat)
 - Serbest metin / isim araması (`/places/search`, 25 km opsiyonel bias, Redis cache)
 - Mutfak etiketleriyle filtre (13 etiket: Pizza, Kebap, Sushi …), "Açık" filtresi
 - Tazelik sinyalleri: "kapanmaya yakın" (≤60 dk sarı / ≤30 dk kırmızı), "yeni açıldı"
-- Restoran detayı: çift puan (Google + uygulama-içi **Eatlas** puanı), çalışma saatleri, duyuru, indirimler, foto galerileri, menü (premium)
+- Restoran detayı: çift puan (Google + uygulama-içi **Eatlas** puanı), çalışma saatleri, duyuru, indirimler, foto galerileri, menü (S18-2'den beri herkese açık)
 
 ### Yapay Zekâ Önerileri
 "Bu akşam ne yesem?" — Claude tabanlı kişisel öneri motoru (SSE streaming).
@@ -126,7 +126,7 @@ firstproject/                    # monorepo (repo adı: neareat)
 - **Konuşmasal iyileştirme** (`refinement`: "daha ucuz/yakın/sessiz"), oturum bağlamı Redis'te
 - **Yolda öneri** (rota üzerinde en iyi 1-3 restoran), **fotoğraf analizi** (Vision)
 - 👍/👎 geri bildirim → haftalık cron ile kişisel mutfak tercihlerine dönüşüp prompt'a enjekte edilir
-- Tier: Free → Haiku, **günde 1 öneri**; Premium → Sonnet, **sınırsız** + arkadaş tat sinyalleri
+- Kota SEVİYEYE bağlı: günde 1/5/10/20/sınırsız öneri; **L3+** daha zengin model + arkadaş tat sinyalleri
 
 ### Sosyal
 - Arkadaş ekleme/önerisi (gece 03:00 cron ile uyumluluk skorlu öneriler, Redis cache)
@@ -146,14 +146,14 @@ firstproject/                    # monorepo (repo adı: neareat)
 - Bildirim dokunuşları `utils/notificationTarget.ts` ile derin-link
 
 ### Gamification
-- Yorum/öneri/favori → yıldız; 6 seviye; seviye atlama bildirimi; yıldız bazlı restoran indirimleri
+- Yorum/öneri/favori → yıldız; **5 seviye** (0/50/100/150/250); seviye atlama bildirimi; yıldız bazlı restoran indirimleri
 
 ### Restoran Sahibi (B2B)
 - 5 adımlı kayıt + admin onayı; profil, görünen ad, alternatif telefon
 - Çalışma saatleri, menü yükleme, **foto galerileri** (mekan + ürün, S3)
-- Yıldız indirim programı + **anlık indirim** (premium) + **kampanya** push (premium, günde 1)
-- **Analitik panel** + **AI haftalık işletme raporu** (premium)
-- Yorumlara cevap, online **rezervasyon kabulü** (premium)
+- Yıldız indirim programı + **anlık indirim** + **kampanya** push (günde 1) — aktif abonelik gerektirir
+- **Analitik panel** + **AI haftalık işletme raporu** — aktif abonelik gerektirir
+- Yorumlara cevap, online **rezervasyon kabulü** (aktif abonelik gerektirir)
 
 ### Admin
 - Restoran onay/red, kullanıcı yönetimi (askıya alma), şikayet yönetimi, aktivite logları, cron tetikleme
@@ -165,35 +165,59 @@ firstproject/                    # monorepo (repo adı: neareat)
 
 ## Üyelik & Premium
 
-Ücretsiz sürüm tam işlevseldir; Premium **limitleri kaldırır** ve gelişmiş özellikler açar. Tüm kısıtlar backend'de `utils/premiumCheck.isPremiumUser()` ile uygulanır ve limit dolunca `403 { code: 'PREMIUM_REQUIRED' }` döner; mobil bunu yakalayıp rol-duyarlı **Paywall**'a yönlendirir (`utils/premiumGate.ts`).
+**Bireysel kullanıcıdan ücret ALINMAZ** (S18). Kullanıcı premium'u kaldırıldı; özellikler
+kazanılan **yıldız seviyesine** göre açılır. Restoran tarafı ise **tek-tip zorunlu ücretli**
+(S19): onayda 15 gün deneme, sonra aylık abonelik.
 
-### Normal Kullanıcı — Ücretsiz vs Premium
-| Özellik | Ücretsiz | Premium |
-|--------|:--------:|:-------:|
-| AI yemek önerisi | Günde 1 | Sınırsız |
-| Arkadaşa/herkese restoran önerme | Günde 1 | Sınırsız |
-| Favori | En fazla 5 | Sınırsız |
-| Liste (koleksiyon) | 1 | Sınırsız |
-| Rezervasyon | 1 (ömür boyu) | Sınırsız |
-| Menü & ürün fotoğrafları | — | ✓ |
-| Keşif yarıçapı | 5 km | 25 km |
-| AI modeli | Standart (Haiku) | Gelişmiş (Sonnet) + arkadaş sinyalleri |
+### Normal Kullanıcı — seviyeye göre haklar
 
-### Restoran — Ücretsiz vs Premium
-| Özellik | Ücretsiz | Premium |
-|--------|:--------:|:-------:|
-| Profil · menü · mekan fotoğrafları | ✓ | ✓ |
-| Online rezervasyon kabulü | — | ✓ |
-| Ürün fotoğraf galerisi | — | ✓ |
-| Anlık indirim · kampanya | — | ✓ |
-| Analitik panel · haftalık rapor | — | ✓ |
+Seviye eşikleri (`utils/stars.getLevel`): **L1** 0-49 · **L2** 50-99 · **L3** 100-149 ·
+**L4** 150-249 · **L5** 250+ yıldız.
 
-### Fiyatlar (Google Play)
-> **Sprint-18/19 güncellemesi:** Bireysel kullanıcıdan ücret ALINMAZ — özellikler yıldız/seviye ile açılır (`user_premium` kaldırıldı). Restoran tarafı **tek-tip zorunlu ücretli**: 15 gün ücretsiz deneme, sonra aylık abonelik.
+Tek yetkili kaynak `utils/levelAccess.js` — limit dolunca
+`403 { code: 'LEVEL_REQUIRED', requiredLevel, feature }` döner. Mobil bunu `utils/levelGate.ts`
+ile yakalar ve **Paywall'a değil**, "seviye atla" bilgisine yönlendirir.
+
+| Özellik | L1 | L2 | L3 | L4 | L5 |
+|---|:--:|:--:|:--:|:--:|:--:|
+| AI yemek önerisi / gün | 1 | 5 | 10 | 20 | sınırsız* |
+| Restoran önerme / gün | 1 | 3 | 10 | 20 | sınırsız |
+| Favori | 5 | 15 | 30 | 50 | sınırsız |
+| Liste (koleksiyon) oluşturma | — | ✓ | ✓ | ✓ | ✓ |
+| Rezervasyon | yalnızca ilk | ayda 1 | sınırsız | sınırsız | sınırsız |
+| Rezervasyon önceliği (restoran panelinde) | — | — | ✓ | ✓✓ | ✓✓✓ |
+| AI modeli | Haiku | Haiku | zengin model + sosyal sinyaller | ↑ | ↑ |
+
+\* L5'te ürün limiti yok ama `PREMIUM_AI_DAILY_CAP` (varsayılan 30/gün) bir **maliyet freni**
+olarak uygulanır; aşımda `429 AI_DAILY_LIMIT`.
+
+**Menü ve ürün fotoğrafları herkese açıktır** (S18-2) — ödeme yapan restoranın vitrini
+olduğu için seviyeye kilitlenmez.
+
+> **Bilinen tutarsızlık:** keşif yarıçapı (`FREE_RADIUS_KM` 5 / `PREMIUM_RADIUS_KM` 25) hâlâ
+> `isPremiumUser` ile karar veriliyor (`restaurantController`, `discoveryController`).
+> Kullanıcı premium'u kaldırıldığı için bu pratikte **herkese 5 km** demek; 25 km yalnızca
+> `ALWAYS_PREMIUM_EMAILS` allowlist'indeki hesaplara açık. Seviyeye taşınması açık iş.
+
+### Restoran — tek plan
+
+Tüm restoranlar aynı haklara sahiptir; "ücretsiz vs premium" ayrımı S19'da kaldırıldı.
+Onayda **15 gün** deneme otomatik başlar (`services/restaurantSubscription`), sonrasında
+abonelik gerekir. Korumalı işlemler `isRestaurantActive` ile gate'lenir →
+`403 { code: 'SUBSCRIPTION_REQUIRED' }`.
+
+Abonelik gerektiren işlemler: online rezervasyon kabulü, ürün fotoğraf galerisi,
+anlık indirim, kampanya push'u, analitik panel, AI haftalık işletme raporu, doluluk paneli.
+Profil, menü ve mekan fotoğrafları abonelikten bağımsız çalışır.
+
+### Fiyat (Google Play)
 
 | Ürün ID | Kime | Ücret |
 |--------|------|-------|
 | `restaurant_premium` | Restoran | **1.299,90 ₺ / ay** (15 gün ücretsiz deneme) |
+
+Satın alma doğrulaması yalnızca **RESTAURANT** rolüne açıktır; başka bir rol
+`403 PRODUCT_NOT_ALLOWED_FOR_ROLE` alır.
 
 ---
 
@@ -396,7 +420,7 @@ Henüz yayında değil (bundle id `com.neareat.app`, EAS cloud build ile planlı
 
 - **JWT** oturum (mobilde expo-secure-store / Keystore-Keychain), **Firebase Admin** ile Google OAuth doğrulama, **bcryptjs** (rounds 10)
 - **Rate limiting:** auth 20/15 dk; api 120/dk (userId bazlı); AI/Vision uçlarına ek dakikalık limit
-- **Premium gate'leri** ve **rol kontrolü** (`requirePremium`, `roles`), `sanitizeUser` ile `passwordHash` sızıntı önleme
+- **Seviye/abonelik gate'leri** (`utils/levelAccess` → `LEVEL_REQUIRED`, `isRestaurantActive` → `SUBSCRIPTION_REQUIRED`) ve **rol kontrolü** (`middleware/roles`), `sanitizeUser` ile `passwordHash` sızıntı önleme
 - **İçerik filtresi**, **trust proxy** (Railway), CORS whitelist (origin'siz native istekler için izin)
 - **Askıya alma:** `isSuspended` kullanıcılar işlem uçlarında reddedilir; mesaj yalnızca ACCEPTED arkadaşlar; şikayet spam koruması
 - E-posta token'ları **HMAC-hash**'li; webhook'lar paket adı doğrular ve hassas veri ifşa etmez
