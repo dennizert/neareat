@@ -1,0 +1,33 @@
+# Satır sonu politikası.
+#
+# Depoda saklanan içerik zaten %100 LF, ama `.gitattributes` olmadığı için git
+# çalışma ağacındaki CRLF dosyaları "değişmiş" sayıyordu: proje bir dönem
+# Windows'ta geliştirilip macOS'a kopyalandığından `git status` ~450 dosyayı
+# sürekli değişmiş gösteriyor, `git add .` satır-sonu gürültüsünü commit'lere
+# karıştırıyordu. Aşağıdaki kural git'e karşılaştırma/ekleme sırasında
+# normalize etmesini söyler → sahte değişiklikler kaybolur.
+#
+# Depoda daima LF saklanır, checkout'ta da LF yazılır (platform bağımsız).
+* text=auto eol=lf
+
+# Windows batch dosyaları CRLF OLMAK ZORUNDA, aksi halde çalışmaz.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# İkili dosyalar — dönüşüm uygulanmaz (text=auto zaten sezer, açıkça yazmak güvenli).
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.webp     binary
+*.ttf      binary
+*.otf      binary
+*.woff     binary
+*.woff2    binary
+*.zip      binary
+*.jar      binary
+*.keystore binary
+*.jks      binary
+*.pdf      binary
+*.docx     binary
