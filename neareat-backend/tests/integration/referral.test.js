@@ -23,7 +23,7 @@ jest.mock('../../src/utils/stars', () => ({
 }));
 
 const mockPrisma = {
-  user: { findUnique: jest.fn(), update: jest.fn(), count: jest.fn() },
+  user: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn(), count: jest.fn() },
   starEvent: { create: jest.fn(), count: jest.fn() },
   userReward: { create: jest.fn() },
   reward: { findMany: jest.fn() },
@@ -61,6 +61,9 @@ beforeEach(() => {
   mockPrisma.starEvent.create.mockResolvedValue({});
   mockPrisma.starEvent.count.mockResolvedValue(0);
   mockPrisma.user.update.mockResolvedValue({ starCount: 10 });
+  // Referans kodu talebi atomik compare-and-set ile kapılıyor (yarış önlemi):
+  // updateMany({ where: { id, referralApplied: false } }) → count 1 ise kazandı.
+  mockPrisma.user.updateMany.mockResolvedValue({ count: 1 });
   mockPrisma.user.count.mockResolvedValue(0);
 });
 
@@ -135,6 +138,32 @@ describe('POST /api/referral/apply', () => {
   it('auth yoksa 401', async () => {
     const res = await request(app).post('/api/referral/apply').send({ code: 'BORA1234' });
     expect(res.status).toBe(401);
+  });
+
+  // Yarış regresyonu: önceden `referralApplied` okunup SONRA koşulsuz güncelleniyordu.
+  // İki eşzamanlı istek de false okuyup ikisi de ödül yazabiliyordu (çift REFERRAL_BONUS,
+  // ve ikinci markPendingReferral ilkini ezip davet edeni ödülsüz bırakıyordu).
+  it('CAS kaybedilirse (satırı başka istek kaptıysa) 409 döner ve yıldız VERİLMEZ', async () => {
+    mockFindUnique(U1, U1, U2);
+    mockPrisma.user.updateMany.mockResolvedValue({ count: 0 }); // yarışı kaybetti
+
+    const res = await request(app)
+      .post('/api/referral/apply')
+      .set('Authorization', `Bearer ${token1}`)
+      .send({ code: 'BORA1234' });
+
+    expect(res.status).toBe(409);
+    expect(mockPrisma.starEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('talep koşullu WHERE ile kapılır (referralApplied: false)', async () => {
+    mockFindUnique(U1, U1, U2);
+    await request(app).post('/api/referral/apply').set('Authorization', `Bearer ${token1}`).send({ code: 'BORA1234' });
+
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: U1.id, referralApplied: false },
+      data: { referralApplied: true },
+    });
   });
 
   it('S18-3: referred user REFERRAL_BONUS alır; referrer REFERRAL ANINDA verilmez (ertelenir)', async () => {

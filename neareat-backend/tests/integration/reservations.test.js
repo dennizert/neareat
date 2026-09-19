@@ -64,8 +64,14 @@ const mockPrisma = {
   friendRequest: { findMany: jest.fn(), count: jest.fn() },
   message: { findMany: jest.fn(), create: jest.fn(), count: jest.fn() },
   $queryRaw: jest.fn(),
+  $executeRaw: jest.fn(),
   $transaction: jest.fn(),
 };
+// createReservation kapasite+çift-kayıt kontrolünü advisory lock'lu transaction içinde
+// yapıyor → interaktif (callback) form desteklenmeli; dizi formu da korunur.
+mockPrisma.$executeRaw.mockResolvedValue(1);
+mockPrisma.$transaction.mockImplementation((arg) =>
+  typeof arg === 'function' ? arg(mockPrisma) : Promise.all(arg));
 
 jest.mock('../../src/utils/prisma', () => mockPrisma);
 
@@ -199,7 +205,11 @@ beforeEach(() => {
   mockPrisma.notification.create.mockResolvedValue({});
   mockPrisma.starEvent.create.mockResolvedValue({ id: 'se-1', amount: 10 });
   mockPrisma.reward.findMany.mockResolvedValue([]);
-  mockPrisma.$transaction.mockImplementation((ops) => Promise.all(ops));
+  // Hem interaktif (createReservation advisory lock'lu transaction) hem dizi
+  // (awardStars) formu desteklenmeli.
+  mockPrisma.$executeRaw.mockResolvedValue(1);
+  mockPrisma.$transaction.mockImplementation((arg) =>
+    typeof arg === 'function' ? arg(mockPrisma) : Promise.all(arg));
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -216,10 +226,9 @@ describe('POST /api/reservations', () => {
       if (where.id === testUser.id) return Promise.resolve(testUser);
       return Promise.resolve(null);
     });
-    mockPrisma.$transaction.mockResolvedValue([
-      { id: 'se-1', amount: 10 },
-      { starCount: 10 },
-    ]);
+    // awardStars dizi formunu kullanır; createReservation callback formunu.
+    mockPrisma.user.update.mockResolvedValue({ starCount: 10 });
+    mockPrisma.starEvent.create.mockResolvedValue({ id: 'se-1', amount: 10 });
 
     const res = await request(app)
       .post('/api/reservations')

@@ -145,27 +145,10 @@ async function createReservation(actor, input) {
     throw new HttpError(400, { error: 'Bu restoran rezervasyona açık değil veya bulunamadı.' });
   }
 
-  // Kapasite kontrolü: tableCount varsa aynı placeId+date+time dilimini say
-  if (restaurant.tableCount) {
-    const slotCount = await prisma.reservation.count({
-      where: { placeId, date, time, status: { in: ACTIVE_STATUSES } },
-    });
-    if (slotCount >= restaurant.tableCount) {
-      throw new HttpError(409, { error: 'Bu saat dilimi dolu. Lütfen başka bir saat seçin.' });
-    }
-  }
-
-  // Aynı gün aynı saate aktif rezervasyon var mı?
-  const existing = await prisma.reservation.findFirst({
-    where: { userId: actor.id, restaurantId: restaurant.id, date, time, status: { in: ACTIVE_STATUSES } },
-  });
-  if (existing) {
-    throw new HttpError(409, { error: 'Bu restoran için aynı gün ve saatte zaten aktif bir rezervasyonunuz var.' });
-  }
-
   // S19-3: Koltuk bazlı OVERBOOKING uyarısı. Yetersiz kapasitede talep YİNE oluşturulur
   // (PENDING) ama yanıtta uyarı döner — restoran planlama yapabilirse onaylar, aksi halde
-  // reddeder. (Kapasite tanımsızsa kontrol yapılmaz.)
+  // reddeder. (Kapasite tanımsızsa kontrol yapılmaz.) Salt okunur/tavsiye niteliğinde
+  // olduğu için kilit kapsamı dışında tutulur.
   let overbooking = null;
   if (restaurant.seatCapacity != null) {
     const confirmed = await prisma.reservation.findMany({
@@ -176,20 +159,47 @@ async function createReservation(actor, input) {
     if (avail.known && !avail.enough) overbooking = OVERBOOKING_WARNING;
   }
 
-  const reservation = await prisma.reservation.create({
-    data: {
-      userId: actor.id,
-      restaurantId: restaurant.id,
-      placeId,
-      placeName: restaurant.placeName || restaurant.businessName,
-      date,
-      time,
-      guestCount: parseInt(guestCount),
-      occasion: occasion || null,
-      specialRequests: specialRequests || null,
-      status: 'PENDING',
-    },
-    select: RESERVATION_SELECT,
+  // Kapasite + çift-rezervasyon kontrolleri ile KAYDIN YAZILMASI tek transaction'da.
+  // Önceden "say → yaz" arasında kilit yoktu: slotta 1 yer kalmışken gelen iki eşzamanlı
+  // talep de kontrolü geçip ikisi de yazılıyordu (tableCount kapısı etkisiz kalıyordu);
+  // aynı şekilde aynı kullanıcı aynı dilime iki kayıt açabiliyordu.
+  // pg_advisory_xact_lock YALNIZCA ilgili slotu (placeId+date+time) serileştirir — tablo
+  // kilidi değil — ve transaction bitince otomatik bırakılır.
+  const slotLockKey = `reservation:${placeId}:${date}:${time}`;
+  const reservation = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${slotLockKey})::bigint)`;
+
+    if (restaurant.tableCount) {
+      const slotCount = await tx.reservation.count({
+        where: { placeId, date, time, status: { in: ACTIVE_STATUSES } },
+      });
+      if (slotCount >= restaurant.tableCount) {
+        throw new HttpError(409, { error: 'Bu saat dilimi dolu. Lütfen başka bir saat seçin.' });
+      }
+    }
+
+    const existing = await tx.reservation.findFirst({
+      where: { userId: actor.id, restaurantId: restaurant.id, date, time, status: { in: ACTIVE_STATUSES } },
+    });
+    if (existing) {
+      throw new HttpError(409, { error: 'Bu restoran için aynı gün ve saatte zaten aktif bir rezervasyonunuz var.' });
+    }
+
+    return tx.reservation.create({
+      data: {
+        userId: actor.id,
+        restaurantId: restaurant.id,
+        placeId,
+        placeName: restaurant.placeName || restaurant.businessName,
+        date,
+        time,
+        guestCount: parseInt(guestCount),
+        occasion: occasion || null,
+        specialRequests: specialRequests || null,
+        status: 'PENDING',
+      },
+      select: RESERVATION_SELECT,
+    });
   });
 
   // Sosyal aktivite akışı

@@ -110,11 +110,18 @@ async function applyCode(req, res, next) {
       return res.status(400).json({ error: 'Kendi referans kodunuzu kullanamazsınız.' });
     }
 
-    // Kodu kullanan olarak işaretle
-    await prisma.user.update({
-      where: { id: userId },
+    // Kodu kullanan olarak işaretle — ATOMİK compare-and-set.
+    // Yukarıdaki `me.referralApplied` okuması yalnızca hızlı yoldur; tek başına yarışa
+    // açıktı: iki eşzamanlı istek de false okuyup ikisi de ödül yazabiliyordu (çift
+    // REFERRAL_BONUS + ikinci markPendingReferral ilkini ezip davet edeni ödülsüz bırakıyordu).
+    // Koşulu WHERE'e taşıyınca yalnızca BİR istek satırı kapabilir.
+    const claimed = await prisma.user.updateMany({
+      where: { id: userId, referralApplied: false },
       data: { referralApplied: true },
     });
+    if (claimed.count === 0) {
+      return res.status(409).json({ error: 'Referans kodunu zaten kullandınız.' });
+    }
 
     // S18-3: Davet edilen kullanıcının bonusu ANINDA verilir (gerçek bir kayıt + kod kullandı).
     // Davet EDENin yıldızı ertelenir (sahte-hesap farming'ine karşı): davet edilen e-postasını
