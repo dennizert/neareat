@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../store/authStore';
 import { useCollectionStore } from '../../store/collectionStore';
+import { useUserProfileStore } from '../../store/userProfileStore';
 import {
   getMyCollections, getSharedWithMe,
   createCollection, deleteCollection,
@@ -21,6 +22,7 @@ import { listPerf } from '../../theme/listPerf';
 export default function CollectionsScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
+  const { profile } = useUserProfileStore();
   const { myCollections, sharedWithMe, setMyCollections, setSharedWithMe, addCollection, removeCollection } = useCollectionStore();
   const insets = useSafeAreaInsets();
   const { bottom } = insets;
@@ -39,7 +41,12 @@ export default function CollectionsScreen() {
   const [creating, setCreating] = useState(false);
 
   // S18-5: liste oluşturma yıldız seviyesine bağlı — L2+ oluşturabilir (premium kaldırıldı).
-  const canCreateLists = levelForStars(user?.starCount ?? 0) >= 2;
+  // Yıldız sayısı ÖNCE canlı profil store'undan okunur: authStore.user yalnızca
+  // login/getMe'de güncelleniyor, bu yüzden oturum içinde kazanılan yıldızlar oraya
+  // yansımıyordu — 48→53 yıldıza çıkan kullanıcı uygulamayı yeniden başlatana kadar
+  // "Seviye 2'ye ulaşmalısın" kilidini görmeye devam ediyordu.
+  const liveStarCount = profile?.starCount ?? user?.starCount ?? 0;
+  const canCreateLists = levelForStars(liveStarCount) >= 2;
 
   async function loadAll() {
     setLoading(true);

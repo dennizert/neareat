@@ -35,6 +35,7 @@ import NotificationBell from '../../components/NotificationBell';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { trackEvent, ANALYTICS_EVENTS } from '../../services/analytics';
+import { handleLevelError } from '../../utils/levelGate';
 
 const PRICE_MAP: Record<number, string> = { 1: '₺', 2: '₺₺', 3: '₺₺₺', 4: '₺₺₺₺' };
 
@@ -155,11 +156,12 @@ export default function RestaurantDetailScreen() {
         }
       },
       onError: (err: any) => {
-        if (err?.response?.data?.code === 'PREMIUM_REQUIRED') {
-          navigation.navigate('Paywall', { trigger: 'favorites' });
-        } else {
-          Alert.alert('Hata', err?.message ?? 'İşlem başarısız.');
-        }
+        // Favori limiti S18'de seviyeye bağlandı: backend artık 403 LEVEL_REQUIRED
+        // döndürüyor. Burada yalnızca PREMIUM_REQUIRED aranıyordu, o yüzden kullanıcı
+        // Türkçe "seviye atla" mesajı yerine ham axios metnini görüyordu
+        // ("Request failed with status code 403"). Paywall yolu da S18'de kalktı.
+        if (handleLevelError(err)) return;
+        Alert.alert('Hata', err?.userMessage ?? err?.message ?? 'İşlem başarısız.');
       },
     });
   }
