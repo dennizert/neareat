@@ -1,8 +1,13 @@
-const { getAuth } = require('../services/firebase');
-const { verifyToken } = require('../utils/jwt');
-const prisma = require('../utils/prisma');
+const { resolveTokenUser } = require('../utils/resolveTokenUser');
 
-// Like authenticate but doesn't fail when no token — req.user stays null
+// authenticate gibi çalışır ama token yoksa/geçersizse HATA VERMEZ — req.user null kalır.
+// Oturum açmamış kullanıcılar da bu uçları kullanabilsin diye (nearby, places/search).
+//
+// Token → kullanıcı çözümü `utils/resolveTokenUser` ile authenticate ile PAYLAŞILIR.
+// Önceden burada ayrı bir kopya vardı ve FIREBASE token'ı bekliyordu; mobil ise Google
+// ile giren kullanıcılar için ham Google OAuth idToken'ı gönderiyor. Sonuç: Google'la
+// giren herkes bu uçlarda sessizce anonim sayılıyor, seviyeye bağlı gösterimleri
+// (ör. nearby kartlarındaki yıldız indirimi) kaybediyor ve arama geçmişi yazılmıyordu.
 async function optionalAuthenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -10,33 +15,9 @@ async function optionalAuthenticate(req, res, next) {
     return next();
   }
 
-  const token = authHeader.split(' ')[1];
-
-  try {
-    const decoded = verifyToken(token);
-    if (decoded?.sub) {
-      const user = await prisma.user.findUnique({ where: { id: decoded.sub } });
-      if (user && !user.isSuspended) {
-        req.user = user;
-        return next();
-      }
-    }
-  } catch {
-    // try Firebase
-  }
-
-  try {
-    const decoded = await getAuth().verifyIdToken(token);
-    const user = await prisma.user.findUnique({ where: { googleId: decoded.uid } });
-    if (user && !user.isSuspended) {
-      req.user = user;
-      return next();
-    }
-  } catch {
-    // invalid token — treat as unauthenticated
-  }
-
-  req.user = null;
+  const { user } = await resolveTokenUser(authHeader.split(' ')[1]);
+  // Askıya alınmış hesap burada 403 ÜRETMEZ (uç herkese açık); anonim gibi davranılır.
+  req.user = user && !user.isSuspended ? user : null;
   next();
 }
 
