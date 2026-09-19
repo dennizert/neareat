@@ -15,6 +15,7 @@
 
 const prisma = require('../utils/prisma');
 const { getUserAccess } = require('../utils/levelAccess');
+const { reserveDailySlot, releaseDailySlot } = require('../utils/aiDailyQuota');
 const { recommend, recommendStream, recommendForRoute } = require('../services/recommendationService');
 const { analyzeRestaurantPhoto } = require('../services/photoAnalysis');
 const { cacheGet, cacheSet } = require('../services/redis');
@@ -152,15 +153,41 @@ async function getDinnerTonight(req, res, next) {
       });
     }
 
+    // Yarış kapısı: DB sayımı yalnızca TAMAMLANAN çağrıları görür (log satırı LLM'den
+    // sonra fire-and-forget yazılır), bu yüzden eşzamanlı istekler birbirini göremiyordu.
+    // Atomik Redis rezervasyonu "başlatılanları" sayar ve fazlasını burada keser.
+    const slot = await reserveDailySlot(req.user.id, unlimited ? PREMIUM_AI_DAILY_CAP || null : dailyLimit);
+    if (!slot.allowed) {
+      return res.status(429).json({
+        error: unlimited ? 'AI_DAILY_LIMIT' : 'LIMIT_EXCEEDED',
+        message: unlimited
+          ? 'Günlük AI öneri limitine ulaştın, yarın tekrar dene.'
+          : `Günlük ${dailyLimit} AI öneri hakkın doldu. Seviye atladıkça günlük hakkın artar.`,
+        upgrade: !unlimited,
+        remaining: 0,
+        resetAt: getNextIstanbulMidnightUtc().toISOString(),
+      });
+    }
+
     // LLM çağrısı
-    const result = await recommend({
-      userId: req.user.id,
-      location: { lat, lng },
-      isPremium: richModel,
-    });
+    let result;
+    try {
+      result = await recommend({
+        userId: req.user.id,
+        location: { lat, lng },
+        isPremium: richModel,
+      });
+    } catch (err) {
+      // Çağrı başarısız → fatura da çıkmadı; ayrılan slotu geri ver.
+      // (degraded = Redis yok, rezervasyon da yapılmadı → geri verme YOK.)
+      if (!slot.degraded) await releaseDailySlot(req.user.id);
+      throw err;
+    }
 
     // Aday yoksa
     if (result.noCandidates) {
+      // Claude'a gidilmedi (aday listesi boş) → hak yanmasın.
+      if (!slot.degraded) await releaseDailySlot(req.user.id);
       return res.status(404).json({
         error: 'NO_CANDIDATES',
         message:
@@ -228,6 +255,9 @@ function sseWrite(res, payload) {
  */
 async function getDinnerTonightStream(req, res, next) {
   let keepAlive = null;
+  // Slot yalnızca gerçekten ayrıldıysa geri verilmeli; aksi halde rezervasyondan
+  // ÖNCE oluşan bir hata sayacı gerçek değerin altına düşürüp fazladan hak tanır.
+  let slotReserved = false;
   try {
     const { lat, lng, sessionId, refinement } = req.body || {};
 
@@ -314,6 +344,24 @@ async function getDinnerTonightStream(req, res, next) {
       return;
     }
 
+    // Yarış kapısı (bkz. JSON ucundaki not): DB sayımı yalnızca tamamlanan çağrıları
+    // görür; atomik rezervasyon eşzamanlı istekleri keser.
+    const slot = await reserveDailySlot(req.user.id, unlimited ? PREMIUM_AI_DAILY_CAP || null : dailyLimit);
+    if (!slot.allowed) {
+      sseWrite(res, {
+        type: 'error',
+        code: unlimited ? 'AI_DAILY_LIMIT' : 'LIMIT_EXCEEDED',
+        message: unlimited
+          ? 'Günlük AI öneri limitine ulaştın, yarın tekrar dene.'
+          : `Günlük ${dailyLimit} AI öneri hakkın doldu. Seviye atladıkça günlük hakkın artar.`,
+        upgrade: !unlimited,
+        resetAt: getNextIstanbulMidnightUtc().toISOString(),
+      });
+      res.end();
+      return;
+    }
+    slotReserved = !slot.degraded;
+
     // Proxy idle-timeout'u önlemek için her 8 sn bir SSE comment satırı gönder.
     // Railway proxy'si ~10-12 sn idle timeout uygular; 8 sn ping bunu aşıyor.
     keepAlive = setInterval(() => {
@@ -368,6 +416,8 @@ async function getDinnerTonightStream(req, res, next) {
 
     if (result?.noCandidates) {
       clearInterval(keepAlive);
+      // Claude'a gidilmedi → ayrılan hakkı geri ver.
+      if (slotReserved) { slotReserved = false; await releaseDailySlot(req.user.id); }
       sseWrite(res, {
         type: 'error',
         code: 'NO_CANDIDATES',
@@ -377,6 +427,8 @@ async function getDinnerTonightStream(req, res, next) {
     }
   } catch (err) {
     if (keepAlive) clearInterval(keepAlive);
+    // Çağrı başarısız → fatura çıkmadı, hak yanmasın. Yalnızca gerçekten ayrılmışsa.
+    if (slotReserved) { slotReserved = false; await releaseDailySlot(req.user.id); }
     if (!res.headersSent) {
       next(err);
     } else {
@@ -522,15 +574,38 @@ async function getRouteTonightRecommendation(req, res, next) {
       });
     }
 
-    const result = await recommendForRoute({
-      userId: req.user.id,
-      origin: { lat: originLat, lng: originLng },
-      destination: { lat: destLat, lng: destLng },
-      departureTime: validDepartureTime,
-      isPremium: richModel,
-    });
+    // Yarış kapısı (bkz. dinner-tonight'taki not).
+    const slot = await reserveDailySlot(req.user.id, unlimited ? PREMIUM_AI_DAILY_CAP || null : dailyLimit);
+    if (!slot.allowed) {
+      return res.status(429).json({
+        error: unlimited ? 'AI_DAILY_LIMIT' : 'LIMIT_EXCEEDED',
+        message: unlimited
+          ? 'Günlük AI öneri limitine ulaştın, yarın tekrar dene.'
+          : `Günlük ${dailyLimit} AI öneri hakkın doldu. Seviye atladıkça günlük hakkın artar.`,
+        upgrade: !unlimited,
+        remaining: 0,
+        resetAt: getNextIstanbulMidnightUtc().toISOString(),
+      });
+    }
+    /** Claude'a gidilmeyen/başarısız yollarda ayrılan hakkı geri ver. */
+    const releaseIfReserved = () => (slot.degraded ? Promise.resolve() : releaseDailySlot(req.user.id));
+
+    let result;
+    try {
+      result = await recommendForRoute({
+        userId: req.user.id,
+        origin: { lat: originLat, lng: originLng },
+        destination: { lat: destLat, lng: destLng },
+        departureTime: validDepartureTime,
+        isPremium: richModel,
+      });
+    } catch (err) {
+      await releaseIfReserved();
+      throw err;
+    }
 
     if (result.noRoute) {
+      await releaseIfReserved();
       return res.status(404).json({
         error: 'NO_ROUTE_FOUND',
         message: 'Verilen koordinatlar arasında rota bulunamadı.',
@@ -538,6 +613,7 @@ async function getRouteTonightRecommendation(req, res, next) {
     }
 
     if (result.noCandidates) {
+      await releaseIfReserved();
       return res.status(404).json({
         error: 'NO_CANDIDATES',
         message: 'Rota boyunca uygun restoran bulamadık.',
