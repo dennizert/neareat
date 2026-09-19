@@ -10,6 +10,7 @@ const { logRequest } = require('../services/logService');
 const { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } = require('../services/emailService');
 const { cacheGet, cacheSet } = require('../services/redis');
 const { sanitizeUser } = require('../utils/userDto'); // S21-1 — kullanıcı DTO sınırı tek yerde
+const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
 const s3 = require('../services/s3');
 
 // E-posta-başına gönderim throttle'ı (S14-B1): mail-bomb + Resend kota tüketimini sınırlar.
@@ -41,6 +42,14 @@ async function login(req, res, next) {
     const decoded = await verifyGoogleIdToken(idToken);
     if (!decoded?.email) return res.status(400).json({ error: 'Google hesabında e-posta bulunamadı' });
 
+    // Hesapları e-postaya göre eşleştirdiğimiz için, Google'ın e-postayı DOĞRULADIĞINI
+    // teyit etmemiz şart. Google payload'u `email_verified` döner; kod bunu hiç kontrol
+    // etmiyordu ("Google hesapları doğrulanmış sayılır" varsayımı). Doğrulanmamış bir
+    // Google e-postası, o adrese ait mevcut hesabı ele geçirmek için kullanılabilirdi.
+    if (decoded.email_verified === false) {
+      return res.status(400).json({ error: 'Google hesabınızın e-postası doğrulanmamış.' });
+    }
+
     let user = await prisma.user.findUnique({ where: { googleId: decoded.sub } });
     let isNew = false;
     if (!user) {
@@ -49,14 +58,41 @@ async function login(req, res, next) {
       // o hesaba bağla (account linking) — yeni kayıt yerine. Aksi halde P2002 (email unique).
       const existingByEmail = await prisma.user.findUnique({ where: { email: decoded.email } });
       if (existingByEmail) {
+        // ÖN-KAYITLA HESAP DEVRALMA ÖNLEMİ.
+        // Önceden googleId, aynı e-postalı HERHANGİ bir hesaba koşulsuz bağlanıyor ve o
+        // hesabın passwordHash'i olduğu gibi kalıyordu. Senaryo: saldırgan victim@x.com
+        // ile email/şifre hesabı açar (kayıt e-posta doğrulaması zorunlu değil), kurban
+        // daha sonra Google ile girer, kimliği saldırganın hesabına bağlanır — ve
+        // saldırgan bildiği şifreyle kurbanın hesabına girmeye DEVAM eder.
+        //
+        // Kural: e-posta sahipliğini KANITLAYAN taraf kazanır.
+        //  - Hesabın e-postası doğrulanmışsa: sahiplik zaten kanıtlanmış → normal bağla.
+        //  - Doğrulanmamışsa: o hesap sahipliği hiç kanıtlamadı, Google şimdi kanıtladı →
+        //    bağla, doğrulanmış işaretle ve KANITLANMAMIŞ şifre kimliğini iptal et.
+        //    (Meşru kullanıcı "şifremi unuttum" ile yeniden belirleyebilir; o akış da
+        //    e-posta sahipliği ister, yani güvenli.)
+        const revokePassword = !existingByEmail.emailVerified && !!existingByEmail.passwordHash;
+
         user = await prisma.user.update({
           where: { id: existingByEmail.id },
           data: {
             googleId: decoded.sub,
             photoUrl: existingByEmail.photoUrl || decoded.picture || null,
             lastLoginAt: new Date(),
+            emailVerified: true, // Google e-posta sahipliğini doğruladı
+            ...(revokePassword ? { passwordHash: null, authProvider: 'google' } : {}),
           },
         });
+
+        if (revokePassword) {
+          logSecurityEvent(EVENTS.ACCOUNT_LINK_PASSWORD_REVOKED, {
+            userId: user.id,
+            ip: req.ip,
+            path: req.path,
+            requestId: req.id,
+            reason: 'unverified_password_account_claimed_by_google',
+          });
+        }
       } else {
         isNew = true;
         user = await prisma.user.create({
