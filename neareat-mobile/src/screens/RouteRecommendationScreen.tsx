@@ -80,13 +80,10 @@ export default function RouteRecommendationScreen() {
     return new Date(midnightLocalMs + slotMs - ISTANBUL_OFFSET_MS).toISOString();
   }, [depDayOffset, depSlot]);
 
-  const prevLimitRef = useRef(false);
-  useEffect(() => {
-    if (routeLimitReached && !prevLimitRef.current) {
-      navigation.navigate('PremiumUpsell', {});
-    }
-    prevLimitRef.current = routeLimitReached;
-  }, [routeLimitReached, navigation]);
+  // S18: 429'da otomatik PremiumUpsell'e yönlendirme KALDIRILDI (bkz. RecommendationScreen).
+  // prevLimitRef her mount'ta sıfırlanırken store'daki routeLimitReached kalıcı olduğu için
+  // limite takılan kullanıcı ekrana her dönüşünde dışarı fırlatılıyordu; gidilen ekran da
+  // satılamayan bir ürünü pazarlıyor. Limit durumu aşağıda satır içi gösteriliyor.
 
   useEffect(() => () => { resetRoute(); }, []);
 
@@ -323,16 +320,10 @@ export default function RouteRecommendationScreen() {
         <View style={styles.errorBox}>
           <Text style={styles.errorIcon}>⏰</Text>
           <Text style={styles.errorTitle}>Günlük hakkın doldu</Text>
+          {/* Sabit "3" yerine backend mesajı — hak seviyeye göre 1/5/10/20. */}
           <Text style={styles.errorText}>
-            {routeError || 'Bu gün için 3 AI öneri hakkını kullandın.'}
+            {routeError || 'Günlük AI öneri hakkını kullandın. Seviye atladıkça hakkın artar.'}
           </Text>
-          <TouchableOpacity
-            style={styles.upgradeBtn}
-            onPress={() => navigation.navigate('PremiumUpsell', {})}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.upgradeBtnText}>✨ Premium'a Geç</Text>
-          </TouchableOpacity>
         </View>
       )}
 

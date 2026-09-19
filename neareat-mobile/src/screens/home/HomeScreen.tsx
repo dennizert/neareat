@@ -11,6 +11,7 @@ import { getCurrentLocation } from '../../services/location';
 import RestaurantCard from '../../components/RestaurantCard';
 import RestaurantListSkeleton from '../../components/RestaurantListSkeleton';
 import EmptyState from '../../components/EmptyState';
+import ErrorState from '../../components/ErrorState';
 import SortFilterBar from '../../components/SortFilterBar';
 import MapViewScreen from './MapViewScreen';
 import type { Restaurant, PersonalizedDiscovery } from '../../types';
@@ -439,7 +440,12 @@ export default function HomeScreen() {
         <>
           <SortFilterBar />
           {shouldShowSkeleton({ hasHydrated: _hasHydrated, loading, itemCount: displayedRestaurants.length }) && <RestaurantListSkeleton />}
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {/* Hata durumunda liste (ve dolayısıyla RefreshControl) hiç render edilmiyordu:
+              konum izni reddedilip persist edilmiş liste de yoksa kullanıcı çıkmaza
+              giriyordu — aşağı çekip yenileyemiyor, sekme değiştirip dönmek de
+              işe yaramıyordu (odak refetch'i coordsRef'e bağlı, o da hiç set edilmemiş
+              oluyor). Artık açık bir "Tekrar dene" var ve konumu zorla yeniden ister. */}
+          {error && <ErrorState message={error} onRetry={() => loadAll(true)} />}
           {!error && (loading ? displayedRestaurants.length > 0 : true) && (
             <FlatList
               data={nearbyData}

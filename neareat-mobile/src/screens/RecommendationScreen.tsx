@@ -54,14 +54,12 @@ export default function RecommendationScreen() {
   // Refinement aynı konumu yeniden kullanır — tekrar GPS sorgulamaya gerek yok
   const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  // Auto-navigate to PremiumUpsell on 429 — sadece false→true geçişinde
-  const prevLimitReachedRef = useRef(false);
-  useEffect(() => {
-    if (limitReached && !prevLimitReachedRef.current) {
-      navigation.navigate('PremiumUpsell', { resetAt: resetAt ?? undefined });
-    }
-    prevLimitReachedRef.current = limitReached;
-  }, [limitReached, resetAt, navigation]);
+  // S18: 429'da otomatik PremiumUpsell'e yönlendirme KALDIRILDI.
+  // İki sorun vardı: (a) prevLimitReachedRef her mount'ta sıfırlanırken store'daki
+  // limitReached kalıcı olduğu için, limite takılan kullanıcı ekrana her dönüşünde
+  // anında dışarı fırlatılıyordu — AI ekranını bir daha hiç göremiyordu;
+  // (b) gidilen ekran satılamayan bir ürünü pazarlıyor. Limit durumu zaten aşağıda
+  // satır içi gösteriliyor.
 
   const handleFetch = useCallback(async () => {
     setLocating(true);
@@ -158,21 +156,17 @@ export default function RecommendationScreen() {
         <View style={styles.errorBox}>
           <Text style={styles.errorIcon}>⏰</Text>
           <Text style={styles.errorTitle}>Günlük hakkın doldu</Text>
+          {/* Backend mesajı seviyeye göre doğru sayıyı içerir ("Günlük N AI öneri
+              hakkın doldu. Seviye atladıkça günlük hakkın artar."). Burada sabit
+              "3" yazıyordu — hak artık seviyeye göre 1/5/10/20. */}
           <Text style={styles.errorText}>
-            {error || 'Bu gün için 3 AI öneri hakkını kullandın.'}
+            {error || 'Günlük AI öneri hakkını kullandın. Seviye atladıkça hakkın artar.'}
           </Text>
           {resetAt && (
             <Text style={styles.resetText}>
               Yenileme: {formatResetTime(resetAt)}
             </Text>
           )}
-          <TouchableOpacity
-            style={styles.upgradeBtn}
-            onPress={() => navigation.navigate('PremiumUpsell', { resetAt: resetAt ?? undefined })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.upgradeBtnText}>✨ Premium'a Geç</Text>
-          </TouchableOpacity>
         </View>
       )}
 

@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserProfileStore } from '../../store/userProfileStore';
-import { getRewards, getStarEvents, getLeaderboard } from '../../services/social';
+import { getRewards, getStarEvents, getLeaderboard, getMyProfile } from '../../services/social';
 import { LEVEL_THRESHOLDS, levelForStars, nextLevelThreshold } from '../../utils/levelGate';
 import type { Reward, StarEvent, Leaderboard } from '../../types';
 import { useTheme } from '../../theme';
@@ -18,7 +18,7 @@ const STAR_EVENT_LABELS: Record<string, string> = {
 };
 
 export default function RewardsScreen() {
-  const { profile } = useUserProfileStore();
+  const { profile, setProfile } = useUserProfileStore();
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const { bottom } = useSafeAreaInsets();
@@ -35,6 +35,13 @@ export default function RewardsScreen() {
   const levelFloor = LEVEL_THRESHOLDS[levelForStars(starCount) - 1];
   const progress =
     nextMilestone === null ? 1 : (starCount - levelFloor) / (nextMilestone - levelFloor);
+
+  // Profil store'u yalnızca Profil ekranı açıldığında doluyordu. Kullanıcı buraya
+  // doğrudan gelirse (ör. LEVEL_UP bildirimine dokunarak) profile null kalıyor,
+  // ekran "Seviye " / boş rozet / "0 Yıldız" gösteriyor ve getRewards(0) çağrılıyordu.
+  useEffect(() => {
+    if (!profile) getMyProfile().then(setProfile).catch(() => { /* sessiz: ekran yine çalışır */ });
+  }, [profile, setProfile]);
 
   useEffect(() => {
     async function load() {
