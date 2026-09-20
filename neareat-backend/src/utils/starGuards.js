@@ -33,12 +33,18 @@ function withinDailyCap(todayCount, cap) {
 
 /**
  * Kullanıcının placeId'de DOĞRULANMIŞ ZİYARETİ var mı?
- * (check-in VEYA tamamlanmış — attended=true — rezervasyon). Sahte yorum/puanla
- * seviye atlamayı engeller. DB sorgusu yapar.
+ * (konumu doğrulanmış check-in VEYA tamamlanmış — attended=true — rezervasyon).
+ * Sahte yorum/puanla seviye atlamayı engeller. DB sorgusu yapar.
+ *
+ * `verified: true` şartı olmadan bu kontrol hiçbir şey ifade etmiyordu: check-in ucu
+ * gövdedeki placeId'yi doğrulamadan yazdığı için tek istekle "ziyaret" üretilebiliyordu.
+ * Doğrulama artık POST /api/checkin'de yapılıyor (utils/checkinVerification); burada
+ * yalnızca sonucuna güveniyoruz. Doğrulanmamış check-in'ler sosyal özellik olarak
+ * yaşamaya devam eder, sadece yıldız kanıtı sayılmaz.
  */
 async function hasVerifiedVisit(userId, placeId) {
   const [checkIn, reservation] = await Promise.all([
-    prisma.checkIn.findFirst({ where: { userId, placeId }, select: { id: true } }),
+    prisma.checkIn.findFirst({ where: { userId, placeId, verified: true }, select: { id: true } }),
     prisma.reservation.findFirst({ where: { userId, placeId, attended: true }, select: { id: true } }),
   ]);
   return !!(checkIn || reservation);

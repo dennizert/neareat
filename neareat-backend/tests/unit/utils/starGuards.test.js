@@ -64,6 +64,21 @@ describe('hasVerifiedVisit', () => {
       expect.objectContaining({ where: expect.objectContaining({ userId: 'u1', placeId: 'p1', attended: true }) }),
     );
   });
+
+  // REGRESYON (S18-3 devamı): rezervasyon tarafında `attended: true` iddiası vardı ama
+  // check-in tarafında simetriği yoktu. Check-in ucu gövdedeki placeId'yi doğrulamadan
+  // yazdığı için `verified` şartı olmadan bu kontrol hiçbir şey ifade etmiyordu:
+  // tek POST ile "ziyaret" üretip yıldız/seviye kazanmak mümkündü.
+  it('check-in\'i yalnızca verified:true ile sorgular', async () => {
+    mockPrisma.checkIn.findFirst.mockResolvedValue(null);
+    mockPrisma.reservation.findFirst.mockResolvedValue(null);
+    await hasVerifiedVisit('u1', 'p1');
+    expect(mockPrisma.checkIn.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: 'u1', placeId: 'p1', verified: true }),
+      }),
+    );
+  });
 });
 
 describe('isUnderDailyStarCap', () => {

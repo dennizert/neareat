@@ -58,3 +58,37 @@ export async function getCurrentLocation(): Promise<Coords> {
   });
   return { lat: location.coords.latitude, lng: location.coords.longitude };
 }
+
+/** Konum + sahte konum bayrağı. `mocked` yalnızca Android'de anlamlı. */
+export interface VerifiedCoords extends Coords {
+  mocked: boolean;
+}
+
+/**
+ * Check-in doğrulaması için konum okur.
+ *
+ * `getCurrentLocation`dan iki farkı var:
+ * 1. `mocked` bayrağını korur — backend sahte konum sinyalini kaydediyor.
+ * 2. Balanced doğruluk kullanır; keşif listesindeki ~kilometrelik hata burada
+ *    kullanıcıyı 250 m yarıçapın dışına düşürüp hak kaybettirebilir.
+ *
+ * Konum alınamazsa `null` döner — çağıran check-in'i yine de yapabilir, sadece
+ * ziyaret kanıtı sayılmaz.
+ */
+export async function getLocationForCheckin(): Promise<VerifiedCoords | null> {
+  if (MOCK_MODE) return { ...MOCK_COORDS, mocked: false };
+  try {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return null;
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return {
+      lat: loc.coords.latitude,
+      lng: loc.coords.longitude,
+      mocked: loc.mocked === true,
+    };
+  } catch {
+    return null;
+  }
+}
