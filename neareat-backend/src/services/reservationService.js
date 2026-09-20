@@ -499,14 +499,33 @@ async function markAttendance(userId, id, { attended }) {
     throw new HttpError(400, { error: 'Katılım durumu zaten işaretlenmiş.' });
   }
 
-  const updated = await prisma.reservation.update({
-    where: { id },
+  // DB02 (#455) — ATOMİK durum geçişi. Yukarıdaki okuma yalnızca DOĞRU HATA MESAJINI
+  // seçmek için; yetkiyi o vermiyor. Eskiden koşul okuma ile yazma ARASINDA
+  // değerlendiriliyordu: eşzamanlı iki istek de `attended === null` görüp geçiyor,
+  // ikisi de update yapıyor (ikincisi aynı değerleri yazdığı için hata vermiyor) ve
+  // ikisi de awardStars çağırıyordu → aynı rezervasyon için iki kez +20 (100→140).
+  // Koşul artık WHERE'de: yalnızca BİR istek count=1 alır.
+  const { count } = await prisma.reservation.updateMany({
+    where: { id, restaurantId: profile.id, status: 'CONFIRMED', attended: null },
     data: { status: 'COMPLETED', attended },
+  });
+  if (count === 0) {
+    // Ön okuma geçtiği hâlde buraya düştüysek yarışı başka bir istek kazandı.
+    throw new HttpError(400, { error: 'Katılım durumu zaten işaretlenmiş.' });
+  }
+
+  const updated = await prisma.reservation.findUnique({
+    where: { id },
     select: RESERVATION_SELECT,
   });
 
   if (attended) {
-    // Katılım sağlandı: ekstra yıldız ver
+    // Katılım sağlandı: ekstra yıldız ver.
+    // Tekilliğin garantisi YUKARIDAKİ atomik geçiştir: bu satıra yalnızca `count === 1`
+    // alan istek ulaşır. Ayrıca bir `hasStarEventFor` kontrolü denendi ve KASITLI
+    // OLARAK ÇIKARILDI — CAS'in kapatmadığı hiçbir yolu kapatmıyor (bu ödülü veren
+    // başka çağrı yeri yok; istek tekrarında CAS zaten 0 döner), karşılığında her
+    // işaretlemeye fazladan bir sorgu ve gözlemlenebilir bir async sıçrama ekliyordu.
     awardStars(
       reservation.userId,
       'RESERVATION_ATTENDED',

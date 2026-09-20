@@ -11,7 +11,7 @@
 
 jest.mock('../../../src/utils/prisma', () => {
   const m = {
-    reservation: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
+    reservation: { findFirst: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     restaurantProfile: { findFirst: jest.fn(), findUnique: jest.fn() },
     reservationMessage: { create: jest.fn(), findMany: jest.fn() },
     // createReservation kapasite+çift-kayıt kontrolünü advisory lock'lu bir transaction
@@ -292,6 +292,8 @@ describe('katılım işaretleme — yıldız etkileri', () => {
       id: 'res-1', restaurantId: 'r1', status: 'CONFIRMED', attended: null, userId: 'u-1', date: FUTURE, time: '20:00',
     });
     prisma.reservation.update.mockResolvedValue({ id: 'res-1' });
+    // DB02 (#455) — durum geçişi artık atomik updateMany ile yapılıyor.
+    prisma.reservation.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it('geldi → yıldız verilir', async () => {
@@ -379,5 +381,100 @@ describe('slot yarışı — advisory lock', () => {
     await expectHttpError(svc.createReservation(ACTOR, VALID_INPUT), 409);
     expect(prisma.$executeRaw).toHaveBeenCalled();
     expect(prisma.reservation.create).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DB02 (#455) — katılım işaretlemede oku-sonra-yaz yarışı.
+//
+// Koruma vardı (`attended !== null` → 400) ama ATOMİK DEĞİLDİ: eşzamanlı iki istek
+// de `null` görüp geçiyor, ikisi de update yapıyor (ikincisi aynı değerleri yazdığı
+// için hata vermiyor) ve ikisi de awardStars çağırıyordu → aynı rezervasyon için
+// iki kez +20. Denetim raporundaki gözlem: 100 → 140.
+//
+// Koşul artık WHERE'de; yalnızca bir istek count=1 alır.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('katılım işaretleme — yarış koşulu (DB02)', () => {
+  beforeEach(() => {
+    prisma.restaurantProfile.findUnique.mockResolvedValue({ id: 'r1', businessName: 'Test AŞ' });
+    prisma.reservation.findUnique.mockResolvedValue({
+      id: 'res-1', restaurantId: 'r1', status: 'CONFIRMED', attended: null, userId: 'u-1',
+    });
+    prisma.reservation.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it('T1 durum koşulları WHERE içinde değerlendirilir (atomik compare-and-set)', async () => {
+    await svc.markAttendance('owner-1', 'res-1', { attended: true });
+
+    expect(prisma.reservation.updateMany).toHaveBeenCalledWith({
+      where: { id: 'res-1', restaurantId: 'r1', status: 'CONFIRMED', attended: null },
+      data: { status: 'COMPLETED', attended: true },
+    });
+  });
+
+  // ASIL YARIŞ: ön okuma geçti ama başka bir istek arada kazandı.
+  it('T2 yarışı kaybeden istek mevcut mesajla 400 alır', async () => {
+    prisma.reservation.updateMany.mockResolvedValue({ count: 0 });
+
+    await expectHttpError(
+      svc.markAttendance('owner-1', 'res-1', { attended: true }),
+      400,
+      { error: 'Katılım durumu zaten işaretlenmiş.' },
+    );
+  });
+
+  it('T3 yarışı kaybeden istek YILDIZ VERDİRMEZ (çift +20 yok)', async () => {
+    prisma.reservation.updateMany.mockResolvedValue({ count: 0 });
+
+    await expectHttpError(svc.markAttendance('owner-1', 'res-1', { attended: true }), 400);
+
+    expect(awardStars).not.toHaveBeenCalled();
+  });
+
+  it('T4 yarışı kazanan istek yıldızı BİR KEZ verir', async () => {
+    await svc.markAttendance('owner-1', 'res-1', { attended: true });
+    expect(awardStars).toHaveBeenCalledTimes(1);
+  });
+
+  it('T5 no-show yolu da atomik: kaybeden ceza uygulatmaz', async () => {
+    prisma.reservation.updateMany.mockResolvedValue({ count: 0 });
+
+    await expectHttpError(svc.markAttendance('owner-1', 'res-1', { attended: false }), 400);
+
+    expect(deductStars).not.toHaveBeenCalled();
+  });
+
+  it('T6 rezervasyon başka restorana aitse hiçbir yazma yapılmaz', async () => {
+    prisma.reservation.findUnique.mockResolvedValue({
+      id: 'res-1', restaurantId: 'BASKA', status: 'CONFIRMED', attended: null,
+    });
+
+    await expectHttpError(svc.markAttendance('owner-1', 'res-1', { attended: true }), 404);
+
+    expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
+    expect(awardStars).not.toHaveBeenCalled();
+  });
+
+  it('T7 onaylanmamış rezervasyonda hiçbir yazma yapılmaz', async () => {
+    prisma.reservation.findUnique.mockResolvedValue({
+      id: 'res-1', restaurantId: 'r1', status: 'PENDING', attended: null,
+    });
+
+    await expectHttpError(svc.markAttendance('owner-1', 'res-1', { attended: true }), 400);
+
+    expect(prisma.reservation.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('T9 başarılı yanıt RESERVATION_SELECT ile okunur', async () => {
+    prisma.reservation.findUnique
+      .mockResolvedValueOnce({ id: 'res-1', restaurantId: 'r1', status: 'CONFIRMED', attended: null, userId: 'u-1' })
+      .mockResolvedValueOnce({ id: 'res-1', status: 'COMPLETED', attended: true });
+
+    const { updated } = await svc.markAttendance('owner-1', 'res-1', { attended: true });
+
+    expect(updated).toEqual({ id: 'res-1', status: 'COMPLETED', attended: true });
+    expect(prisma.reservation.findUnique).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { id: 'res-1' }, select: expect.any(Object) }),
+    );
   });
 });
