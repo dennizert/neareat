@@ -26,7 +26,11 @@ import type {
 } from '../types';
 
 /**
- * Free tier günlük 3 öneri limitini aştığında fırlatılan typed error.
+ * Günlük AI öneri kotası aşıldığında fırlatılan typed error.
+ *
+ * S18: kotalar kullanıcı premium'una değil YILDIZ SEVİYESİNE bağlı (1/5/10/20/sınırsız).
+ * Satın alınacak bir şey olmadığı için bu hatada Paywall'a YÖNLENDİRİLMEZ; kullanıcıya
+ * backend'in verdiği mesaj ve sıfırlanma zamanı gösterilir.
  *
  * Caller pattern:
  *   try {
@@ -34,14 +38,14 @@ import type {
  *     ...
  *   } catch (e) {
  *     if (e instanceof AiRecommendationLimitError) {
- *       navigation.navigate('PremiumUpsell', { resetAt: e.resetAt });
+ *       toast.show(e.userMessage, 'info');   // e.resetAt: ne zaman yenileneceği
  *       return;
  *     }
  *     throw e;
  *   }
  */
 export class AiRecommendationLimitError extends Error {
-  /** Free tier reset zamanı (ISO). PremiumUpsell ekranında geri sayım için kullanılır. */
+  /** Kotanın sıfırlanacağı zaman (ISO) — kullanıcıya "yarın tekrar dene" bilgisi için. */
   readonly resetAt: string;
   /** Kullanıcıya gösterilecek mesaj (backend'ten gelir). */
   readonly userMessage: string;

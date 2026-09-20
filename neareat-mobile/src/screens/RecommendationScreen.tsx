@@ -54,7 +54,8 @@ export default function RecommendationScreen() {
   // Refinement aynı konumu yeniden kullanır — tekrar GPS sorgulamaya gerek yok
   const lastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  // S18: 429'da otomatik PremiumUpsell'e yönlendirme KALDIRILDI.
+  // S18: 429'da otomatik bir satın alma ekranına yönlendirme KALDIRILDI (o ekran
+  // #463'te tamamen silindi).
   // İki sorun vardı: (a) prevLimitReachedRef her mount'ta sıfırlanırken store'daki
   // limitReached kalıcı olduğu için, limite takılan kullanıcı ekrana her dönüşünde
   // anında dışarı fırlatılıyordu — AI ekranını bir daha hiç göremiyordu;

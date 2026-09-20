@@ -826,7 +826,6 @@ export type RootStackParamList = {
   // Route recommendation (Sprint-3 Task #8)
   RouteRecommendation: undefined;
   // AI-specific paywall (Sprint-1 Task #10)
-  PremiumUpsell: { resetAt?: string };
 };
 
 export type MainTabParamList = {
