@@ -464,6 +464,138 @@ describe('POST /webhooks/google-play', () => {
     );
   });
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // NEW-B01 (issue #449) — sıra/tazelik denetimi.
+  //
+  // Pub/Sub EN-AZ-BİR-KEZ teslim garantisi verir: tekrar ve sırasız teslim beklenen
+  // davranıştır. Eskiden bildirim koşulsuz uygulanıyordu; aylar önceki bir EXPIRED
+  // yeniden teslim edildiğinde yenilenmiş, ödenmiş bir abonelik sessizce düşüyordu
+  // (restoran paneli + rezervasyon kabulü + kampanya kapanır).
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('NEW-B01 — bayat ve tekrar teslim edilen bildirimler', () => {
+    const FUTURE = new Date('2099-12-31T00:00:00.000Z');
+    const PAST = new Date(Date.now() - 86400_000);
+
+    function rtdn(notificationType, eventTimeMillis) {
+      return encodedMessage({
+        packageName: 'com.eatlas.mobile',
+        ...(eventTimeMillis ? { eventTimeMillis: String(eventTimeMillis) } : {}),
+        subscriptionNotification: { notificationType, purchaseToken, subscriptionId: 'premium_yearly' },
+      });
+    }
+    const statusWrites = () => mockPrisma.subscription.update.mock.calls
+      .filter((c) => c[0]?.data && 'status' in c[0].data);
+
+    // T10 / S1 — ASIL HATA. Yıl 2000 EXPIRED, 2099 bitişli aktif abonelik.
+    it('T10 EXPIRED mevcut bitiş tarihiyle çelişiyorsa aboneliği DÜŞÜRMEZ', async () => {
+      mockPrisma.subscription.findFirst.mockResolvedValue({
+        id: randomId(), storeTransactionId: purchaseToken, expiresAt: FUTURE, lastEventAt: null,
+      });
+      mockSubscriptionsGet.mockResolvedValue({
+        data: { expiryTimeMillis: String(FUTURE.getTime()) },
+      });
+      mockPrisma.subscription.update.mockResolvedValue({});
+
+      const res = await request(app).post('/webhooks/google-play')
+        .send(rtdn(13, Date.UTC(2000, 0, 1)));
+
+      expect(res.status).toBe(200);
+      // Olaya güvenilmemeli: 'expired' yazılmamalı, bunun yerine Play'e sorulmalı.
+      expect(statusWrites().some((c) => c[0].data.status === 'expired')).toBe(false);
+      expect(mockSubscriptionsGet).toHaveBeenCalled();
+    });
+
+    // T11 / S2 — gerçek bitiş: erişim kapanmalı. Düzeltme bunu bozmamalı.
+    it('T11 bitiş geçmişteyken EXPIRED aboneliği expired yapar', async () => {
+      mockPrisma.subscription.findFirst.mockResolvedValue({
+        id: randomId(), storeTransactionId: purchaseToken, expiresAt: PAST, lastEventAt: null,
+      });
+      mockPrisma.subscription.update.mockResolvedValue({});
+
+      const res = await request(app).post('/webhooks/google-play')
+        .send(rtdn(13, Date.now()));
+
+      expect(res.status).toBe(200);
+      expect(statusWrites().some((c) => c[0].data.status === 'expired')).toBe(true);
+    });
+
+    // T12 — tekrar teslim: aynı/eski eventTimeMillis hiçbir yazma yapmamalı.
+    it('T12 bayat olay hiçbir durum yazması yapmaz', async () => {
+      mockPrisma.subscription.findFirst.mockResolvedValue({
+        id: randomId(),
+        storeTransactionId: purchaseToken,
+        expiresAt: PAST,
+        lastEventAt: new Date(Date.UTC(2026, 8, 15)),
+      });
+      mockPrisma.subscription.update.mockResolvedValue({});
+
+      const res = await request(app).post('/webhooks/google-play')
+        .send(rtdn(13, Date.UTC(2026, 8, 1))); // lastEventAt'ten ESKİ
+
+      expect(res.status).toBe(200);
+      expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+      expect(mockSubscriptionsGet).not.toHaveBeenCalled();
+    });
+
+    it('T12b aynı olay zamanı (tekrar teslim) de yazma yapmaz', async () => {
+      const t = Date.UTC(2026, 8, 15);
+      mockPrisma.subscription.findFirst.mockResolvedValue({
+        id: randomId(), storeTransactionId: purchaseToken, expiresAt: PAST, lastEventAt: new Date(t),
+      });
+      mockPrisma.subscription.update.mockResolvedValue({});
+
+      await request(app).post('/webhooks/google-play').send(rtdn(2, t));
+
+      expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+    });
+
+    // G4 — dönem ortası iade meşrudur; çelişki denetimi REVOKED'a uygulanmamalı.
+    it('T13 REVOKED bitiş gelecekte olsa da uygulanır (dönem ortası iade)', async () => {
+      mockPrisma.subscription.findFirst.mockResolvedValue({
+        id: randomId(), storeTransactionId: purchaseToken, expiresAt: FUTURE, lastEventAt: null,
+      });
+      mockPrisma.subscription.update.mockResolvedValue({});
+
+      const res = await request(app).post('/webhooks/google-play')
+        .send(rtdn(12, Date.now()));
+
+      expect(res.status).toBe(200);
+      expect(statusWrites().some((c) => c[0].data.status === 'expired')).toBe(true);
+    });
+
+    it('işlenen olayın zamanı abonelikte damgalanır', async () => {
+      const t = Date.now();
+      mockPrisma.subscription.findFirst.mockResolvedValue({
+        id: 'sub-stamp', storeTransactionId: purchaseToken, expiresAt: PAST, lastEventAt: null,
+      });
+      mockPrisma.subscription.update.mockResolvedValue({});
+
+      await request(app).post('/webhooks/google-play').send(rtdn(13, t));
+
+      expect(mockPrisma.subscription.update).toHaveBeenCalledWith({
+        where: { id: 'sub-stamp' },
+        data: { lastEventAt: new Date(t) },
+      });
+    });
+
+    // Fail-open: zamanı okuyamadığımız için bir YENİLEMEYİ bloklamak müşteriyi
+    // erişimsiz bırakırdı. Sıralama denetimi iyileştirmedir, ön koşul değil.
+    it('eventTimeMillis yoksa bildirim yine işlenir, damga yazılmaz', async () => {
+      mockPrisma.subscription.findFirst.mockResolvedValue({
+        id: 'sub-nots', storeTransactionId: purchaseToken, expiresAt: PAST,
+        lastEventAt: new Date(Date.UTC(2099, 0, 1)),
+      });
+      mockPrisma.subscription.update.mockResolvedValue({});
+
+      await request(app).post('/webhooks/google-play').send(rtdn(13, null));
+
+      expect(statusWrites().some((c) => c[0].data.status === 'expired')).toBe(true);
+      expect(mockPrisma.subscription.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ lastEventAt: expect.anything() }) }),
+      );
+    });
+  });
+
   it('data alanı eksik mesaj için 200 döndürür (hata değil)', async () => {
     const res = await request(app)
       .post('/webhooks/google-play')

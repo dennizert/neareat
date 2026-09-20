@@ -105,6 +105,11 @@ model Subscription {
   expiresAt          DateTime           @map("expires_at")
   storeTransactionId String?            @unique @map("store_transaction_id")
   createdAt          DateTime           @default(now()) @map("created_at")
+  /// NEW-B01 — işlenmiş son RTDN olayının `eventTimeMillis` değeri. Pub/Sub
+  /// en-az-bir-kez teslim ettiği için tekrar ve sırasız teslim beklenen durumdur;
+  /// bu damga olmadan aylar önceki bir EXPIRED, yenilenmiş aboneliği düşürüyordu.
+  /// null = bu abonelik için henüz RTDN işlenmedi (ilk olay uygulanır).
+  lastEventAt        DateTime?          @map("last_event_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
