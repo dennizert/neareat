@@ -5,6 +5,7 @@ const { cacheGet, cacheSet } = require('../services/redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
 const { verifyPubSubPush } = require('../services/pubsubAuth');
 const { recordPurchaseEvent } = require('../services/purchaseLedger');
+const { parseEventTime, decideRtdnAction } = require('../utils/rtdnPolicy'); // NEW-B01
 
 // RTDN teşhisi: gelen her bildirimin özetini (token/kullanıcı YOK) Redis'e yazar.
 // GET /webhooks/google-play/last ile son bildirimi okumak için (kurulum doğrulaması).
@@ -304,7 +305,7 @@ async function handleGooglePlayRTDN(req, res) {
       return res.status(200).json({ received: true });
     }
 
-    const { packageName, subscriptionNotification } = notification;
+    const { packageName, subscriptionNotification, eventTimeMillis } = notification;
 
     // Teşhis: gelen her bildirimi (test dahil) kaydet — fire-and-forget.
     recordRtdnReceipt(notification).catch(() => {});
@@ -327,8 +328,43 @@ async function handleGooglePlayRTDN(req, res) {
       status: notificationType === 3 ? 'cancelled' : [12, 13].includes(notificationType) ? 'expired' : 'refreshed',
     });
 
+    // NEW-B01 — sıra/tazelik denetimi. Pub/Sub EN-AZ-BİR-KEZ teslim ettiği için
+    // tekrar ve sırasız teslim beklenen durumdur; eskiden bildirim koşulsuz
+    // uygulanıyordu ve aylar önceki bir EXPIRED yenilenmiş aboneliği düşürüyordu.
+    const eventTimeMs = parseEventTime(eventTimeMillis);
+    const existing = await prisma.subscription.findFirst({
+      where: { storeTransactionId: purchaseToken },
+      select: { id: true, expiresAt: true, lastEventAt: true },
+    });
+
+    // Eşleşen abonelik yoksa karar verilecek bir şey de yok — mevcut yardımcılar
+    // zaten sessizce çıkıyor; davranış değişmedi.
+    const { action, reason } = existing
+      ? decideRtdnAction({
+        notificationType,
+        eventTimeMs,
+        lastEventAt: existing.lastEventAt,
+        expiresAt: existing.expiresAt,
+      })
+      : { action: 'apply', reason: 'no_subscription' };
+
+    if (action === 'skip') {
+      logger.warn('[RTDN] Bayat/tekrar bildirim yok sayıldı', {
+        notificationType, reason, eventTimeMillis: eventTimeMillis ?? null,
+      });
+      return res.status(200).json({ received: true });
+    }
+
+    // Şüpheli EXPIRED: "süresi doldu" diyen olay, bitişi hâlâ gelecekte olan bir
+    // abonelikle çelişiyor. Olaya güvenmek yerine yetkiliye (Play) sor.
+    if (action === 'verify') {
+      logger.warn('[RTDN] EXPIRED mevcut bitiş tarihiyle çelişiyor — Play doğrulanıyor', {
+        notificationType, reason, expiresAt: existing.expiresAt,
+      });
+      await _refreshFromPlay(purchaseToken, subscriptionId);
+    }
     // 1=RECOVERED 2=RENEWED 4=PURCHASED 7=RESTARTED → Google Play'den güncel durum çek
-    if ([1, 2, 4, 7].includes(notificationType)) {
+    else if ([1, 2, 4, 7].includes(notificationType)) {
       await _refreshFromPlay(purchaseToken, subscriptionId);
     }
     // 3=CANCELED → iptal edildi ama bitiş tarihine kadar hâlâ aktif
@@ -339,9 +375,20 @@ async function handleGooglePlayRTDN(req, res) {
     else if ([5, 6].includes(notificationType)) {
       await _refreshFromPlay(purchaseToken, subscriptionId);
     }
-    // 12=REVOKED 13=EXPIRED → hemen expired yap
+    // 12=REVOKED 13=EXPIRED → hemen expired yap.
+    // REVOKED buraya ÇELİŞKİ DENETİMİNDEN MUAF gelir (rtdnPolicy'ye bakın): iade
+    // doğası gereği bitiş tarihinden önce olur, gelecekteki expiresAt beklenen durum.
     else if ([12, 13].includes(notificationType)) {
       await _setSubscriptionStatus(purchaseToken, 'expired');
+    }
+
+    // İşlenen olayın zamanını damgala — bundan eski/eşit olan her teslim artık
+    // `skip` alacak. Olay zamanı okunamadıysa damgalama (fail-open, G2/T5).
+    if (existing && eventTimeMs != null) {
+      await prisma.subscription.update({
+        where: { id: existing.id },
+        data: { lastEventAt: new Date(eventTimeMs) },
+      }).catch(() => {});
     }
   } catch (err) {
     logger.error('[RTDN] İşleme hatası', { error: err.message });
