@@ -12,6 +12,7 @@ const {
   getMetrics,
 } = require('../controllers/adminController');
 const { listRequests, reviewRequest } = require('../controllers/placeRequestController');
+const { getSummary: getAnalyticsSummary } = require('../controllers/analyticsController');
 
 // One-time seed — ADMIN_SEED_SECRET env var ile korunur
 router.post('/seed', (req, res, next) => {
@@ -41,6 +42,9 @@ router.post('/login', adminLogin);
 // All routes below require admin role
 router.get('/stats', authenticate, requireAdmin, getPlatformStats);
 router.get('/metrics', authenticate, requireAdmin, getMetrics);
+
+// Ürün analitiği huni özeti — bkz. services/analyticsService.js
+router.get('/analytics/summary', authenticate, requireAdmin, getAnalyticsSummary);
 
 // Restaurant approval
 router.get('/restaurants', authenticate, requireAdmin, getPendingRestaurants);

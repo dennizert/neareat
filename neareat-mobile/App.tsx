@@ -12,12 +12,18 @@ import { configureGoogleSignIn } from './src/services/auth';
 import { MOCK_MODE, GOOGLE_WEB_CLIENT_ID } from './src/config';
 import { useAuthStore } from './src/store/authStore';
 import { initSentry, wrapWithSentry } from './src/services/sentry';
+import { setAnalyticsSink } from './src/services/analytics';
+import { backendAnalyticsSink } from './src/services/analyticsBackendSink';
 
 // Crash reporting'i (S14-M3) mümkün olduğunca erken başlat — DSN yoksa no-op.
 initSentry();
 
 if (!MOCK_MODE) {
   configureGoogleSignIn(GOOGLE_WEB_CLIENT_ID);
+  // #481 — 5 funnel event'i (paywall/detay/rezervasyon/AI öneri) kodda üretiliyordu
+  // ama setAnalyticsSink hiç çağrılmadığı için boşluğa akıyordu. MOCK_MODE'da
+  // takılmıyor: gerçek backend yok, event'ler gitmemeli.
+  setAnalyticsSink(backendAnalyticsSink);
 }
 
 function App() {
