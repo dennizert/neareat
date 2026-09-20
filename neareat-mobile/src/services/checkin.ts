@@ -11,9 +11,31 @@ export interface CheckInResponse {
   placeName: string;
   createdAt: string;
   expiresAt: string;
+  /**
+   * Konum mekâna yeterince yakın doğrulandı mı? Yalnızca doğrulanmış check-in
+   * yıldız kazandıran "ziyaret kanıtı" sayılır (backend starGuards.hasVerifiedVisit).
+   */
+  verified?: boolean;
+  distanceMeters?: number | null;
 }
 
-export async function createCheckin(placeId: string, placeName: string): Promise<CheckInResponse> {
+/** POST /checkin gövdesine eklenen konum kanıtı. */
+export interface CheckInLocation {
+  lat: number;
+  lng: number;
+  /** Android'de expo-location'ın sahte konum bayrağı. */
+  mocked?: boolean;
+}
+
+/**
+ * Check-in oluşturur. `location` verilmezse check-in yine oluşur (arkadaş bildirimi
+ * çalışır) ama backend ziyaret kanıtı saymaz → yorum/puan yıldızı kazandırmaz.
+ */
+export async function createCheckin(
+  placeId: string,
+  placeName: string,
+  location?: CheckInLocation,
+): Promise<CheckInResponse> {
   if (MOCK_MODE) {
     return {
       id: 'mock-checkin',
@@ -21,9 +43,17 @@ export async function createCheckin(placeId: string, placeName: string): Promise
       placeName,
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+      verified: true,
+      distanceMeters: 0,
     };
   }
-  const { data } = await api.post('/checkin', { placeId, placeName });
+  const { data } = await api.post('/checkin', {
+    placeId,
+    placeName,
+    ...(location
+      ? { lat: location.lat, lng: location.lng, mocked: location.mocked === true }
+      : {}),
+  });
   return data;
 }
 

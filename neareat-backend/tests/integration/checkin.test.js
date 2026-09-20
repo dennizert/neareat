@@ -15,6 +15,7 @@ const mockPrisma = {
     create: jest.fn(),
     findFirst: jest.fn(),
     deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
   },
   activityEvent: { create: jest.fn().mockResolvedValue({}) },
   notification: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
@@ -37,6 +38,12 @@ jest.mock('../../src/services/redis', () => ({
   cacheGet: jest.fn().mockResolvedValue(null),
   cacheSet: jest.fn().mockResolvedValue(undefined),
   cacheDel: jest.fn().mockResolvedValue(undefined),
+}));
+
+// S18-3 devamı — check-in konum doğrulaması Google Places geometry'sine bakıyor.
+const mockGetPlaceDetails = jest.fn();
+jest.mock('../../src/services/googlePlaces', () => ({
+  getPlaceDetails: (...args) => mockGetPlaceDetails(...args),
 }));
 
 jest.mock('../../src/jobs/reservationReminders', () => ({ scheduleReservationReminders: jest.fn() }));
@@ -67,8 +74,12 @@ beforeEach(() => {
     placeName: data.placeName,
     expiresAt: data.expiresAt,
     createdAt: new Date(),
+    verified: data.verified,
+    distanceMeters: data.distanceMeters,
   }));
   mockPrisma.activityEvent.create.mockResolvedValue({});
+  // Köşk Kebap ≈ Taksim Meydanı
+  mockGetPlaceDetails.mockResolvedValue({ geometry: { location: { lat: 41.0370, lng: 28.9850 } } });
 });
 
 describe('POST /api/checkin', () => {
@@ -84,16 +95,18 @@ describe('POST /api/checkin', () => {
     expect(res.status).toBe(400);
   });
 
-  it('başarılı check-in: 201, eski silinir, yeni oluşur, expiresAt ~3h sonra', async () => {
+  it('başarılı check-in: 201, eski yürürlükten kalkar, yeni oluşur, expiresAt ~3h sonra', async () => {
     const res = await request(app).post('/api/checkin').set('Authorization', `Bearer ${token}`)
       .send({ placeId: 'p1', placeName: 'Köşk Kebap' });
     expect(res.status).toBe(201);
-    // Yalnızca AKTİF check-in silinir: geçmiş kayıtlar ziyaret kanıtıdır
-    // (starGuards.hasVerifiedVisit), süre filtresi olmadan başka mekana check-in
-    // yapmak önceki ziyaretin kanıtını da siliyordu.
-    expect(mockPrisma.checkIn.deleteMany).toHaveBeenCalledWith({
+    // Önceki AKTİF check-in SİLİNMEZ, süresi doldurulur: satır ziyaret kanıtıdır
+    // (starGuards.hasVerifiedVisit). Silinseydi A'ya gidip 1 saat sonra B'ye check-in
+    // yapan kullanıcı A'daki gerçek ziyaretinin kanıtını kaybederdi.
+    expect(mockPrisma.checkIn.updateMany).toHaveBeenCalledWith({
       where: { userId, expiresAt: { gt: expect.any(Date) } },
+      data: { expiresAt: expect.any(Date) },
     });
+    expect(mockPrisma.checkIn.deleteMany).not.toHaveBeenCalled();
     expect(mockPrisma.checkIn.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ userId, placeId: 'p1', placeName: 'Köşk Kebap' }),
     }));
@@ -140,6 +153,68 @@ describe('POST /api/checkin', () => {
   it('auth yoksa 401', async () => {
     const res = await request(app).post('/api/checkin').send({ placeId: 'p1', placeName: 'X' });
     expect(res.status).toBe(401);
+  });
+});
+
+/**
+ * S18-3 devamı — konum doğrulaması.
+ *
+ * Kritik tasarım kararı: doğrulama BAŞARISIZ olsa bile check-in 201 döner ve sosyal
+ * özellik (arkadaş bildirimi) çalışır. Yalnızca `verified: false` yazılır, o da satırı
+ * `starGuards.hasVerifiedVisit` gözünde ziyaret kanıtı olmaktan çıkarır. Böylece eski
+ * mobil sürümler BOZULMAZ, sadece yıldız kazanamaz.
+ */
+describe('POST /api/checkin — konum doğrulaması', () => {
+  function post(body) {
+    return request(app).post('/api/checkin').set('Authorization', `Bearer ${token}`)
+      .send({ placeId: 'p1', placeName: 'Köşk Kebap', ...body });
+  }
+  const written = () => mockPrisma.checkIn.create.mock.calls[0][0].data;
+
+  it('mekânın yanındaysa verified:true yazılır', async () => {
+    const res = await post({ lat: 41.0370, lng: 28.9850 });
+    expect(res.status).toBe(201);
+    expect(written()).toMatchObject({ verified: true, distanceMeters: 0, lat: 41.037, mocked: false });
+    expect(res.body.verified).toBe(true);
+  });
+
+  // ASIL AÇIK: koordinatsız istek (eski istemci veya doğrudan curl) artık yıldız
+  // kazandıran ziyaret kanıtı üretemez.
+  it('koordinat yoksa 201 ama verified:false', async () => {
+    const res = await post({});
+    expect(res.status).toBe(201);
+    expect(written()).toMatchObject({ verified: false, lat: null, lng: null, distanceMeters: null });
+    expect(mockGetPlaceDetails).not.toHaveBeenCalled();
+  });
+
+  it('uzaktan gelen istek verified:false, mesafe denetim için yazılır', async () => {
+    const res = await post({ lat: 40.9900, lng: 29.0300 }); // Kadıköy ≈ 5 km
+    expect(res.status).toBe(201);
+    const d = written();
+    expect(d.verified).toBe(false);
+    expect(d.distanceMeters).toBeGreaterThan(4000);
+    expect(d.lat).toBe(40.99); // reddedilen deneme de kaydedilir
+  });
+
+  it('sahte konum bayrağı verified:false yapar ve kaydedilir', async () => {
+    await post({ lat: 41.0370, lng: 28.9850, mocked: true });
+    expect(written()).toMatchObject({ verified: false, mocked: true });
+  });
+
+  // FAIL-CLOSED: Google çökerse doğrulayamadığımız ziyaret yıldız kazandırmamalı,
+  // ama check-in'in kendisi de düşmemeli.
+  it('Google Places hatası check-in\'i düşürmez, verified:false kalır', async () => {
+    mockGetPlaceDetails.mockRejectedValue(new Error('OVER_QUERY_LIMIT'));
+    const res = await post({ lat: 41.0370, lng: 28.9850 });
+    expect(res.status).toBe(201);
+    expect(written().verified).toBe(false);
+  });
+
+  it('doğrulama başarısız olsa da arkadaş bildirimi gider (sosyal özellik bozulmaz)', async () => {
+    mockPrisma.friendRequest.findMany.mockResolvedValue([{ fromUserId: userId, toUserId: friendA }]);
+    await post({}); // koordinatsız → doğrulanmaz
+    await flushMicrotasks();
+    expect(mockCreateNotificationsForUsers).toHaveBeenCalled();
   });
 });
 

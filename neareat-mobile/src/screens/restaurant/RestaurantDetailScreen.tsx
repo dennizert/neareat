@@ -12,6 +12,7 @@ import { useFavoriteStore } from '../../store/favoriteStore';
 import { useUserProfileStore } from '../../store/userProfileStore';
 import { useCollectionStore } from '../../store/collectionStore';
 import { createCheckin } from '../../services/checkin';
+import { getLocationForCheckin } from '../../services/location';
 import { addDiaryEntry } from '../../services/diary';
 import { analyzePhoto, type PhotoAnalysisResult } from '../../services/photoAnalysis';
 import { getMyCollections, addToCollection, createCollection } from '../../services/collections';
@@ -239,8 +240,15 @@ export default function RestaurantDetailScreen() {
   async function handleCheckin() {
     if (!detail) return;
     try {
-      await createCheckin(detail.placeId, detail.name);
-      toast.show('Check-in yapıldı! Arkadaşların bildirim aldı', 'success');
+      // Konum ziyaret kanıtı için gönderilir. Alınamazsa check-in yine yapılır —
+      // arkadaş bildirimi çalışır, sadece yıldız kazandırmaz (backend verified=false).
+      const coords = await getLocationForCheckin();
+      const res = await createCheckin(detail.placeId, detail.name, coords ?? undefined);
+      if (res.verified === false) {
+        toast.show('Check-in yapıldı — konum doğrulanamadığı için yıldız kazanmadın', 'info');
+      } else {
+        toast.show('Check-in yapıldı! Arkadaşların bildirim aldı', 'success');
+      }
     } catch (err: any) {
       Alert.alert('Hata', err?.message ?? 'Check-in yapılamadı.');
     }
