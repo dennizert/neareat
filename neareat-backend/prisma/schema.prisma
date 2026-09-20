@@ -90,6 +90,7 @@ model User {
   notificationPreferences NotificationPreference[]
   placeRequests           PlaceRequest[]
   placeViews              PlaceView[]
+  analyticsEvents         AnalyticsEvent[]
 
   @@map("users")
 }
@@ -962,4 +963,28 @@ model PlaceView {
   @@unique([userId, placeId])
   @@index([userId, viewedAt])
   @@map("place_views")
+}
+
+/// Hafif ürün analitiği / funnel event kaydı (S14-M5 sink implementasyonu).
+/// `services/analytics.ts` (mobil) → `POST /api/analytics/events` → burası.
+/// userId NULLABLE: anonim/misafir kullanıcı da event üretebilir (optionalAuth).
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  name      String
+  // Serbest biçimli ama küçük: mobil zaten stripPii uyguluyor, backend'de de
+  // derinlemesine savunma olarak tekrar uygulanır (bkz. analyticsService.js).
+  props     Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // onDelete: SetNull — Cascade DEĞİL. Kullanıcı hesabını sildiğinde (KVKK) event'in
+  // KENDİSİ değil, kişisel bağlantısı (userId) kalkar: agregat huni istatistiği
+  // (ör. "restoran detayı → rezervasyon" dönüşüm oranı) bir kullanıcının hesap
+  // silmesiyle bozulmamalı; anonimleştirme, veri asgariye indirme ilkesine de uygun.
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Funnel sorgusu: "bugün/bu hafta X olayı kaç kez oldu" — adına ve zamana göre.
+  @@index([name, createdAt])
+  @@index([userId])
+  @@map("analytics_events")
 }
