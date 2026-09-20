@@ -19,6 +19,7 @@ jest.mock('../../../src/services/notificationService', () => ({
 
 const {
   runPendingReservationEscalation,
+  runDailyReservationReminder,
   PENDING_ESCALATION_HOURS,
 } = require('../../../src/jobs/reservationReminders');
 
@@ -177,5 +178,44 @@ describe('runPendingReservationEscalation — bildirim başarısızlığı (DB07
     expect(mockPrisma.reservation.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'r-ok' } }),
     );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #429 — daha önce `scheduleReservationReminders` içine gömülü anonim bir
+// fonksiyondu; dışa aktarılmadığı için hiç mock'lu test yazılamıyordu.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('runDailyReservationReminder', () => {
+  function confirmedReservation(overrides = {}) {
+    return {
+      id: 'res-1',
+      userId: 'u1',
+      time: '19:30',
+      restaurant: { businessName: 'Test Restoran' },
+      ...overrides,
+    };
+  }
+
+  it('bugünkü CONFIRMED rezervasyonu olan her kullanıcıya bildirim gönderir', async () => {
+    mockPrisma.reservation.findMany.mockResolvedValue([confirmedReservation()]);
+
+    await runDailyReservationReminder();
+
+    expect(mockPrisma.reservation.findMany.mock.calls[0][0].where.status).toBe('CONFIRMED');
+    expect(mockCreateNotification).toHaveBeenCalledWith(
+      'u1', 'RESERVATION_REMINDER', expect.any(String), expect.stringContaining('19:30'),
+      expect.objectContaining({ reservationId: 'res-1' }),
+    );
+  });
+
+  it('bugün CONFIRMED rezervasyon yoksa hiç bildirim gitmez', async () => {
+    mockPrisma.reservation.findMany.mockResolvedValue([]);
+    await runDailyReservationReminder();
+    expect(mockCreateNotification).not.toHaveBeenCalled();
+  });
+
+  it('DB hatasında throw etmez (cron güvenli)', async () => {
+    mockPrisma.reservation.findMany.mockRejectedValueOnce(new Error('db down'));
+    await expect(runDailyReservationReminder()).resolves.toBeUndefined();
   });
 });
