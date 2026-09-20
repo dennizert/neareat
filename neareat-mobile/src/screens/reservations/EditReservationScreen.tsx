@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getReservationDetail, updateReservation } from '../../services/reservations';
+import { resolveInitialDate } from '../../utils/reservationDate';
 import type { Reservation } from '../../types';
 import { reservationRestaurantName } from '../../utils/reservationName';
 import { useTheme } from '../../theme';
@@ -48,6 +49,10 @@ export default function EditReservationScreen() {
 
   const days = getNextDays(60);
   const [selectedDate, setSelectedDate] = useState('');
+  // NEW-UI01 (#457) — pencere dışı ama geçerli mevcut tarih seçiciye EKLENİR,
+  // geçmiş tarihte kullanıcıdan açık seçim istenir.
+  const [extraDate, setExtraDate] = useState<string | null>(null);
+  const [datePast, setDatePast] = useState(false);
   const [selectedTime, setSelectedTime] = useState('');
   const [guestCount, setGuestCount] = useState('2');
   const [occasion, setOccasion] = useState('');
@@ -58,7 +63,12 @@ export default function EditReservationScreen() {
     getReservationDetail(reservationId)
       .then(res => {
         setReservation(res);
-        setSelectedDate(days.includes(res.date) ? res.date : days[0]);
+        // NEW-UI01 — eskiden `days.includes(res.date) ? res.date : days[0]` idi:
+        // pencereye sığmayan tarih SESSİZCE bugüne düşüyordu.
+        const choice = resolveInitialDate(res.date, days);
+        setSelectedDate(choice.selected);
+        setExtraDate(choice.extraOption);
+        setDatePast(choice.isPast);
         setSelectedTime(res.time);
         setGuestCount(String(res.guestCount));
         setOccasion(res.occasion ?? '');
@@ -121,8 +131,13 @@ export default function EditReservationScreen() {
 
         {/* Tarih Seçimi */}
         <Text style={styles.sectionLabel}>Tarih</Text>
+        {datePast && (
+          <Text style={styles.dateWarning}>
+            Bu rezervasyonun tarihi geçmiş. Devam etmek için yeni bir tarih seç.
+          </Text>
+        )}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-          {days.map(d => (
+          {(extraDate ? [extraDate, ...days] : days).map(d => (
             <TouchableOpacity
               key={d}
               style={[styles.chip, selectedDate === d && styles.chipActive]}
@@ -229,6 +244,7 @@ function makeStyles(C: Colors) {
     },
     restaurantName: { fontSize: 15, fontWeight: '600', color: C.primary },
     updateNote: { fontSize: 12, color: C.warning, lineHeight: 18 },
+    dateWarning: { fontSize: 13, color: C.warning, lineHeight: 19, marginHorizontal: 16, marginBottom: 8 },
     sectionLabel: { fontSize: 13, fontWeight: '600', color: C.textTertiary, marginHorizontal: 16, marginTop: 20, marginBottom: 8 },
     chipScroll: { paddingHorizontal: 16 },
     chip: {
