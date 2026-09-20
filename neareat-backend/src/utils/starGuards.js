@@ -51,6 +51,28 @@ async function hasVerifiedVisit(userId, placeId) {
 }
 
 /**
+ * Bu (kullanıcı, tip, referans) üçlüsü için zaten yıldız verilmiş mi? DB sorgusu yapar.
+ *
+ * DB02 (#455) — tek-seferlik ödüllerde derinlemesine savunma. `awardStars` çağrıldığı
+ * kadar yazar; idempotency ONUN İÇİNE konmadı çünkü genel olurdu ve meşru bir tekrarı
+ * bozardı: `socialService.rateRestaurant` referans olarak `placeId` kullanıyor ve
+ * tekrar koruması "bugün" kapsamlı — kullanıcı aynı mekânı YARIN tekrar puanlayabilir
+ * ve o ikinci olay meşrudur. Bu yüzden tekillik, referansın gerçekten tek-seferlik
+ * olduğu ÇAĞRI YERLERİNDE bu yardımcıyla uygulanır.
+ *
+ * #448 ile eklenen `star_events(user_id, type, reference_id)` indeksi bu sorguyu
+ * ucuzlatıyor.
+ */
+async function hasStarEventFor(userId, type, referenceId) {
+  if (!referenceId) return false;
+  const existing = await prisma.starEvent.findFirst({
+    where: { userId, type, referenceId },
+    select: { id: true },
+  });
+  return !!existing;
+}
+
+/**
  * Bu tip için bugün verilen (pozitif) yıldız olayı sayısı tavanın altında mı? DB sorgusu yapar.
  */
 async function isUnderDailyStarCap(userId, type) {
@@ -79,6 +101,7 @@ module.exports = {
   getIstanbulMidnightUtc,
   withinDailyCap,
   hasVerifiedVisit,
+  hasStarEventFor,
   isUnderDailyStarCap,
   canEarnPlaceStars,
 };

@@ -8,6 +8,7 @@
 const prisma = require('../utils/prisma');
 const logger = require('../utils/logger');
 const { awardStars } = require('../utils/stars');
+const { hasStarEventFor } = require('../utils/starGuards'); // #455 — paylaşılan idempotency kontrolü
 const { cacheGet, cacheSet, cacheDel } = require('./redis');
 
 const REFERRER_STARS_TYPE = 'REFERRAL';
@@ -44,10 +45,9 @@ async function maybeAwardReferrer(referredUserId) {
   if (!user || !user.emailVerified) return;
 
   // Idempotency — bu davet için davet eden zaten ödüllendirildiyse bağı temizle, çık.
-  const already = await prisma.starEvent.findFirst({
-    where: { userId: referrerId, type: REFERRER_STARS_TYPE, referenceId: referredUserId },
-    select: { id: true },
-  });
+  // #455 — sorgu `utils/starGuards.hasStarEventFor` ile PAYLAŞILIYOR (aynı kontrol
+  // katılım ödülünde de gerekiyordu; iki kopya tutmak yerine tek kaynak).
+  const already = await hasStarEventFor(referrerId, REFERRER_STARS_TYPE, referredUserId);
   if (already) {
     await cacheDel(pendingKey(referredUserId)).catch(() => {});
     return;
