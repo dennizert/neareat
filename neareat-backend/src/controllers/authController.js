@@ -215,6 +215,38 @@ async function getMe(req, res) {
   res.json({ user: sanitizeUser(req.user), subscription, restaurantProfile });
 }
 
+// KVKK/hesap silme sırasında Firebase Authentication kaydını temizler (best-effort;
+// DB kaynak-of-truth, bu yan sistemdir — mevcut S3 temizliğiyle aynı konvansiyon).
+//
+// DÜZELTME (#475): `req.user.googleId` her zaman Google OAuth `sub` değeridir
+// (bkz. resolveTokenUser.js, authController login — hep `decoded.sub` yazılıyor).
+// Firebase Authentication UID'si ise KENDİ ürettiği ayrı bir tanımlayıcıdır ve `sub`
+// ile ASLA eşleşmez (ölçüldü: Firebase Console'da gerçek bir kullanıcının UID'si
+// `v0Mt9g5W6MhNdqBqTi6JwAx5ecl2` — 28 haneli karışık dizi, Google `sub`'ın rakamlardan
+// oluşan ~21 haneli biçiminden tamamen farklı). Eski kod bu yüzden HER ZAMAN
+// `auth/user-not-found` alıyor, hatayı sessizce yutuyordu: "hesabımı sil" diyen hiçbir
+// kullanıcının Firebase kaydı gerçekte silinmiyordu — KVKK açısından yerine getirilmemiş
+// bir silme talebiydi ve bunu gösterecek hiçbir log yoktu.
+//
+// Doğru tanımlayıcı olmadığı için e-posta üzerinden aranır: Firebase'de e-posta
+// benzersizdir ve Google Sign-In akışında Firebase kaydının e-postası Google
+// hesabınınkiyle aynıdır. `googleId` yoksa (kullanıcı hiç Google ile bağlanmamış)
+// Firebase'de zaten kayıt yoktur, hiç aranmaz.
+async function deleteFirebaseAccount({ googleId, email }) {
+  if (!googleId) return;
+  try {
+    const fbUser = await getAuth().getUserByEmail(email);
+    await getAuth().deleteUser(fbUser.uid);
+  } catch (err) {
+    // Gerçekten Firebase kaydı yoksa (ör. e-posta hiç değişmemişse zaten beklenen
+    // durum) sessiz; başka bir hata ise ARTIK GÖRÜNÜR — eskiden burası tamamen
+    // sessizdi ve sorunun fark edilmemesinin sebebi de buydu.
+    if (err?.code !== 'auth/user-not-found') {
+      logger.warn('[deleteAccount] Firebase kullanıcısı silinemedi', { error: err.message });
+    }
+  }
+}
+
 // KVKK/hesap silme. DB satırları cascade ile silinir; ek olarak restoran galeri fotolarının
 // S3 nesnelerini (orphan kalmasın diye) ve varsa Firebase kullanıcısını temizler.
 async function deleteAccount(req, res, next) {
@@ -234,13 +266,7 @@ async function deleteAccount(req, res, next) {
 
     logRequest({ req, page: 'Profil', action: 'Hesabını sildi' }).catch(() => {});
     await prisma.user.delete({ where: { id: req.user.id } });
-    if (req.user.googleId) {
-      try {
-        await getAuth().deleteUser(req.user.googleId);
-      } catch {
-        // Firebase kullanıcısı yoksa sessizce devam et
-      }
-    }
+    await deleteFirebaseAccount({ googleId: req.user.googleId, email: req.user.email });
     res.json({ message: 'Account deleted' });
   } catch (err) {
     next(err);
