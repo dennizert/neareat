@@ -6,6 +6,7 @@ import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import AppIcon from '../AppIcon';
 import type { IconName } from '../../theme/icons';
+import { fieldAccessibilityLabel, passwordToggleLabel } from '../../utils/a11yLabels';
 
 interface Props extends TextInputProps {
   /** Baş ikon (semantik ad). */
@@ -23,7 +24,7 @@ interface Props extends TextInputProps {
  */
 export default function AuthInput({
   icon, label, isPassword, error, containerStyle,
-  multiline, style, onFocus, onBlur, ...rest
+  multiline, style, onFocus, onBlur, placeholder, accessibilityLabel, ...rest
 }: Props) {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
@@ -32,6 +33,10 @@ export default function AuthInput({
   const hasError = !!error;
 
   const iconColor = hasError ? C.error : focused ? C.primary : C.textTertiary;
+
+  // NEW-UI02 (#459) — RN kardeş <Text> etiketini alanla İLİŞKİLENDİRMEZ; ad açıkça
+  // verilmezse ekran okuyucu placeholder'ı okur. Çağıranın verdiği ad önceliklidir.
+  const a11yLabel = accessibilityLabel ?? fieldAccessibilityLabel({ label, placeholder, error: error ?? undefined });
 
   return (
     <View style={[styles.field, containerStyle]}>
@@ -42,10 +47,18 @@ export default function AuthInput({
         focused && styles.wrapFocus,
         hasError && styles.wrapError,
       ]}>
-        <AppIcon name={icon} size={18} color={iconColor} style={multiline ? styles.iconTop : undefined} />
+        {/* Dekoratif baş ikon — erişilebilirlik ağacından çıkarılır. AppIcon bir
+            <Text> glifi render ediyor ve RN'de <Text> varsayılan olarak erişilebilir;
+            okuyucu anlamsız bir karakter okuyabilir. AppIcon'un API'sini değiştirmek
+            yerine (uygulama geneli) burada sarmalanıyor. */}
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <AppIcon name={icon} size={18} color={iconColor} style={multiline ? styles.iconTop : undefined} />
+        </View>
         <TextInput
           style={[styles.input, multiline && styles.inputMulti, style]}
+          placeholder={placeholder}
           placeholderTextColor={C.textMuted}
+          accessibilityLabel={a11yLabel}
           secureTextEntry={isPassword && !show}
           multiline={multiline}
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}
@@ -53,7 +66,14 @@ export default function AuthInput({
           {...rest}
         />
         {isPassword ? (
-          <TouchableOpacity style={styles.eyeBtn} onPress={() => setShow(s => !s)} hitSlop={8}>
+          <TouchableOpacity
+            style={styles.eyeBtn}
+            onPress={() => setShow(s => !s)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={passwordToggleLabel(show)}
+            accessibilityState={{ selected: show }}
+          >
             <AppIcon name={show ? 'eyeOff' : 'eye'} size={20} color={C.textTertiary} />
           </TouchableOpacity>
         ) : null}
