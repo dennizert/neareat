@@ -252,4 +252,7 @@ module.exports = {
   selectUnvotedMembers,
   runFavoriteClosingSoon,
   runPollVoteReminder,
+  // #429 — daha önce export edilmemiş, dolayısıyla hiç test edilememiş 3 job.
+  runWeeklyDigest,
+  runInactivityReminder,
 };

@@ -6,9 +6,18 @@
  */
 
 jest.mock('node-cron', () => ({ schedule: jest.fn() }));
-jest.mock('../../../src/utils/prisma', () => ({}));
 
-const { aggregateTypePreferences, MAX_PREFERENCE_TYPES } = require('../../../src/jobs/feedbackAggregator');
+const mockPrisma = {
+  recommendationFeedback: { findMany: jest.fn() },
+  feedbackPreference: { upsert: jest.fn().mockResolvedValue({}) },
+};
+jest.mock('../../../src/utils/prisma', () => mockPrisma);
+
+const {
+  aggregateTypePreferences,
+  runFeedbackAggregation,
+  MAX_PREFERENCE_TYPES,
+} = require('../../../src/jobs/feedbackAggregator');
 
 describe('aggregateTypePreferences', () => {
   it('boş girdide boş diziler', () => {
@@ -76,5 +85,40 @@ describe('aggregateTypePreferences', () => {
       { sentiment: 'positive', placeTypes: ['Italian_Restaurant'] },
     ]);
     expect(res.likedTypes).toContain('italian_restaurant');
+  });
+});
+
+// ─── #429 — daha önce hiç test edilmeyen cron runner ─────────────────────────
+
+describe('runFeedbackAggregation', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('pencere içinde feedback veren her kullanıcı için upsert yapar ve sayısını döner', async () => {
+    mockPrisma.recommendationFeedback.findMany
+      .mockResolvedValueOnce([{ userId: 'u1' }, { userId: 'u2' }]) // distinct kullanıcı listesi
+      .mockResolvedValueOnce([{ sentiment: 'positive', placeTypes: ['sushi_restaurant'] }]) // u1 kayıtları
+      .mockResolvedValueOnce([{ sentiment: 'negative', placeTypes: ['fast_food_restaurant'] }]); // u2 kayıtları
+
+    const updated = await runFeedbackAggregation();
+
+    expect(updated).toBe(2);
+    expect(mockPrisma.feedbackPreference.upsert).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.feedbackPreference.upsert).toHaveBeenCalledWith({
+      where: { userId: 'u1' },
+      update: { likedTypes: ['sushi_restaurant'], dislikedTypes: [] },
+      create: { userId: 'u1', likedTypes: ['sushi_restaurant'], dislikedTypes: [] },
+    });
+  });
+
+  it('pencerede feedback veren kimse yoksa upsert yapmaz, 0 döner', async () => {
+    mockPrisma.recommendationFeedback.findMany.mockResolvedValueOnce([]);
+    const updated = await runFeedbackAggregation();
+    expect(updated).toBe(0);
+    expect(mockPrisma.feedbackPreference.upsert).not.toHaveBeenCalled();
+  });
+
+  it('DB hatasında throw etmez, o ana kadar işlenen sayıyı döner', async () => {
+    mockPrisma.recommendationFeedback.findMany.mockRejectedValueOnce(new Error('db down'));
+    await expect(runFeedbackAggregation()).resolves.toBe(0);
   });
 });

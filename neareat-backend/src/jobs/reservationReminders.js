@@ -93,37 +93,42 @@ async function runPendingReservationEscalation() {
   return processed;
 }
 
+// Bugün CONFIRMED rezervasyonu olan kullanıcılara günlük hatırlatma gönderir.
+// #429 — önceden `scheduleReservationReminders` içine gömülü anonim bir fonksiyondu;
+// dışa aktarılmadığı için hiç test edilememişti. Saf davranış değişikliği yok (extract only).
+async function runDailyReservationReminder() {
+  try {
+    const today = getTurkeyDateString();
+
+    const reservations = await prisma.reservation.findMany({
+      where: { date: today, status: 'CONFIRMED' },
+      select: {
+        id: true,
+        userId: true,
+        time: true,
+        restaurant: { select: { businessName: true } },
+      },
+    });
+
+    for (const res of reservations) {
+      createNotification(
+        res.userId,
+        'RESERVATION_REMINDER',
+        '📅 Rezervasyon Hatırlatması',
+        `Bugün saat ${res.time}'de ${res.restaurant.businessName} rezervasyonunuz bulunmaktadır. Katılım durumunuzu belirtebilir misiniz?`,
+        { reservationId: res.id },
+      ).catch(() => {});
+    }
+
+    console.log(`[CronJob] ${today} için ${reservations.length} rezervasyon hatırlatması gönderildi.`);
+  } catch (err) {
+    console.error('[CronJob] Rezervasyon hatırlatması hatası:', err.message);
+  }
+}
+
 function scheduleReservationReminders() {
   // Her sabah 09:00 Türkiye saatinde (UTC+3 = 06:00 UTC) — günlük hatırlatma
-  cron.schedule('0 6 * * *', () => withCronLock('reservationDailyReminder', async () => {
-    try {
-      const today = getTurkeyDateString();
-
-      const reservations = await prisma.reservation.findMany({
-        where: { date: today, status: 'CONFIRMED' },
-        select: {
-          id: true,
-          userId: true,
-          time: true,
-          restaurant: { select: { businessName: true } },
-        },
-      });
-
-      for (const res of reservations) {
-        createNotification(
-          res.userId,
-          'RESERVATION_REMINDER',
-          '📅 Rezervasyon Hatırlatması',
-          `Bugün saat ${res.time}'de ${res.restaurant.businessName} rezervasyonunuz bulunmaktadır. Katılım durumunuzu belirtebilir misiniz?`,
-          { reservationId: res.id },
-        ).catch(() => {});
-      }
-
-      console.log(`[CronJob] ${today} için ${reservations.length} rezervasyon hatırlatması gönderildi.`);
-    } catch (err) {
-      console.error('[CronJob] Rezervasyon hatırlatması hatası:', err.message);
-    }
-  }), { timezone: 'UTC' });
+  cron.schedule('0 6 * * *', () => withCronLock('reservationDailyReminder', runDailyReservationReminder), { timezone: 'UTC' });
 
   // Her saat başı — 24h+ PENDING rezervasyon escalation (S5-1)
   cron.schedule('0 * * * *', () => withCronLock('reservationEscalation', runPendingReservationEscalation), { timezone: 'UTC' });
@@ -131,4 +136,9 @@ function scheduleReservationReminders() {
   console.log('[CronJob] Rezervasyon hatırlatma + PENDING escalation zamanlaması aktif.');
 }
 
-module.exports = { scheduleReservationReminders, runPendingReservationEscalation, PENDING_ESCALATION_HOURS };
+module.exports = {
+  scheduleReservationReminders,
+  runPendingReservationEscalation,
+  runDailyReservationReminder,
+  PENDING_ESCALATION_HOURS,
+};
