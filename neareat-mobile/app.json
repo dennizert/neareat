@@ -12,6 +12,7 @@
       "backgroundColor": "#100C16"
     },
     "scheme": "neareat",
+    "primaryColor": "#FF5A3C",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.neareat.app",
@@ -89,7 +90,13 @@
       ],
       "expo-secure-store",
       "expo-iap",
-      "@sentry/react-native"
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "eatlas-pw",
+          "project": "eatlas-mobile"
+        }
+      ]
     ],
     "extra": {
       "apiBaseUrl": "https://railway-up-production-6cdc.up.railway.app/api",
