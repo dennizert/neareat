@@ -80,7 +80,8 @@ export default function RouteRecommendationScreen() {
     return new Date(midnightLocalMs + slotMs - ISTANBUL_OFFSET_MS).toISOString();
   }, [depDayOffset, depSlot]);
 
-  // S18: 429'da otomatik PremiumUpsell'e yönlendirme KALDIRILDI (bkz. RecommendationScreen).
+  // S18: 429'da otomatik bir satın alma ekranına yönlendirme KALDIRILDI (bkz.
+  // RecommendationScreen; o ekran #463'te tamamen silindi).
   // prevLimitRef her mount'ta sıfırlanırken store'daki routeLimitReached kalıcı olduğu için
   // limite takılan kullanıcı ekrana her dönüşünde dışarı fırlatılıyordu; gidilen ekran da
   // satılamayan bir ürünü pazarlıyor. Limit durumu aşağıda satır içi gösteriliyor.

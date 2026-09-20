@@ -53,7 +53,6 @@ import AdminLogsScreen from '../screens/admin/AdminLogsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import RecommendationScreen from '../screens/RecommendationScreen';
 import RouteRecommendationScreen from '../screens/RouteRecommendationScreen';
-import PremiumUpsellScreen from '../screens/PremiumUpsellScreen';
 import NotificationBell from '../components/NotificationBell';
 import MessagesScreen from '../screens/messages/MessagesScreen';
 import ConversationScreen from '../screens/messages/ConversationScreen';
@@ -472,11 +471,6 @@ export default function Navigation() {
                 name="RouteRecommendation"
                 component={RouteRecommendationScreen}
                 options={{ ...H, title: 'Yolda Ne Yesem?' }}
-              />
-              <Stack.Screen
-                name="PremiumUpsell"
-                component={PremiumUpsellScreen}
-                options={{ ...H, title: 'Premium\'a Geç', presentation: 'modal' }}
               />
               <Stack.Screen
                 name="Conversation"
