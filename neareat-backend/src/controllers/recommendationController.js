@@ -96,9 +96,47 @@ async function getAiQuota(userId) {
 /**
  * S16-3 — Öneri yanıt cache anahtarı. Yalnızca konuşma-bağlamsız (session/refinement
  * yok) taze istekler cache'lenir; ~1km tile (2 ondalık) + kullanıcı.
+ *
+ * Sürüm `rec-cache2`: JSON ve SSE uçları BU ANAHTARI PAYLAŞIYOR ama eskiden farklı
+ * şekiller yazıyordu (aşağıya bakın). Eski sürümle yazılmış kayıtların yanlış
+ * okunmaması için anahtar sürümlendi — depo konvansiyonu (`nearby3:`→`nearby4:`).
  */
 function recCacheKey(userId, lat, lng) {
-  return `rec-cache:${userId}:${lat.toFixed(2)}:${lng.toFixed(2)}`;
+  return `rec-cache2:${userId}:${lat.toFixed(2)}:${lng.toFixed(2)}`;
+}
+
+/**
+ * Cache'e yazılan ORTAK şekil.
+ *
+ * Neden gerekli: iki uç aynı anahtarı paylaşıyor ama JSON ucu `{recommendations}`,
+ * SSE ucu `{cards}` yazıyordu. Sonuç iki yönlü bir hataydı:
+ *  - SSE önce yazarsa → JSON ucu cache'i olduğu gibi yanıta yayıyordu, dolayısıyla
+ *    istemciye `recommendations` alanı OLMAYAN bir 200 gidiyordu; mobil hata almadan
+ *    boş liste gösteriyordu (sessiz başarısızlık).
+ *  - JSON önce yazarsa → SSE `cached.cards`e baktığı için ıskalıyor ve Claude'a
+ *    gereksiz bir çağrı daha yapıyordu (maliyet).
+ * Kart nesnesinin kendisi iki uçta zaten BİREBİR aynı (recommendationService.onCard
+ * ile getDinnerTonight'ın response shaping'i aynı alanları üretiyor), yani içerikler
+ * gerçekten birbirinin yerine geçebilir; sorun yalnızca sarmalayıcı anahtardı.
+ */
+function buildRecCachePayload({ recommendations, noteToUser, tier, model }) {
+  return { recommendations, noteToUser, tier, model };
+}
+
+/**
+ * Cache'ten okunan şekli doğrular. Beklenen şekil yoksa (eski sürüm kalıntısı, bozuk
+ * kayıt) `null` döner → çağıran cache MISS gibi davranır. Yanlış şekli yarı yarıya
+ * kullanmaktansa ıskalamak doğrudur.
+ */
+function readRecCachePayload(cached) {
+  const recommendations = cached?.recommendations;
+  if (!Array.isArray(recommendations) || recommendations.length === 0) return null;
+  return {
+    recommendations,
+    noteToUser: cached.noteToUser,
+    tier: cached.tier,
+    model: cached.model,
+  };
 }
 
 async function getDinnerTonight(req, res, next) {
@@ -121,11 +159,17 @@ async function getDinnerTonight(req, res, next) {
     // istekte Claude'a HİÇ gitme (maliyet + hız). Limit gate'ten önce kontrol edilir
     // ki günlük hakkını kullanmış kullanıcı da cache'lenmiş öneriyi tekrar görebilsin.
     const cacheKey = recCacheKey(req.user.id, lat, lng);
-    const cachedRec = await cacheGet(cacheKey);
+    // Cache gövdesi yanıta YAYILMAZ (`...cachedRec` değil): alanlar tek tek seçilir.
+    // Yayma, cache şekli beklenenden saparsa sözleşme dışı bir 200 üretiyordu —
+    // istemci hata görmeden eksik alanla karşılaşıyordu.
+    const cachedRec = readRecCachePayload(await cacheGet(cacheKey));
     if (cachedRec) {
       const usedNow = unlimited ? 0 : await countTodayCalls(req.user.id);
       return res.json({
-        ...cachedRec,
+        recommendations: cachedRec.recommendations,
+        noteToUser: cachedRec.noteToUser,
+        tier: cachedRec.tier,
+        model: cachedRec.model,
         cached: true,
         remainingToday: unlimited ? null : Math.max(0, dailyLimit - usedNow),
         resetAt: unlimited ? null : getNextIstanbulMidnightUtc().toISOString(),
@@ -222,12 +266,12 @@ async function getDinnerTonight(req, res, next) {
 
     // S16-3 — başarılı öneriyi kısa TTL ile cache'le (fire-and-forget). Volatile
     // alanlar (remaining/resetAt/latency) cache dışı; hit'te tazece eklenir.
-    const cachePayload = {
+    const cachePayload = buildRecCachePayload({
       recommendations,
       noteToUser: result.noteToUser,
       tier: result.tier,
       model: result.model,
-    };
+    });
     cacheSet(cacheKey, cachePayload, AI_REC_CACHE_TTL).catch(() => {});
 
     return res.json({
@@ -298,10 +342,10 @@ async function getDinnerTonightStream(req, res, next) {
     const cacheable = !sessionId && !trimmedRefinement;
     const cacheKey = cacheable ? recCacheKey(req.user.id, lat, lng) : null;
     if (cacheKey) {
-      const cachedRec = await cacheGet(cacheKey);
-      if (cachedRec?.cards?.length) {
+      const cachedRec = readRecCachePayload(await cacheGet(cacheKey));
+      if (cachedRec) {
         const usedNow = unlimited ? 0 : await countTodayCalls(req.user.id);
-        for (const recommendation of cachedRec.cards) sseWrite(res, { type: 'card', recommendation });
+        for (const recommendation of cachedRec.recommendations) sseWrite(res, { type: 'card', recommendation });
         if (cachedRec.noteToUser) sseWrite(res, { type: 'note', noteToUser: cachedRec.noteToUser });
         sseWrite(res, {
           type: 'done',
@@ -399,7 +443,14 @@ async function getDinnerTonightStream(req, res, next) {
         if (!unlimited) remaining = Math.max(0, remaining - 1);
         // S16-3 — başarılı öneriyi kısa TTL ile cache'le (cacheable + kart varsa)
         if (cacheKey && collectedCards.length) {
-          cacheSet(cacheKey, { cards: collectedCards, noteToUser: collectedNote, tier, model }, AI_REC_CACHE_TTL).catch(() => {});
+          // JSON ucuyla AYNI şekil — iki uç aynı anahtarı paylaşıyor.
+          const payload = buildRecCachePayload({
+            recommendations: collectedCards,
+            noteToUser: collectedNote,
+            tier,
+            model,
+          });
+          cacheSet(cacheKey, payload, AI_REC_CACHE_TTL).catch(() => {});
         }
         sseWrite(res, {
           type: 'done',
@@ -741,5 +792,8 @@ module.exports = {
     countTodayFeedback,
     getIstanbulMidnightUtc,
     getNextIstanbulMidnightUtc,
+    recCacheKey,
+    buildRecCachePayload,
+    readRecCachePayload,
   },
 };

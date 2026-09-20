@@ -912,6 +912,98 @@ describe('POST /api/recommendations/route-tonight — rate limit (shared counter
   });
 });
 
+/**
+ * S16-3 öneri cache'i — İKİ UÇ ARASINDA ŞEKİL SÖZLEŞMESİ.
+ *
+ * `/dinner-tonight` (JSON) ve `/dinner-tonight/stream` (SSE) aynı cache anahtarını
+ * paylaşıyor. Eskiden JSON `{recommendations}`, SSE `{cards}` yazıyordu; hangi uç
+ * önce yazarsa diğeri bozuluyordu. Yukarıdaki mevcut test yalnızca JSON→JSON yolunu
+ * kapsadığı için çakışmayı hiç görmemişti — buradaki testler uçları ÇAPRAZLIYOR.
+ */
+describe('öneri cache — JSON ve SSE uçları arasında şekil sözleşmesi', () => {
+  const CARD = {
+    placeId: 'x1',
+    reason: 'yakın',
+    neverVisited: false,
+    restaurant: { name: 'Ortak Yer', rating: 4.4 },
+  };
+  const redis = require('../../src/services/redis');
+
+  beforeEach(() => {
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      userId: testUser.id,
+      status: 'active',
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+    mockPrisma.aiRecommendationLog.count.mockResolvedValue(0);
+  });
+
+  // Bu blok `cacheGet`e KALICI implementasyon kuruyor. `jest.clearAllMocks` çağrı
+  // kaydını temizler ama `mockResolvedValue`'yu KALDIRMAZ ve bu dosyada global
+  // `resetMocks` ayarı yok → temizlenmezse sonraki describe'lar (ör. kota yarışı
+  // testi) sahte bir cache hit'i alıp yanlış sonuç üretir. Dosya varsayılanına dön.
+  afterEach(() => {
+    redis.cacheGet.mockResolvedValue(null);
+  });
+
+  it('iki uç AYNI cache anahtarını kullanır', async () => {
+    redis.cacheGet.mockResolvedValue({ recommendations: [CARD], noteToUser: 'n', tier: 'premium', model: 'm' });
+
+    await request(app).post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`).send({ lat: 41.04, lng: 28.98 });
+    await request(app).post('/api/recommendations/dinner-tonight/stream')
+      .set('Authorization', `Bearer ${userToken}`).send({ lat: 41.04, lng: 28.98 });
+
+    const keys = redis.cacheGet.mock.calls
+      .map((c) => c[0]).filter((k) => String(k).startsWith('rec-cache'));
+    expect(keys.length).toBe(2);
+    expect(keys[0]).toBe(keys[1]);
+  });
+
+  // ASIL HATA: SSE'nin yazdığı kaydı JSON ucu yanıta olduğu gibi yayıyordu →
+  // istemciye `recommendations` alanı olmayan 200 gidiyordu, mobil sessizce boş liste.
+  it('SSE şeklindeki kaydı JSON ucu doğru okur, `cards` sızdırmaz', async () => {
+    redis.cacheGet.mockResolvedValue({ recommendations: [CARD], noteToUser: 'n', tier: 'premium', model: 'm' });
+
+    const res = await request(app).post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`).send({ lat: 41.04, lng: 28.98 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.cached).toBe(true);
+    expect(Array.isArray(res.body.recommendations)).toBe(true);
+    expect(res.body.recommendations[0].placeId).toBe('x1');
+    expect(res.body).not.toHaveProperty('cards');
+    expect(mockAnthropicCreate).not.toHaveBeenCalled();
+  });
+
+  // JSON'un yazdığını SSE okuyabilmeli; eskiden `cached.cards`e baktığı için
+  // ıskalıyor ve Claude'a gereksiz bir çağrı daha yapıyordu.
+  it('JSON şeklindeki kaydı SSE ucu replay eder, Claude çağrılmaz', async () => {
+    redis.cacheGet.mockResolvedValue({ recommendations: [CARD], noteToUser: 'not', tier: 'premium', model: 'm' });
+
+    const res = await request(app).post('/api/recommendations/dinner-tonight/stream')
+      .set('Authorization', `Bearer ${userToken}`).send({ lat: 41.04, lng: 28.98 });
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('"type":"card"');
+    expect(res.text).toContain('"placeId":"x1"');
+    expect(res.text).toContain('"cached":true');
+    expect(mockAnthropicCreate).not.toHaveBeenCalled();
+  });
+
+  // Eski sürümden kalmış / bozuk kayıt: yarı yarıya kullanmaktansa MISS say.
+  it('eski `{cards}` kaydı bozuk 200 üretmez — MISS sayılır', async () => {
+    redis.cacheGet.mockResolvedValue({ cards: [CARD], noteToUser: 'n', tier: 'premium', model: 'm' });
+
+    const res = await request(app).post('/api/recommendations/dinner-tonight')
+      .set('Authorization', `Bearer ${userToken}`).send({ lat: 41.04, lng: 28.98 });
+
+    // Cache'ten gelmiş gibi davranmamalı; `cards` hiçbir koşulda yanıta sızmamalı.
+    expect(res.body.cached).not.toBe(true);
+    expect(res.body).not.toHaveProperty('cards');
+  });
+});
+
 // ─── AI günlük kotası: yarış kapısı ──────────────────────────────────────────
 // Kota sayacı AiRecommendationLog satırlarını sayıyor ama o satır LLM çağrısından
 // SONRA fire-and-forget yazılıyor → uçuştaki istekler birbirini göremiyordu ve aynı
