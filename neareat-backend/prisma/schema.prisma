@@ -538,7 +538,8 @@ model UserReport {
   status      String   @default("PENDING")
   actionTaken String?  @map("action_taken") @db.VarChar(500)
   createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  // DB08 — kolonda DB varsayılanı var; şemayı gerçeğe uyduruyor, DDL üretmez.
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
   reporter User @relation("ReportsGiven", fields: [reporterId], references: [id], onDelete: Cascade)
   reported User @relation("ReportsReceived", fields: [reportedId], references: [id], onDelete: Cascade)
@@ -774,8 +775,9 @@ model RecommendationFeedback {
   placeTypes            String[] @default([]) @map("place_types")
   createdAt             DateTime @default(now()) @map("created_at")
 
-  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  aiRecLog AiRecommendationLog? @relation(fields: [aiRecommendationLogId], references: [id], onDelete: SetNull)
+  // DB08 — ikisi de DB'de NoAction; gerekçe NotificationPreference'ta yazılı.
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  aiRecLog AiRecommendationLog? @relation(fields: [aiRecommendationLogId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([userId, createdAt])
   @@index([aiRecommendationLogId])
@@ -808,13 +810,24 @@ model DiaryEntry {
 /// Kullanıcının bildirim tercihleri (Sprint-8 #100).
 /// Opt-out modeli: kayıt yoksa bildirim açık sayılır.
 model NotificationPreference {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  type      String
-  enabled   Boolean  @default(true)
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id      String  @id @default(uuid())
+  userId  String  @map("user_id")
+  type    String
+  enabled Boolean @default(true)
+  // DB08 — aşağıdaki üç ek, şemayı CANLI DB'nin gerçeğine uyduruyor (DDL üretmezler).
+  // `@default(now())`: kolonda DB varsayılanı var; Prisma her yazmada değeri kendi
+  // gönderdiği için kullanılmıyor ama Prisma dışı insert'ler (raw SQL, seed) için
+  // emniyet ağı. `@db.Timestamptz(6)`: bu kolon `timestamptz(6)` — şemanın geri
+  // kalanından FARKLI (elle yazılmış bir migration'dan geliyor). Prisma varsayılanı
+  // `timestamp(3)`; belirtilmezse hem ZAMAN DİLİMİ bilgisini düşürmek hem de
+  // mikrosaniyeleri kesmek isterdi, ikisi de veri kaybı.
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // `onUpdate: NoAction` DB'deki hâli. Prisma varsayılanı Cascade ama ON UPDATE
+  // yalnızca referans edilen PK değişirse tetiklenir; users.id hiç güncellenmiyor →
+  // ikisi burada davranışsal olarak aynı. Gerçeği yazmak, no-op bir fark için
+  // FK'yi düşürüp yeniden kurmaya yeğdir.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([userId, type])
   @@index([userId])
@@ -875,7 +888,8 @@ model FeedbackPreference {
   userId        String   @id @map("user_id")
   likedTypes    String[] @default([]) @map("liked_types")
   dislikedTypes String[] @default([]) @map("disliked_types")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  // DB08 — kolonda DB varsayılanı var; şemayı gerçeğe uyduruyor, DDL üretmez.
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -912,9 +926,11 @@ model PlaceRequest {
   placeAddress String?  @map("place_address") @db.VarChar(300)
   note         String?  @db.VarChar(500)
   status       String   @default("PENDING") // PENDING | REVIEWED
-  createdAt    DateTime @default(now()) @map("created_at")
+  // DB08 — kolon (6) hassasiyette; şemayı gerçeğe uyduruyor, DDL üretmez.
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // DB08 — DB'deki hâli NoAction; gerekçe NotificationPreference'ta yazılı.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([userId, placeId])
   @@index([status, createdAt])
