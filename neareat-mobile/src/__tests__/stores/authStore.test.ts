@@ -13,6 +13,13 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+// loadSubscription HTTP çağrısı yapar — #451 EK-1 testleri için mock'lanır.
+const mockApiGet = jest.fn();
+jest.mock('../../services/api', () => ({
+  __esModule: true,
+  default: { get: (...a: any[]) => mockApiGet(...a) },
+}));
+
 import { useAuthStore } from '../../store/authStore';
 import type { User, Subscription } from '../../types';
 
@@ -24,6 +31,7 @@ const INITIAL_STATE = {
   subscription: null,
   token: null,
   restaurantStatus: null,
+  sessionId: 1,
 };
 
 function resetStore() {
@@ -281,5 +289,77 @@ describe('authStore — state independence between tests', () => {
   it('does not see state set in other tests (pollution check B)', () => {
     // beforeEach reset means token-A from previous test must not be here
     expect(useAuthStore.getState().token).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #451 — oturum nesli (A02) ve loadSubscription kapısı (EK-1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('authStore — oturum nesli (A02)', () => {
+  beforeEach(resetStore);
+
+  it('T13 çıkış nesli ilerletir — eski oturumun 401\'i artık güncel sayılmaz', async () => {
+    const before = useAuthStore.getState().sessionId;
+    await useAuthStore.getState().logout();
+    expect(useAuthStore.getState().sessionId).toBe(before + 1);
+  });
+
+  it('T13b farklı kullanıcıya geçiş nesli ilerletir', () => {
+    useAuthStore.getState().setUser(mockUser);
+    const afterFirst = useAuthStore.getState().sessionId;
+    useAuthStore.getState().setUser({ ...mockUser, id: 'user-2' });
+    expect(useAuthStore.getState().sessionId).toBe(afterFirst + 1);
+  });
+
+  // getMe tazelemesi aynı kullanıcıyı tekrar yazar; nesil ilerlerse kendi uçuştaki
+  // isteklerimiz "eski" sayılır ve gerçek bir 401 sessizce yutulurdu.
+  it('AYNI kullanıcıyı tekrar yazmak nesli ilerletmez', () => {
+    useAuthStore.getState().setUser(mockUser);
+    const after = useAuthStore.getState().sessionId;
+    useAuthStore.getState().setUser({ ...mockUser, displayName: 'Yeni Ad' });
+    expect(useAuthStore.getState().sessionId).toBe(after);
+  });
+
+  it('clear() de nesli ilerletir', () => {
+    const before = useAuthStore.getState().sessionId;
+    useAuthStore.getState().clear();
+    expect(useAuthStore.getState().sessionId).toBe(before + 1);
+  });
+});
+
+describe('authStore — loadSubscription kapısı (EK-1)', () => {
+  beforeEach(() => {
+    resetStore();
+    mockApiGet.mockReset();
+  });
+
+  // ASIL HATA: kapı `if (!get().token) return` idi. `setToken` yalnızca
+  // RestaurantRegisterScreen'de çağrılıyor; normal girişler çağırmıyor ve store
+  // persist edilmiyor → token her zaman null → bu fonksiyon HİÇ çalışmıyordu.
+  it('T14 giriş yapmış kullanıcıda çalışır (store.token null olsa bile)', async () => {
+    useAuthStore.setState({ user: mockUser, token: null });
+    mockApiGet.mockResolvedValue({ data: { status: 'active', expiresAt: '2099-01-01' } });
+
+    await useAuthStore.getState().loadSubscription();
+
+    expect(mockApiGet).toHaveBeenCalledWith('/subscriptions');
+    expect(useAuthStore.getState().subscription).toEqual({ status: 'active', expiresAt: '2099-01-01' });
+  });
+
+  it('giriş yapılmamışsa istek atmaz', async () => {
+    useAuthStore.setState({ user: null });
+    await useAuthStore.getState().loadSubscription();
+    expect(mockApiGet).not.toHaveBeenCalled();
+  });
+
+  it('hata sessizce yutulur, mevcut abonelik korunur', async () => {
+    const existing = { status: 'trial', expiresAt: '2099-01-01' } as any;
+    useAuthStore.setState({ user: mockUser, subscription: existing });
+    mockApiGet.mockRejectedValue(new Error('network'));
+
+    await useAuthStore.getState().loadSubscription();
+
+    expect(useAuthStore.getState().subscription).toBe(existing);
   });
 });

@@ -11,6 +11,7 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../store/authStore';
+import { isCurrentSession } from '../utils/sessionPolicy';
 
 /**
  * API base URL'i Expo config'den (app.json → extra.apiBaseUrl) alınır.
@@ -62,6 +63,12 @@ export { BASE_URL };
  * Bu sayede her servis fonksiyonunda manuel token eklemeye gerek kalmaz.
  */
 api.interceptors.request.use(async (config) => {
+  // A02 — isteği ait olduğu OTURUM NESLİYLE damgala. Yanıt interceptor'ı 401'de
+  // bu damgaya bakar; damga eskiyse (arada çıkış/giriş olmuşsa) o 401 artık
+  // güncel kullanıcıyı ilgilendirmez. Damga token ALINMADAN önce konur: token
+  // getter yavaşsa bile istek başladığı anın neslini taşımalı.
+  (config as any).__sessionId = useAuthStore.getState().sessionId;
+
   if (idTokenGetter) {
     const token = await idTokenGetter();
     if (token) {
@@ -106,8 +113,13 @@ export function getApiErrorMessage(error: any): string {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isAuthenticated = !!useAuthStore.getState().user;
-    if (error?.response?.status === 401 && isAuthenticated) {
+    const { user, sessionId } = useAuthStore.getState();
+    const isAuthenticated = !!user;
+    // A02 — 401 yalnızca isteği GÜNDEREN oturum hâlâ güncelse çıkış yaptırır.
+    // Eskiden tek kontrol "biri giriş yapmış mı" idi: A çıkıp B girdikten sonra
+    // A'nın uçuştaki isteğinin 401'i B'yi düşürüyordu.
+    const fromCurrentSession = isCurrentSession((error?.config as any)?.__sessionId, sessionId);
+    if (error?.response?.status === 401 && isAuthenticated && fromCurrentSession) {
       idTokenGetter = null;
       // logout SecureStore token'ı siler + state'i temizler (fire-and-forget)
       useAuthStore.getState().logout().catch(() => {});

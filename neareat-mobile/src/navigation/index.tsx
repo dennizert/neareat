@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuthStore } from '../store/authStore';
 import type { ApprovalStatus } from '../types';
 import { restoreSession, getMe, clearStoredToken, verifyEmail } from '../services/auth';
+import { shouldClearCredential, shouldRetryAuthProbe } from '../utils/sessionPolicy';
 import type { RootStackParamList, MainTabParamList } from '../types';
 import { useThemeStore } from '../store/themeStore';
 import { lightColors, darkColors } from '../theme';
@@ -200,20 +201,42 @@ export default function Navigation() {
   }, []);
 
   React.useEffect(() => {
+    // A04 (#451) — burada eskiden çıplak bir `catch { clearStoredToken() }` vardı.
+    // `getMe()` bir HTTP çağrısı; zaman aşımı, offline, 5xx ve Railway soğuk
+    // başlangıcı hep o bloğa düşüyor ve KALICI kimlik bilgisini siliyordu. Kullanıcı
+    // token'ı gayet geçerliyken, zayıf sinyalde uygulamayı açtığı için çıkış yapmış
+    // oluyordu. Artık yalnızca sunucu AÇIKÇA reddederse (401/403) siliniyor; geçici
+    // hatalarda birkaç kez yeniden deneniyor ve kimlik bilgisi KORUNUYOR.
+    const AUTH_PROBE_ATTEMPTS = 3;
+
     async function restoreUserSession() {
       try {
         const hasToken = await restoreSession();
-        if (hasToken) {
-          const { user: me, subscription, restaurantProfile } = await getMe();
-          if (subscription) setSubscription(subscription);
-          setUser(me);
-          if (restaurantProfile) {
-            setRestaurantStatus({ status: restaurantProfile.status, rejectionReason: restaurantProfile.rejectionReason });
+        if (!hasToken) return;
+
+        for (let attempt = 1; ; attempt++) {
+          try {
+            const { user: me, subscription, restaurantProfile } = await getMe();
+            if (subscription) setSubscription(subscription);
+            setUser(me);
+            if (restaurantProfile) {
+              setRestaurantStatus({ status: restaurantProfile.status, rejectionReason: restaurantProfile.rejectionReason });
+            }
+            if (me.role === 'USER') fetchUnreadMessageCount();
+            return;
+          } catch (err) {
+            if (shouldClearCredential(err)) {
+              await clearStoredToken();
+              return;
+            }
+            if (!shouldRetryAuthProbe(err, attempt, AUTH_PROBE_ATTEMPTS)) {
+              // Geçici hata sürüyor: oturumu AÇMIYORUZ ama kimlik bilgisini de
+              // SİLMİYORUZ. Ağ döndüğünde sonraki açılış sorunsuz çalışır.
+              return;
+            }
+            await new Promise((r) => setTimeout(r, 400 * attempt));
           }
-          if (me.role === 'USER') fetchUnreadMessageCount();
         }
-      } catch {
-        await clearStoredToken();
       } finally {
         setIsRestoring(false);
       }

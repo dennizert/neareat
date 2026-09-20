@@ -31,6 +31,12 @@ interface AuthState {
   subscription: Subscription | null;
   token: string | null;
   restaurantStatus: RestaurantStatus | null;
+  /**
+   * A02 — oturum nesli. Her giriş ve çıkışta artar. `services/api` her isteğe
+   * o anki değeri iliştirir; 401 geldiğinde istek ESKİ bir oturuma aitse çıkış
+   * yapılmaz. Böylece A'nın gecikmiş 401'i B'yi düşürmez.
+   */
+  sessionId: number;
   setUser: (user: User | null) => void;
   setPendingUser: (user: User | null) => void;
   setSubscription: (sub: Subscription | null) => void;
@@ -48,12 +54,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   subscription: null,
   token: null,
   restaurantStatus: null,
+  sessionId: 1,
 
   /**
    * Aktif kullanıcıyı ayarlar ve pendingUser'ı temizler.
    * Giriş başarılı olduğunda veya getMe() sonrasında çağrılır.
+   *
+   * A02 — kullanıcı DEĞİŞTİĞİNDE oturum nesli ilerler. Aynı kullanıcı için
+   * tekrar çağrılması (ör. getMe tazelemesi) nesli ilerletmez; aksi hâlde
+   * uçuştaki kendi isteklerimiz eski sayılırdı.
    */
-  setUser: (user) => set({ user, pendingUser: null }),
+  setUser: (user) => set((s) => ({
+    user,
+    pendingUser: null,
+    sessionId: s.user?.id === user?.id ? s.sessionId : s.sessionId + 1,
+  })),
 
   /**
    * Kayıt akışında henüz onboarding'i tamamlamamış kullanıcıyı tutar.
@@ -87,9 +102,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     );
   },
 
-  /** Sunucudan güncel abonelik durumunu çeker ve store'u günceller */
+  /**
+   * Sunucudan güncel abonelik durumunu çeker ve store'u günceller.
+   *
+   * EK-1 (#451) — kapı eskiden `if (!get().token) return` idi. `setToken` kod
+   * tabanında YALNIZCA RestaurantRegisterScreen'de çağrılıyor; normal e-posta ve
+   * Google girişleri çağırmıyor ve store persist edilmiyor. Yani `token` normal
+   * giriş yapan herkeste null kalıyor ve bu fonksiyon HİÇ çalışmıyordu —
+   * App.tsx'teki "öne gelince aboneliği tazele" akışı sessizce ölüydü.
+   * Doğru koşul oturumun varlığı: giriş yapmış kullanıcı.
+   */
   loadSubscription: async () => {
-    if (!get().token) return;
+    if (!get().user) return;
     try {
       const { data } = await api.get<Subscription>('/subscriptions');
       set({ subscription: data });
@@ -105,9 +129,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    */
   logout: async () => {
     await SecureStore.deleteItemAsync('neareat_auth_token').catch(() => {});
-    set({ user: null, pendingUser: null, subscription: null, token: null, restaurantStatus: null });
+    // A02 — nesil ilerler: bu oturuma ait uçuştaki isteklerin 401'i artık
+    // bir sonraki kullanıcıyı etkileyemez.
+    set((s) => ({
+      user: null, pendingUser: null, subscription: null, token: null,
+      restaurantStatus: null, sessionId: s.sessionId + 1,
+    }));
   },
 
   /** Tüm auth state'ini sıfırlar (SecureStore'a dokunmadan) */
-  clear: () => set({ user: null, pendingUser: null, subscription: null, token: null, restaurantStatus: null }),
+  clear: () => set((s) => ({
+    user: null, pendingUser: null, subscription: null, token: null,
+    restaurantStatus: null, sessionId: s.sessionId + 1,
+  })),
 }));
