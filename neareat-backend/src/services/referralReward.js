@@ -6,6 +6,7 @@
 // yaptığında verilir. Bekleyen davet-eden bağı Redis'te tutulur (şema değişikliği yok).
 
 const prisma = require('../utils/prisma');
+const logger = require('../utils/logger');
 const { awardStars } = require('../utils/stars');
 const { cacheGet, cacheSet, cacheDel } = require('./redis');
 
@@ -52,12 +53,28 @@ async function maybeAwardReferrer(referredUserId) {
     return;
   }
 
-  await awardStars(
-    referrerId,
-    REFERRER_STARS_TYPE,
-    `${user.displayName || 'Davet ettiğin kullanıcı'} ilk aksiyonunu yaptı`,
-    referredUserId,
-  ).catch(() => {});
+  // DB06 (#453) — ÖNCE ödülü yaz, SONRA jetonu tüket.
+  // Eskiden `awardStars(...).catch(() => {})` hatayı yutuyor, hemen ardından
+  // `cacheDel` KOŞULSUZ çalışıyordu. Geçici bir DB hatasında davet eden yıldızını
+  // alamıyor, bekleyen bağ da silindiği için `maybeAwardReferrer` bir daha
+  // çağrıldığında ilk satırda çıkıyordu — ikinci deneme imkânsızdı ve hiçbir iz
+  // kalmıyordu. Bağ korunursa kullanıcının SONRAKİ nitelikli aksiyonu (rezervasyon
+  // veya doğrulanmış yorum) yeniden tetikler; TTL penceresi ~30 gün.
+  try {
+    await awardStars(
+      referrerId,
+      REFERRER_STARS_TYPE,
+      `${user.displayName || 'Davet ettiğin kullanıcı'} ilk aksiyonunu yaptı`,
+      referredUserId,
+    );
+  } catch (err) {
+    // Çağıranlar fire-and-forget kullanıyor → FIRLATMA, sessizce dön. Bağ DURUYOR.
+    logger.warn('[referral] ödül yazılamadı — bekleyen bağ korunuyor, sonraki aksiyonda denenecek', {
+      referrerId, referredUserId, error: err.message,
+    });
+    return;
+  }
+
   await cacheDel(pendingKey(referredUserId)).catch(() => {});
 }
 
