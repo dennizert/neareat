@@ -219,7 +219,26 @@ export async function resendVerification(): Promise<void> {
  */
 export async function restoreSession(): Promise<boolean> {
   const token = await getStoredToken();
-  if (!token) return false;
-  setTokenGetter(getStoredToken);
-  return true;
+  if (token) {
+    setTokenGetter(getStoredToken);
+    return true;
+  }
+
+  // A01 (#451) — Google ile giren kullanıcının SecureStore'da JWT'si YOKTUR:
+  // `signInWithGoogle` yalnızca bellekteki token getter'ı ayarlar, her istekte
+  // ham Google idToken'ı gönderilir. Bu fonksiyon eskiden burada `false` dönüyor,
+  // dolayısıyla EN YAYGIN giriş yöntemi her soğuk başlangıçta yeniden giriş
+  // gerektiriyordu. Google oturumu cihazda duruyor; sessizce geri yükle.
+  if (MOCK_MODE) return false;
+  try {
+    await GoogleSignin.signInSilently();
+    const { idToken } = await GoogleSignin.getTokens();
+    if (!idToken) return false;
+    setTokenGetter(getGoogleIdToken);
+    return true;
+  } catch {
+    // Kayıtlı Google hesabı yok (SIGN_IN_REQUIRED) ya da oturum iptal edilmiş.
+    // Bu bir HATA DEĞİL, normal "oturum yok" sonucudur — sessizce false dön.
+    return false;
+  }
 }
