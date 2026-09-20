@@ -133,7 +133,8 @@ describe('GET /api/restaurants/nearby — isim & foto önceliği (S10-4)', () =>
     expect(res.status).toBe(200);
     // S16-4 — varsayılan NEARBY_ALL_TYPES = restaurant,cafe,meal_takeaway (3 çağrı)
     expect(mockGetNearby).toHaveBeenCalledTimes(3);
-    const types = mockGetNearby.mock.calls.map((c) => c[3]);
+    // #467 — kullanılmayan `radiusMeters` parametresi kaldırıldı; tip artık 3. argüman.
+    const types = mockGetNearby.mock.calls.map((c) => c[2]);
     expect(types).toEqual(['restaurant', 'cafe', 'meal_takeaway']);
   });
 });
@@ -229,5 +230,74 @@ describe('GET /api/restaurants/:placeId — detay isim & foto sırası (S10-4)',
 
     const arg = mockPrisma.restaurantProfile.findFirst.mock.calls[0][0];
     expect(arg.include.photos.orderBy).toEqual([{ sortOrder: 'asc' }, { createdAt: 'asc' }]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #467 — keşif yarıçapı YALNIZCA konuma bağlı.
+//
+// S18'de kullanıcı premium'u kaldırılırken bu kural atlanmıştı: `premium ? 25 : 5`
+// dalı duruyor ve premium satın alınamadığı için pratikte HERKES 5 km alıyordu.
+// Yarıçapın hiç testi yoktu — kuralın sessizce bayatlamasının sebebi de bu.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('GET /api/restaurants/nearby — keşif yarıçapı (#467)', () => {
+  const nearby = (auth = true) => {
+    const r = request(app).get('/api/restaurants/nearby?lat=41.012&lng=28.974');
+    return auth ? r.set('Authorization', `Bearer ${token}`) : r;
+  };
+
+  it('T1a aboneliği OLMAYAN kullanıcı 25 km alır (eskiden 5 km)', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+    const res = await nearby();
+    expect(res.status).toBe(200);
+    expect(res.body.radiusKm).toBe(25);
+  });
+
+  it('T1b aboneliği OLAN kullanıcı da aynı yarıçapı alır', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      userId, status: 'active', expiresAt: new Date(Date.now() + 30 * 86400_000),
+    });
+    const res = await nearby();
+    expect(res.body.radiusKm).toBe(25);
+  });
+
+  it('T2 anonim istek de aynı yarıçapı alır', async () => {
+    const res = await nearby(false);
+    expect(res.status).toBe(200);
+    expect(res.body.radiusKm).toBe(25);
+  });
+
+  // Asıl değişmez: yarıçap abonelik durumundan BAĞIMSIZ.
+  it('abonelik durumu yarıçabı DEĞİŞTİRMEZ', async () => {
+    mockPrisma.subscription.findUnique.mockResolvedValue(null);
+    const free = (await nearby()).body.radiusKm;
+    mockPrisma.subscription.findUnique.mockResolvedValue({
+      userId, status: 'active', expiresAt: new Date(Date.now() + 30 * 86400_000),
+    });
+    const paid = (await nearby()).body.radiusKm;
+    expect(free).toBe(paid);
+  });
+
+  // Yarıçap Google'a gitmez (rankby=distance ile radius kullanılamaz); yalnızca
+  // sunucu tarafı mesafe filtresinde kullanılır. Bu test o sözleşmeyi sabitliyor.
+  it('yarıçap Google çağrısına GEÇİRİLMEZ', async () => {
+    await nearby();
+    for (const call of mockGetNearby.mock.calls) {
+      expect(call).toHaveLength(3);                 // (lat, lng, type)
+      expect(typeof call[2]).toBe('string');        // 3. argüman tip
+      expect(call.some((a) => a === 25000 || a === 5000)).toBe(false);
+    }
+  });
+
+  it('yarıçap dışındaki mekânlar elenir', async () => {
+    // ~2.8 km (içeride) ve ~40 km (dışarıda)
+    mockGetNearby.mockResolvedValue([
+      googlePlace({ place_id: 'yakin', geometry: { location: { lat: 41.037, lng: 28.974 } } }),
+      googlePlace({ place_id: 'uzak', geometry: { location: { lat: 41.372, lng: 28.974 } } }),
+    ]);
+    const res = await nearby();
+    const ids = res.body.results.map((r) => r.placeId);
+    expect(ids).toContain('yakin');
+    expect(ids).not.toContain('uzak');
   });
 });

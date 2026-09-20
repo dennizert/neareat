@@ -182,7 +182,9 @@ function fetchJson(url, timeoutMs = HTTP_TIMEOUT_MS) {
  *
  * rankby=distance: mesafeye göre sırala, AVM içi ve düşük puanlı yerleri kaçırma.
  * radius parametresi rankby=distance ile kullanılamaz — yarıçap filtresi controller'da
- * haversine ile uygulanır (radiusMeters yalnızca imza uyumu için tutulur).
+ * haversine ile uygulanır. Bu yüzden yarıçap DEĞİŞTİRMEK daha fazla mekân GETİRMEZ:
+ * Google her tip için en yakın ~20'yi döndürür, yarıçap yalnızca hangilerinin
+ * eleneceğini belirler.
  *
  * Neden tek sayfa (S15-P1): Google'ın next_page_token kuralı sayfalar arasında 2'şer
  * saniye zorunlu bekleme gerektiriyordu; `type=all` listesi 5 tipi paralel çekerken bu
@@ -190,7 +192,9 @@ function fetchJson(url, timeoutMs = HTTP_TIMEOUT_MS) {
  * (LIST_LIMIT) ve 5 tip × ~20 ilk-sayfa sonucu dedup sonrası bu sınırı fazlasıyla
  * dolduruyor; ekstra sayfalara değmez. Tek API çağrısı yapılır, 2sn beklemeler kalkar.
  */
-async function getNearbyRestaurants(lat, lng, radiusMeters, type = 'restaurant') {
+// #467: kullanılmayan `radiusMeters` parametresi kaldırıldı — yarıçapı değiştirenin
+// Google sorgusunu da değiştirdiğini sanmasına yol açan bir tuzaktı.
+async function getNearbyRestaurants(lat, lng, type = 'restaurant') {
   // Cache anahtarı v4; tile ondalığı env ile ayarlanabilir (S16-4).
   const cacheKey = `nearby4:${lat.toFixed(NEARBY_TILE_DECIMALS)}:${lng.toFixed(NEARBY_TILE_DECIMALS)}:${type}`;
   const cached = await cacheGet(cacheKey);
