@@ -104,3 +104,78 @@ describe('runPendingReservationEscalation', () => {
     await expect(runPendingReservationEscalation()).resolves.toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DB07 (#453) — bildirim başarısızsa idempotency damgası YAZILMAMALI.
+//
+// Eskiden iki bildirim de `.catch(() => {})` ile sarılıydı ve damga koşulsuz
+// yazılıyordu. Sorgu `pendingReminderSentAt: null` filtrelediği için damgalanan
+// rezervasyon bir daha hiç taranmıyordu: bildirim hiç gitmemiş olsa bile
+// escalation "yapılmış" sayılıyor, var sanılan retry hiç çalışmıyordu.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('runPendingReservationEscalation — bildirim başarısızlığı (DB07)', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    console.error.mockRestore();
+    console.warn.mockRestore();
+  });
+
+  it('T8 restoran bildirimi başarısızsa damga YAZILMAZ (sonraki turda denenir)', async () => {
+    mockPrisma.reservation.findMany.mockResolvedValue([staleReservation()]);
+    mockCreateNotification.mockRejectedValueOnce(new Error('FCM unavailable'));
+
+    await runPendingReservationEscalation();
+
+    expect(mockPrisma.reservation.update).not.toHaveBeenCalled();
+  });
+
+  it('T9 restoran bildirimi başarısızsa işlenen sayısına dahil edilmez', async () => {
+    mockPrisma.reservation.findMany.mockResolvedValue([staleReservation()]);
+    mockCreateNotification.mockRejectedValueOnce(new Error('FCM unavailable'));
+
+    expect(await runPendingReservationEscalation()).toBe(0);
+  });
+
+  // Kullanıcı bilgilendirmesi İKİNCİL: escalation asıl amacına ulaştı. Damga
+  // atılmazsa restoran her saat yeniden bildirim alırdı.
+  it('T10 restoran bildirimi gider, kullanıcı bildirimi hata verirse damga YAZILIR', async () => {
+    mockPrisma.reservation.findMany.mockResolvedValue([staleReservation()]);
+    mockCreateNotification
+      .mockResolvedValueOnce({})                              // restoran → başarılı
+      .mockRejectedValueOnce(new Error('kullanıcı token yok')); // kullanıcı → hata
+
+    await runPendingReservationEscalation();
+
+    expect(mockPrisma.reservation.update).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: { pendingReminderSentAt: expect.any(Date) },
+    });
+  });
+
+  it('T11 ikisi de başarılıysa damga yazılır (mevcut davranış korunur)', async () => {
+    mockPrisma.reservation.findMany.mockResolvedValue([staleReservation()]);
+
+    expect(await runPendingReservationEscalation()).toBe(1);
+    expect(mockPrisma.reservation.update).toHaveBeenCalled();
+  });
+
+  it('T12 bir rezervasyon hata verse de döngü diğerleriyle devam eder', async () => {
+    mockPrisma.reservation.findMany.mockResolvedValue([
+      staleReservation({ id: 'r-fail' }),
+      staleReservation({ id: 'r-ok' }),
+    ]);
+    // r-fail: restoran bildirimi hata → atlanır. r-ok: iki bildirim de başarılı.
+    mockCreateNotification
+      .mockRejectedValueOnce(new Error('FCM unavailable'))
+      .mockResolvedValue({});
+
+    expect(await runPendingReservationEscalation()).toBe(1);
+    expect(mockPrisma.reservation.update).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.reservation.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'r-ok' } }),
+    );
+  });
+});

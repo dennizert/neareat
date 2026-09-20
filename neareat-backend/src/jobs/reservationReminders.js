@@ -46,23 +46,38 @@ async function runPendingReservationEscalation() {
 
     for (const r of stale) {
       const place = r.restaurant.placeName || r.restaurant.businessName;
-      // Restorana escalation hatırlatması
-      await createNotification(
-        r.restaurant.userId,
-        'RESERVATION_PENDING_REMINDER',
-        '⏰ Yanıt bekleyen rezervasyon',
-        `${r.user.displayName} adlı kullanıcının ${r.date} ${r.time} (${r.guestCount} kişi) rezervasyonu 24 saattir yanıt bekliyor. Lütfen onaylayın veya reddedin.`,
-        { reservationId: r.id },
-      ).catch(() => {});
 
-      // Kullanıcıya bilgi
+      // DB07 (#453) — ASIL iş restorana escalation bildirimini ulaştırmaktır.
+      // Eskiden iki bildirim de `.catch(() => {})` ile sarılıydı ve damga KOŞULSUZ
+      // yazılıyordu; sorgu `pendingReminderSentAt: null` filtrelediği için damgalanan
+      // rezervasyon bir daha HİÇ taranmıyordu. Yani bildirim hiç gitmemiş olsa bile
+      // escalation "yapılmış" sayılıyor, var sanılan retry hiç çalışmıyordu.
+      try {
+        await createNotification(
+          r.restaurant.userId,
+          'RESERVATION_PENDING_REMINDER',
+          '⏰ Yanıt bekleyen rezervasyon',
+          `${r.user.displayName} adlı kullanıcının ${r.date} ${r.time} (${r.guestCount} kişi) rezervasyonu 24 saattir yanıt bekliyor. Lütfen onaylayın veya reddedin.`,
+          { reservationId: r.id },
+        );
+      } catch (err) {
+        // Damga YAZILMIYOR → rezervasyon bir sonraki saatlik turda yeniden taranır.
+        console.error(`[CronJob] Escalation bildirimi gönderilemedi (${r.id}):`, err.message);
+        continue;
+      }
+
+      // Kullanıcıya bilgi — İKİNCİL. Başarısızlığı damgayı ENGELLEMEZ: escalation
+      // asıl amacına ulaştı ve damga atılmazsa restoran her saat yeniden bildirim
+      // alırdı.
       await createNotification(
         r.userId,
         'RESERVATION_PENDING_REMINDER',
         '⏳ Rezervasyonun hâlâ yanıt bekliyor',
         `${place} için ${r.date} ${r.time} rezervasyon talebin restoran tarafından henüz yanıtlanmadı. Restoranı hatırlattık.`,
         { reservationId: r.id },
-      ).catch(() => {});
+      ).catch((err) => {
+        console.warn(`[CronJob] Kullanıcı bilgilendirmesi gönderilemedi (${r.id}):`, err.message);
+      });
 
       await prisma.reservation.update({
         where: { id: r.id },
