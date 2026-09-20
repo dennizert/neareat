@@ -143,15 +143,25 @@ async function makeFriends(userAId, userBId) {
 }
 
 /**
- * Doğrulanmış ziyaret üretir — S18-3 yıldız kuralları check-in veya tamamlanmış
- * rezervasyon şartı arıyor.
+ * Check-in üretir — S18-3 yıldız kuralları check-in veya tamamlanmış rezervasyon
+ * şartı arıyor.
+ *
+ * `verified` VARSAYILAN OLARAK true: bu fabrika "gerçekten oraya gitmiş kullanıcı"
+ * kurgusu için var. Konumu doğrulanmamış check-in artık ziyaret kanıtı SAYILMIYOR
+ * (starGuards.hasVerifiedVisit); o senaryoyu kurmak için `{ verified: false }` geç.
  */
-async function createCheckIn(userId, placeId, placeName = 'Test Restoran', { hoursValid = 4 } = {}) {
+async function createCheckIn(
+  userId,
+  placeId,
+  placeName = 'Test Restoran',
+  { hoursValid = 4, verified = true } = {},
+) {
   return prisma.checkIn.create({
     data: {
       userId,
       placeId,
       placeName,
+      verified,
       // `expiresAt` zorunlu: check-in geçici bir "buradayım" işaretidir, kalıcı değil.
       expiresAt: new Date(Date.now() + hoursValid * 60 * 60 * 1000),
     },

@@ -182,4 +182,20 @@ describe('Yolculuk: rezervasyon talebi → restoran onayı → katılım', () =>
     const rated = await user.social.rateRestaurant(profile.placeId, profile.placeName);
     expect(rated.starEvent).toBeTruthy();
   });
+
+  // Asıl farming açığı: check-in ucu gövdedeki placeId'yi doğrulamadan yazdığı için
+  // tek istekle "ziyaret" üretip puan/yıldız kazanmak mümkündü. Artık konumu
+  // doğrulanmamış check-in ziyaret kanıtı SAYILMIYOR.
+  it('S18-3: konumu doğrulanmamış check-in puan hakkı VERMEZ', async () => {
+    const { user: u, client: user } = await createUser(app, { starCount: 120 });
+    const { profile } = await createRestaurant(app);
+
+    await createCheckIn(u.id, profile.placeId, profile.placeName, { verified: false });
+
+    const err = await user.social
+      .rateRestaurant(profile.placeId, profile.placeName)
+      .then(() => null, (e) => e);
+    expect(err.status).toBe(403);
+    expect(err.body.code).toBe('VISIT_REQUIRED');
+  });
 });
