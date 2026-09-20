@@ -1,15 +1,24 @@
 const prisma = require('../utils/prisma');
 const { getNearbyRestaurants, getPlaceDetails, getPhotoUrl, passesQualityFilter, isExcludedByName, searchPlacesByText } = require('../services/googlePlaces');
 const { haversineKm } = require('../utils/haversine');
-const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel, STAR_LEVEL_DISCOUNTS } = require('../utils/stars');
 const { deriveCuisineTags, parseCuisineTagFilter } = require('../utils/cuisineTags');
 const { deriveFreshness } = require('../utils/freshnessTags');
 const { registeredProfileWhere } = require('../utils/restaurantVisibility');
 const { logSearchHistory } = require('./searchHistoryController');
 
-const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
-const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
+// Keşif yarıçapı — YALNIZCA kullanıcının konumuna bağlı (#467).
+// S18'de kullanıcı premium'u kaldırılırken bu kural atlanmıştı: `premium ? 25 : 5`
+// dalı duruyordu ve premium satın alınamadığı için pratikte HERKES 5 km alıyor,
+// 25 km'lik dal ölü kalıyordu. Yarıçap LEVEL_ACCESS matrisinde de yok — ne premium'a
+// ne seviyeye ait, sahipsiz bir kuraldı. Artık tek sabit, herkese aynı.
+//
+// NOT: bu değer Google'a GİTMEZ. Sorgu `rankby=distance` ile kurulur (Google, radius
+// ile birlikte kullanılmasına izin vermez), yani Google her tip için en yakın ~20'yi
+// döndürür. Yarıçap yalnızca (a) sunucu tarafı mesafe filtresinde ve (b) skor
+// normalizasyonunda kullanılır. Dolayısıyla büyütmek DAHA FAZLA MEKÂN GETİRMEZ;
+// Google'ın zaten döndürdüklerinden uzakta kalanları atmayı bırakır.
+const DISCOVERY_RADIUS_KM = parseInt(process.env.DISCOVERY_RADIUS_KM || '25', 10);
 
 // Keşfet listesi sıralama parametreleri
 const HIGH_RATING_THRESHOLD = 4.5;   // ilk 15 sırada bu eşiğin altı yer almaz
@@ -117,14 +126,13 @@ function mapPlaceToResultRow(place, dp, now, userLevel, distanceKm) {
  * @returns {Promise<object[]>} mapPlaceToResultRow satırları
  */
 async function buildNearbyResults({ userLat, userLng, radiusKm, placeType = 'all', cuisineFilter = [], userLevel = 1 }) {
-  const radiusMeters = radiusKm * 1000;
 
   let rawPlaces;
   if (placeType === 'all') {
       // S16-4 — env-ayarlı tip listesini paralel çek (rankby=distance, AVM içi/düşük
       // puanlı yerler dahil), placeId'ye göre dedup et. Eski 5 sabit tip → 3 (maliyet ↓).
       const perType = await Promise.all(
-        NEARBY_ALL_TYPES.map((t) => getNearbyRestaurants(userLat, userLng, radiusMeters, t)),
+        NEARBY_ALL_TYPES.map((t) => getNearbyRestaurants(userLat, userLng, t)),
       );
       const seen = new Set();
       rawPlaces = perType.flat().filter((p) => {
@@ -133,7 +141,7 @@ async function buildNearbyResults({ userLat, userLng, radiusKm, placeType = 'all
         return true;
       });
     } else {
-      rawPlaces = await getNearbyRestaurants(userLat, userLng, radiusMeters, placeType);
+      rawPlaces = await getNearbyRestaurants(userLat, userLng, placeType);
     }
 
     // Kalite filtresi (rating ≥ 2.4, en az 2 puanlama) + haversine + combined score
@@ -207,8 +215,7 @@ async function getNearby(req, res, next) {
     const placeType = VALID_TYPES.has(type) ? type : 'all';
     const cuisineFilter = parseCuisineTagFilter(cuisineTag);
 
-    const premium = req.user ? await isPremiumUser(req.user.id) : false;
-    const radiusKm = premium ? PREMIUM_RADIUS_KM : FREE_RADIUS_KM;
+    const radiusKm = DISCOVERY_RADIUS_KM;
     const userLevel = req.user ? getLevel(req.user.starCount).level : 1;
 
     const results = await buildNearbyResults({ userLat, userLng, radiusKm, placeType, cuisineFilter, userLevel });

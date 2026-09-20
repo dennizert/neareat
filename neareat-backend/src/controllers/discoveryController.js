@@ -14,13 +14,12 @@
 
 const prisma = require('../utils/prisma');
 const { buildNearbyResults } = require('./restaurantController');
-const { isPremiumUser } = require('../utils/premiumCheck');
 const { getLevel } = require('../utils/stars');
 const { deriveCuisineTags } = require('../utils/cuisineTags');
 const { buildTasteProfile, rankForYou } = require('../services/personalizationService');
 
-const FREE_RADIUS_KM = parseInt(process.env.FREE_RADIUS_KM || '5');
-const PREMIUM_RADIUS_KM = parseInt(process.env.PREMIUM_RADIUS_KM || '25');
+// #467 — keşif yarıçapı yalnızca konuma bağlı; gerekçe restaurantController'da.
+const DISCOVERY_RADIUS_KM = parseInt(process.env.DISCOVERY_RADIUS_KM || '25', 10);
 
 const RECENTLY_VIEWED_LIMIT = 10;
 const FOR_YOU_LIMIT = 20;
@@ -97,8 +96,7 @@ async function getPersonalized(req, res, next) {
     const userLng = parseFloat(lng);
     const userId = req.user.id;
 
-    const premium = await isPremiumUser(userId);
-    const radiusKm = premium ? PREMIUM_RADIUS_KM : FREE_RADIUS_KM;
+    const radiusKm = DISCOVERY_RADIUS_KM;
     const userLevel = getLevel(req.user.starCount).level;
 
     // Aday liste (mevcut nearby boru hattı) + tüm davranış sinyallerini paralel topla.
