@@ -132,10 +132,15 @@ imzalandı. Boyut/performans ölçümü için sorun değil; **Play Store'a yükl
 
 | Dosya | Konum | Not |
 |---|---|---|
-| `eatlas-sdk52-pre-faz1-v2.0.14-vc42.apk` | `~/eatlas-upgrade-archive/` | 37,8 MB, debug imzalı, emülatörde çalıştığı doğrulandı |
+| `eatlas-sdk52-pre-faz1-v2.0.14-vc42.apk` | `~/eatlas-upgrade-archive/` | 37,8 MB, debug imzalı, emülatöre kurulup açıldığı doğrulandı (365 ms, crash yok) |
 | `eatlas-sdk52-pre-faz1-v2.0.14-vc42.aab` | `~/eatlas-upgrade-archive/` | 38,5 MB, debug imzalı |
 
-Git etiketi: **`mobile-pre-faz1`**
+**Git etiketi:** `mobile-pre-faz1` → commit **`4ac5e1d`** (`Merge pull request #496`)
+
+> İkililer bu commit'ten üretildi — yani `#494` (expo-iap native bağımlılıkları:
+> `billing-ktx`, `play-services-base`) **dahil**. Arşiv ile etiket birebir eşleşir;
+> geri dönüşte `git checkout mobile-pre-faz1` ile aynı ikili yeniden üretilebilir
+> (ASCII yoldan, bkz. B1).
 
 > ⚠️ Arşiv dizini repo dışında ve `.gitignore` zaten `*.apk`/`*.aab` içeriyor.
 > Bu dizin **yedeklenmeli** (harici disk / bulut) — kaybolursa geri dönüş yolu zayıflar.
