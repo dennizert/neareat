@@ -240,8 +240,11 @@ Sonraki uygulama güncellemeleri için:
 Bu dosyayı kaybedersen Play Store'a yükleme yapamayabilirsin.
 **OneDrive veya Google Drive'a yedekle.**
 
-Keystore bilgileri:
+Keystore bilgileri (dosya adı/alias sır değil, DÜZ METİN ŞİFRE ASLA BURAYA YAZILMAZ —
+bu repo public):
 - Dosya: `neareat-upload.keystore`
 - Alias: `neareat`
-- Store şifre: `NearEat2024Upload!`
-- Key şifre: `NearEat2024Upload!`
+- Store/Key şifresi: bir parola yöneticisinde sakla. Build sırasında repo dışı,
+  `~/.gradle/gradle.properties` içinde `NEAREAT_UPLOAD_STORE_PASSWORD` /
+  `NEAREAT_UPLOAD_KEY_PASSWORD` olarak tanımlanır (bkz. `android/gradle.properties`'teki
+  ilgili not) — asla git'e commit edilmez.
