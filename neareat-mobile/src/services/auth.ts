@@ -86,7 +86,16 @@ export async function signInWithGoogle(): Promise<{ user: User; subscription: Su
   if (MOCK_MODE) return { user: MOCK_USER, subscription: null };
 
   await GoogleSignin.hasPlayServices();
-  await GoogleSignin.signIn();
+
+  // v13+ SÖZLEŞME DEĞİŞİKLİĞİ: signIn() kullanıcı iptal ettiğinde artık HATA
+  // FIRLATMIYOR, `{ type: 'cancelled' }` dönüyor. Kontrol edilmezse akış
+  // getTokens()'a düşer ve anlamsız bir hatayla patlar.
+  // v12 davranışı KORUNUYOR: iptal, çağıranın (LoginScreen) yakaladığı bir hata.
+  const response = await GoogleSignin.signIn();
+  if (response?.type !== 'success') {
+    throw new Error('Google ile giriş iptal edildi.');
+  }
+
   const { idToken } = await GoogleSignin.getTokens();
 
   // Her API isteğinde güncel Google idToken kullanılsın diye token getter ayarlanır.
@@ -231,14 +240,20 @@ export async function restoreSession(): Promise<boolean> {
   // gerektiriyordu. Google oturumu cihazda duruyor; sessizce geri yükle.
   if (MOCK_MODE) return false;
   try {
-    await GoogleSignin.signInSilently();
+    const response = await GoogleSignin.signInSilently();
+    // v13+ SÖZLEŞME DEĞİŞİKLİĞİ: kayıtlı hesap yokken artık HATA FIRLATILMIYOR,
+    // `{ type: 'noSavedCredentialFound' }` dönüyor. Eskiden bu durum aşağıdaki
+    // catch'e düşerdi; artık açıkça kontrol edilmezse fonksiyon başarı dalında
+    // ilerler ve oturumu YANLIŞLIKLA geri yüklenmiş sayar.
+    if (response?.type !== 'success') return false;
+
     const { idToken } = await GoogleSignin.getTokens();
     if (!idToken) return false;
     setTokenGetter(getGoogleIdToken);
     return true;
   } catch {
-    // Kayıtlı Google hesabı yok (SIGN_IN_REQUIRED) ya da oturum iptal edilmiş.
-    // Bu bir HATA DEĞİL, normal "oturum yok" sonucudur — sessizce false dön.
+    // Gerçek hatalar (ağ, Play Services yok vb.). "Kayıtlı hesap yok" durumu
+    // v13+'ta buraya DÜŞMEZ — yukarıda ayrıca ele alınır.
     return false;
   }
 }
