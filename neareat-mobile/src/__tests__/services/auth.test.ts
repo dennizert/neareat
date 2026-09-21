@@ -9,11 +9,15 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+// v13+ sözleşmesi: signIn/signInSilently artık hata fırlatmak yerine
+// ayrıştırılmış (discriminated) bir sonuç objesi döndürür:
+//   signIn         → { type:'success', data } | { type:'cancelled', data:null }
+//   signInSilently → { type:'success', data } | { type:'noSavedCredentialFound', data:null }
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {
     configure: jest.fn(),
     hasPlayServices: jest.fn().mockResolvedValue(true),
-    signIn: jest.fn().mockResolvedValue(undefined),
+    signIn: jest.fn().mockResolvedValue({ type: 'success', data: {} }),
     getTokens: jest.fn(),
     signOut: jest.fn().mockResolvedValue(undefined),
     signInSilently: jest.fn(),
@@ -105,6 +109,17 @@ describe('signInWithGoogle', () => {
     expect(t2).toBe('gid-new');
     expect(GoogleSignin.getTokens).toHaveBeenCalledTimes(1);
   });
+
+  // v13+ : iptal artık hata DEĞİL, { type:'cancelled' } sonucu. Kontrol edilmezse
+  // akış getTokens()'a düşer ve anlamsız bir hatayla patlar. v12 davranışını
+  // korumak için iptali açık bir hataya çeviriyoruz (LoginScreen bunu yakalıyor).
+  it('kullanıcı iptal ederse (type:cancelled) hata fırlatır, backend’e gitmez', async () => {
+    GoogleSignin.signIn.mockResolvedValueOnce({ type: 'cancelled', data: null });
+
+    await expect(signInWithGoogle()).rejects.toThrow('iptal');
+    expect(GoogleSignin.getTokens).not.toHaveBeenCalled();
+    expect(mockedApi.post).not.toHaveBeenCalled();
+  });
 });
 
 describe('email auth', () => {
@@ -183,7 +198,7 @@ describe('restoreSession — A01 (#451) Google oturumu sessiz geri yükleme', ()
 
   it('JWT yoksa ama Google oturumu cihazda duruyorsa sessizce geri yükler', async () => {
     SecureStore.getItemAsync.mockResolvedValueOnce(null);
-    GoogleSignin.signInSilently.mockResolvedValueOnce(undefined);
+    GoogleSignin.signInSilently.mockResolvedValueOnce({ type: 'success', data: {} });
     GoogleSignin.getTokens.mockResolvedValueOnce({ idToken: 'gid-1' });
 
     const result = await restoreSession();
@@ -192,16 +207,30 @@ describe('restoreSession — A01 (#451) Google oturumu sessiz geri yükleme', ()
     expect(mockSetTokenGetter).toHaveBeenCalledWith(expect.any(Function));
   });
 
-  it('kayıtlı Google hesabı yoksa (SIGN_IN_REQUIRED) hata fırlatmadan false döner', async () => {
+  // 🔴 v13+ göçünün EN TEHLİKELİ noktası. v12'de bu durum hata fırlatır, catch'e
+  // düşer ve false dönerdi. v13+'ta hata YOK — sonuç objesi dönüyor. Açık kontrol
+  // olmasaydı fonksiyon başarı dalında ilerler, getTokens() boş/hatalı döner ve
+  // oturum YANLIŞLIKLA geri yüklenmiş sayılırdı. Bu test o sözleşmeyi sabitler.
+  it('kayıtlı Google hesabı yoksa (type:noSavedCredentialFound) false döner, token getter AYARLANMAZ', async () => {
     SecureStore.getItemAsync.mockResolvedValueOnce(null);
-    GoogleSignin.signInSilently.mockRejectedValueOnce(new Error('SIGN_IN_REQUIRED'));
+    GoogleSignin.signInSilently.mockResolvedValueOnce({ type: 'noSavedCredentialFound', data: null });
+
+    await expect(restoreSession()).resolves.toBe(false);
+    expect(GoogleSignin.getTokens).not.toHaveBeenCalled();
+    expect(mockSetTokenGetter).not.toHaveBeenCalled();
+  });
+
+  // Gerçek hatalar (ağ kopması, Play Services yok) hâlâ catch'e düşmeli.
+  it('signInSilently gerçek bir hata fırlatırsa yine false döner', async () => {
+    SecureStore.getItemAsync.mockResolvedValueOnce(null);
+    GoogleSignin.signInSilently.mockRejectedValueOnce(new Error('network error'));
 
     await expect(restoreSession()).resolves.toBe(false);
   });
 
   it('Google idToken boşsa false döner', async () => {
     SecureStore.getItemAsync.mockResolvedValueOnce(null);
-    GoogleSignin.signInSilently.mockResolvedValueOnce(undefined);
+    GoogleSignin.signInSilently.mockResolvedValueOnce({ type: 'success', data: {} });
     GoogleSignin.getTokens.mockResolvedValueOnce({ idToken: null });
 
     await expect(restoreSession()).resolves.toBe(false);
