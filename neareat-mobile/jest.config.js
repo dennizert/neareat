@@ -1,6 +1,8 @@
 module.exports = {
   preset: 'jest-expo',
-  setupFilesAfterEnv: ['@testing-library/jest-native/extend-expect', '<rootDir>/jest.setup.js'],
+  // @testing-library/jest-native KALDIRILDI (kullanımdan kaldırıldı; matcher'ları
+  // RNTL v12.4+'ta yerleşik). Kullandığımız tek matcher `toHaveProp` RNTL 14'te var.
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|zustand)',
   ],
