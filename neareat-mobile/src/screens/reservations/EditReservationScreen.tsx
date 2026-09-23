@@ -98,7 +98,12 @@ export default function EditReservationScreen() {
       Alert.alert(
         '✅ Rezervasyon Güncellendi',
         'Eski rezervasyonunuz iptal edildi ve yeni talebiniz restorana gönderildi. Onay bekleniyor.',
-        [{ text: 'Tamam', onPress: () => navigation.navigate('MyReservations') }],
+        // React Navigation v7: navigate() artık yığında zaten var olan bir ekrana
+        // GERİ DÖNMÜYOR, üstüne kopya itiyor. Buraya genelde
+        // MyReservations → ReservationDetail → EditReservation yolundan gelinir;
+        // navigate() ile geri tuşu kullanıcıyı az önce bitirdiği düzenleme formuna
+        // döndürürdü. popTo() v6 davranışını birebir korur (ekran yığında yoksa ekler).
+        [{ text: 'Tamam', onPress: () => navigation.popTo('MyReservations') }],
       );
     } catch (err: any) {
       Alert.alert('Hata', err.response?.data?.error ?? 'Rezervasyon güncellenemedi.');

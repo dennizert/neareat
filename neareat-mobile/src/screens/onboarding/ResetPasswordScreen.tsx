@@ -67,7 +67,12 @@ export default function ResetPasswordScreen() {
         </View>
         <Text style={styles.title}>Şifren Güncellendi!</Text>
         <Text style={styles.subtitle}>Yeni şifrenle giriş yapabilirsin.</Text>
-        <GlowButton label="Giriş Yap" onPress={() => navigation.navigate('Login')} style={styles.ctaWide} />
+        {/* v7: navigate() yığındaki mevcut ekrana geri DÖNMÜYOR, kopya itiyor.
+            Kullanıcı uygulama açıkken e-postadaki bağlantıya tıklarsa yığın
+            Login → ForgotPassword → ResetPassword olur; navigate() ikinci bir Login
+            iterdi ve geri tuşu kullanılmış sıfırlama ekranına dönerdi.
+            popTo() v6 davranışını korur (ekran yığında yoksa ekler). */}
+        <GlowButton label="Giriş Yap" onPress={() => navigation.popTo('Login')} style={styles.ctaWide} />
       </View>
     );
   }
