@@ -21,6 +21,12 @@ import path from 'path';
 const projectRoot = path.resolve(__dirname, '../..');
 const requireFromProject = createRequire(path.join(projectRoot, 'package.json'));
 
+// Çözümleme expo'NUN KENDİ bağlamından yapılır, kök dizinden değil. npm, sürüm
+// çakışmalarında bir bağımlılığı `expo/node_modules/` altına yuvalayabiliyor
+// (SDK 54'te @expo/cli ve @expo/metro-config'e bu oldu) — bu meşru bir kurulum,
+// eksiklik değil. Kökten arayan bir denetim bunları yanlışlıkla hata sayardı.
+const requireFromExpo = createRequire(require.resolve('expo/package.json'));
+
 describe('bağımlılık bütünlüğü', () => {
   const expoPkg = requireFromProject('expo/package.json');
   const expoDeps = Object.keys(expoPkg.dependencies ?? {});
@@ -29,8 +35,15 @@ describe('bağımlılık bütünlüğü', () => {
     expect(expoDeps.length).toBeGreaterThan(5);
   });
 
-  it.each(expoDeps)('expo→%s node_modules içinde çözülebiliyor', (dep) => {
-    expect(() => requireFromProject.resolve(`${dep}/package.json`)).not.toThrow();
+  it.each(expoDeps)('expo→%s çözülebiliyor', (dep) => {
+    expect(() => requireFromExpo.resolve(`${dep}/package.json`)).not.toThrow();
+  });
+
+  // babel.config.js bu preset'i KÖK bağlamdan çözmek zorunda. SDK 54'te
+  // expo/node_modules altına yuvalandı ve tüm Jest paketi "Cannot find module
+  // 'babel-preset-expo'" ile çöktü — bu yüzden açık devDependency yapıldı.
+  it('babel-preset-expo kök bağlamdan çözülebiliyor (babel.config.js buna muhtaç)', () => {
+    expect(() => requireFromProject.resolve('babel-preset-expo/package.json')).not.toThrow();
   });
 
   // Bu üçü olmadan ikonlar ve paketlenmiş asset'ler sessizce kaybolur.

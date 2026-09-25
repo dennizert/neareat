@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, StyleSheet,
-  FlatList, ActivityIndicator, SafeAreaView,
+  FlatList, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useNotificationStore } from '../store/notificationStore';
 import type { AppNotification } from '../types';
@@ -101,7 +101,12 @@ export default function NotificationBell({ color }: NotificationBellProps = {}) 
           onPress={() => setPanelVisible(false)}
         >
           <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            <SafeAreaView>
+            {/* #501 — RN'in SafeAreaView'ı SDK 54'te deprecated; safe-area-context'e taşındı.
+                edges={['bottom']}: üst güvenli alan zaten yukarıdaki backdrop'ta
+                `paddingTop: insets.top + 44` ile uygulanıyor. Tüm kenarları açık
+                bırakmak iOS'ta üstten çift dolgu demek olurdu — panel başlık
+                çubuğunun altından daha da aşağı kayardı. */}
+            <SafeAreaView edges={['bottom']}>
               <View style={styles.panel}>
                 {/* Panel başlık */}
                 <View style={styles.panelHeader}>
