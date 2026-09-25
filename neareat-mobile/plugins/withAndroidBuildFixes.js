@@ -14,6 +14,30 @@ function withFixedGradleProperties(config) {
   });
 }
 
+/**
+ * RN 0.81'in C++ başlıkları `std::format` (C++20 kütüphane özelliği) kullanıyor:
+ *   graphicsConversions.h:80: error: no member named 'format' in namespace 'std'
+ *     return std::format("{}%", dimension.value);
+ *
+ * NDK 26'nın libc++'ında `std::format` YOK; NDK 27 (clang 18 / LLVM 18) ile geldi.
+ *
+ * Bu YALNIZCA Yeni Mimari'de patlıyor: codegen'in ürettiği C++ dosyaları sadece
+ * Fabric açıkken derleniyor. Legacy build'lerde bu başlıklara hiç dokunulmadığı
+ * için `ndkVersion = "26.1.10909125"` eski bir commit'ten beri fark edilmeden
+ * duruyordu (SDK 52→54 boyunca prebuild bu değeri koruyor).
+ */
+const NDK_VERSION = '27.1.12297006';
+
+function withRequiredNdkVersion(config) {
+  return withProjectBuildGradle(config, (config) => {
+    config.modResults.contents = config.modResults.contents.replace(
+      /ndkVersion\s*=\s*"[^"]*"/,
+      `ndkVersion = "${NDK_VERSION}"`
+    );
+    return config;
+  });
+}
+
 function withPinnedKotlinVersion(config) {
   return withProjectBuildGradle(config, (config) => {
     config.modResults.contents = config.modResults.contents.replace(
@@ -53,6 +77,7 @@ function withoutIapCompileClasspathDeps(config) {
 
 module.exports = function withAndroidBuildFixes(config) {
   config = withFixedGradleProperties(config);
+  config = withRequiredNdkVersion(config);
   config = withPinnedKotlinVersion(config);
   config = withoutIapCompileClasspathDeps(config);
   return config;
