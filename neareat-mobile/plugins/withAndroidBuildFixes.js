@@ -1,4 +1,4 @@
-const { withGradleProperties, withProjectBuildGradle, withAppBuildGradle } = require('@expo/config-plugins');
+const { withGradleProperties, withAppBuildGradle } = require('@expo/config-plugins');
 
 /**
  * NOT — Kotlin 1.9.25 sabitlemesi SDK 55'te KALDIRILDI.
@@ -20,12 +20,39 @@ const { withGradleProperties, withProjectBuildGradle, withAppBuildGradle } = req
  */
 function withFixedGradleProperties(config) {
   return withGradleProperties(config, (config) => {
-    const keys = ['android.overridePathCheck', 'android.kotlinVersion'];
+    const keys = [
+      'android.overridePathCheck',
+      'android.kotlinVersion',
+      'reactNativeArchitectures',
+      'expo.useLegacyPackaging',
+    ];
     config.modResults = config.modResults.filter(
       (item) => item.type !== 'property' || !keys.includes(item.key)
     );
     config.modResults.push(
-      { type: 'property', key: 'android.overridePathCheck', value: 'true' }
+      { type: 'property', key: 'android.overridePathCheck', value: 'true' },
+      // Yalnızca ARM. Şablonun varsayılanı 4 ABI (x86/x86_64 dahil) ve
+      // `expo prebuild --clean` bu değeri varsayılana döndürüyor — bu yüzden
+      // burada sabitleniyor.
+      //
+      // x86 dilimi zaten işe yaramıyordu: Faz 4'te ölçüldü, Faz 3 APK'sında x86
+      // için libexpo-modules-core.so / libreanimated.so / librnscreens.so /
+      // libworklets.so hiç üretilmemişti (yalnızca AAR'lardan gelen hazır
+      // kütüphaneler paketleniyordu), yani x86 bir cihazda uygulama çökerdi.
+      // 4 ABI derlemek ayrıca build süresini iki katına çıkarıyor.
+      { type: 'property', key: 'reactNativeArchitectures', value: 'arm64-v8a,armeabi-v7a' },
+      // Projenin önceki fazlardaki değeri. Şablon varsayılanı `false` ve
+      // `expo prebuild --clean` bu değeri de sıfırlıyor.
+      //
+      // `false` (modern paketleme) native kütüphaneleri APK'ya SIKIŞTIRMADAN
+      // koyar — ölçüldü: libreactnative.so 6,0 MiB ham, arşivde de 6,0 MiB;
+      // `true` ile 1,8 MiB'ye iniyor. APK 28,6 → 52,5 MiB farkının tamamı bu.
+      //
+      // ⚠️ Not: Google modern paketlemeyi (false) ÖNERİYOR — kütüphaneler
+      // doğrudan APK'dan yükleniyor, kurulum sonrası disk ve RAM kazancı var.
+      // Burada `true`'da kalınmasının sebebi bu fazın paketleme davranışını
+      // sessizce değiştirmemesi; ayrı bir kararla gözden geçirilmeli.
+      { type: 'property', key: 'expo.useLegacyPackaging', value: 'true' }
     );
     return config;
   });
