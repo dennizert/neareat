@@ -26,7 +26,8 @@ Her faz için ayrı bir APK arşivlendi:
 | `~/eatlas-upgrade-archive/eatlas-sdk52-pre-faz1-v2.0.14-vc42.apk` | **Yükseltme öncesi** — karşılaştırma için referans |
 | `~/eatlas-upgrade-archive/eatlas-faz2-sdk53.apk` | SDK 53 |
 | `~/eatlas-upgrade-archive/eatlas-faz3-sdk54.apk` | SDK 54 |
-| `~/eatlas-upgrade-archive/eatlas-faz4-newarch.apk` | **SDK 54 + Yeni Mimari** ← *önce bunu test et* |
+| `~/eatlas-upgrade-archive/eatlas-faz4-newarch.apk` | SDK 54 + Yeni Mimari |
+| `~/eatlas-upgrade-archive/eatlas-faz5-sdk55.apk` | **SDK 55 + edge-to-edge** ← *önce bunu test et* |
 
 > **Neden önce en sonuncusu:** Hepsi birikimli. `faz4` APK'sı tüm fazları içeriyor.
 > Her şey çalışıyorsa diğer APK'ları kurmana **hiç gerek yok**. Bir sorun çıkarsa
@@ -95,6 +96,7 @@ Zamanın kısıtlıysa yukarıdan aşağı git. En üsttekiler hem en çok iş r
 hem de değişiklikten en çok etkilenen yerler.
 
 1. **§3.5 Harita** — Yeni Mimari'nin en riskli noktası (statik analizle belirlendi)
+2. **§3.8 Edge-to-edge** — SDK 55'te zorunlu oldu, her kabuğun kenarları
 2. **§2.1 Google ile giriş + oturum koruma** — kütüphane sözleşmesi değişti
 3. **§3.1 İkonlar** — Faz 2'de tamamen kaybolmuştu, düzeltildi
 4. **§3.6 Ödeme / paywall** — çalışmazsa plan değişecek
@@ -254,6 +256,52 @@ anı kanıtı değil.**
 | 4-14 | Bir listede kaydırarak silme/işlem jesti varsa dene | Jest doğru tepki verir | |
 | 4-15 | Bir form aç, klavyeyi aç | İçerik klavyenin altında kalmaz, yukarı kayar | |
 | 4-16 | Bildirim gelmesini bekle / tetikle | Bildirim ulaşır, dokununca doğru ekrana götürür | |
+
+### 3.8 🔴 Edge-to-edge — Faz 5 (SDK 55) ile ZORUNLU oldu
+
+**Ne değişti:** SDK 55'te edge-to-edge kapatılamıyor (Android 16 gerekliliği).
+Uygulama penceresi artık durum çubuğunun ve gezinme çubuğunun **altına kadar**
+uzanıyor; sistem çubukları içeriği "itmiyor", üzerine biniyor.
+
+**Bozuksa belirti:** başlık saatin altına girer · alttaki buton gezinme
+çubuğunun arkasında kalır, tıklanamaz · liste son öğesi çubuğun altında kalır.
+
+**Bu bir çökme değil, sessiz bir görsel bozulma** — otomatik test yakalayamaz.
+
+Her ekranı tek tek gezmen gerekmiyor; **her navigasyon kabuğunun kenarlarına**
+bakman yeterli (içerik ekranları aynı kabuğu paylaşıyor):
+
+| # | Nereye bak | Beklenen | Durum |
+|---|---|---|---|
+| 5-1 | 5 sekmeli ana kabuk (Keşfet / Favoriler / Listeler / Mesajlar / Profil) — **alt sekme çubuğu** | Sekme ikonları ve yazıları gezinme çubuğunun **üstünde**, rahat tıklanıyor | |
+| 5-2 | Aynı kabuk — **üst başlık** | Başlık ve bildirim zili saat/pil simgelerinin **altında** | |
+| 5-3 | Stack ekranları (restoran detay, rezervasyon, sosyal) — **geri tuşu ve başlık** | Durum çubuğuyla çakışmıyor | |
+| 5-4 | Restoran hesabı paneli ve alt ekranları | Üst/alt kenarlar temiz | |
+| 5-5 | Admin paneli (yetkin varsa) | Üst/alt kenarlar temiz | |
+| 5-6 | Onboarding / giriş / kayıt (tam ekran, sekme çubuğu yok) | "Eatlas" logosu durum çubuğunun altında; en alttaki bağlantı gezinme çubuğuyla çakışmıyor | |
+| 5-7 | Harita ekranı (tam ekran, kendi kontrolleri var) | Harita kontrolleri ve alt önizleme kartı çubukların altında kalmıyor | |
+| 5-8 | **Klavye açıkken** formlar (giriş, rezervasyon, mesaj yazma) | Yazdığın input ve gönder butonu klavyenin/çubuğun **altında kalmıyor** | |
+| 5-9 | Uzun bir listeyi en alta kadar kaydır | **Son öğe tamamen görünüyor**, gezinme çubuğunun arkasında yarım kalmıyor | |
+
+> Emülatörde giriş gerektirmeyen ekranlar (onboarding, giriş, kayıt, yasal
+> metinler modalı) **doğrulandı** — logo ve alt bağlantılar doğru konumda.
+> Yukarıdakilerden giriş gerektirenler senin turunda.
+
+### 3.9 🔴 Sentry — kasıtlı crash ile stack trace doğrulaması
+
+**Neden:** `@sentry/react-native` 6 → 7'ye çıktı. Kod yüzeyi tek dosya ve tip
+denetimi temiz, **ama** #491'de kurulan source map zincirinin hâlâ çalıştığı
+ancak gerçek bir crash ile kanıtlanabilir. Bozuksa fark etmenin tek yolu, ileride
+gerçek bir crash geldiğinde stack trace'in okunamaz olması.
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 5-10 | Uygulamada kasıtlı bir crash üret (bunun için bana söyle, geçici bir "çökert" butonu ekleyeyim) | Uygulama kapanır | |
+| 5-11 | Sentry panelinde (eatlas-pw / eatlas-mobile) olaya bak | Olay görünüyor | |
+| 5-12 | Stack trace'i incele | **Dosya adları ve satır numaraları okunabilir** (`LoginScreen.tsx:42` gibi). `index.android.bundle:1:284917` gibi tek satırlık anlamsız çıktı ❌ | |
+
+> 5-10 için hazır bir yol yok — bilerek eklemedim. Test etmeye hazır olduğunda
+> söyle, geçici bir buton ekleyip APK üretirim.
 
 ---
 
