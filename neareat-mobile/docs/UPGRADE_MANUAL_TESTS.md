@@ -126,7 +126,71 @@ Edge-to-edge kasıtlı olarak **kapalı** tutuldu (görsel değişiklik istemiyo
 
 ---
 
+## Faz 4 — Yeni Mimari (New Architecture) 🔴 en riskli faz
+
+**Ne değişti:** Tek satır — `newArchEnabled=false` → `true`. Ama bu satır RN'in
+köprü mimarisini tamamen değiştiriyor (Fabric renderer + TurboModules +
+Bridgeless). **Hiçbir paket sürümü değişmedi.** Her native modül, her özel view
+bundan etkilenebilir.
+
+> **Geri dönüş:** Bu fazda bir sorun görürsen tek satırla dönülür —
+> `app.json` → `expo.newArchEnabled: false`. Faz 5'e geçilirse bu kapı kapanıyor.
+> Bu yüzden **bu listedeki maddeler Faz 5 başlamadan önce bitmeli.**
+
+### Risk sıralaması — #502'deki tahminden FARKLI
+
+Issue `expo-iap`'i 🔴 "en şüpheli" işaretlemişti, ama bu değerlendirme **sürüm
+yaşına** dayanıyordu (3 major geride). Modüllerin native yüzeyi statik olarak
+incelendiğinde tablo tersine dönüyor:
+
+| Modül | Native yüzey | Gerçek risk |
+|---|---|---|
+| `expo-iap` | **Expo Modules API** (`expo.modules.kotlin`) — mimariden bağımsız | 🟢 **Düşük** (issue 🔴 diyordu) |
+| `masked-view` | Eski `ViewManager`, `codegenConfig` yok → **interop katmanı** | ✅ **Çalıştığı doğrulandı** |
+| `react-native-maps` | Eski `ViewManager`, `codegenConfig` yok → **interop katmanı** | 🔴 **En yüksek risk** |
+| `screens`, `gesture-handler`, `safe-area-context` | `codegenConfig` var → yerli Fabric bileşeni | 🟢 Düşük |
+
+**Neden maps en riskli:** `masked-view` ile aynı mekanizmaya (interop) bağlı ve o
+mekanizmanın bu build'de çalıştığı kanıtlandı — bu iyi haber. Ama maps çok daha
+karmaşık bir görünüm: Google Maps `SurfaceView`'ı barındırıyor, içinde marker
+alt-bileşenleri var. Interop'un basit bir maske görünümünde çalışması, iç içe
+görünüm hiyerarşisinde de çalışacağını garanti etmiyor.
+
+> Bu statik analiz **çalışma anı kanıtı değil**. Aşağıdaki testler hâlâ zorunlu —
+> sadece hangisine önce bakman gerektiğini değiştiriyor: **önce harita, sonra paywall.**
+
+### 🔴 Şüpheli native modüller (bu fazın asıl işi)
+
+| # | Test | Beklenen | Durum |
+|---|---|---|---|
+| 4-1 | **Eatlas logosu** — her ekranın header'ında, giriş/kayıt ekranlarında | Turuncu→sarı **gradyan** doğru görünmeli. Düz renk / siyah kutu / kayıp = `masked-view` Fabric'te bozuldu | |
+| 4-2 | **Harita ekranı** — restoran haritası | Harita yükleniyor, **pin'ler görünüyor**, kümeleme çalışıyor | |
+| 4-3 | Haritada bir pin'e dokun | Alt önizleme kartı açılıyor, doğru restoranı gösteriyor | |
+| 4-4 | Haritayı kaydır/yakınlaştır | Akıcı, boş/gri alan kalmıyor | |
+| 4-5 | **Ödeme / abonelik ekranı** (paywall) aç | Ürünler listeleniyor mu? `expo-iap` 3 major geride, **en şüpheli modül**. Çalışmazsa Faz 7 öne alınacak — bu bir karar, kırık bırakma değil | |
+
+### Genel regresyon (Fabric her şeyi etkileyebilir)
+
+| # | Test | Beklenen | Durum |
+|---|---|---|---|
+| 4-6 | Uygulamayı aç | Açılışta **çökme yok**, beyaz/boş ekran yok | |
+| 4-7 | Tüm sekmeleri tek tek gez | Hiçbir ekran boş render edilmiyor | |
+| 4-8 | **Ana ekranda rayları aç/kapa** | Animasyon çalışıyor. ⚠️ `UIManager.setLayoutAnimationEnabledExperimental` Yeni Mimari'de kaldırıldı; çağrı korumalı (çökmez) ama **animasyon davranışı değişebilir** | |
+| 4-9 | Uzun listeleri hızlı kaydır (restoranlar, yorumlar) | Akıcılık Faz 3'e göre **kötüleşmemeli** | |
+| 4-10 | Bir fotoğraf yükle (profil / restoran) | `expo-image-picker` + `expo-image-manipulator` çalışıyor | |
+| 4-11 | Bildirim al / bildirim zili | Bildirimler geliyor, panel açılıyor | |
+| 4-12 | AI öneri akışı (streaming) | Yanıt **akarak** geliyor, tek seferde değil | |
+| 4-13 | Google ile giriş + çıkış + tekrar giriş | Çalışıyor (TurboModule'e geçti) | |
+| 4-14 | Dokunma/kaydırma jestleri (kaydırarak silme vb.) | `gesture-handler` doğru tepki veriyor | |
+| 4-15 | Klavye açılınca form kayması | İçerik klavyenin altında kalmıyor | |
+
+> **Karar kuralı (#502 R4):** Bir fark gördüğünde onu **bu listedeki bir maddeye
+> bağla**. "Bir tuhaf ama tarif edemiyorum" kabul edilmiyor — ya maddeye bağlanır
+> ve karar verilir, ya da flag geri alınır.
+
+---
+
 ## Sonraki fazlar
 
-Faz 4 (Yeni Mimari), Faz 5–6 (SDK 55–57), Faz 7 (expo-iap) tamamlandıkça bu
-dokümana kendi bölümlerini ekleyecek.
+Faz 5–6 (SDK 55–57) ve Faz 7 (expo-iap) tamamlandıkça bu dokümana kendi
+bölümlerini ekleyecek.

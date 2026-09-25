@@ -156,17 +156,21 @@ imzalandı. Boyut/performans ölçümü için sorun değil; **Play Store'a yükl
 
 | Ölçüm | Faz 0 (SDK 52) | Faz 2 (SDK 53) | Faz 3 (SDK 54) | Faz 4 (New Arch) | Faz 5 (SDK 55) | Faz 6 (SDK 57) |
 |---|---|---|---|---|---|---|
-| Test sayısı | 577 (65 suite) | 600 (66) | **605 (66)** | | | |
-| Kod tabanı satır kapsamı | %22,34 | — | **%22,39** | | | |
-| `services/` satır kapsamı | %78,74 | — | **%78,83** | | | |
-| ESLint hata / uyarı | 0 / 263 | 0 / 263 | **0 / 263** | | | |
-| `tsc --noEmit` | temiz | temiz | **temiz** | | | |
-| `npm audit` (K/Y/O) | 1/11/21 | — | **0/9/10** | | | |
-| APK boyutu | 37,8 MiB | 37,6 MiB | **37,8 MiB** | | | |
-| Soğuk başlangıç (medyan) | 358 ms | — | **368 ms** | | | |
-| `node_modules` | 503 MB (696 paket) | — | **510 MB (583 paket)** | | | |
+| Test sayısı | 577 (65 suite) | 600 (66) | 605 (66) | **605 (66)** | | |
+| Kod tabanı satır kapsamı | %22,34 | — | %22,39 | değişmedi | | |
+| `services/` satır kapsamı | %78,74 | — | %78,83 | değişmedi | | |
+| ESLint hata / uyarı | 0 / 263 | 0 / 263 | 0 / 263 | **0 / 263** | | |
+| `tsc --noEmit` | temiz | temiz | temiz | **temiz** | | |
+| `npm audit` (K/Y/O) | 1/11/21 | — | 0/9/10 | değişmedi | | |
+| APK boyutu | 37,8 MiB | 37,6 MiB | 37,8 MiB | **28,6 MiB** ⬇ | | |
+| Soğuk başlangıç (medyan) | 358 ms | — | 368 ms | **325 ms** ⬇ | | |
+| `node_modules` | 503 MB (696 paket) | — | 510 MB (583 paket) | değişmedi | | |
 
 Faz 3 soğuk başlangıç ham ölçümleri: 320 / 323 / **368** / 395 / 409 ms.
+Faz 4 soğuk başlangıç ham ölçümleri: 294 / 303 / **325** / 369 / 377 ms.
+
+> Faz 4'te paket sürümü **değişmedi** (tek satır flag), o yüzden kapsam/audit/
+> node_modules ölçümleri Faz 3 ile aynı — tekrar ölçülmedi.
 
 ---
 
@@ -198,3 +202,63 @@ Sürüm yükseltmesinin kendisi dışında build'i kıran/kırabilecek üç şey
 |---|---|---|
 | `react-native-reanimated` | **3.19.5**'te tutuldu (`expo install --check` 4.1.1 öneriyor) | Reanimated 4 **yalnızca Yeni Mimari**'yi destekliyor (paketin kendi README'si: *"If your app still runs on the old architecture… stay with latest 3.x release"*). Bu faz Legacy'de kalmak zorunda → Faz 4'ün işi. |
 | Edge-to-edge | **Kapalı** (`app.json` → `android.edgeToEdgeEnabled: false`) | SDK 54 prebuild'i kendiliğinden açıyor ve uygulama sistem çubuklarının altına çiziyor. Bu fazın amacı Yeni Mimari öncesi **bilinen-iyi bir geri dönüş noktası** kurmak; bağımsız bir görsel değişiklik etki alanını gereksiz genişletirdi. SDK 55+'ta zorunlu hâle geliyor, orada ele alınacak. |
+
+---
+
+## Faz 4 (Yeni Mimari) — ölçüm sırasında çıkanlar
+
+### 🔴 NDK 26 → 27 zorunluydu
+
+Flag açılınca derleme şuradan patladı:
+
+```
+graphicsConversions.h:80: error: no member named 'format' in namespace 'std'
+    return std::format("{}%", dimension.value);
+```
+
+RN 0.81'in C++ başlıkları `std::format` (C++20 kütüphane özelliği) kullanıyor;
+**NDK 26'nın libc++'ında bu yok**, NDK 27 (clang 18 / LLVM 18) ile geldi.
+
+**Neden daha önce çıkmadı:** codegen'in ürettiği C++ dosyaları yalnızca Fabric
+açıkken derleniyor. Legacy build'lerde bu başlıklara hiç dokunulmuyordu, bu yüzden
+`ndkVersion = "26.1.10909125"` eski bir commit'ten beri (v11 dönemi) SDK 52→54
+boyunca fark edilmeden duruyordu — `expo prebuild` bu değeri koruyor.
+
+**Çözüm:** NDK 27.1.12297006 kuruldu ve sürüm `withAndroidBuildFixes` config
+plugin'ine bağlandı (`withRequiredNdkVersion`), böylece her prebuild'de kalıcı.
+
+### APK 37,8 → 28,6 MiB: ölü x86 dilimi düştü
+
+Yeni Mimari APK'sı 9,2 MiB küçüldü. Sebep ABI kapsamı:
+
+| | Faz 3 (Legacy) | Faz 4 (New Arch) |
+|---|---|---|
+| Paketlenen ABI | arm64-v8a, armeabi-v7a, x86, x86_64 | arm64-v8a, armeabi-v7a |
+
+**Bu bir kayıp değil — Faz 3'ün x86 dilimi zaten çalışmıyordu.** Ölçüldü: Faz 3
+APK'sında x86 için `libexpo-modules-core.so`, `libreanimated.so`,
+`librnscreens.so`, `libworklets.so` **yoktu**; yalnızca AAR'lardan gelen hazır
+kütüphaneler (hermes, reactnative, sentry, fresco) paketlenmişti. Çünkü
+`reactNativeArchitectures=arm64-v8a,armeabi-v7a` **zaten öyleydi** (bu fazda
+değişmedi) ve kaynaktan derlenen modüller x86 için hiç üretilmiyordu. Yani x86
+bir cihaz o APK'da nasılsa çökerdi. Yeni Mimari build'i bu ölü ağırlığı
+paketlemeyi bıraktı.
+
+> x86_64 desteği gerekirse (Chromebook, Intel emülatör) `reactNativeArchitectures`
+> genişletilmeli — bu, Yeni Mimari'nin getirdiği bir kısıt değil, projenin
+> önceden beri süren bir tercihi.
+
+### Doğrulananlar
+
+- Bridgeless mode **aktif** (logcat: `BridgelessReact`, `libfabricjni_so`)
+- Uygulama açılıyor, çökme yok
+- **`masked-view` Fabric'te çalışıyor** — Eatlas logosunun turuncu→sarı gradyanı
+  doğru render ediliyor (#502 R3 gerçekleşmedi)
+- Tüm `@expo/vector-icons` ikonları render ediliyor
+- Soğuk başlangıç **iyileşti**: 368 ms → 325 ms
+
+### ⏭️ Emülatörde doğrulanamayanlar (giriş yapılmış hesap gerekiyor)
+
+`react-native-maps` (Fabric render), `expo-iap` (paywall), bildirim zili,
+AI streaming, fotoğraf yükleme. Hepsi `UPGRADE_MANUAL_TESTS.md` → Faz 4'te.
+**#502'nin kabul kriterleri bu testler yapılmadan karşılanmış sayılmaz.**
