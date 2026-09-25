@@ -1,196 +1,319 @@
-# Expo SDK Yükseltmesi — Toplu Manuel Test Listesi
+# Expo SDK Yükseltmesi — Adım Adım Manuel Test Rehberi
 
-> EPIC #497 · Fazlar tek tek merge edilirken **test edilmedi**; hepsi burada toplandı.
-> Bu doküman, her fazın **tam olarak neyi değiştirdiğini** ve dolayısıyla **neye
-> bakman gerektiğini** söyler. Tam tur için ayrıca `UPGRADE_SMOKE_TEST.md`'deki
-> A–J listesi var — burada onu tekrar etmiyoruz, **sadece faz deltalarını** veriyoruz.
+> EPIC #497 · Faz 1a'dan Faz 4'e kadar olan tüm değişiklikleri kapsar.
+> Fazlar tek tek test edilmeden merge edildi; **bu doküman o testlerin tamamını** içerir.
+>
+> Bu rehber "neye bakılacak"ı değil, **"nasıl bakılacak"ı** anlatır. Her testte
+> hangi ekrana nasıl gidileceği, neyin doğru neyin yanlış olduğu yazılıdır.
 
-## Nasıl test edilir
+---
 
-Her faz için ayrı bir APK arşivlendi (`~/eatlas-upgrade-archive/`). Bir sorun
-çıkarsa hangi fazdan geldiğini **ikiye bölerek** bulabilirsin: önce ortadaki fazın
-APK'sını kur, sorun varsa daha eski fazlara in, yoksa daha yenilere çık.
+## 0. Hazırlık
+
+### 0.1 Neye ihtiyacın var
+
+- Android telefon (tercihen gerçek cihaz — emülatörde GPS ve ödeme test edilemez)
+- USB kablosu **veya** APK'yı telefona aktarmanın başka bir yolu (Drive, e-posta)
+- Bir Eatlas hesabı (Google ile giriş yapabildiğin)
+- ~45–60 dakika
+
+### 0.2 Test edeceğin APK
+
+Her faz için ayrı bir APK arşivlendi:
+
+| Dosya | İçerik |
+|---|---|
+| `~/eatlas-upgrade-archive/eatlas-sdk52-pre-faz1-v2.0.14-vc42.apk` | **Yükseltme öncesi** — karşılaştırma için referans |
+| `~/eatlas-upgrade-archive/eatlas-faz2-sdk53.apk` | SDK 53 |
+| `~/eatlas-upgrade-archive/eatlas-faz3-sdk54.apk` | SDK 54 |
+| `~/eatlas-upgrade-archive/eatlas-faz4-newarch.apk` | **SDK 54 + Yeni Mimari** ← *önce bunu test et* |
+
+> **Neden önce en sonuncusu:** Hepsi birikimli. `faz4` APK'sı tüm fazları içeriyor.
+> Her şey çalışıyorsa diğer APK'ları kurmana **hiç gerek yok**. Bir sorun çıkarsa
+> §5'teki "hangi faz bozdu" yöntemine geçersin.
+
+### 0.3 APK'yı telefona kurma
+
+**Yol A — USB ile (önerilen).** Telefonda *Ayarlar → Telefon hakkında → Yapı
+numarası*na 7 kez dokun (geliştirici modu açılır), sonra *Ayarlar → Geliştirici
+seçenekleri → USB hata ayıklama*yı aç. Telefonu bağla, bilgisayarda:
 
 ```bash
 export PATH="$PATH:/opt/homebrew/share/android-commandlinetools/platform-tools"
-adb install -r ~/eatlas-upgrade-archive/<faz>.apk
-adb shell am start -n com.eatlas.mobile/.MainActivity
+adb devices          # telefonun listede görünmeli ("device" yazmalı)
+adb install -r ~/eatlas-upgrade-archive/eatlas-faz4-newarch.apk
 ```
 
-> ⚠️ Fazlar arasında geri giderken (`yeni → eski`) imza/sürüm düşüşü yüzünden
-> `adb install -r` reddedebilir. O durumda `adb uninstall com.eatlas.mobile`
-> gerekir — **uygulama verisi silinir**, yani oturumu yeniden açman gerekir.
+`Success` görmelisin.
 
-### Durum kodları
+> ⚠️ `adb devices` telefonu "unauthorized" gösterirse telefonun ekranına bak —
+> "Bu bilgisayara izin ver?" diyaloğunu onaylaman gerekiyor.
 
-`✅ geçti` · `❌ kırık` · `⚠️ şüpheli/garip` · `⏭️ test edilemedi (neden)`
+**Yol B — dosya olarak.** APK'yı Drive'a yükle, telefondan indir, dosya
+yöneticisinden aç. "Bilinmeyen kaynaklara izin ver" sorusuna evet de.
+
+### 0.4 Önemli: mevcut uygulamanın üstüne kur, SİLME
+
+`adb install -r`'deki `-r` "replace" demek — uygulama verisi (oturum, tercihler)
+**korunur**. Bu bilerek böyle: **Test 1c-1 tam olarak bunu ölçüyor.**
+
+Eğer `INSTALL_FAILED_UPDATE_INCOMPATIBLE` hatası alırsan imzalar uyuşmuyor
+demektir; o zaman `adb uninstall com.eatlas.mobile` gerekir — ama bu **veriyi
+siler** ve 1c-1'i artık test edemezsin. Bu durumda 1c-1'i "⏭️ test edilemedi"
+olarak işaretle.
+
+### 0.5 Sonuçları nasıl kaydet
+
+Her satırın sonundaki **Durum** sütununa yaz:
+
+| İşaret | Anlamı |
+|---|---|
+| ✅ | Çalıştı |
+| ❌ | Kırık — **ne gördüğünü yaz** ("harita gri kaldı", "uygulama kapandı") |
+| ⚠️ | Çalıştı ama tuhaf — neyin tuhaf olduğunu yaz |
+| ⏭️ | Test edemedim — nedenini yaz |
+
+❌ veya ⚠️ işaretlersen **ekran görüntüsü al** (güç + ses kısma tuşu).
+
+### 0.6 Uygulama çökerse ne yapmalısın
+
+Çökme anını yakalamak çok değerli. Telefon USB ile bağlıyken:
+
+```bash
+adb logcat -c                                   # geçmişi temizle
+# ——— şimdi telefonda çökmeye sebep olan şeyi yap ———
+adb logcat -d > ~/Desktop/eatlas-crash.txt      # kaydı masaüstüne al
+```
+
+Bu dosyayı bana ver, çökmenin sebebini oradan okuyabilirim.
 
 ---
 
-## 🔴 Öncelik sırası
+## 1. Öncelik sırası
 
-Zamanın kısıtlıysa şu sırayla git — en yüksek iş riski en üstte:
+Zamanın kısıtlıysa yukarıdan aşağı git. En üsttekiler hem en çok iş riski taşıyor
+hem de değişiklikten en çok etkilenen yerler.
 
-1. **Google ile giriş + oturum koruma** (Faz 1a'da kütüphane sözleşmesi değişti)
-2. **İkonlar** (Faz 2'de tamamen kaybolmuştu; her ekranda kontrol et)
-3. **Navigasyon geri tuşu davranışı** (Faz 1b'de `navigate` → `popTo`)
-4. **Modal'ların güvenli alanı** (Faz 3'te SafeAreaView değişti)
-5. Geri kalan A–J smoke-test turu
+1. **§3.5 Harita** — Yeni Mimari'nin en riskli noktası (statik analizle belirlendi)
+2. **§2.1 Google ile giriş + oturum koruma** — kütüphane sözleşmesi değişti
+3. **§3.1 İkonlar** — Faz 2'de tamamen kaybolmuştu, düzeltildi
+4. **§3.6 Ödeme / paywall** — çalışmazsa plan değişecek
+5. **§2.2 Navigasyon geri tuşu** — `navigate` → `popTo` değişimi
+6. Geri kalanlar
 
 ---
 
-## Faz 1a — Google Sign-In v13 → v16 (PR #508, merged)
+## 2. Faz 1 testleri (kütüphane ana sürüm atlamaları)
 
-**Ne değişti:** Kütüphane sözleşmesi değişti — `signIn()` ve `signInSilently()`
-artık kullanıcı iptal ettiğinde / kayıtlı hesap yokken **hata fırlatmıyor**,
-`{ type: 'cancelled' }` / `{ type: 'noSavedCredentialFound' }` döndürüyor. Kod bu
-duruma göre yeniden yazıldı.
+### 2.1 🔴 Google ile giriş ve oturum koruma
 
-| # | Test | Beklenen | Durum |
+**Neden kritik:** `google-signin` v13+ sözleşmesini değiştirdi. Eskiden kullanıcı
+iptal ettiğinde **hata fırlatıyordu**; artık `{ type: 'cancelled' }` **döndürüyor**.
+Aynı şekilde "kayıtlı hesap yok" durumu da artık hata değil. Kod bu yeni sözleşmeye
+göre yeniden yazıldı — yanlış yazılsaydı uygulama oturumu **yanlışlıkla açık
+sayardı.**
+
+| # | Adımlar | Beklenen | Durum |
 |---|---|---|---|
-| 1a-1 | Google ile giriş yap | Hesap seçici açılır, giriş başarılı | |
-| 1a-2 | Google hesap seçicide **iptal** et (geri tuşu) | Uygulama giriş ekranında kalır, "iptal edildi" mesajı; **çökmemeli, donmamalı** | |
-| 1a-3 | Giriş yap → uygulamayı RAM'den tamamen kapat → tekrar aç | **Oturum açık gelmeli** (yeniden giriş istememeli) | |
-| 1a-4 | Çıkış yap → uygulamayı kapat → tekrar aç | Giriş ekranı gelmeli; oturum **yanlışlıkla geri yüklenmemeli** | |
+| 1a-1 | Uygulamayı aç → giriş ekranı → **Google** sekmesi → Google ile giriş | Google hesap seçici açılır, hesabı seçince giriş olur ve ana ekrana düşer | |
+| 1a-2 | Çıkış yap. Tekrar Google girişini başlat, hesap seçici açılınca **geri tuşuna bas** (iptal et) | Giriş ekranında kalır, kısa bir hata/uyarı mesajı görünür. **Çökmemeli, sonsuza kadar "yükleniyor"da kalmamalı** | |
+| 1a-3 | Google ile giriş yap. Uygulamayı **tamamen kapat**: son uygulamalar ekranını aç (kare tuşu / alttan yukarı kaydırıp bekle), Eatlas kartını yukarı kaydırıp at. Sonra tekrar aç | **Oturum açık gelmeli** — tekrar giriş istememeli | |
+| 1a-4 | Uygulamadan **çıkış yap**, sonra 1a-3'teki gibi tamamen kapat, tekrar aç | Giriş ekranı gelmeli. **Kendiliğinden içeri girmemeli** | |
 
-> ⚠️ 1a-4 bu göçün en tehlikeli noktasıydı: v16'da "kayıtlı hesap yok" artık hata
-> değil, sonuç objesi. Açık kontrol olmasaydı oturum yanlışlıkla açık sayılırdı.
+> 1a-4 bu göçün en tehlikeli noktası. Kod yanlış olsaydı belirti tam olarak şu
+> olurdu: çıkış yaptın ama uygulama seni yine içeride sanıyor.
+
+### 2.2 Navigasyon — geri tuşu davranışı
+
+**Neden:** React Navigation v7'de `navigate()` artık yığındaki mevcut ekrana
+**geri dönmüyor**, üstüne bir kopya itiyor. İki yerde `popTo()` ile değiştirildi.
+Yanlış olsaydı belirti: geri tuşuna bastığında **az önce bitirdiğin ekrana geri
+dönerdin**.
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 1b-1 | Rezervasyonlarım → bir rezervasyon seç → **Düzenle** → bir şeyi değiştir → Kaydet | "Rezervasyonlarım" listesine döner. Şimdi **geri tuşuna bas**: uygulamadan çıkmalı veya bir önceki sekmeye gitmeli — **düzenleme ekranına DÖNMEMELİ** | |
+| 1b-2 | Giriş ekranı → Şifremi Unuttum → e-postana gelen bağlantıya **uygulama açıkken** tıkla → yeni şifre belirle → "Giriş Yap" | Giriş ekranına döner. **Geri tuşu, kullanılmış şifre sıfırlama ekranına dönmemeli** | |
+| 1b-3 | Alt sekmeler arasında 5–6 kez gezin, sonra geri tuşuna arka arkaya bas | Mantıklı şekilde geriye gider; **aynı ekran üst üste tekrar tekrar çıkmamalı** | |
+
+### 2.3 Veri saklama (AsyncStorage 1 → 2)
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 1c-1 | *(Sadece §0.4'teki gibi üstüne kurduysan geçerli)* Uygulamayı aç | **Onboarding ekranları tekrar çıkmamalı**, eski tercihlerin durmalı | |
+| 1c-2 | Bir tercih değiştir (tema, bildirim ayarı vb.) → uygulamayı tamamen kapat → aç | Ayar korunmuş olmalı | |
+
+### 2.4 Güvenli alan (çentik / gezinme çubuğu)
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 1d-1 | Tüm alt sekmeleri tek tek gez, her birinin **en üstüne** bak | Başlıklar saat/pil simgelerinin **altında** olmalı, üstüne binmemeli | |
+| 1d-2 | Aynı ekranların **en altına** bak | Butonlar telefonun alt çubuğunun altında kalmamalı, rahat tıklanmalı | |
+| 1d-3 | Telefonu yan çevir (dönme açıksa) | Kenar boşlukları düzgün güncellenmeli | |
 
 ---
 
-## Faz 1b — React Navigation 6 → 7 (PR #510, merged)
+## 3. Faz 2–4 testleri (SDK 53 → 54 → Yeni Mimari)
 
-**Ne değişti:** v7'de `navigate()` artık yığındaki mevcut bir ekrana **geri
-dönmüyor**, üstüne kopya itiyor. İki yerde `popTo()` ile değiştirildi.
+### 3.1 🔴 İkonlar — her ekranda
 
-| # | Test | Beklenen | Durum |
+**Neden kritik:** Faz 2'de uygulamadaki **tüm ikonlar görünmez olmuştu**.
+Sebep bir bağımlılığın sessizce ağaçtan düşmesiydi; düzeltildi ve bir regresyon
+testi eklendi. Yine de gözle doğrulanması gerekiyor — çünkü otomatik testler
+ekranları render etmiyor.
+
+**Nasıl bakılır:** Aşağıdaki ekranları aç ve **ikonların yerinde boşluk olup
+olmadığına** bak. Bozuksa ikon hiç çizilmez (boşluk) veya soru işareti çıkar.
+
+| # | Ekran | Görmen gereken ikonlar | Durum |
 |---|---|---|---|
-| 1b-1 | Rezervasyonlarım → bir rezervasyonu **düzenle** → kaydet | "Rezervasyonlarım" listesine döner; **geri tuşu düzenleme ekranına dönmemeli** | |
-| 1b-2 | Şifremi unuttum → e-postadaki bağlantı → yeni şifre belirle → "Giriş Yap" | Giriş ekranına döner; geri tuşu **kullanılmış sıfırlama ekranına dönmemeli** | |
-| 1b-3 | Sekmeler arasında birkaç tur gezin, geri tuşuna arka arkaya bas | Yığın mantıklı ilerlemeli, aynı ekran üst üste yığılmamalı | |
+| 2-1 | Giriş ekranı | E-posta kutusunda **zarf**, şifre kutusunda **kilit**, sağda **göz** | |
+| 2-2 | Giriş → Google sekmesi | Google **"G"** logosu | |
+| 2-3 | Kayıt Ol ekranı | **kişi**, **zarf**, **kilit** ×2, **göz** ×2 | |
+| 2-4 | Ana ekran | Alt sekme çubuğundaki **tüm sekme ikonları**, sağ üstte **bildirim zili** | |
+| 2-5 | Bir restoran detayı | **kalp** (favori), **yıldız** (puan), **telefon**, **konum**, **paylaş** | |
+| 2-6 | Profil | Ayarlar satırlarındaki ikonlar | |
+| 2-7 | **Her yerde** | Hiçbir yerde **soru işareti (?)** ikonu olmamalı | |
+
+> Soru işareti görürsen o ikonun adı kırılmış demektir — hangi ekranda gördüğünü yaz.
+
+### 3.2 Uygulama açılışı ve genel kararlılık
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 3-1 | Uygulamayı aç | Açılış ekranından sonra içerik gelir. **Beyaz/boş ekranda kalmamalı**, kapanmamalı | |
+| 3-2 | Tüm alt sekmeleri tek tek aç | Hiçbiri **boş** render edilmemeli | |
+| 3-3 | Uygulamayı arka plana al (ana ekran tuşu), 1 dakika bekle, geri dön | Kaldığın yerden devam etmeli | |
+| 3-4 | Restoran listesini **hızlıca** aşağı yukarı kaydır | Takılma, boş kart, donma olmamalı | |
+
+### 3.3 Modal'ların güvenli alanı (Faz 3'te değişti)
+
+**Neden:** RN'in `SafeAreaView`'ı kullanımdan kalktı, iki modal başka bir
+kütüphaneye taşındı. Yanlış olsaydı belirti: modal başlığı saatin altında kalır.
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 3-5 | Kayıt Ol ekranı → **"Gizlilik Politikası"** bağlantısına dokun | "Yasal Metinler" başlığı ve "Kapat" butonu **saat/pil simgelerinin altında**, rahat okunur | |
+| 3-6 | Aynı modalda **"KVKK Aydınlatma"** sekmesine geç | İçerik değişir, **kaydırma en başa döner** | |
+| 3-7 | Aşağı kaydır, sonra "Kapat" | İçerik taşmadan kayar, modal kapanır | |
+| 3-8 | 🔴 Ana ekran → sağ üstteki **bildirim ziline** dokun | Panel açılır. **Üstten aşırı boşluk olmamalı**, alt kenarı telefonun gezinme çubuğunun altında kalmamalı | |
+| 3-9 | Panelde "Tümünü Gör"e dokun | Bildirimler ekranına gider | |
+
+### 3.4 Ana ekran animasyonu (Yeni Mimari'de davranışı değişebilir)
+
+**Neden:** Animasyonu etkinleştiren API Yeni Mimari'de kaldırıldı. Çağrı korumalı
+olduğu için **çökme riski yok**, ama animasyon kaybolmuş olabilir.
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 3-10 | Ana ekranda bir "ray"ı (yatay öneri şeridi) aç/kapa | Açılıp kapanmalı. Animasyon **yumuşak mı yoksa birden mi zıplıyor**, not al. İçerik doğru görünüyorsa animasyon sertse bu ⚠️, ❌ değil | |
+
+### 3.5 🔴🔴 Harita — Yeni Mimari'nin en riskli noktası
+
+**Neden en riskli:** `react-native-maps` eski tip bir bileşen; Yeni Mimari'de
+"interop" denen uyumluluk katmanı üzerinden çalışıyor. Aynı katmana bağlı olan
+Eatlas logosu gradyanının çalıştığı doğrulandı, **ama harita çok daha karmaşık**:
+içinde Google Maps yüzeyi ve marker alt-bileşenleri var.
+
+**Bozuksa belirtiler:** harita gri/boş kalır · pin'ler hiç çıkmaz · harita görünür
+ama dokunma çalışmaz · pin'ler yanlış yerde durur · kaydırınca siyah alanlar açılır.
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 4-1 | Ana ekranda **harita görünümüne** geç (liste/harita değiştirici) | Harita **yüklenir**, sokaklar görünür. Gri/boş kalmamalı | |
+| 4-2 | Haritada restoran **pin'lerine** bak | Pin'ler görünüyor ve doğru konumlarda | |
+| 4-3 | Haritayı parmakla **kaydır** | Akıcı kayar, boş/siyah alan açılmaz | |
+| 4-4 | İki parmakla **yakınlaştır/uzaklaştır** | Düzgün ölçeklenir, pin'ler birlikte hareket eder | |
+| 4-5 | Yakınlaştırınca pin'lerin **kümelenmesi** (birleşip sayı göstermesi) | Kümeler açılıp kapanır | |
+| 4-6 | Bir **pin'e dokun** | Alt tarafta önizleme kartı açılır, **doğru restoranı** gösterir | |
+| 4-7 | Önizleme kartına dokun | Restoran detay ekranına gider | |
+
+### 3.6 🔴 Ödeme / abonelik (paywall)
+
+**Neden:** `expo-iap` 3 ana sürüm geride. Statik incelemede native yüzeyinin
+mimariden bağımsız olduğu görüldü (yani muhtemelen sorun yok) — **ama bu çalışma
+anı kanıtı değil.**
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 4-8 | Premium/abonelik ekranını aç (paywall) | Ekran açılır, **çökmez** | |
+| 4-9 | Ürünler/fiyatlar listesine bak | Abonelik seçenekleri **fiyatlarıyla** listeleniyor mu? Boş liste / "yükleniyor"da takılma ❌ | |
+| 4-10 | *(Play Console test hesabı hazırsa)* Satın alma akışını başlat | Google ödeme ekranı açılır | |
+
+> 4-9 boş geliyorsa bu **beklenen olabilir**: Play Console'da ürün tanımları henüz
+> tamamlanmadı. Bu durumda ⏭️ işaretle — Yeni Mimari hatası olmayabilir.
+> Ekranın **açılıp açılmadığı** asıl ölçtüğümüz şey.
+
+### 3.7 Diğer native özellikler
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 4-11 | Profil → profil fotoğrafı değiştir → galeriden bir fotoğraf seç | Galeri açılır, fotoğraf seçilir, kırpma/yükleme çalışır | |
+| 4-12 | Konum izni ver → yakındaki restoranlar | Gerçek konumuna göre listeleniyor | |
+| 4-13 | AI öneri akışını başlat ("Ne yesem?") | Yanıt **akarak** gelir (harf harf/parça parça), tek seferde değil | |
+| 4-14 | Bir listede kaydırarak silme/işlem jesti varsa dene | Jest doğru tepki verir | |
+| 4-15 | Bir form aç, klavyeyi aç | İçerik klavyenin altında kalmaz, yukarı kayar | |
+| 4-16 | Bildirim gelmesini bekle / tetikle | Bildirim ulaşır, dokununca doğru ekrana götürür | |
 
 ---
 
-## Faz 1c — AsyncStorage 1 → 2 (PR #511)
+## 4. Karar kuralı
 
-**Ne değişti:** Depolama kütüphanesi ana sürüm atladı.
+Bir fark gördüğünde onu **bu dokümandaki bir madde numarasına bağla**.
 
-| # | Test | Beklenen | Durum |
-|---|---|---|---|
-| 1c-1 | **Eski sürümü kurulu bir cihaza** bu APK'yı üstüne kur (uninstall etme) | Önceki verilerin korunmalı: onboarding tekrar çıkmamalı, tercihler durmalı | |
-| 1c-2 | Tema/tercih değiştir → uygulamayı kapat → aç | Ayar korunmuş olmalı | |
+> "Bir tuhaflık var ama tarif edemiyorum" bir sonuç değildir. Ya bir maddeye
+> bağlanır ve karar verilir, ya da Yeni Mimari geri alınır. (#502 R4)
 
----
-
-## Faz 1d — react-native-safe-area-context 4 → 5 (PR #512)
-
-**Ne değişti:** Güvenli alan kütüphanesi ana sürüm atladı. Çentikli/kavisli
-ekranlarda ve gezinme çubuğu olan cihazlarda etkili.
-
-| # | Test | Beklenen | Durum |
-|---|---|---|---|
-| 1d-1 | Tüm ana sekmeleri gez | İçerik **çentiğin/durum çubuğunun altında kalmamalı** | |
-| 1d-2 | Alt gezinme çubuğu olan ekranlar | Butonlar sistem çubuğunun **altında kalmamalı**, tıklanabilir olmalı | |
-| 1d-3 | Cihazı yatay çevir (destekleniyorsa) | Kenar boşlukları doğru güncellenmeli | |
+**Yeni Mimari'yi geri almak tek satır:** `app.json` → `expo.newArchEnabled: false`.
+Bana söylemen yeterli. ⚠️ **Ama bu imkân Faz 5 (SDK 55) merge edilince kalkıyor** —
+o sürüm flag'i tamamen kaldırıyor.
 
 ---
 
-## Faz 2 — Expo SDK 52 → 53 (PR #513)
+## 5. Bir şey kırıksa: hangi faz bozdu?
 
-**Ne değişti:** React 18 → 19, RN 0.76 → 0.79. Ayrıca **ikonların tamamen
-kaybolduğu** bir regresyon çıktı ve düzeltildi (`expo-file-system` bağımlılık
-ağacından düşmüştü).
+Faz 4 APK'sında bir sorun bulursan, sorunun hangi fazdan geldiğini **ikiye bölerek**
+bulabilirsin. Toplam 4 APK var, yani en fazla 2 kurulumda cevabı bulursun.
 
-| # | Test | Beklenen | Durum |
-|---|---|---|---|
-| 2-1 | 🔴 **Her ekranda ikonlara bak** | Hiçbir ikon **boş/görünmez** olmamalı. Özellikle: giriş ekranı (zarf, kilit, göz), Google "G", sekme çubuğu, bildirim zili, yıldız/kalp | |
-| 2-2 | Soru işareti (`?`) ikonu görünen yer var mı | Olmamalı — varsa o ikon adı kırılmış demektir | |
-| 2-3 | Uygulamayı aç-kapa, sekmeler arası gez | Çökme olmamalı (React 19 render değişiklikleri) | |
-| 2-4 | Listeler (restoran listesi, yorumlar) hızlıca kaydır | Takılma/boş kalma olmamalı | |
+**Adım 1 — ortadan başla.** SDK 53 APK'sını kur ve **sadece kırık olan testi** tekrarla:
 
----
+```bash
+adb install -r ~/eatlas-upgrade-archive/eatlas-faz2-sdk53.apk
+```
 
-## Faz 3 — Expo SDK 53 → 54 (PR: bu faz)
+- **Sorun burada da varsa** → Faz 1 veya Faz 2'den geliyor. Adım 2A'ya git.
+- **Sorun burada YOKSA** → Faz 3 veya Faz 4'ten geliyor. Adım 2B'ye git.
 
-**Ne değişti:** RN 0.79 → 0.81, React 19.1. RN'in kullanımdan kaldırılan
-`SafeAreaView`'ı **2 modal bileşeninde** `react-native-safe-area-context`'e taşındı.
-Edge-to-edge kasıtlı olarak **kapalı** tutuldu (görsel değişiklik istemiyoruz).
+**Adım 2A — yükseltme öncesine in:**
 
-| # | Test | Beklenen | Durum |
-|---|---|---|---|
-| 3-1 | 🔴 **Bildirim zili**ne bas, panel açılsın | Panel başlık çubuğunun altında açılmalı; **üstten aşırı boşluk olmamalı**, alt kenarı gezinme çubuğunun altında kalmamalı | |
-| 3-2 | 🔴 **Gizlilik Politikası / KVKK** modalını aç | Başlık ve "Kapat" butonu durum çubuğunun **altında kalmamalı**; sekmeler ve metin okunabilir olmalı | |
-| 3-3 | Aynı modalda sekme değiştir (Gizlilik ↔ KVKK) ve kaydır | Kaydırma başa dönmeli, içerik taşmamalı | |
-| 3-4 | Uygulama genelinde durum çubuğu/gezinme çubuğu | Faz 2'ye göre **değişmemiş** görünmeli (edge-to-edge kapalı tutuldu) | |
-| 3-5 | Animasyonlu geçişler (ekran geçişleri, basma efektleri) | Akıcı olmalı — Reanimated 3.19'a yükseltildi | |
+```bash
+adb install -r ~/eatlas-upgrade-archive/eatlas-sdk52-pre-faz1-v2.0.14-vc42.apk
+```
 
----
+- Sorun burada da varsa → **yükseltmeyle ilgisi yok**, önceden beri var olan bir hata.
+- Yoksa → Faz 1 (kütüphane ana sürümleri) bozmuş.
 
-## Faz 4 — Yeni Mimari (New Architecture) 🔴 en riskli faz
+**Adım 2B — SDK 54'ü dene:**
 
-**Ne değişti:** Tek satır — `newArchEnabled=false` → `true`. Ama bu satır RN'in
-köprü mimarisini tamamen değiştiriyor (Fabric renderer + TurboModules +
-Bridgeless). **Hiçbir paket sürümü değişmedi.** Her native modül, her özel view
-bundan etkilenebilir.
+```bash
+adb install -r ~/eatlas-upgrade-archive/eatlas-faz3-sdk54.apk
+```
 
-> **Geri dönüş:** Bu fazda bir sorun görürsen tek satırla dönülür —
-> `app.json` → `expo.newArchEnabled: false`. Faz 5'e geçilirse bu kapı kapanıyor.
-> Bu yüzden **bu listedeki maddeler Faz 5 başlamadan önce bitmeli.**
+- Sorun burada da varsa → **Faz 3** (SDK 54) bozmuş.
+- Yoksa → **Faz 4** (Yeni Mimari) bozmuş. Bu en iyi senaryo: tek satırla geri alınır.
 
-### Risk sıralaması — #502'deki tahminden FARKLI
-
-Issue `expo-iap`'i 🔴 "en şüpheli" işaretlemişti, ama bu değerlendirme **sürüm
-yaşına** dayanıyordu (3 major geride). Modüllerin native yüzeyi statik olarak
-incelendiğinde tablo tersine dönüyor:
-
-| Modül | Native yüzey | Gerçek risk |
-|---|---|---|
-| `expo-iap` | **Expo Modules API** (`expo.modules.kotlin`) — mimariden bağımsız | 🟢 **Düşük** (issue 🔴 diyordu) |
-| `masked-view` | Eski `ViewManager`, `codegenConfig` yok → **interop katmanı** | ✅ **Çalıştığı doğrulandı** |
-| `react-native-maps` | Eski `ViewManager`, `codegenConfig` yok → **interop katmanı** | 🔴 **En yüksek risk** |
-| `screens`, `gesture-handler`, `safe-area-context` | `codegenConfig` var → yerli Fabric bileşeni | 🟢 Düşük |
-
-**Neden maps en riskli:** `masked-view` ile aynı mekanizmaya (interop) bağlı ve o
-mekanizmanın bu build'de çalıştığı kanıtlandı — bu iyi haber. Ama maps çok daha
-karmaşık bir görünüm: Google Maps `SurfaceView`'ı barındırıyor, içinde marker
-alt-bileşenleri var. Interop'un basit bir maske görünümünde çalışması, iç içe
-görünüm hiyerarşisinde de çalışacağını garanti etmiyor.
-
-> Bu statik analiz **çalışma anı kanıtı değil**. Aşağıdaki testler hâlâ zorunlu —
-> sadece hangisine önce bakman gerektiğini değiştiriyor: **önce harita, sonra paywall.**
-
-### 🔴 Şüpheli native modüller (bu fazın asıl işi)
-
-| # | Test | Beklenen | Durum |
-|---|---|---|---|
-| 4-1 | **Eatlas logosu** — her ekranın header'ında, giriş/kayıt ekranlarında | Turuncu→sarı **gradyan** doğru görünmeli. Düz renk / siyah kutu / kayıp = `masked-view` Fabric'te bozuldu | |
-| 4-2 | **Harita ekranı** — restoran haritası | Harita yükleniyor, **pin'ler görünüyor**, kümeleme çalışıyor | |
-| 4-3 | Haritada bir pin'e dokun | Alt önizleme kartı açılıyor, doğru restoranı gösteriyor | |
-| 4-4 | Haritayı kaydır/yakınlaştır | Akıcı, boş/gri alan kalmıyor | |
-| 4-5 | **Ödeme / abonelik ekranı** (paywall) aç | Ürünler listeleniyor mu? `expo-iap` 3 major geride, **en şüpheli modül**. Çalışmazsa Faz 7 öne alınacak — bu bir karar, kırık bırakma değil | |
-
-### Genel regresyon (Fabric her şeyi etkileyebilir)
-
-| # | Test | Beklenen | Durum |
-|---|---|---|---|
-| 4-6 | Uygulamayı aç | Açılışta **çökme yok**, beyaz/boş ekran yok | |
-| 4-7 | Tüm sekmeleri tek tek gez | Hiçbir ekran boş render edilmiyor | |
-| 4-8 | **Ana ekranda rayları aç/kapa** | Animasyon çalışıyor. ⚠️ `UIManager.setLayoutAnimationEnabledExperimental` Yeni Mimari'de kaldırıldı; çağrı korumalı (çökmez) ama **animasyon davranışı değişebilir** | |
-| 4-9 | Uzun listeleri hızlı kaydır (restoranlar, yorumlar) | Akıcılık Faz 3'e göre **kötüleşmemeli** | |
-| 4-10 | Bir fotoğraf yükle (profil / restoran) | `expo-image-picker` + `expo-image-manipulator` çalışıyor | |
-| 4-11 | Bildirim al / bildirim zili | Bildirimler geliyor, panel açılıyor | |
-| 4-12 | AI öneri akışı (streaming) | Yanıt **akarak** geliyor, tek seferde değil | |
-| 4-13 | Google ile giriş + çıkış + tekrar giriş | Çalışıyor (TurboModule'e geçti) | |
-| 4-14 | Dokunma/kaydırma jestleri (kaydırarak silme vb.) | `gesture-handler` doğru tepki veriyor | |
-| 4-15 | Klavye açılınca form kayması | İçerik klavyenin altında kalmıyor | |
-
-> **Karar kuralı (#502 R4):** Bir fark gördüğünde onu **bu listedeki bir maddeye
-> bağla**. "Bir tuhaf ama tarif edemiyorum" kabul edilmiyor — ya maddeye bağlanır
-> ve karar verilir, ya da flag geri alınır.
+Sonucu bana şu formatta söylemen yeterli:
+**"4-1 harita gri kalıyor; faz3 APK'sında çalışıyor, faz4'te çalışmıyor."**
 
 ---
 
-## Sonraki fazlar
+## 6. Test edilemeyen / kapsam dışı
 
-Faz 5–6 (SDK 55–57) ve Faz 7 (expo-iap) tamamlandıkça bu dokümana kendi
-bölümlerini ekleyecek.
+Bunlar bu turda **beklenmiyor**, boşuna arama:
+
+| Konu | Neden |
+|---|---|
+| Play Store'dan indirme | Arşiv APK'ları debug anahtarıyla imzalı, Store'a yüklenemez |
+| Gerçek satın alma | Play Console ürün tanımları henüz tamamlanmadı |
+| iOS | Bu yükseltme zincirinde yalnızca Android build'i doğrulanıyor |
+| x86 tablet / Chromebook | APK yalnızca ARM cihazları destekliyor (bu yükseltmeden önce de böyleydi) |
