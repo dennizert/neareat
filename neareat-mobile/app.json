@@ -61,7 +61,8 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "edgeToEdgeEnabled": false
     },
     "plugins": [
       "./plugins/withAndroidBuildFixes",

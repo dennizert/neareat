@@ -147,17 +147,54 @@ imzalandı. Boyut/performans ölçümü için sorun değil; **Play Store'a yükl
 
 ---
 
-## Sonraki fazlar için ölçüm şablonu
+## Faz karşılaştırma tablosu
 
-Her faz kendi sütununu ekler:
+> **Birim notu:** APK boyutları **MiB** (1024²). Faz 0'ın "37,8 MB"ı da MiB'dir
+> (39.610.903 bayt) — ondalık MB ile karıştırma.
+>
+> `—` = o fazda ölçülmedi (sonradan uydurulmadı).
 
 | Ölçüm | Faz 0 (SDK 52) | Faz 2 (SDK 53) | Faz 3 (SDK 54) | Faz 4 (New Arch) | Faz 5 (SDK 55) | Faz 6 (SDK 57) |
 |---|---|---|---|---|---|---|
-| Test sayısı | 577 | | | | | |
-| Kod tabanı kapsamı | %22,34 | | | | | |
-| `services/` kapsamı | %78,74 | | | | | |
-| ESLint hata | 0 | | | | | |
-| `npm audit` (K/Y/O) | 1/11/21 | | | | | |
-| APK boyutu | 37,8 MB | | | | | |
-| Soğuk başlangıç | 358 ms | | | | | |
-| `node_modules` | 503 MB | | | | | |
+| Test sayısı | 577 (65 suite) | 600 (66) | **605 (66)** | | | |
+| Kod tabanı satır kapsamı | %22,34 | — | **%22,39** | | | |
+| `services/` satır kapsamı | %78,74 | — | **%78,83** | | | |
+| ESLint hata / uyarı | 0 / 263 | 0 / 263 | **0 / 263** | | | |
+| `tsc --noEmit` | temiz | temiz | **temiz** | | | |
+| `npm audit` (K/Y/O) | 1/11/21 | — | **0/9/10** | | | |
+| APK boyutu | 37,8 MiB | 37,6 MiB | **37,8 MiB** | | | |
+| Soğuk başlangıç (medyan) | 358 ms | — | **368 ms** | | | |
+| `node_modules` | 503 MB (696 paket) | — | **510 MB (583 paket)** | | | |
+
+Faz 3 soğuk başlangıç ham ölçümleri: 320 / 323 / **368** / 395 / 409 ms.
+
+---
+
+## Faz 3 (SDK 54) — ölçüm sırasında çıkanlar
+
+Sürüm yükseltmesinin kendisi dışında build'i kıran/kırabilecek üç şey çıktı:
+
+1. **Gradle wrapper 8.10.2 → 8.14.3 gerekti.** RN 0.81 minimum 8.13 istiyor
+   (`Minimum supported Gradle version is 8.13`). `expo prebuild` mevcut `android/`
+   dizinini koruduğu için wrapper'ı kendiliğinden güncellemiyor — elle yapıldı.
+   Seçilen sürüm RN 0.81'in kendi şablonundaki sürüm (8.14.3), hata mesajındaki
+   minimum değil.
+
+2. **`babel-preset-expo` kök bağlamdan çözülemedi.** SDK 54'te
+   `expo/node_modules/` altına yuvalandı; `babel.config.js` onu kökten çözmek
+   zorunda olduğu için **tüm Jest paketi** `Cannot find module 'babel-preset-expo'`
+   ile çöktü. Açık `devDependency` yapıldı. (Faz 2'deki `expo-file-system`
+   vakasıyla aynı sınıf — bkz. `dependencyIntegrity.test.ts`.)
+
+3. **`expo-modules-core` CMake yapılandırması bir kez patladı.** Sebep kalıcı bir
+   uyumsuzluk değildi: önceki build yarıda kesildiği için `.cxx` durumu bozuk
+   kalmıştı. Aynı CMake komutu elle çalıştırıldığında sorunsuz yapılandırdı.
+   Çözüm: `rm -rf node_modules/expo-modules-core/android/.cxx`.
+   **Genel kural: gradle build'i yarıda kesersen `.cxx` dizinini temizle.**
+
+### Kasıtlı sapmalar
+
+| Ne | Karar | Neden |
+|---|---|---|
+| `react-native-reanimated` | **3.19.5**'te tutuldu (`expo install --check` 4.1.1 öneriyor) | Reanimated 4 **yalnızca Yeni Mimari**'yi destekliyor (paketin kendi README'si: *"If your app still runs on the old architecture… stay with latest 3.x release"*). Bu faz Legacy'de kalmak zorunda → Faz 4'ün işi. |
+| Edge-to-edge | **Kapalı** (`app.json` → `android.edgeToEdgeEnabled: false`) | SDK 54 prebuild'i kendiliğinden açıyor ve uygulama sistem çubuklarının altına çiziyor. Bu fazın amacı Yeni Mimari öncesi **bilinen-iyi bir geri dönüş noktası** kurmak; bağımsız bir görsel değişiklik etki alanını gereksiz genişletirdi. SDK 55+'ta zorunlu hâle geliyor, orada ele alınacak. |
