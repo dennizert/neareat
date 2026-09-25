@@ -137,6 +137,28 @@ bundan etkilenebilir.
 > `app.json` → `expo.newArchEnabled: false`. Faz 5'e geçilirse bu kapı kapanıyor.
 > Bu yüzden **bu listedeki maddeler Faz 5 başlamadan önce bitmeli.**
 
+### Risk sıralaması — #502'deki tahminden FARKLI
+
+Issue `expo-iap`'i 🔴 "en şüpheli" işaretlemişti, ama bu değerlendirme **sürüm
+yaşına** dayanıyordu (3 major geride). Modüllerin native yüzeyi statik olarak
+incelendiğinde tablo tersine dönüyor:
+
+| Modül | Native yüzey | Gerçek risk |
+|---|---|---|
+| `expo-iap` | **Expo Modules API** (`expo.modules.kotlin`) — mimariden bağımsız | 🟢 **Düşük** (issue 🔴 diyordu) |
+| `masked-view` | Eski `ViewManager`, `codegenConfig` yok → **interop katmanı** | ✅ **Çalıştığı doğrulandı** |
+| `react-native-maps` | Eski `ViewManager`, `codegenConfig` yok → **interop katmanı** | 🔴 **En yüksek risk** |
+| `screens`, `gesture-handler`, `safe-area-context` | `codegenConfig` var → yerli Fabric bileşeni | 🟢 Düşük |
+
+**Neden maps en riskli:** `masked-view` ile aynı mekanizmaya (interop) bağlı ve o
+mekanizmanın bu build'de çalıştığı kanıtlandı — bu iyi haber. Ama maps çok daha
+karmaşık bir görünüm: Google Maps `SurfaceView`'ı barındırıyor, içinde marker
+alt-bileşenleri var. Interop'un basit bir maske görünümünde çalışması, iç içe
+görünüm hiyerarşisinde de çalışacağını garanti etmiyor.
+
+> Bu statik analiz **çalışma anı kanıtı değil**. Aşağıdaki testler hâlâ zorunlu —
+> sadece hangisine önce bakman gerektiğini değiştiriyor: **önce harita, sonra paywall.**
+
 ### 🔴 Şüpheli native modüller (bu fazın asıl işi)
 
 | # | Test | Beklenen | Durum |
