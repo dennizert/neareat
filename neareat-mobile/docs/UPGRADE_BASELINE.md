@@ -156,19 +156,25 @@ imzalandı. Boyut/performans ölçümü için sorun değil; **Play Store'a yükl
 
 | Ölçüm | Faz 0 (SDK 52) | Faz 2 (SDK 53) | Faz 3 (SDK 54) | Faz 4 (New Arch) | Faz 5 (SDK 55) | Faz 6 (SDK 57) |
 |---|---|---|---|---|---|---|
-| Test sayısı | 577 (65 suite) | 600 (66) | 605 (66) | 605 (66) | **607 (66)** | |
-| Kod tabanı satır kapsamı | %22,34 | — | %22,39 | değişmedi | — | |
-| `services/` satır kapsamı | %78,74 | — | %78,83 | değişmedi | — | |
-| ESLint hata / uyarı | 0 / 263 | 0 / 263 | 0 / 263 | 0 / 263 | **0 / 263** | |
-| `tsc --noEmit` | temiz | temiz | temiz | temiz | **temiz** | |
-| `npm audit` (K/Y/O) | 1/11/21 | — | 0/9/10 | değişmedi | **0/0/13** ⬇ | |
-| APK boyutu | 37,8 MiB | 37,6 MiB | 37,8 MiB | 28,6 MiB ⬇ | **31,6 MiB** | |
-| Soğuk başlangıç (medyan) | 358 ms | — | 368 ms | 325 ms ⬇ | **351 ms** | |
-| `node_modules` | 503 MB (696 paket) | — | 510 MB (583 paket) | değişmedi | — | |
+| Test sayısı | 577 (65 suite) | 600 (66) | 605 (66) | 605 (66) | 607 (66) | **607 (66)** |
+| Kod tabanı satır kapsamı | %22,34 | — | %22,39 | değişmedi | — | — |
+| `services/` satır kapsamı | %78,74 | — | %78,83 | değişmedi | — | — |
+| ESLint hata / uyarı | 0 / 263 | 0 / 263 | 0 / 263 | 0 / 263 | 0 / 263 | **0 / 263** |
+| `tsc --noEmit` | temiz | temiz | temiz | temiz | temiz | **temiz** |
+| `npm audit` (K/Y/O) | 1/11/21 | — | 0/9/10 | değişmedi | 0/0/13 ⬇ | **0/0/13** 🎯 |
+| APK boyutu | 37,8 MiB | 37,6 MiB | 37,8 MiB | 28,6 MiB ⬇ | 31,6 MiB | **34,4 MiB** |
+| Soğuk başlangıç (medyan) | 358 ms | — | 368 ms | 325 ms ⬇ | 351 ms | **394 ms** |
+| `node_modules` | 503 MB (696 paket) | — | 510 MB (583 paket) | değişmedi | — | — |
 
 Faz 3 soğuk başlangıç ham ölçümleri: 320 / 323 / **368** / 395 / 409 ms.
 Faz 4 soğuk başlangıç ham ölçümleri: 294 / 303 / **325** / 369 / 377 ms.
 Faz 5 soğuk başlangıç ham ölçümleri: 300 / 301 / **351** / 356 / 373 ms.
+Faz 6 soğuk başlangıç ham ölçümleri: 357 / 366 / **394** / 395 / 426 ms.
+
+> Faz 6'nın 394 ms'i baseline'ın 358 ms'inden yüksek ama **ham aralıklar
+> örtüşüyor** (baseline 314–426, Faz 6 357–426) — net bir regresyon değil.
+> ⚠️ İlk ölçümde 604 ms çıkmıştı; o sırada arka planda derleme vardı.
+> **Ölçümler boş makinede alınmalı.**
 
 > Faz 4'te paket sürümü **değişmedi** (tek satır flag), o yüzden kapsam/audit/
 > node_modules ölçümleri Faz 3 ile aynı — tekrar ölçülmedi.
@@ -353,3 +359,83 @@ Giriş gerektiren ekranların edge-to-edge turu (5 sekmeli kabuk, restoran/admin
 stack'leri, harita, klavye açıkken formlar) ve **#503'ün Sentry kabul kriteri**
 ("kasıtlı crash üret, Sentry'de okunabilir stack trace gör").
 Hepsi `UPGRADE_MANUAL_TESTS.md`'ye eklenecek.
+
+---
+
+## Faz 6 (SDK 56 → 57) — ölçüm sırasında çıkanlar
+
+### 🎯 EPIC hedefi karşılandı: `npm audit` 0 kritik / 0 yüksek
+
+Baseline'da **1 kritik + 11 yüksek** vardı. Zincirin sonunda **0/0**.
+
+Kalan 13 orta bulgunun **hepsi tek bir kök zafiyete** iniyor:
+
+```
+uuid@7.0.3  ←  xcode@3.0.1  ←  @expo/config-plugins  ←  expo-splash-screen
+```
+> `uuid`: v3/v5/v6'da `buf` verildiğinde tampon sınır kontrolü eksik.
+
+**Neden kabul edilebilir:** `xcode` bir **iOS proje dosyası ayrıştırıcısı** —
+yalnızca `expo prebuild` sırasında çalışıyor, uygulamaya girmiyor. Üstelik
+projede `ios/` dizini yok. Kaynak kodda `uuid` kullanımı **sıfır**.
+
+### 🔴 Global `fetch` değişimi — ÖLÇÜLDÜ, sorun yok
+
+SDK 56'da `expo/fetch` global `fetch` oluyor (`expo/src/winter/runtime.native.ts:52`).
+`uploadPhotoToS3` bundan doğrudan etkilenen tek akış: `fetch('file://')` ile
+dosyayı okuyup `.blob()` alıyor, sonra S3'e PUT ediyor.
+
+**Statik inceleme** — üç gereksinim de destekleniyor:
+| Gereksinim | Nerede |
+|---|---|
+| `fetch('file://...')` | `OkHttpFileUrlInterceptor.kt` — dosyayı diskten okuyup 200 döndürüyor (`ExpoFetchModule.kt:29`'da kayıtlı) |
+| `.blob()` | `FetchResponse.ts:286` |
+| Blob gövdeli PUT | `RequestUtils.ts:71` |
+
+**Çalışma anı ölçümü** (debug APK'ya geçici prob konuldu, emülatörde):
+```
+[FETCHPROBE] file:// yanıt ok= true status= 200  29ms
+[FETCHPROBE] blob boyut= 29 (beklenen 29)         3ms
+[FETCHPROBE] SONUÇ: BAŞARILI
+```
+
+> **Kaçış kapısı:** `EXPO_PUBLIC_USE_RN_FETCH=1` ortam değişkeni RN'in eski
+> `fetch`'ini geri getiriyor — tek satırlık geri dönüş.
+>
+> ⚠️ **Performans notu:** `FetchResponse.blob()` veriyi RN'in blob deposuna
+> kopyalayıp base64 ile geri okuyor. Prob'daki 29 baytta önemsiz (3 ms), ama
+> **birkaç MB'lık fotoğrafta yavaşlama olabilir**. Expo bu yük için `expo-blob`
+> paketini öneriyor. Gerçek yükleme testinde (manuel test 6-2) **süre de
+> ölçülmeli**; belirgin yavaşlama varsa `expo-blob` ayrı bir iş olarak eklenir.
+
+### TypeScript 5.9 → 6.0 tsconfig'i kırdı
+
+SDK 56 TypeScript'i ana sürüm atlattı. TS 6 otomatik `@types` yüklemesini
+değiştirdiği için `jest` ve `node` global'leri bulunamaz oldu:
+**66 test paketi sorunsuz çalışıyordu ama `tsc` 12 hata veriyordu** —
+`describe`, `it`, `expect`, `module`, `path`, `__dirname`, `global` bulunamıyor.
+
+`@types/jest`'i 30'a yükseltmek **çözmedi** (paket sürümü sorunu değil).
+Çözüm: `tsconfig.json` → `compilerOptions.types = ["jest", "node"]` ve
+`@types/node` açık `devDependency`.
+
+### Diğer bağımlılık çakışmaları
+
+| Sorun | Çözüm |
+|---|---|
+| RN 0.86.3, `@react-native/jest-preset@0.86.3` istiyor ama `jest-expo` 56'da kalmıştı | `jest-expo ~57.0.5` + `babel-preset-expo ~57.0.0` birlikte yükseltildi |
+| `react-test-renderer` caret (`^19.2.0`) yüzünden 19.3.0'a kayıyor, o da `react ^19.3.0` istiyor | react ile **birebir aynı sürüme** sabitlendi (`19.2.3`) |
+| `node_modules` bayat kalıp ERESOLVE'u tekrarlıyordu | `rm -rf node_modules package-lock.json` + temiz kurulum |
+
+### Doğrulananlar
+
+- `npx expo install --check` → **Dependencies are up to date**
+- Uygulama açılıyor, çökme yok; edge-to-edge, logo gradyanı ve tüm ikonlar doğru
+- `expo prebuild` sonrası plugin ayarlarının hepsi korundu
+  (`newArchEnabled`, `reactNativeArchitectures`, `useLegacyPackaging`, imzalama)
+
+### ⏭️ Emülatörde doğrulanamayan
+
+**Gerçek fotoğraf yükleme akışı** (restoran hesabı + S3 gerekiyor) — `fetch`
+mekaniği ölçüldü ama uçtan uca akış değil. `UPGRADE_MANUAL_TESTS.md` §3.10
+(6-1…6-4). Ayrıca axios REST ve AI streaming turu §3.11 (6-5…6-7).
