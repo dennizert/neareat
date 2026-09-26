@@ -147,17 +147,209 @@ imzalandı. Boyut/performans ölçümü için sorun değil; **Play Store'a yükl
 
 ---
 
-## Sonraki fazlar için ölçüm şablonu
+## Faz karşılaştırma tablosu
 
-Her faz kendi sütununu ekler:
+> **Birim notu:** APK boyutları **MiB** (1024²). Faz 0'ın "37,8 MB"ı da MiB'dir
+> (39.610.903 bayt) — ondalık MB ile karıştırma.
+>
+> `—` = o fazda ölçülmedi (sonradan uydurulmadı).
 
 | Ölçüm | Faz 0 (SDK 52) | Faz 2 (SDK 53) | Faz 3 (SDK 54) | Faz 4 (New Arch) | Faz 5 (SDK 55) | Faz 6 (SDK 57) |
 |---|---|---|---|---|---|---|
-| Test sayısı | 577 | | | | | |
-| Kod tabanı kapsamı | %22,34 | | | | | |
-| `services/` kapsamı | %78,74 | | | | | |
-| ESLint hata | 0 | | | | | |
-| `npm audit` (K/Y/O) | 1/11/21 | | | | | |
-| APK boyutu | 37,8 MB | | | | | |
-| Soğuk başlangıç | 358 ms | | | | | |
-| `node_modules` | 503 MB | | | | | |
+| Test sayısı | 577 (65 suite) | 600 (66) | 605 (66) | 605 (66) | **607 (66)** | |
+| Kod tabanı satır kapsamı | %22,34 | — | %22,39 | değişmedi | — | |
+| `services/` satır kapsamı | %78,74 | — | %78,83 | değişmedi | — | |
+| ESLint hata / uyarı | 0 / 263 | 0 / 263 | 0 / 263 | 0 / 263 | **0 / 263** | |
+| `tsc --noEmit` | temiz | temiz | temiz | temiz | **temiz** | |
+| `npm audit` (K/Y/O) | 1/11/21 | — | 0/9/10 | değişmedi | **0/0/13** ⬇ | |
+| APK boyutu | 37,8 MiB | 37,6 MiB | 37,8 MiB | 28,6 MiB ⬇ | **31,6 MiB** | |
+| Soğuk başlangıç (medyan) | 358 ms | — | 368 ms | 325 ms ⬇ | **351 ms** | |
+| `node_modules` | 503 MB (696 paket) | — | 510 MB (583 paket) | değişmedi | — | |
+
+Faz 3 soğuk başlangıç ham ölçümleri: 320 / 323 / **368** / 395 / 409 ms.
+Faz 4 soğuk başlangıç ham ölçümleri: 294 / 303 / **325** / 369 / 377 ms.
+Faz 5 soğuk başlangıç ham ölçümleri: 300 / 301 / **351** / 356 / 373 ms.
+
+> Faz 4'te paket sürümü **değişmedi** (tek satır flag), o yüzden kapsam/audit/
+> node_modules ölçümleri Faz 3 ile aynı — tekrar ölçülmedi.
+
+---
+
+## Faz 3 (SDK 54) — ölçüm sırasında çıkanlar
+
+Sürüm yükseltmesinin kendisi dışında build'i kıran/kırabilecek üç şey çıktı:
+
+1. **Gradle wrapper 8.10.2 → 8.14.3 gerekti.** RN 0.81 minimum 8.13 istiyor
+   (`Minimum supported Gradle version is 8.13`). `expo prebuild` mevcut `android/`
+   dizinini koruduğu için wrapper'ı kendiliğinden güncellemiyor — elle yapıldı.
+   Seçilen sürüm RN 0.81'in kendi şablonundaki sürüm (8.14.3), hata mesajındaki
+   minimum değil.
+
+2. **`babel-preset-expo` kök bağlamdan çözülemedi.** SDK 54'te
+   `expo/node_modules/` altına yuvalandı; `babel.config.js` onu kökten çözmek
+   zorunda olduğu için **tüm Jest paketi** `Cannot find module 'babel-preset-expo'`
+   ile çöktü. Açık `devDependency` yapıldı. (Faz 2'deki `expo-file-system`
+   vakasıyla aynı sınıf — bkz. `dependencyIntegrity.test.ts`.)
+
+3. **`expo-modules-core` CMake yapılandırması bir kez patladı.**
+   `rm -rf node_modules/expo-modules-core/android/.cxx` ile geçti.
+
+   > ⚠️ **DÜZELTME (Faz 5'te anlaşıldı): buradaki teşhis YANLIŞTI.**
+   > O sırada sebebi "önceki build yarıda kesildiği için `.cxx` bozuldu" diye
+   > yazmıştım. Gerçek sebep neredeyse kesinlikle **`/tmp` symlink'i** — aşağıdaki
+   > B6 bulgusuna bakın. `.cxx` silmek işe yaradı çünkü yolları yeniden
+   > çözdürüyordu, kök nedeni gidermiyordu. "Yarıda kesilen build" kuralı
+   > geçersizdir; doğru kural **build'i `/tmp` altında almamak**.
+
+### Kasıtlı sapmalar
+
+| Ne | Karar | Neden |
+|---|---|---|
+| `react-native-reanimated` | **3.19.5**'te tutuldu (`expo install --check` 4.1.1 öneriyor) | Reanimated 4 **yalnızca Yeni Mimari**'yi destekliyor (paketin kendi README'si: *"If your app still runs on the old architecture… stay with latest 3.x release"*). Bu faz Legacy'de kalmak zorunda → Faz 4'ün işi. |
+| Edge-to-edge | **Kapalı** (`app.json` → `android.edgeToEdgeEnabled: false`) | SDK 54 prebuild'i kendiliğinden açıyor ve uygulama sistem çubuklarının altına çiziyor. Bu fazın amacı Yeni Mimari öncesi **bilinen-iyi bir geri dönüş noktası** kurmak; bağımsız bir görsel değişiklik etki alanını gereksiz genişletirdi. SDK 55+'ta zorunlu hâle geliyor, orada ele alınacak. |
+
+---
+
+## Faz 4 (Yeni Mimari) — ölçüm sırasında çıkanlar
+
+### 🔴 NDK 26 → 27 zorunluydu
+
+Flag açılınca derleme şuradan patladı:
+
+```
+graphicsConversions.h:80: error: no member named 'format' in namespace 'std'
+    return std::format("{}%", dimension.value);
+```
+
+RN 0.81'in C++ başlıkları `std::format` (C++20 kütüphane özelliği) kullanıyor;
+**NDK 26'nın libc++'ında bu yok**, NDK 27 (clang 18 / LLVM 18) ile geldi.
+
+**Neden daha önce çıkmadı:** codegen'in ürettiği C++ dosyaları yalnızca Fabric
+açıkken derleniyor. Legacy build'lerde bu başlıklara hiç dokunulmuyordu, bu yüzden
+`ndkVersion = "26.1.10909125"` eski bir commit'ten beri (v11 dönemi) SDK 52→54
+boyunca fark edilmeden duruyordu — `expo prebuild` bu değeri koruyor.
+
+**Çözüm:** NDK 27.1.12297006 kuruldu ve sürüm `withAndroidBuildFixes` config
+plugin'ine bağlandı (`withRequiredNdkVersion`), böylece her prebuild'de kalıcı.
+
+### APK 37,8 → 28,6 MiB: ölü x86 dilimi düştü
+
+Yeni Mimari APK'sı 9,2 MiB küçüldü. Sebep ABI kapsamı:
+
+| | Faz 3 (Legacy) | Faz 4 (New Arch) |
+|---|---|---|
+| Paketlenen ABI | arm64-v8a, armeabi-v7a, x86, x86_64 | arm64-v8a, armeabi-v7a |
+
+**Bu bir kayıp değil — Faz 3'ün x86 dilimi zaten çalışmıyordu.** Ölçüldü: Faz 3
+APK'sında x86 için `libexpo-modules-core.so`, `libreanimated.so`,
+`librnscreens.so`, `libworklets.so` **yoktu**; yalnızca AAR'lardan gelen hazır
+kütüphaneler (hermes, reactnative, sentry, fresco) paketlenmişti. Çünkü
+`reactNativeArchitectures=arm64-v8a,armeabi-v7a` **zaten öyleydi** (bu fazda
+değişmedi) ve kaynaktan derlenen modüller x86 için hiç üretilmiyordu. Yani x86
+bir cihaz o APK'da nasılsa çökerdi. Yeni Mimari build'i bu ölü ağırlığı
+paketlemeyi bıraktı.
+
+> x86_64 desteği gerekirse (Chromebook, Intel emülatör) `reactNativeArchitectures`
+> genişletilmeli — bu, Yeni Mimari'nin getirdiği bir kısıt değil, projenin
+> önceden beri süren bir tercihi.
+
+### Doğrulananlar
+
+- Bridgeless mode **aktif** (logcat: `BridgelessReact`, `libfabricjni_so`)
+- Uygulama açılıyor, çökme yok
+- **`masked-view` Fabric'te çalışıyor** — Eatlas logosunun turuncu→sarı gradyanı
+  doğru render ediliyor (#502 R3 gerçekleşmedi)
+- Tüm `@expo/vector-icons` ikonları render ediliyor
+- Soğuk başlangıç **iyileşti**: 368 ms → 325 ms
+
+### ⏭️ Emülatörde doğrulanamayanlar (giriş yapılmış hesap gerekiyor)
+
+`react-native-maps` (Fabric render), `expo-iap` (paywall), bildirim zili,
+AI streaming, fotoğraf yükleme. Hepsi `UPGRADE_MANUAL_TESTS.md` → Faz 4'te.
+**#502'nin kabul kriterleri bu testler yapılmadan karşılanmış sayılmaz.**
+
+---
+
+## Faz 5 (SDK 55) — ölçüm sırasında çıkanlar
+
+### 🔴 B6 — Build `/tmp` altından alınamaz (macOS symlink'i CMake'i bozuyor)
+
+Bu, B1'in (Türkçe karakter) yanına eklenen **ikinci yol kuralı**.
+
+SDK 55 build'i şurada kırıldı:
+```
+ninja: error: '.../react-native-worklets/android/build/intermediates/cmake/release/
+obj/arm64-v8a/libworklets.so', needed by 'libexpo-modules-core.so',
+missing and no known rule to make it
+```
+
+**Kök neden bizim kodumuzda değil:** bilinen bir Expo SDK 55 hatası
+(expo/expo#42893, #42892). macOS'ta CMake ve Ninja, **symlink üzerinden çözülen
+yollarda mantıksal ve fiziksel yolu karıştırıyor**; Ninja `.so` dosyasını
+gerçekte üretildiği yerden farklı bir yolda arıyor.
+
+Build worktree'si `/tmp/eatlas-build-wt` altındaydı ve macOS'ta
+**`/tmp` → `private/tmp`** bir symlink'tir. Belirti loglarda baştan beri
+görünüyordu: aynı derleme komutunda `-H/private/tmp/...` ile `-I/tmp/...` yan yana.
+
+**Çözüm:** worktree `~/eatlas-build-wt`'ye taşındı (symlink yok, ASCII).
+Daha önce kırılan `expo-modules-core:buildCMakeRelWithDebInfo` görevi geçti.
+
+> **Kural: build yolu hem ASCII olmalı (B1) hem de `/tmp` altında olmamalı (B6).**
+> `git worktree move <eski> <yeni>` ile taşınabilir; sonra proje Gradle
+> önbelleklerini temizlemek gerekiyor (`android/.gradle`, `android/build`,
+> modüllerin `android/build` ve `.cxx` dizinleri) — yoksa eski mutlak yollar
+> önbellekte kalıyor.
+
+### ⚠️ `expo prebuild --clean` üç ayarı sessizce sıfırlıyor
+
+`android/` dizini SDK ≤54 şeklinde bayatladığı için (aşağıya bakın) `--clean`
+ile yeniden üretildi. Bu, şablon varsayılanlarına dönüşe yol açtı — hepsi
+ölçülerek yakalandı ve `withAndroidBuildFixes` plugin'ine sabitlendi:
+
+| Ayar | `--clean` sonrası | Ölçülen etki |
+|---|---|---|
+| `reactNativeArchitectures` | 2 ABI → **4 ABI** | Build süresi ~2 katı; x86 dilimi Faz 4'te zaten ölü diye ölçülmüştü |
+| `expo.useLegacyPackaging` | `true` → **`false`** | Native kütüphaneler sıkıştırılmıyor: `libreactnative.so` 6,0 MiB ham → arşivde de 6,0 MiB (normalde 1,8 MiB). APK 31,6 → **52,5 MiB** |
+| `edgeToEdgeEnabled` | kaldırıldı | Beklenen — SDK 55'te zorunlu |
+
+> `expo.useLegacyPackaging=true`'ya geri dönüldü çünkü bu fazın paketleme
+> davranışını sessizce değiştirmemesi gerekiyordu. **Ama Google modern
+> paketlemeyi (`false`) öneriyor** — kütüphaneler doğrudan APK'dan yükleniyor,
+> kurulum sonrası disk ve RAM kazancı var, Play Store AAB'de zaten yeniden
+> optimize ediliyor. Ayrı bir kararla gözden geçirilmeli.
+
+### `android/` dizini SDK ≤54 şeklinde bayatlamıştı
+
+`expo prebuild` izlenen `android/` dizinini **korur**. Proje SDK 52→55 boyunca
+o dizini hiç yenilemedi; SDK 52–54 eski yapıyı kabul ettiği için fark edilmedi.
+SDK 55 etmedi:
+
+- `settings.gradle` kaldırılmış `expo/scripts/autolinking.gradle`'ı çağırıyordu
+- `app/build.gradle` artık var olmayan `reactAndroidLibs` katalogunu kullanıyordu
+- Kök `build.gradle`'daki `ext.kotlinVersion` / `ext.ndkVersion` SDK 55'te yok —
+  bunları artık `expo-root-project` plugin'i sağlıyor
+
+Çözüm: `--clean` ile şablondan yeniden üretim + tek gerçek elle yazılmış
+özelleştirmenin (release imzalama) plugin'e taşınması.
+
+### Gereksizleşip kaldırılan iki eski düzeltme
+
+| Düzeltme | Neden kaldırıldı |
+|---|---|
+| Kotlin 1.9.25 sabitlemesi | #494/#509'daki `billing-ktx` metadata çatışması, SDK 55'te `expo-modules-core` **Kotlin 2.1.20**'ye geçtiği için kendiliğinden bitti. 1.9.25'te ısrar artık expo-modules-core'u kırıyordu (Compose Kotlin eklentisi gerekiyor). Ayrıca SDK 55 şablonunda `ext.kotlinVersion` yok — mod tanımsız değişkene atıf yapıyordu. |
+| NDK 27 sabitlemesi | SDK 55'te `expo-root-project` plugin'i ndkVersion'ı **varsayılan olarak `27.1.12297006`** yapıyor (`ExpoRootProjectPlugin.kt`). Mod ayrıca yeni şablonda hiç eşleşmiyordu. ⚠️ NDK 27 makinede **kurulu olmalı**: `sdkmanager "ndk;27.1.12297006"` (java PATH'te olmalı, `JAVA_HOME` yetmiyor). |
+
+### Doğrulananlar
+
+- Uygulama açılıyor, çökme yok; **edge-to-edge doğru çalışıyor** — "Eatlas"
+  logosu durum çubuğunun altında, alt kenar gezinme çubuğuyla çakışmıyor
+- `masked-view` gradyanı ve tüm `@expo/vector-icons` ikonları render ediliyor
+- `npm audit`: **0 kritik / 0 yüksek** (Faz 3'te 9 yüksek vardı)
+
+### ⏭️ Emülatörde doğrulanamayanlar
+
+Giriş gerektiren ekranların edge-to-edge turu (5 sekmeli kabuk, restoran/admin
+stack'leri, harita, klavye açıkken formlar) ve **#503'ün Sentry kabul kriteri**
+("kasıtlı crash üret, Sentry'de okunabilir stack trace gör").
+Hepsi `UPGRADE_MANUAL_TESTS.md`'ye eklenecek.
