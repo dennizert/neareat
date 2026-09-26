@@ -27,7 +27,8 @@ Her faz için ayrı bir APK arşivlendi:
 | `~/eatlas-upgrade-archive/eatlas-faz2-sdk53.apk` | SDK 53 |
 | `~/eatlas-upgrade-archive/eatlas-faz3-sdk54.apk` | SDK 54 |
 | `~/eatlas-upgrade-archive/eatlas-faz4-newarch.apk` | SDK 54 + Yeni Mimari |
-| `~/eatlas-upgrade-archive/eatlas-faz5-sdk55.apk` | **SDK 55 + edge-to-edge** ← *önce bunu test et* |
+| `~/eatlas-upgrade-archive/eatlas-faz5-sdk55.apk` | SDK 55 + edge-to-edge |
+| `~/eatlas-upgrade-archive/eatlas-faz6-sdk57.apk` | **SDK 57 (zincirin sonu)** ← *önce bunu test et* |
 
 > **Neden önce en sonuncusu:** Hepsi birikimli. `faz4` APK'sı tüm fazları içeriyor.
 > Her şey çalışıyorsa diğer APK'ları kurmana **hiç gerek yok**. Bir sorun çıkarsa
@@ -97,6 +98,7 @@ hem de değişiklikten en çok etkilenen yerler.
 
 1. **§3.5 Harita** — Yeni Mimari'nin en riskli noktası (statik analizle belirlendi)
 2. **§3.8 Edge-to-edge** — SDK 55'te zorunlu oldu, her kabuğun kenarları
+3. **§3.10 Fotoğraf yükleme** — SDK 56'da global `fetch` değişti
 2. **§2.1 Google ile giriş + oturum koruma** — kütüphane sözleşmesi değişti
 3. **§3.1 İkonlar** — Faz 2'de tamamen kaybolmuştu, düzeltildi
 4. **§3.6 Ödeme / paywall** — çalışmazsa plan değişecek
@@ -302,6 +304,39 @@ gerçek bir crash geldiğinde stack trace'in okunamaz olması.
 
 > 5-10 için hazır bir yol yok — bilerek eklemedim. Test etmeye hazır olduğunda
 > söyle, geçici bir buton ekleyip APK üretirim.
+
+### 3.10 🔴 Fotoğraf yükleme — global `fetch` değişti (Faz 6 / SDK 56)
+
+**Ne değişti:** SDK 56'da `expo/fetch`, uygulamanın global `fetch`'i oldu.
+Restoran fotoğraf yükleme akışı (`uploadPhotoToS3`) global `fetch`'i **iki kez**
+kullanıyor: önce `fetch('file://...')` ile yerel dosyayı okuyup blob elde ediyor,
+sonra o blob'u S3'e PUT ediyor. Yani implementasyon değişikliğinden doğrudan
+etkilenen tek akış bu.
+
+**Statik incelemede üç gereksinimin de desteklendiği görüldü** (Expo `file://`
+için özel bir interceptor yazmış), **ama bu çalışma anı kanıtı değil.** Ayrıca
+`.blob()` artık veriyi base64'ten geçiriyor — **hız da ölçülmeli.**
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 6-1 | Restoran hesabıyla giriş yap → menü/ürün fotoğrafı ekle → galeriden bir fotoğraf seç | Yükleme **tamamlanıyor**, fotoğraf listede görünüyor | |
+| 6-2 | Aynı işlemi **büyük bir fotoğrafla** (5 MB+) tekrarla | Tamamlanıyor. **Ne kadar sürdüğünü not al** — belirgin yavaşlama varsa ⚠️ işaretle | |
+| 6-3 | Yükleme sonrası uygulamayı kapat-aç, fotoğrafa tekrar bak | Fotoğraf duruyor, bozuk/eksik değil | |
+| 6-4 | Restoran profil fotoğrafı değiştir | Aynı akış, çalışıyor | |
+
+> **Kırılırsa tek satırlık geri dönüş var:** `EXPO_PUBLIC_USE_RN_FETCH=1` ortam
+> değişkeni React Native'in eski `fetch`'ini geri getiriyor. Bana söylemen yeterli.
+>
+> 6-2'de belirgin yavaşlama görürsen `expo-blob` paketi bu yükü kaldırıyor —
+> ayrı bir iş olarak ele alınır.
+
+### 3.11 Ağ katmanının geri kalanı (aynı değişiklikten etkilenebilir)
+
+| # | Adımlar | Beklenen | Durum |
+|---|---|---|---|
+| 6-5 | Normal gezinme: restoran listesi, detay, favoriler, rezervasyon | Veriler geliyor (axios katmanı — `fetch` kullanmıyor ama doğrulanmalı) | |
+| 6-6 | AI öneri akışı ("Ne yesem?") | Yanıt **akarak** geliyor (bu akış zaten `expo/fetch`'i açıkça kullanıyordu) | |
+| 6-7 | Uçağa alma modunu aç, bir istek dene | Anlamlı hata mesajı, çökme yok | |
 
 ---
 
