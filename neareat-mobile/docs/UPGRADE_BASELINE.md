@@ -439,3 +439,90 @@ değiştirdiği için `jest` ve `node` global'leri bulunamaz oldu:
 **Gerçek fotoğraf yükleme akışı** (restoran hesabı + S3 gerekiyor) — `fetch`
 mekaniği ölçüldü ama uçtan uca akış değil. `UPGRADE_MANUAL_TESTS.md` §3.10
 (6-1…6-4). Ayrıca axios REST ve AI streaming turu §3.11 (6-5…6-7).
+
+---
+
+# Kapanış — öncesi / sonrası (Faz 8)
+
+Zincir tamamlandı: **Expo SDK 52 → 57**, Legacy → **New Architecture**.
+
+| Ölçüm | Öncesi (Faz 0 · SDK 52) | Sonrası (Faz 6 · SDK 57) | Değişim |
+|---|---|---|---|
+| Expo SDK | 52.0.49 | **57.0.25** | +5 ana sürüm |
+| React Native | 0.76.9 | **0.86.3** | +10 minor |
+| React | 18.3.1 | **19.2.3** | +1 ana sürüm |
+| Mimari | Legacy (Paper) | **New (Fabric + TurboModules + Bridgeless)** | değişti |
+| **`npm audit` kritik** | **1** | **0** | 🎯 |
+| **`npm audit` yüksek** | **11** | **0** | 🎯 |
+| `npm audit` orta | 21 | 13 | ⬇ |
+| Test sayısı | 577 (65 suite) | **607 (66 suite)** | +30 |
+| Kod tabanı satır kapsamı | %22,34 | %22,39 | ≈ |
+| `services/` satır kapsamı | %78,74 | %78,83 | ≈ |
+| ESLint hata | 0 | **0** | = |
+| `tsc --noEmit` | temiz | **temiz** | = |
+| Release APK | 37,8 MiB | 34,4 MiB | ⬇ %9 |
+| Soğuk başlangıç (medyan) | 358 ms | 394 ms | ≈ (aralıklar örtüşüyor) |
+
+**EPIC'in asıl gerekçesi karşılandı:** kritik ve yüksek zafiyet **sıfırlandı**.
+Kalan 13 orta bulgunun tamamı tek bir kök zafiyete (`uuid` ← `xcode` ←
+`@expo/config-plugins`) iniyor ve yalnızca **prebuild zamanı** çalışan iOS
+araçlarından geliyor; uygulamaya girmiyor.
+
+## Test borcu denetimi (Faz 8 · madde 1)
+
+| Kriter | Sonuç |
+|---|---|
+| Test sayısı ≥ 577 | ✅ 607 |
+| `services/` kapsamı ≥ %78,73 | ✅ %78,83 |
+| Silinen test dosyası | ✅ yok (65 → 66; `dependencyIntegrity.test.ts` eklendi) |
+| Devre dışı test (`.skip` / `.only` / `xit`) | ✅ yok |
+| ESLint 0 hata · `tsc` temiz | ✅ |
+
+**Kayda geçen test kararları:**
+
+- **`navigation/` için birim testi yazılmadı.** Ekran mount'u gerektiriyor;
+  CLAUDE.md'nin *"ağır ekranları mount etme, saf mantığı `utils/`'e çıkar"*
+  konvansiyonuna aykırı olurdu. Saf navigasyon hedefi mantığı
+  (`utils/notificationTarget.ts`) testli.
+- **`theme/icons.ts` için birim testi yazılmadı.** `satisfies Record<string,
+  IoniconName>` tiplemesi derleme zamanı garantisi veriyor; Faz 3'te mutasyon
+  denetimiyle doğrulandı (geçersiz ikon adı `icons.ts`'in tam o satırında hata
+  veriyor). Ayrı test gereksiz.
+- **`uploadPhotoToS3` testi mock'lu kalıyor.** Mock, `expo/fetch` değişimini
+  yapısı gereği yakalayamaz — bu yüzden gerçek cihaz doğrulaması (manuel test
+  6-1…6-4) kabul kriteri olarak duruyor. Faz 6'da `fetch('file://')` mekaniği
+  ayrıca cihazda probla ölçüldü.
+- **`PaywallScreen` testi yazılmadı** — Faz 7'nin kabul kriteri ve Faz 7 bloke
+  (aşağıya bakın).
+
+## `UPGRADE_SMOKE_TEST.md` ne olacak? (Faz 8 · madde 4)
+
+**Korunuyor, arşivlenmiyor.** Gerekçe: A–J listesi yükseltmeye özgü değil,
+uygulamanın native yüzeylerinin kalıcı bir regresyon envanteri. Sonraki SDK
+yükseltmelerinde ve büyük native değişikliklerde yeniden kullanılacak.
+`UPGRADE_MANUAL_TESTS.md` ise **faza özgü** — zincir kapandığında arşivlenebilir.
+
+## 🔴 Faz 7 (expo-iap) BLOKE — kapanışın eksik parçası
+
+Faz 7 (#505) kendi issue'sunda tanımlı zorunlu ön koşulu karşılamadığı için
+**başlatılmadı**:
+
+> *"Bu faz, satın alma akışının MEVCUT sürümde (yükseltme öncesi) en az bir kez
+> uçtan uca çalıştığı kanıtlanmadan BAŞLATILAMAZ."*
+
+Karşılanmayan ön koşullar:
+- Play Console upload key sıfırlama onayı bekliyor
+- Satıcı hesabı ve `restaurant_premium` aboneliği henüz tanımlı değil
+- Lisanslı test hesabı / Internal Testing kanalı yok
+- Smoke-test G1–G4 hiç koşulmadı
+
+**Neden bu kural doğru:** baseline olmadan yükseltilirse ve sonrasında ödeme
+çalışmazsa, *"yükseltme mi bozdu, yoksa hiç mi çalışmıyordu?"* sorusuna cevap
+verilemez. #493'te `expo-iap`'in native bağımlılıklarının commit'li
+`build.gradle`'a hiç enjekte edilmemiş olduğu bulunmuştu — yani akış muhtemelen
+hiç çalışmadı. Gelir akışında bu belirsizlik kabul edilemez.
+
+**Sonuç:** `expo-iap` 2.7.14'te kalıyor. SDK 57 + New Architecture ile
+paketlendiği ve autolink edildiği doğrulandı; native yüzeyi **Expo Modules API**
+olduğu için mimariden bağımsız çalışıyor (Faz 4'te statik olarak incelendi).
+Çalışma anı doğrulaması ödeme baseline'ı kurulduğunda yapılacak.
