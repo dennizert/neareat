@@ -229,7 +229,8 @@ ama dokunma çalışmaz · pin'ler yanlış yerde durur · kaydırınca siyah al
 | 4-3 | Haritayı parmakla **kaydır** | Akıcı kayar, boş/siyah alan açılmaz | |
 | 4-4 | İki parmakla **yakınlaştır/uzaklaştır** | Düzgün ölçeklenir, pin'ler birlikte hareket eder | |
 | 4-5 | Yakınlaştırınca pin'lerin **kümelenmesi** (birleşip sayı göstermesi) | Kümeler açılıp kapanır | |
-| 4-6 | Bir **pin'e dokun** | Alt tarafta önizleme kartı açılır, **doğru restoranı** gösterir | |
+| 4-5b | **Sayı yazan küme pin'ine** dokun (ör. "3") | ⚠️ Restoranları LİSTELEMEZ — tasarım böyle: harita o bölgeye **yakınlaştırır** ve küme tek tek pin'lere bölünür. Yakınlaşma olmuyorsa ❌ | |
+| 4-6 | **Tek bir restoran pin'ine** dokun (sayı yazmayan) | Alt tarafta önizleme kartı açılır, **doğru restoranı** gösterir | |
 | 4-7 | Önizleme kartına dokun | Restoran detay ekranına gider | |
 
 ### 3.6 🔴 Ödeme / abonelik (paywall)

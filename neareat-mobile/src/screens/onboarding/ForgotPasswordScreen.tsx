@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Alert, KeyboardAvoidingView, Platform, ScrollView,
+  Alert, KeyboardAvoidingView, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import EatlasLogo from '../../components/EatlasLogo';
 import AppIcon from '../../components/AppIcon';
 import AuthInput from '../../components/auth/AuthInput';
 import GlowButton from '../../components/auth/GlowButton';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
@@ -47,7 +48,7 @@ export default function ForgotPasswordScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={KEYBOARD_BEHAVIOR}
     >
       <View style={[styles.topBar, { top: topPad + 2 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} hitSlop={8}>
