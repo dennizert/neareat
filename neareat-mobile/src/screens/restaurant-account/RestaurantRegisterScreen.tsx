@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, ActivityIndicator, Image, KeyboardAvoidingView, } from 'react-native';
+  View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store/authStore';
@@ -17,8 +16,8 @@ import EatlasLogo from '../../components/EatlasLogo';
 import AppIcon from '../../components/AppIcon';
 import AuthInput from '../../components/auth/AuthInput';
 import GlowButton from '../../components/auth/GlowButton';
-import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 
 const CATEGORIES = ['Restoran', 'Kafe', 'Fast Food', 'Pastane/Fırın', 'Esnaf Lokantası', 'Diğer'];
 const STEPS = ['Hesap Bilgileri', 'İşletme Bilgileri', 'Vergi Levhası', 'Restoran Seç', 'Onay'];
@@ -272,7 +271,7 @@ export default function RestaurantRegisterScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_BEHAVIOR}>
+    <>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -296,10 +295,19 @@ export default function RestaurantRegisterScreen() {
         </View>
         <Text style={styles.stepLabel}>{step + 1}/{STEPS.length} — {STEPS[step]}</Text>
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        {/* E4/E6: dar alanda (klavye açıkken) son alan sabit alt barın arkasında kesiliyordu.
+            KeyboardAwareScrollView odaklanan alanı görünüre kaydırıyor. */}
+        <KeyboardAwareScrollView
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={24}
+        >
           {renderStep()}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
+        {/* KeyboardAwareScrollView yalnızca kendi içeriğini yönetiyor; kardeş footer'ı
+            kaldırmıyor. KeyboardStickyView footer'ı klavyenin üstüne yapıştırıyor. */}
+        <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
         <View style={[styles.footer, { paddingBottom: 16 + bottom }]}>
           <GlowButton
             label={step === 4 ? 'Başvuruyu Gönder' : 'Devam Et'}
@@ -307,6 +315,7 @@ export default function RestaurantRegisterScreen() {
             loading={loading}
           />
         </View>
+        </KeyboardStickyView>
       </View>
 
       <PrivacyPolicyModal
@@ -314,7 +323,7 @@ export default function RestaurantRegisterScreen() {
         onClose={() => setPolicyVisible(false)}
         initialSection={policyTab}
       />
-    </KeyboardAvoidingView>
+    </>
   );
 }
 

@@ -13,6 +13,7 @@ import type { Message } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { listPerf } from '../../theme/listPerf';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useKeyboardHeight } from '../../utils/keyboardAvoiding';
 
 function formatTime(dateStr: string): string {
@@ -127,10 +128,13 @@ export default function ConversationScreen() {
   }
 
   return (
-    // E6: KeyboardAvoidingView bu düzende (alta yapışık giriş çubuğu) edge-to-edge
-    // modda güvenilir çalışmadı — klavye yüksekliği doğrudan ölçülüp dolgu olarak
-    // uygulanıyor. Klavye açıkken alt güvenli alana gerek yok, klavye zaten örtüyor.
-    <View style={[styles.container, { paddingBottom: kbHeight }]}>
+    // E6: RN'in KeyboardAvoidingView'ı da, klavye olaylarından ölçülen yükseklik de
+    // edge-to-edge altında bu düzende (alta yapışık giriş çubuğu) tutmadı — gerçek
+    // cihazda giriş çubuğu klavyenin altında kalmaya devam etti. Sebep: IME yüksekliği
+    // klavye araç çubuğu açılınca değişiyor ve RN tek bir olayla bildiriyor.
+    // KeyboardAvoidingView (keyboard-controller) IME inset'ini native taraftan
+    // dinlediği için bu değişimi de yakalıyor.
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
       <FlatList
         ref={flatRef}
         data={messages}
@@ -172,7 +176,7 @@ export default function ConversationScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
