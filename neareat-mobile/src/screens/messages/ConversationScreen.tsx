@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef} from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, ActivityIndicator,
+  StyleSheet, ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
@@ -13,7 +13,7 @@ import type { Message } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { listPerf } from '../../theme/listPerf';
-import { KEYBOARD_BEHAVIOR, keyboardOffsetForHeader } from '../../utils/keyboardAvoiding';
+import { useKeyboardHeight } from '../../utils/keyboardAvoiding';
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -38,6 +38,7 @@ export default function ConversationScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const { bottom } = useSafeAreaInsets();
+  const kbHeight = useKeyboardHeight();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,11 +127,10 @@ export default function ConversationScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={KEYBOARD_BEHAVIOR}
-      keyboardVerticalOffset={keyboardOffsetForHeader(90)}
-    >
+    // E6: KeyboardAvoidingView bu düzende (alta yapışık giriş çubuğu) edge-to-edge
+    // modda güvenilir çalışmadı — klavye yüksekliği doğrudan ölçülüp dolgu olarak
+    // uygulanıyor. Klavye açıkken alt güvenli alana gerek yok, klavye zaten örtüyor.
+    <View style={[styles.container, { paddingBottom: kbHeight }]}>
       <FlatList
         ref={flatRef}
         data={messages}
@@ -149,7 +149,7 @@ export default function ConversationScreen() {
         {...listPerf}
       />
 
-      <View style={[styles.inputBar, { paddingBottom: bottom + 8 }]}>
+      <View style={[styles.inputBar, { paddingBottom: kbHeight > 0 ? 8 : bottom + 8 }]}>
         <TextInput
           style={styles.input}
           value={text}
@@ -172,7 +172,7 @@ export default function ConversationScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

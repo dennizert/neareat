@@ -18,11 +18,14 @@ import AppIcon from '../../components/AppIcon';
 import AuthInput from '../../components/auth/AuthInput';
 import GlowButton from '../../components/auth/GlowButton';
 import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CATEGORIES = ['Restoran', 'Kafe', 'Fast Food', 'Pastane/Fırın', 'Esnaf Lokantası', 'Diğer'];
 const STEPS = ['Hesap Bilgileri', 'İşletme Bilgileri', 'Vergi Levhası', 'Restoran Seç', 'Onay'];
 
 export default function RestaurantRegisterScreen() {
+  // Edge-to-edge (SDK 55+): sabit alt bar gezinme çubuğunun altında kalıyordu (bulgu E4).
+  const { bottom } = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { setUser, setToken, setRestaurantStatus } = useAuthStore();
   const { C } = useTheme();
@@ -297,7 +300,7 @@ export default function RestaurantRegisterScreen() {
           {renderStep()}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: 16 + bottom }]}>
           <GlowButton
             label={step === 4 ? 'Başvuruyu Gönder' : 'Devam Et'}
             onPress={handleNext}

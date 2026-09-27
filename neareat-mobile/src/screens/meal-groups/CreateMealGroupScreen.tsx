@@ -136,7 +136,7 @@ export default function CreateMealGroupScreen() {
         />
       )}
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: 16 + bottom }]}>
         {selectedIds.size > 0 && (
           <Text style={styles.selectedCount}>{selectedIds.size} arkadaş seçildi</Text>
         )}
