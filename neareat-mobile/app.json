@@ -96,7 +96,11 @@
           "organization": "eatlas-pw",
           "project": "eatlas-mobile"
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar"
     ],
     "extra": {
       "apiBaseUrl": "https://railway-up-production-6cdc.up.railway.app/api",

@@ -1,7 +1,11 @@
 import React from 'react';
 import {
-  Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView,
+  Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet,
 } from 'react-native';
+// #501 — RN'in SafeAreaView'ı SDK 54'te deprecated. safe-area-context'in
+// karşılığı kullanılıyor; SafeAreaProvider App.tsx'te en dışta sarıyor ve
+// React context Modal sınırını geçtiği için bağlam buraya ulaşıyor.
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import type { Colors } from '../theme';
 

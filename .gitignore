@@ -78,3 +78,6 @@ neareat-backend/node_modules/
 
 # ngrok binary
 ngrok-bin/
+
+# Jest kapsam raporu (yükseltme ölçümlerinde üretiliyor) — build artefaktı
+coverage/
