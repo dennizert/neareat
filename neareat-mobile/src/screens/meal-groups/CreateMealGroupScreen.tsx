@@ -1,8 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
-} from 'react-native';
+  FlatList, ActivityIndicator, Alert, Image, KeyboardAvoidingView, } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +10,7 @@ import type { Colors } from '../../theme';
 import type { Friend } from '../../types';
 import { getFriends } from '../../services/social';
 import { createMealGroup } from '../../services/mealGroups';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 export default function CreateMealGroupScreen() {
   const navigation = useNavigation<any>();
@@ -68,7 +68,7 @@ export default function CreateMealGroupScreen() {
   );
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior={KEYBOARD_BEHAVIOR}>
       <View style={styles.form}>
         <Text style={styles.label}>Grup Adı</Text>
         <TextInput

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,6 +17,7 @@ import EatlasMark from '../../components/EatlasMark';
 import AppIcon from '../../components/AppIcon';
 import AuthInput from '../../components/auth/AuthInput';
 import GlowButton from '../../components/auth/GlowButton';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 type AuthTab = 'email' | 'google';
 
@@ -96,7 +97,7 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={KEYBOARD_BEHAVIOR}
     >
       {/* Köşe markası — sol üst */}
       <View style={[styles.cornerLogo, { top: Math.max(insets.top, 12) + 4 }]} pointerEvents="none">

@@ -65,8 +65,8 @@ Tüm kullanıcıya dönük arayüz **Türkçe**'dir.
 ### Mobil (`neareat-mobile/`)
 | Katman | Teknoloji |
 |---|---|
-| Framework | Expo ~52 (bare workflow) |
-| Platform | React Native 0.76 |
+| Framework | Expo ~57 (bare workflow, New Architecture) |
+| Platform | React Native 0.86 · React 19.2 |
 | Dil | TypeScript |
 | State | Zustand |
 | Navigation | React Navigation (native-stack + bottom-tabs) |

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **NearEat** — mobile-first restaurant discovery platform. Monorepo with two packages:
 - `neareat-backend/` — Node.js + Express + Prisma + PostgreSQL + Redis, deployed on Railway
-- `neareat-mobile/` — React Native (Expo ~52 bare workflow) + Zustand, Android APK distributed manually
+- `neareat-mobile/` — React Native (Expo ~57 bare workflow, New Architecture) + Zustand, Android APK distributed manually
 
 Three user roles: regular user, restaurant owner, admin. Turkish-language UI.
 
