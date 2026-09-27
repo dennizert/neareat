@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef} from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+  StyleSheet, KeyboardAvoidingView, ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
@@ -13,6 +13,7 @@ import type { Message } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { listPerf } from '../../theme/listPerf';
+import { KEYBOARD_BEHAVIOR, keyboardOffsetForHeader } from '../../utils/keyboardAvoiding';
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -127,8 +128,8 @@ export default function ConversationScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
+      behavior={KEYBOARD_BEHAVIOR}
+      keyboardVerticalOffset={keyboardOffsetForHeader(90)}
     >
       <FlatList
         ref={flatRef}

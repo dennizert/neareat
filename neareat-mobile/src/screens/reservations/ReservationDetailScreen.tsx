@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, ActivityIndicator, KeyboardAvoidingView,
-  Platform, FlatList,
+  FlatList,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,6 +16,7 @@ import type { Reservation, ReservationMessage } from '../../types';
 import { reservationRestaurantName } from '../../utils/reservationName';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 function getTodayString(): string {
   const now = new Date();
@@ -175,7 +176,7 @@ export default function ReservationDetailScreen() {
   const canChat = ['PENDING', 'CONFIRMED'].includes(reservation.status);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_BEHAVIOR}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

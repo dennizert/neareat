@@ -378,6 +378,31 @@ export default function ProfileScreen() {
         <ActionRow label="Arama Geçmişini Sil" onPress={handleClearSearchHistory} styles={styles} />
         <ActionRow label="Çıkış Yap" onPress={handleSignOut} styles={styles} />
         <ActionRow label="Hesabı Sil" onPress={handleDeleteAccount} danger styles={styles} />
+
+        {/* GEÇİCİ — #506 Faz 8 / test K1: Sentry source map zincirini doğrulamak için
+            kasıtlı crash. Stack trace okunabilir çıkıyorsa zincir sağlam demektir.
+            Doğrulama bitince BU BLOK KALDIRILACAK. */}
+        <ActionRow
+          label="⚠️ Sentry testi — uygulamayı çökert"
+          danger
+          styles={styles}
+          onPress={() => {
+            Alert.alert(
+              'Sentry testi',
+              'Uygulama bilerek çökecek. Sonra Sentry panelinde olayın göründüğünü ve stack trace’in okunabilir olduğunu kontrol et.',
+              [
+                { text: 'Vazgeç', style: 'cancel' },
+                {
+                  text: 'Çökert',
+                  style: 'destructive',
+                  onPress: () => {
+                    throw new Error('Eatlas Sentry dogrulama crash-i (test K1)');
+                  },
+                },
+              ],
+            );
+          }}
+        />
       </View>
 
     </ScrollView>
