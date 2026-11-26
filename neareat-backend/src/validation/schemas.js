@@ -2,6 +2,10 @@
 // Mesajlar Türkçe ve mevcut davranışla uyumlu tutulur (kabul/ret durum kodları değişmez).
 const { z } = require('zod');
 
+// Zod v4: şemada özel mesajı olmayan hatalar (eksik alan, yanlış tip) da Türkçe dönsün.
+// v3'te bunlar İngilizce "Required" idi; mobil `error` alanını kullanıcıya gösteriyor.
+z.config(z.locales.tr());
+
 const PASSWORD_MSG = 'Şifre 8-128 karakter arasında olmalı';
 
 // POST /api/auth/register
