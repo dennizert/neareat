@@ -2,8 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl, ScrollView,
-  Modal, TextInput, KeyboardAvoidingView, Platform,
-} from 'react-native';
+  Modal, TextInput, KeyboardAvoidingView, } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -14,6 +13,7 @@ import {
 import type { Reservation } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 type TabKey = string | undefined | 'TODAY';
 
@@ -312,7 +312,7 @@ export default function RestaurantReservationsScreen() {
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={KEYBOARD_BEHAVIOR}
         >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Rezervasyonu Reddet</Text>
@@ -357,7 +357,7 @@ export default function RestaurantReservationsScreen() {
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={KEYBOARD_BEHAVIOR}
         >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Rezervasyonu Onayla</Text>

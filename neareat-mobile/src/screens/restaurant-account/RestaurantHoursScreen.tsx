@@ -130,7 +130,7 @@ export default function RestaurantHoursScreen() {
         </View>
       )}
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: 16 + bottom }]}>
         <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Kaydet</Text>}
         </TouchableOpacity>

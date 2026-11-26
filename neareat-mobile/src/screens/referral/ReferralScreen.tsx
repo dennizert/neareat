@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-  Share, Alert, TextInput, KeyboardAvoidingView, Platform, ScrollView,
+  Share, Alert, TextInput, KeyboardAvoidingView, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { getMyReferralCode, applyReferralCode, type ReferralCodeInfo } from '../../services/referral';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 export default function ReferralScreen() {
   const { C } = useTheme();
@@ -64,7 +65,7 @@ export default function ReferralScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior={KEYBOARD_BEHAVIOR}>
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: bottom + 16 }]} keyboardShouldPersistTaps="handled">
 
         {/* Kodunu Paylaş */}

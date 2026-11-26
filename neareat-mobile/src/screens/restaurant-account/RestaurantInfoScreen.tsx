@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Switch,
-  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, Image,
+  ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useToast } from '../../hooks/useToast';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 const MAX_PHOTOS = 8;
 const TARGET_WIDTH = 1280; // S3 maliyeti + hız için yeniden boyutlandırma
@@ -121,7 +122,7 @@ export default function RestaurantInfoScreen() {
   if (loading) return <ActivityIndicator style={{ flex: 1 }} color={C.primary} size="large" />;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_BEHAVIOR}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={[styles.body, { paddingBottom: bottom + 16 }]}

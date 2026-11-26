@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
-} from 'react-native';
+  TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { getReservationDetail, updateReservation } from '../../services/reservations';
 import { resolveInitialDate } from '../../utils/reservationDate';
@@ -10,6 +9,7 @@ import type { Reservation } from '../../types';
 import { reservationRestaurantName } from '../../utils/reservationName';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 const OCCASIONS = ['', 'Doğum Günü', 'Yıl Dönümü', 'İş Yemeği', 'Arkadaş Buluşması', 'Aile Yemeği', 'Diğer'];
 
@@ -115,7 +115,7 @@ export default function EditReservationScreen() {
   if (loadingReservation) return <ActivityIndicator style={{ flex: 1 }} color={C.primary} size="large" />;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={KEYBOARD_BEHAVIOR}>
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <View style={styles.header}>

@@ -4,6 +4,9 @@ import { AppState, AppStateStatus } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+// Edge-to-edge'de RN'in kendi klavye primitifi güvenilir değil (bulgu E6):
+// IME inset'ini native taraftan dinleyen sağlayıcı en dışta kurulur.
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import Navigation from './src/navigation';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/Toast';
@@ -42,6 +45,7 @@ function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardProvider>
       <SafeAreaProvider>
         <StatusBar style="dark" />
         <ToastProvider>
@@ -52,6 +56,7 @@ function App() {
           </OnboardingGate>
         </ToastProvider>
       </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

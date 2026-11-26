@@ -15,6 +15,7 @@ import type { IconName } from '../../theme/icons';
 import type { RestaurantProfile, RestaurantStats } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MENU_ITEMS: { icon: IconName; label: string; screen: string }[] = [
   { icon: 'clock', label: 'Çalışma Saatleri', screen: 'RestaurantHours' },
@@ -32,6 +33,9 @@ export default function RestaurantDashboardScreen() {
   const navigation = useNavigation<any>();
   const { logout, subscription, loadSubscription } = useAuthStore();
   const { C } = useTheme();
+  // Edge-to-edge (SDK 55+): pencere gezinme çubuğunun altına uzanıyor,
+  // sabit paddingBottom yetmiyor — alt güvenli alan eklenmeli (bulgu E4).
+  const insets = useSafeAreaInsets();
   const styles = React.useMemo(() => makeStyles(C), [C]);
 
   const [profile, setProfile] = useState<RestaurantProfile | null>(null);
@@ -83,7 +87,7 @@ export default function RestaurantDashboardScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ paddingBottom: 40 }}
+      contentContainerStyle={{ paddingBottom: 40 + insets.bottom }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.primary} />}
     >
       {/* Ortak header — orta: restoranın Görünen Adı */}

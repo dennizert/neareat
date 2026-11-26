@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef} from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+  StyleSheet, ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
@@ -13,6 +13,8 @@ import type { Message } from '../../types';
 import { useTheme } from '../../theme';
 import type { Colors } from '../../theme';
 import { listPerf } from '../../theme/listPerf';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useKeyboardHeight } from '../../utils/keyboardAvoiding';
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -37,6 +39,7 @@ export default function ConversationScreen() {
   const { C } = useTheme();
   const styles = React.useMemo(() => makeStyles(C), [C]);
   const { bottom } = useSafeAreaInsets();
+  const kbHeight = useKeyboardHeight();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,11 +128,13 @@ export default function ConversationScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
-    >
+    // E6: RN'in KeyboardAvoidingView'ı da, klavye olaylarından ölçülen yükseklik de
+    // edge-to-edge altında bu düzende (alta yapışık giriş çubuğu) tutmadı — gerçek
+    // cihazda giriş çubuğu klavyenin altında kalmaya devam etti. Sebep: IME yüksekliği
+    // klavye araç çubuğu açılınca değişiyor ve RN tek bir olayla bildiriyor.
+    // KeyboardAvoidingView (keyboard-controller) IME inset'ini native taraftan
+    // dinlediği için bu değişimi de yakalıyor.
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
       <FlatList
         ref={flatRef}
         data={messages}
@@ -148,7 +153,7 @@ export default function ConversationScreen() {
         {...listPerf}
       />
 
-      <View style={[styles.inputBar, { paddingBottom: bottom + 8 }]}>
+      <View style={[styles.inputBar, { paddingBottom: kbHeight > 0 ? 8 : bottom + 8 }]}>
         <TextInput
           style={styles.input}
           value={text}

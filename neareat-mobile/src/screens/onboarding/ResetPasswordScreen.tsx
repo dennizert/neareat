@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet,
-  Alert, KeyboardAvoidingView, Platform, ScrollView,
+  Alert, KeyboardAvoidingView, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import EatlasLogo from '../../components/EatlasLogo';
 import AppIcon from '../../components/AppIcon';
 import AuthInput from '../../components/auth/AuthInput';
 import GlowButton from '../../components/auth/GlowButton';
+import { KEYBOARD_BEHAVIOR } from '../../utils/keyboardAvoiding';
 
 export default function ResetPasswordScreen() {
   const navigation = useNavigation<any>();
@@ -80,7 +81,7 @@ export default function ResetPasswordScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={KEYBOARD_BEHAVIOR}
     >
       <View style={[styles.topBar, { top: topPad + 2 }]}>
         <EatlasLogo size={18} />
