@@ -25,6 +25,7 @@ const { runFriendSuggestionsJob } = require('../jobs/friendSuggestions');
 const { runNotificationCleanup } = require('../jobs/notificationCleanup');
 const { runSeasonResetJob } = require('../jobs/seasonReset');
 const { startTrialForRestaurant } = require('./restaurantSubscription');
+const { revokeAllWebSessions } = require('./webSessionService');
 const { createNotification } = require('./notificationService');
 const { cacheGet, cacheSet, cacheDel } = require('./redis');
 const { logSecurityEvent, EVENTS } = require('../middleware/securityLogger');
@@ -254,11 +255,15 @@ async function suspendUser(adminId, id) {
   // Adminin kendini kilitlemesini engelle.
   if (id === adminId) throw new HttpError(400, { error: 'Kendi hesabınızı askıya alamazsınız' });
 
-  return prisma.user.update({
+  const user = await prisma.user.update({
     where: { id },
     data: { isSuspended: true },
     select: { id: true, email: true, displayName: true, isSuspended: true },
   });
+  // #525: askıya alınan hesabın açık web oturumları iptal (her istekte isSuspended zaten
+  // reddediliyor; bu, askı kaldırılınca eski oturumların kendiliğinden canlanmasını önler).
+  await revokeAllWebSessions(id, 'suspended');
+  return user;
 }
 
 async function unsuspendUser(id) {
@@ -334,6 +339,7 @@ async function handleReport(id, { action, actionNote }) {
 
   if (action === 'suspend') {
     await prisma.user.update({ where: { id: report.reportedId }, data: { isSuspended: true } });
+    await revokeAllWebSessions(report.reportedId, 'suspended_by_report'); // #525
     actionTaken = actionTaken || `${report.reported.displayName} hesabı askıya alındı.`;
     notifBody = 'Şikayet ettiğiniz kullanıcı için hesap askıya alma işlemi yapıldı.';
   } else if (action === 'dismiss') {

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node prisma/deploy.js && node src/app.js",
+    "build": "node scripts/build-web.js",
     "dev": "nodemon src/app.js",
     "test": "jest --forceExit --detectOpenHandles",
     "postinstall": "prisma generate",
@@ -65,6 +66,13 @@
     ],
     "testMatch": [
       "**/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/web/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/web/"
     ]
   }
 }

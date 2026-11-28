@@ -17,6 +17,8 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { compressionOptions } = require('./middleware/compressionConfig');
 const { renderAppLinkPage } = require('./utils/appLinkPage');
+const { buildAllowedOrigins } = require('./config/webOrigin');
+const { createPanelRouter } = require('./routes/panel');
 
 const authRoutes = require('./routes/auth');
 const restaurantRoutes = require('./routes/restaurants');
@@ -83,9 +85,9 @@ app.use(helmet({
 }));
 
 // CORS: React Native mobil istemciler Origin header göndermez, web erişimini kısıtla
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-  : [];
+// #525: PUBLIC_WEB_ORIGIN (web paneli) listeye otomatik eklenir — tarayıcı aynı origin
+// POST'ta da Origin gönderdiği için eklenmezse panel kendi API'sine yazamaz.
+const allowedOrigins = buildAllowedOrigins(process.env);
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -211,6 +213,10 @@ app.get('/reset-password', (req, res) => {
     message: 'Yeni şifreni belirlemek için Eatlas uygulamasını açıyoruz.',
   }));
 });
+
+// Web paneli (#526): Vite SPA `web/dist`'ten aynı origin'de, kendi CSP'siyle. `web/dist`
+// yoksa (derlenmemiş ortam) `/panel` 503 döner, geri kalan her şey normal çalışır.
+app.use('/panel', createPanelRouter());
 
 app.use(errorHandler);
 

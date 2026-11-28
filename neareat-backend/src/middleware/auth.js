@@ -1,5 +1,6 @@
 const { resolveTokenUser } = require('../utils/resolveTokenUser');
 const { logSecurityEvent, EVENTS } = require('./securityLogger');
+const { hasSessionCookie, authenticateWithCookie } = require('./webSession');
 
 // Korumalı route'ların kimlik doğrulama middleware'i. Bearer token'ı önce custom JWT
 // (email/şifre) olarak, başarısızsa Google idToken olarak dener — iki auth stratejisi de
@@ -8,9 +9,15 @@ const { logSecurityEvent, EVENTS } = require('./securityLogger');
 //
 // Token → kullanıcı çözümü `utils/resolveTokenUser` ile PAYLAŞILIR (optionalAuth da aynı
 // çekirdeği kullanır); burada yalnızca HTTP yanıtı ve güvenlik loglaması yapılır.
+//
+// Web paneli (#524): Bearer başlığı YOKSA ve `__Host-eatlas_sid` çerezi varsa istek web
+// oturumuyla doğrulanır (CSRF + Origin korumaları dahil — middleware/webSession.js).
+// Bearer varsa çereze HİÇ bakılmaz: mobil davranışı birebir aynı kalır ve ikisi birden
+// gelirse Bearer kazanır.
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (hasSessionCookie(req)) return authenticateWithCookie(req, res, next);
     return res.status(401).json({ error: 'Missing authorization token' });
   }
 

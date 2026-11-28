@@ -7,7 +7,8 @@ on:
   push:
     branches: [master]
   pull_request:
-    branches: [master]
+    # Web paneli Faz 1 entegrasyon dalına açılan PR'lar da aynı kapıdan geçer.
+    branches: [master, feat/web-panel-faz1]
 
 jobs:
   backend-lint:
@@ -116,3 +117,108 @@ jobs:
         run: npm ci
       - name: Run Jest store tests
         run: npm test
+
+  # ─── Web paneli (#526) — `neareat-backend/web/` (Vite + React + TS) ──────────────
+  # Railway deploy'u backend `build` betiğiyle web'i de derler; bozuk bir web derlemesi
+  # canlı deploy'u durdurur. Bu job'lar onu merge ÖNCESİ yakalar. Web paketi henüz yoksa
+  # (paralel geliştirilen dal) adımlar atlanır ve job yeşil kalır; paket geldiği anda
+  # zorunlu kapıya dönüşür. Beklenen betikler: lint, typecheck, test, build.
+  web-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: neareat-backend/web
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check web package
+        id: web
+        working-directory: .
+        run: |
+          if [ -f neareat-backend/web/package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; echo "::notice::neareat-backend/web/package.json yok — web-lint atlandı"; fi
+      - uses: actions/setup-node@v4
+        if: steps.web.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: neareat-backend/web/package-lock.json
+      - name: Install dependencies
+        if: steps.web.outputs.present == 'true'
+        run: npm ci
+      - name: Run ESLint
+        if: steps.web.outputs.present == 'true'
+        run: npm run lint
+
+  web-typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: neareat-backend/web
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check web package
+        id: web
+        working-directory: .
+        run: |
+          if [ -f neareat-backend/web/package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; echo "::notice::neareat-backend/web/package.json yok — web-typecheck atlandı"; fi
+      - uses: actions/setup-node@v4
+        if: steps.web.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: neareat-backend/web/package-lock.json
+      - name: Install dependencies
+        if: steps.web.outputs.present == 'true'
+        run: npm ci
+      - name: Run TypeScript typecheck
+        if: steps.web.outputs.present == 'true'
+        run: npm run typecheck
+
+  web-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: neareat-backend/web
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check web package
+        id: web
+        working-directory: .
+        run: |
+          if [ -f neareat-backend/web/package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; echo "::notice::neareat-backend/web/package.json yok — web-test atlandı"; fi
+      - uses: actions/setup-node@v4
+        if: steps.web.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: neareat-backend/web/package-lock.json
+      - name: Install dependencies
+        if: steps.web.outputs.present == 'true'
+        run: npm ci
+      - name: Run tests
+        if: steps.web.outputs.present == 'true'
+        run: npm test
+
+  web-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: neareat-backend/web
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check web package
+        id: web
+        working-directory: .
+        run: |
+          if [ -f neareat-backend/web/package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; echo "::notice::neareat-backend/web/package.json yok — web-build atlandı"; fi
+      - uses: actions/setup-node@v4
+        if: steps.web.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: neareat-backend/web/package-lock.json
+      # Railway'in çalıştırdığı yolun AYNISI: backend `npm run build` → scripts/build-web.js
+      # (web için npm ci --include=dev + vite build + web/dist/index.html varlık kontrolü).
+      - name: Build (backend build betiği → web/dist)
+        if: steps.web.outputs.present == 'true'
+        working-directory: neareat-backend
+        run: npm run build

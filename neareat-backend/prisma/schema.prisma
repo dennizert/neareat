@@ -91,6 +91,7 @@ model User {
   placeRequests           PlaceRequest[]
   placeViews              PlaceView[]
   analyticsEvents         AnalyticsEvent[]
+  webSessions             WebSession[]
 
   @@map("users")
 }
@@ -987,4 +988,31 @@ model AnalyticsEvent {
   @@index([name, createdAt])
   @@index([userId])
   @@map("analytics_events")
+}
+
+// Web paneli çerez oturumu (ADR-001 #4, §5). Mobil Bearer JWT akışından BAĞIMSIZDIR.
+// `id` ham oturum kimliğinin HMAC-SHA256'sıdır (utils/tokenHash) — ham kimlik yalnızca
+// tarayıcıdaki `__Host-eatlas_sid` çerezinde durur; DB sızıntısında oturumlar
+// kullanılamaz. `User`'a kolon EKLENMEDİ (S21-1 sanitizeUser blocklist riski doğmasın).
+model WebSession {
+  id                String    @id
+  userId            String    @map("user_id")
+  // Oturuma bağlı CSRF token'ı (X-CSRF-Token ile sabit zamanlı karşılaştırılır).
+  csrfSecret        String    @map("csrf_secret")
+  // Boşta kalma bitişi: lastSeenAt ile birlikte en çok 5 dakikada bir ileri itilir.
+  idleExpiresAt     DateTime  @map("idle_expires_at")
+  // Mutlak bitiş: oturum açılışında sabitlenir, hiç uzamaz.
+  absoluteExpiresAt DateTime  @map("absolute_expires_at")
+  // Faz 2 (admin 2FA) için ayrıldı; Faz 1'de hep null.
+  mfaVerifiedAt     DateTime? @map("mfa_verified_at")
+  revokedAt         DateTime? @map("revoked_at")
+  lastSeenAt        DateTime  @default(now()) @map("last_seen_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  // Cascade: hesap silindiğinde (KVKK) oturumlar da gider.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([absoluteExpiresAt])
+  @@map("web_sessions")
 }

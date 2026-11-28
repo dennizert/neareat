@@ -20,4 +20,7 @@ router.post('/resend-verification', authenticate, resendVerification);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
+// Web paneli çerez oturumu (#524) — mobil uçlarından tamamen ayrı.
+router.use('/web', require('./webAuth'));
+
 module.exports = router;
