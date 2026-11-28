@@ -40,4 +40,11 @@ const reviewUpdateSchema = z.object({
   message: 'rating veya body gönderilmeli',
 });
 
-module.exports = { registerSchema, loginEmailSchema, reviewCreateSchema, reviewUpdateSchema };
+// POST /api/auth/web/google — Google Identity Services `credential` (ID token).
+const webGoogleLoginSchema = z.object({
+  credential: z.string().min(1, 'credential zorunlu').max(4096, 'credential çok uzun'),
+});
+
+module.exports = {
+  registerSchema, loginEmailSchema, reviewCreateSchema, reviewUpdateSchema, webGoogleLoginSchema,
+};

@@ -3,6 +3,7 @@
 // kullanıcı verisi `escapeHtml` ile temizlenerek HTML enjeksiyonu önlenir.
 const { Resend } = require('resend');
 const { withTimeout, readTimeoutEnv } = require('../utils/httpTimeout'); // S20-1
+const { getPublicWebOrigin } = require('../config/webOrigin');
 
 if (!process.env.RESEND_API_KEY) {
   console.warn('[EMAIL] UYARI: RESEND_API_KEY tanımlı değil — e-postalar gönderilmeyecek!');
@@ -62,8 +63,21 @@ async function sendVerificationEmail(email, displayName, token) {
 }
 
 // Şifre sıfırlama maili (token'lı link, 1 saat geçerli).
-async function sendPasswordResetEmail(email, displayName, token) {
-  const link = `${BASE_URL}/reset-password?token=${token}`;
+// #525 — panel kullanan roller (RESTAURANT/ADMIN) sıfırlamayı web panelinde yapar; USER
+// mevcut uygulama ara sayfasına (/reset-password → neareat://) gider. PUBLIC_WEB_ORIGIN
+// tanımlı değilse (geliştirme) mevcut bağlantıya düşülür — üretimde validateEnv zorunlu kılar.
+const PANEL_RESET_ROLES = ['RESTAURANT', 'ADMIN'];
+
+function buildPasswordResetLink(token, role) {
+  const webOrigin = getPublicWebOrigin();
+  if (webOrigin && PANEL_RESET_ROLES.includes(role)) {
+    return `${webOrigin}/panel/sifre-sifirla?token=${encodeURIComponent(token)}`;
+  }
+  return `${BASE_URL}/reset-password?token=${token}`;
+}
+
+async function sendPasswordResetEmail(email, displayName, token, { role } = {}) {
+  const link = buildPasswordResetLink(token, role);
   await sendWithTimeout({
     from: FROM,
     to: [email],
@@ -156,4 +170,4 @@ function escapeHtml(str) {
   ));
 }
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail, buildPasswordResetLink };

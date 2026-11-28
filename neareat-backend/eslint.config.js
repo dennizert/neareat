@@ -23,7 +23,8 @@ const globals = require('globals');
 module.exports = [
   {
     // Üretilmiş/bağımlılık dosyaları lint edilmez.
-    ignores: ['node_modules/**', 'coverage/**', 'prisma/migrations/**'],
+    // `web/` ayrı paket (Vite + TS, kendi ESLint yapılandırması ve CI job'ı — #526).
+    ignores: ['node_modules/**', 'coverage/**', 'prisma/migrations/**', 'web/**'],
   },
 
   js.configs.recommended,

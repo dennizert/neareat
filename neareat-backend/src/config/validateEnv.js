@@ -8,6 +8,8 @@
 // validateEnv(env) saf bir fonksiyondur (process'e dokunmaz) → kolay test edilir.
 // assertEnvOrExit(env) ise sonucu loglar ve prod'da hata varsa exit(1) yapar.
 
+const { isValidOrigin } = require('./webOrigin');
+
 const MIN_SECRET_LENGTH = 32;
 
 // Üretimde MUTLAKA tanımlı olması gereken değişkenler (eksikse fail-closed).
@@ -85,12 +87,48 @@ function validateEnv(env = process.env) {
 }
 
 /**
+ * Web paneli env doğrulaması (#525). `validateEnv`'den AYRI tutuldu: o fonksiyonun mevcut
+ * testleri "tam üretim yapılandırması" sözleşmesini sabitliyor ve iş emri mevcut testlerin
+ * değiştirilmemesini istiyor. `assertEnvOrExit` ikisini birlikte uygular → açılış davranışı
+ * tek yerden yönetilir.
+ *
+ * Üretimde `PUBLIC_WEB_ORIGIN` zorunludur: yoksa CSRF Origin kontrolü bütün panel yazma
+ * isteklerini reddeder ve şifre sıfırlama bağlantısı panele gidemez.
+ *
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {{ errors: string[], warnings: string[] }}
+ */
+function validateWebPanelEnv(env = process.env) {
+  const errors = [];
+  const warnings = [];
+  const isProduction = env.NODE_ENV === 'production';
+  const value = env.PUBLIC_WEB_ORIGIN;
+
+  if (!isPresent(value)) {
+    const msg = 'PUBLIC_WEB_ORIGIN tanımlı değil — web paneli (CSRF Origin kontrolü, CORS, panel şifre sıfırlama bağlantısı) çalışmaz.';
+    if (isProduction) errors.push(`${msg} Üretimde zorunlu.`);
+    else warnings.push(msg);
+  } else if (!isValidOrigin(value)) {
+    const msg = `PUBLIC_WEB_ORIGIN geçerli bir origin değil ("${value}") — yalnızca şema + host olmalı (örn. https://panel.example.com).`;
+    if (isProduction) errors.push(msg);
+    else warnings.push(msg);
+  } else if (isProduction && !String(value).trim().startsWith('https://')) {
+    errors.push('PUBLIC_WEB_ORIGIN üretimde https:// olmalı (`__Host-` çerezi Secure ister).');
+  }
+
+  return { errors, warnings };
+}
+
+/**
  * validateEnv sonucunu loglar; üretimde hata varsa süreci sonlandırır (fail-closed).
  * Test ortamında (NODE_ENV=test) çağrılmaz — bkz. app.js.
  * @param {NodeJS.ProcessEnv} env
  */
 function assertEnvOrExit(env = process.env) {
-  const { errors, warnings } = validateEnv(env);
+  const base = validateEnv(env);
+  const web = validateWebPanelEnv(env);
+  const errors = [...base.errors, ...web.errors];
+  const warnings = [...base.warnings, ...web.warnings];
 
   for (const w of warnings) console.warn('[ENV][warn]', w);
 
@@ -103,6 +141,7 @@ function assertEnvOrExit(env = process.env) {
 
 module.exports = {
   validateEnv,
+  validateWebPanelEnv,
   assertEnvOrExit,
   MIN_SECRET_LENGTH,
   REQUIRED_IN_PRODUCTION,

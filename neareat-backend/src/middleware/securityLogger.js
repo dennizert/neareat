@@ -14,6 +14,8 @@ const EVENTS = {
   // Google girişi, e-postası DOĞRULANMAMIŞ mevcut bir hesaba bağlandı ve o hesabın
   // şifre kimlik bilgisi iptal edildi (ön-kayıtla hesap devralma önlemi).
   ACCOUNT_LINK_PASSWORD_REVOKED: 'ACCOUNT_LINK_PASSWORD_REVOKED',
+  // Web paneli (#525): çerezle gelen yazma isteği CSRF token'ı ya da Origin kontrolünden geçemedi.
+  WEB_CSRF_REJECTED: 'WEB_CSRF_REJECTED',
 };
 
 // Güvenlik olaylarını (başarısız giriş, askıya alınmış erişim, rate-limit, IAP reddi vb.)
