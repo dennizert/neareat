@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kullanıcılar · Eatlas Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="eatlas-web.css">
+<script src="proto.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#icerik">İçeriğe atla</a>
+<div class="app">
+  <aside class="sidebar" id="yan-menu" aria-label="Ana menü">
+    <div class="sidebar-brand">
+      <div><a class="logo" href="admin-metrikler.html" aria-label="Eatlas ana sayfa">Eatlas</a><span class="role">Sistem Yönetimi</span></div>
+      <button type="button" class="btn btn-ghost btn-icon close-btn" data-drawer-close aria-label="Menüyü kapat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <nav aria-label="Panel"><div class="nav-group"><div class="nav-group-title" id="ng-Genel">Genel</div><ul role="list" aria-labelledby="ng-Genel" style="list-style:none;margin:0;padding:0"><li><a class="nav-link" href="admin-metrikler.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Metrikler</span></a></li></ul></div><div class="nav-group"><div class="nav-group-title" id="ng-Yönetim">Yönetim</div><ul role="list" aria-labelledby="ng-Yönetim" style="list-style:none;margin:0;padding:0"><li><a class="nav-link" href="admin-onaylar.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span>Restoran Onayları</span><span class="badge badge-danger no-dot" aria-label="4 bekleyen">4</span></a></li><li><a class="nav-link" href="admin-kullanicilar.html" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg><span>Kullanıcılar</span></a></li><li><a class="nav-link" aria-disabled="true" title="Bu prototipte çizilmedi (Faz 1/2 içeriği mobil ekranla aynı)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg><span>Moderasyon</span></a></li><li><a class="nav-link" aria-disabled="true" title="Bu prototipte çizilmedi (Faz 1/2 içeriği mobil ekranla aynı)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Yer Talepleri</span></a></li></ul></div><div class="nav-group"><div class="nav-group-title" id="ng-Sistem">Sistem</div><ul role="list" aria-labelledby="ng-Sistem" style="list-style:none;margin:0;padding:0"><li><a class="nav-link" href="admin-loglar.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Loglar</span></a></li><li><a class="nav-link" href="admin-metrikler.html#joblar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg><span>Joblar</span></a></li></ul></div></nav>
+    <div class="sidebar-foot">
+      <a class="nav-link" href="giris.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/></svg><span>Çıkış yap</span></a>
+    </div>
+  </aside>
+  <div class="drawer-backdrop" data-drawer-close></div>
+  <div class="main">
+    <header class="topbar">
+      <button type="button" class="btn btn-ghost btn-icon menu-btn" data-drawer-open aria-controls="yan-menu" aria-label="Menüyü aç"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <span class="topbar-title">Sistem Yöneticisi</span>
+      <div class="topbar-actions">
+        <button type="button" class="btn btn-ghost btn-icon" data-theme-toggle aria-pressed="false" aria-label="Koyu temaya geç"><span class="ico-moon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></span><span class="ico-sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span></button>
+        <button type="button" class="btn btn-ghost btn-icon" aria-label="Bildirimler"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/></svg></button>
+        <span class="avatar" title="Deniz · Admin" aria-label="Deniz · Admin">DE</span>
+      </div>
+    </header>
+    <main class="content" id="icerik" tabindex="-1">
+
+      <div class="page-head"><div><h1>Kullanıcılar</h1><p>10.482 hesap</p></div></div>
+      <div class="card" style="margin-bottom:16px"><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))">
+        <div class="field"><label class="label" for="q">Ara</label><div class="input-group"><input class="input" id="q" type="search" placeholder="Ad veya e-posta"><span class="input-action" style="display:grid;place-items:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span></div></div>
+        <div class="field" style="margin:0"><label class="label" for="rol">Rol</label><select class="select" id="rol"><option>Tümü</option><option>Kullanıcı</option><option>Restoran</option><option>Admin</option></select></div>
+        <div class="field" style="margin:0"><label class="label" for="dur">Durum</label><select class="select" id="dur"><option>Tümü</option><option>Aktif</option><option>Askıda</option></select></div></div></div>
+      <div class="card card-flush"><table class="table table-stack"><caption class="sr-only">Kullanıcı listesi</caption><thead><tr><th>Kullanıcı</th><th>Rol</th><th>Seviye</th><th>Durum</th><th>Kayıt</th><th class="cell-actions">İşlem</th></tr></thead><tbody><tr><td class="cell-primary"><span class="cell-title">Zeynep Arslan</span><div class="subtle">zeynep@ornek.com</div></td><td data-label="Rol">Kullanıcı</td><td data-label="Seviye">L4</td><td data-label="Durum"><span class="badge badge-success">Aktif</span></td><td data-label="Kayıt" class="num">12 Mar 2026</td><td class="cell-actions"><button class="btn btn-secondary btn-sm" data-dialog-open="dlg-askiya" data-name="Zeynep Arslan">Askıya al</button></td></tr><tr><td class="cell-primary"><span class="cell-title">Ayşe Yılmaz</span><div class="subtle">ayse@kebapci.com</div></td><td data-label="Rol">Restoran</td><td data-label="Seviye">—</td><td data-label="Durum"><span class="badge badge-success">Aktif</span></td><td data-label="Kayıt" class="num">27 Kas 2026</td><td class="cell-actions"><button class="btn btn-secondary btn-sm" data-dialog-open="dlg-askiya" data-name="Ayşe Yılmaz">Askıya al</button></td></tr><tr><td class="cell-primary"><span class="cell-title">Burak Çelik</span><div class="subtle">burak@ornek.com</div></td><td data-label="Rol">Kullanıcı</td><td data-label="Seviye">L2</td><td data-label="Durum"><span class="badge badge-danger">Askıda</span></td><td data-label="Kayıt" class="num">3 Eyl 2026</td><td class="cell-actions"><button class="btn btn-secondary btn-sm">Etkinleştir</button></td></tr><tr><td class="cell-primary"><span class="cell-title">Elif Şahin</span><div class="subtle">elif@ornek.com</div></td><td data-label="Rol">Kullanıcı</td><td data-label="Seviye">L5</td><td data-label="Durum"><span class="badge badge-success">Aktif</span></td><td data-label="Kayıt" class="num">8 Oca 2026</td><td class="cell-actions"><button class="btn btn-secondary btn-sm" data-dialog-open="dlg-askiya" data-name="Elif Şahin">Askıya al</button></td></tr><tr><td class="cell-primary"><span class="cell-title">Deniz E.</span><div class="subtle">deniz@eatlastr.com</div></td><td data-label="Rol">Admin</td><td data-label="Seviye">—</td><td data-label="Durum"><span class="badge badge-success">Aktif</span></td><td data-label="Kayıt" class="num">1 Oca 2026</td><td class="cell-actions"><span class=subtle>—</span></td></tr></tbody></table></div>
+      <nav class="row-between section" aria-label="Sayfalama"><span class="subtle">1-5 / 10.482</span><div class="row"><button class="btn btn-secondary" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Önceki</button><button class="btn btn-secondary">Sonraki<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button></div></nav>
+      <dialog class="modal" id="dlg-askiya" aria-labelledby="ask-t"><form method="dialog">
+        <div class="modal-header"><h2 id="ask-t" style="font-size:var(--fs-lg)">Hesabı askıya al</h2></div>
+        <div class="modal-body stack"><p><strong data-fill="name"></strong> giriş yapamayacak; açık oturumları kapatılır.</p>
+          <div class="field"><label class="label" for="ask-n">Neden</label><textarea class="textarea" id="ask-n" placeholder="Denetim kaydına yazılır"></textarea></div></div>
+        <div class="modal-footer"><button class="btn btn-secondary" value="cancel">Vazgeç</button><button class="btn btn-danger" value="ok">Askıya al</button></div></form></dialog>
+    </main>
+  </div>
+</div>
+</body>
+</html>
