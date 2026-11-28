@@ -1,0 +1,12 @@
+{
+  "_aciklama": "S2: Web panelinden fotoğraf yükleme için foto deposunun (S3) CORS kuralı ÖRNEĞİ. Canlı altyapı değişikliğidir: kullanıcı onayıyla, kullanıcı uygular. <PUBLIC_WEB_ORIGIN> Railway'deki PUBLIC_WEB_ORIGIN değeriyle değiştirilir. Uygulandıktan sonra web build'inde VITE_PHOTO_UPLOAD_ENABLED=true açılır. Bu alan AWS'ye gönderilmeden önce silinmelidir.",
+  "CORSRules": [
+    {
+      "AllowedOrigins": ["<PUBLIC_WEB_ORIGIN>"],
+      "AllowedMethods": ["PUT"],
+      "AllowedHeaders": ["Content-Type"],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}
