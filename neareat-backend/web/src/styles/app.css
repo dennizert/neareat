@@ -1,0 +1,52 @@
+/* eatlas-web.css'e ek, uygulamaya özgü küçük yardımcılar. Token dışı değer kullanılmaz. */
+
+/* Yan menüde <button> olan öğeler (.nav-link görünümü korunur) */
+button.nav-link { width: 100%; background: none; border: 0; font: inherit; cursor: pointer; text-align: left; }
+
+/* Üst çubuk zil rozeti */
+.bell { position: relative; }
+.bell .badge { position: absolute; top: 2px; right: 0; padding: 0 6px; min-height: 18px; font-size: 11px; line-height: 18px; }
+
+.card-title { font-size: var(--fs-lg); }
+.text-right { text-align: right; }
+.wrap-anywhere { overflow-wrap: anywhere; }
+.counter { font-size: var(--fs-xs); color: var(--text-tertiary); text-align: right; }
+
+/* Mesaj geçmişi */
+.msg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.msg { max-width: 80%; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--bg-subtle); overflow-wrap: anywhere; }
+.msg[data-mine="true"] { align-self: flex-end; background: color-mix(in srgb, var(--btn-primary-bg) 12%, transparent); }
+.msg time { display: block; font-size: var(--fs-xs); color: var(--text-tertiary); margin-top: var(--space-1); }
+
+/* Bildirim listesi */
+.notif-list { list-style: none; margin: 0; padding: 0; }
+.notif { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); }
+.notif:last-child { border-bottom: 0; }
+.notif[data-read="false"] .notif-title { font-weight: var(--fw-bold); }
+.notif-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+/* Fotoğraf / menü ızgarası */
+.thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-3); }
+.thumb { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-subtle); }
+.thumb img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.thumb .thumb-foot { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); padding: var(--space-2); font-size: var(--fs-xs); }
+
+/* Basit yatay çubuk grafik (analitik) */
+.bars { list-style: none; margin: 0; padding: 0; }
+.bars li { display: grid; grid-template-columns: 64px 1fr 40px; gap: var(--space-3); align-items: center; padding: var(--space-1) 0; font-size: var(--fs-sm); }
+.bars .bar { height: 10px; background: var(--bar-track); border-radius: 4px; overflow: hidden; }
+.bars .bar > span { display: block; height: 100%; background: var(--btn-primary-bg); border-radius: 4px; }
+
+/* Saatler formu */
+.hours-row { display: grid; grid-template-columns: 110px auto 1fr; gap: var(--space-3); align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.hours-row:last-child { border-bottom: 0; }
+.hours-times { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.hours-times .select { width: auto; }
+@media (max-width: 600px) {
+  .hours-row { grid-template-columns: 1fr auto; }
+  .hours-times { grid-column: 1 / -1; }
+}
+
+.review { padding: var(--space-4) 0; border-bottom: 1px solid var(--border); }
+.review:last-child { border-bottom: 0; }
+.reply { margin-top: var(--space-3); padding: var(--space-3); border-left: 3px solid var(--btn-primary-bg); background: var(--bg-subtle); border-radius: var(--radius-sm); overflow-wrap: anywhere; }
